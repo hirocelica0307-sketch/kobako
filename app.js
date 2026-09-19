@@ -1,8 +1,9 @@
 /* ===================================================================
    ひっさんモンスター  —  小学2年生のための たし算・ひき算 ひっ算アプリ
-   くり上がり / くり下がり の数も じっさいに 入力します。
-   入力する場所は じゅんばん に 自動で えらばれるので、
-   子どもは テンキーを ポチポチ おすだけで 正しい手順を なぞれます。
+     ・くり上がり / くり下がり の数も じっさいに 入力する
+     ・入力する場所は 正しい手順で 自動的に 選ばれる
+     ・「じぶんで えらぶ」モードでは くり上がりの 有無も 子どもが 判断する
+     ・記録は Google スプレッドシート（Apps Script）か localStorage に 保存
    =================================================================== */
 'use strict';
 
@@ -16,18 +17,9 @@ const LEVELS = [
   { id:4, ico:'🍀', name:'ひきざん①', sub:'くり下がり なし',   op:'-', dA:2, dB:2, mode:'none' },
   { id:5, ico:'⚡', name:'ひきざん②', sub:'くり下がり あり',   op:'-', dA:2, dB:2, mode:'some' },
   { id:6, ico:'🎏', name:'ひきざん③', sub:'ミックス',          op:'-', dA:2, dB:2, mode:'mix'  },
-  { id:7, ico:'🚀', name:'たしざん④', sub:'3けたの たしざん', op:'+', dA:3, dB:3, mode:'mix'  },
-  { id:8, ico:'🛸', name:'ひきざん④', sub:'3けたの ひきざん', op:'-', dA:3, dB:3, mode:'mix'  },
+  { id:7, ico:'🚀', name:'たしざん④', sub:'3けたの たしざん',  op:'+', dA:3, dB:3, mode:'mix'  },
+  { id:8, ico:'🛸', name:'ひきざん④', sub:'3けたの ひきざん',  op:'-', dA:3, dB:3, mode:'mix'  },
   { id:9, ico:'👑', name:'ちょうせん', sub:'ぜんぶ ミックス',   op:'?', dA:3, dB:3, mode:'mix'  }
-];
-
-const MONSTERS = [
-  ['🐣','ヒヨピー'],   ['🐸','ケロタン'],   ['🐙','タコリン'],   ['🦊','キツネン'],
-  ['🐢','カメゴロウ'], ['🦕','ノッシー'],   ['🦄','ユニポン'],   ['🐝','ブンブン'],
-  ['🐧','ペンタ'],     ['🐼','パンダフ'],   ['🦉','ホーホー'],   ['🐬','イルピョン'],
-  ['🐉','ドラゴー'],   ['🦁','ガオライ'],   ['🐨','コアラン'],   ['🦋','チョウリン'],
-  ['🐳','クジラード'], ['🦔','ハリン'],     ['🐺','ウルフィ'],   ['🦩','フラミー'],
-  ['🐰','ピョンタ'],   ['🦜','オウムン'],   ['🐥','ピヨマル'],   ['🌟','キラリン']
 ];
 
 const PLACE = ['いち','じゅう','ひゃく','せん'];
@@ -35,57 +27,176 @@ const CHEER = ['すごい！','やったね！','せいかい！','バッチリ�
 
 /* ---------------- セーブデータ ---------------- */
 const SAVE_KEY = 'hissan-monster-v1';
-const defaultSave = () => ({
-  stars:{}, monsters:[], totalQ:0, totalMiss:0, totalStage:0,
-  settings:{ hint:true, sound:true, unlock:false }
-});
+function defaultSave(){
+  return {
+    stars:{}, monsters:[], totalQ:0, totalMiss:0, totalStage:0,
+    settings:{ judge:'self', hint:false, sound:true, bgm:true, unlock:false }
+  };
+}
+function normalize(o){
+  const s = Object.assign(defaultSave(), o || {});
+  s.settings = Object.assign(defaultSave().settings, (o && o.settings) || {});
+  s.stars = s.stars || {};
+  s.monsters = Array.isArray(s.monsters) ? s.monsters : [];
+  return s;
+}
 let save = defaultSave();
 
-function load(){
-  try{
-    const raw = localStorage.getItem(SAVE_KEY);
-    if(raw){ save = Object.assign(defaultSave(), JSON.parse(raw)); save.settings = Object.assign(defaultSave().settings, save.settings); }
-  }catch(e){ save = defaultSave(); }
-}
-function store(){
-  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }catch(e){}
+/* ---------------- 保存（クラウド or この端末） ----------------
+   Google Apps Script の ウェブアプリとして ひらいた ときは
+   google.script.run が つかえるので、スプレッドシートに 保存します。
+------------------------------------------------------------------ */
+const Store = {
+  mode:'local',        // 'local' | 'cloud'
+  user:'', timer:null, sending:false, again:false, dirty:false,
+
+  boot(done){
+    this.readLocal();
+    const gs = window.google && window.google.script && window.google.script.run;
+    if(!gs){ this.mode = 'local'; setSaveState('local'); done(); return; }
+    this.mode = 'cloud';
+    setSaveState('loading');
+    google.script.run
+      .withSuccessHandler(r => { this.onLoaded(r); done(); })
+      .withFailureHandler(() => { this.mode = 'local'; setSaveState('error'); done(); })
+      .loadProgress();
+  },
+  onLoaded(r){
+    if(!r || !r.ok){ this.mode = 'local'; setSaveState('nouser'); return; }
+    this.user = r.email || '';
+    if(r.data) save = normalize(r.data);
+    else this.flush();                       // はじめての 児童 → いまの データを 送る
+    setSaveState('ok');
+  },
+  readLocal(){
+    try{ const raw = localStorage.getItem(SAVE_KEY); if(raw) save = normalize(JSON.parse(raw)); }
+    catch(e){ save = defaultSave(); }
+  },
+  writeLocal(){
+    try{ localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }catch(e){}
+  },
+  put(immediate){
+    this.writeLocal();
+    if(this.mode !== 'cloud') return;
+    this.dirty = true;
+    clearTimeout(this.timer);
+    /* サーバーへの 書きこみは ステージ クリア時などに まとめて おこなう
+       （通信を へらす ため。とちゅうの 1問ごとは この端末に だけ 記録）  */
+    if(immediate) this.flush();
+    else this.timer = setTimeout(() => this.flush(), 15000);
+  },
+  flush(){
+    if(this.mode !== 'cloud') return;
+    if(this.sending){ this.again = true; return; }
+    this.sending = true; this.dirty = false;
+    setSaveState('saving');
+    google.script.run
+      .withSuccessHandler(() => { this.sending = false; setSaveState('ok'); if(this.again){ this.again = false; this.flush(); } })
+      .withFailureHandler(() => { this.sending = false; setSaveState('error'); })
+      .saveProgress(JSON.stringify(save));
+  },
+  log(rec){
+    if(this.mode !== 'cloud') return;
+    try{ google.script.run.withFailureHandler(() => {}).logClear(rec); }catch(e){}
+  }
+};
+function store(immediate){ Store.put(immediate); }
+
+function setSaveState(kind){
+  const el = $('saveState');
+  if(!el) return;
+  const t = {
+    local:  ['💾 この パソコンに きろく', 'ok'],
+    loading:['☁ よみこみちゅう…', 'wait'],
+    saving: ['☁ ほぞんちゅう…', 'wait'],
+    ok:     ['☁ ほぞん できました', 'ok'],
+    nouser: ['⚠ きろくを ほぞん できません', 'ng'],
+    error:  ['⚠ つうしん エラー（あとで もういちど）', 'ng']
+  }[kind] || ['', 'ok'];
+  el.textContent = t[0];
+  el.className = 'save-state ' + t[1];
 }
 
 /* ---------------- おと ---------------- */
-const Sound = {
+const Audio2 = {
   ctx:null,
-  ready(){
-    if(!save.settings.sound) return null;
+  ac(){
     if(!this.ctx){
       const AC = window.AudioContext || window.webkitAudioContext;
       if(!AC) return null;
-      this.ctx = new AC();
+      try{ this.ctx = new AC(); }catch(e){ return null; }
     }
     if(this.ctx.state === 'suspended') this.ctx.resume();
     return this.ctx;
-  },
-  tone(freq, start, dur, vol=0.18, type='sine'){
-    const c = this.ready(); if(!c) return;
+  }
+};
+const Sound = {
+  tone(freq, start, dur, vol, type){
+    if(!save.settings.sound) return;
+    const c = Audio2.ac(); if(!c) return;
     const o = c.createOscillator(), g = c.createGain();
-    o.type = type; o.frequency.value = freq;
+    o.type = type || 'sine'; o.frequency.value = freq;
     const t = c.currentTime + start;
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(c.destination);
-    o.start(t); o.stop(t + dur + 0.02);
+    o.start(t); o.stop(t + dur + 0.03);
   },
-  tap(){ this.tone(880, 0, 0.09, 0.14, 'triangle'); },
-  ok(){ this.tone(1046, 0, 0.12, 0.16, 'triangle'); this.tone(1568, 0.08, 0.14, 0.12, 'triangle'); },
-  ng(){ this.tone(220, 0, 0.18, 0.16, 'sawtooth'); },
-  clearQ(){ [784,988,1319].forEach((f,i)=> this.tone(f, i*0.09, 0.22, 0.15, 'triangle')); },
-  fanfare(){ [523,659,784,1046,1319].forEach((f,i)=> this.tone(f, i*0.13, 0.45, 0.16, 'triangle')); }
+  tap(){ this.tone(880, 0, 0.08, 0.12, 'triangle'); },
+  ok(){ this.tone(1046, 0, 0.11, 0.14, 'triangle'); this.tone(1568, 0.07, 0.13, 0.10, 'triangle'); },
+  ng(){ this.tone(196, 0, 0.2, 0.15, 'sawtooth'); },
+  /* ピンポン（せいかい） */
+  pinpon(){
+    this.tone(1318.5, 0,    0.75, 0.22, 'sine'); this.tone(2637, 0,    0.35, 0.06, 'sine');
+    this.tone(1046.5, 0.26, 0.95, 0.22, 'sine'); this.tone(2093, 0.26, 0.45, 0.06, 'sine');
+  },
+  fanfare(){ [523,659,784,1046,1319].forEach((f,i) => this.tone(f, i*0.13, 0.5, 0.16, 'triangle')); }
+};
+
+/* かんたんな BGM（音声ファイルは つかわず その場で つくる） */
+const Bgm = {
+  timer:null, i:0, gain:null,
+  mel:[0,4,7,4,9,7,4,2, 0,4,7,12,9,7,4,2],
+  start(){
+    if(this.timer || !save.settings.bgm) return;
+    const c = Audio2.ac(); if(!c) return;
+    this.gain = c.createGain();
+    this.gain.gain.value = 0.055;
+    this.gain.connect(c.destination);
+    this.i = 0;
+    this.tick();
+    this.timer = setInterval(() => this.tick(), 500);
+  },
+  note(freq, dur, type, vol){
+    const c = Audio2.ctx; if(!c || !this.gain) return;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.value = freq;
+    const t = c.currentTime;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.06);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.gain);
+    o.start(t); o.stop(t + dur + 0.05);
+  },
+  tick(){
+    const base = 523.25;                       // ド
+    const n = this.mel[this.i % this.mel.length];
+    this.note(base * Math.pow(2, n / 12), 0.45, 'triangle', 0.5);
+    if(this.i % 4 === 0) this.note(base / 4 * Math.pow(2, (this.i % 8 === 0 ? 0 : 7) / 12), 1.1, 'sine', 0.8);
+    this.i++;
+  },
+  stop(){
+    clearInterval(this.timer); this.timer = null;
+    if(this.gain){ try{ this.gain.disconnect(); }catch(e){} this.gain = null; }
+  },
+  sync(){ if(save.settings.bgm) this.start(); else this.stop(); }
 };
 
 /* ---------------- 問題づくり ---------------- */
 const rnd = n => Math.floor(Math.random() * n);
 const randRange = (lo, hi) => lo + rnd(hi - lo + 1);
-const digitsOf = n => String(n).split('').reverse().map(Number); // [一の位, 十の位, ...]
+const digitsOf = n => String(n).split('').reverse().map(Number);
 
 function countCarries(a, b){
   const A = digitsOf(a), B = digitsOf(b);
@@ -106,7 +217,7 @@ function countBorrows(a, b){
     if((eff[i]||0) < y){
       let j = i + 1;
       while((eff[j]||0) === 0 && j < eff.length) j++;
-      if(j >= eff.length) return 99;          // ひけない
+      if(j >= eff.length) return 99;
       eff[j] -= 1;
       for(let k = j - 1; k > i; k--) eff[k] = 9;
       eff[i] += 10;
@@ -115,27 +226,24 @@ function countBorrows(a, b){
   }
   return n;
 }
-
 function makeProblem(level){
   let op = level.op;
   if(op === '?') op = Math.random() < 0.5 ? '+' : '-';
-
   const loA = level.dA === 3 ? 100 : 10, hiA = level.dA === 3 ? 999 : 99;
   for(let tries = 0; tries < 4000; tries++){
     let a, b;
     if(op === '+'){
       a = randRange(loA, hiA);
       b = level.dA === 3 ? randRange(10, 999) : randRange(10, 99);
-      if(a + b > 999) continue;                     // こたえは 3けた まで
+      if(a + b > 999) continue;
       const c = countCarries(a, b);
       if(level.mode === 'none' && c !== 0) continue;
       if(level.mode === 'some' && c === 0) continue;
       if(level.mode === 'mix' && Math.random() < 0.65 && c === 0) continue;
     }else{
       a = randRange(loA, hiA);
-      b = level.dA === 3 ? randRange(10, a) : randRange(10, a);
+      b = randRange(10, a);
       if(b >= a) continue;
-      if(a - b < 1) continue;
       const c = countBorrows(a, b);
       if(c === 99) continue;
       if(level.mode === 'none' && c !== 0) continue;
@@ -148,13 +256,15 @@ function makeProblem(level){
   return op === '+' ? { a:27, b:48, op:'+' } : { a:52, b:38, op:'-' };
 }
 
-/* ---------------- ひっ算の手順づくり ----------------
+/* ---------------- ひっ算の 手順づくり ----------------
    steps は「入力する順番」。kind:
      'ans'    … こたえのマス
      'carry'  … くり上がりの 1
      'borrow' … くり下がりで へらした 数
------------------------------------------------------- */
-function buildPlan(a, b, op){
+     'judgeC' … くり上がりは ある？ ない？（じぶんで えらぶ モード）
+     'judgeB' … くり下がりは ひつよう？（じぶんで えらぶ モード）
+------------------------------------------------------- */
+function buildPlan(a, b, op, selfJudge){
   const A = digitsOf(a), B = digitsOf(b);
   const result = op === '+' ? a + b : a - b;
   const R = digitsOf(result);
@@ -170,39 +280,45 @@ function buildPlan(a, b, op){
     for(let i = 0; i < nCols; i++){
       const x = A[i] || 0, y = B[i] || 0;
       const sum = x + y + carry;
-      const d = sum % 10;
+      const up = sum >= 10 ? 1 : 0;
       if(i < R.length){
-        ans[i] = d;
-        steps.push({ kind:'ans', col:i, value:d, x, y, carryIn:carry, sum });
+        ans[i] = sum % 10;
+        steps.push({ kind:'ans', col:i, value:sum % 10, x, y, carryIn:carry, sum });
       }
-      if(sum >= 10 && i + 1 < nCols){
-        marks[i + 1] = 1;
-        steps.push({ kind:'carry', col:i + 1, value:1, sum });
+      if(i + 1 < nCols){
+        if(selfJudge) steps.push({ kind:'judgeC', col:i, value:up, x, y, carryIn:carry, sum });
+        if(up){
+          marks[i + 1] = 1;
+          steps.push({ kind:'carry', col:i + 1, value:1, sum });
+        }
       }
-      carry = sum >= 10 ? 1 : 0;
+      carry = up;
     }
   }else{
     const eff = A.slice();
     for(let i = 0; i < nCols; i++){
       const y = B[i] || 0;
       const before = eff[i] || 0;
-      if(before < y){
+      const need = before < y ? 1 : 0;
+      if(i < R.length && selfJudge && i + 1 < nCols){
+        steps.push({ kind:'judgeB', col:i, value:need, x:before, y });
+      }
+      if(need){
         let j = i + 1;
         while((eff[j] || 0) === 0) j++;
         eff[j] -= 1;
         marks[j] = eff[j];
-        steps.push({ kind:'borrow', col:j, value:eff[j], orig:eff[j] + 1, forCol:i, x:before, y });
+        steps.push({ kind:'borrow', col:j, value:eff[j], orig:eff[j] + 1, x:before, y });
         for(let k = j - 1; k > i; k--){
           eff[k] = 9;
           marks[k] = 9;
-          steps.push({ kind:'borrow', col:k, value:9, orig:0, forCol:i, x:before, y });
+          steps.push({ kind:'borrow', col:k, value:9, orig:0, x:before, y });
         }
         eff[i] += 10;
       }
-      const d = (eff[i] || 0) - y;
       if(i < R.length){
-        ans[i] = d;
-        steps.push({ kind:'ans', col:i, value:d, x:(eff[i] || 0), y, borrowed:before < y });
+        ans[i] = (eff[i] || 0) - y;
+        steps.push({ kind:'ans', col:i, value:(eff[i] || 0) - y, x:(eff[i] || 0), y, borrowed:!!need });
       }
     }
   }
@@ -211,15 +327,15 @@ function buildPlan(a, b, op){
 
 /* ---------------- ゲームの じょうたい ---------------- */
 const G = {
-  level:null, qIndex:0, missInStage:0, streak:0,
-  plan:null, stepIndex:0, wrongOnStep:0, helpOnStep:0, locked:false, qMiss:false
+  level:null, qIndex:0, missInStage:0, streak:0, qMiss:false,
+  plan:null, stepIndex:0, wrongOnStep:0, helpOnStep:0, locked:false
 };
 
 /* ---------------- DOM ---------------- */
 const $ = id => document.getElementById(id);
-const screens = ['screen-home','screen-game','screen-clear','screen-dex','screen-stats'];
+const SCREENS = ['screen-home','screen-game','screen-clear','screen-dex','screen-stats'];
 function show(id){
-  screens.forEach(s => $(s).classList.toggle('is-active', s === id));
+  SCREENS.forEach(s => $(s).classList.toggle('is-active', s === id));
   window.scrollTo(0, 0);
 }
 
@@ -238,7 +354,7 @@ function renderHome(){
     el.className = 'stage' + (open ? '' : ' locked');
     el.innerHTML =
       `<div class="stage-ico">${open ? lv.ico : '🔒'}</div>
-       <div>
+       <div class="stage-body">
          <div class="stage-name">${lv.name}</div>
          <div class="stage-sub">${lv.sub}</div>
          <div class="stage-stars">${[1,2,3].map(i => `<span class="${i <= st ? 'on' : ''}">★</span>`).join('')}</div>
@@ -252,7 +368,9 @@ function renderHome(){
   });
   $('totalStars').textContent = Object.values(save.stars).reduce((s, v) => s + v, 0);
   $('dexCount').textContent = save.monsters.length;
-  $('homeMascot').textContent = save.monsters.length ? MONSTERS[save.monsters[save.monsters.length - 1]][0] : '🐣';
+  const last = save.monsters.length ? MONSTERS[save.monsters[save.monsters.length - 1]] : MONSTERS[0];
+  $('homeMascot').innerHTML = monsterSVG(last, 'mascot');
+  $('userName').textContent = Store.user ? Store.user.split('@')[0] + ' さん' : '';
 }
 function flash(msg){
   const p = $('praise');
@@ -279,8 +397,9 @@ function renderDots(){
 }
 function nextQuestion(){
   const p = makeProblem(G.level);
-  G.plan = buildPlan(p.a, p.b, p.op);
+  G.plan = buildPlan(p.a, p.b, p.op, save.settings.judge === 'self');
   G.stepIndex = 0; G.wrongOnStep = 0; G.helpOnStep = 0; G.locked = false; G.qMiss = false;
+  $('qNo').textContent = `だい ${G.qIndex + 1} もん`;
   renderDots();
   renderCalc();
   focusStep();
@@ -292,22 +411,18 @@ function renderCalc(){
   const calc = $('calc');
   calc.style.setProperty('--cols', nCols);
   let h = '';
-
-  // くり上がり・くり下がりの 行
   h += '<div class="crow marks"><div class="cell"></div>';
   for(let c = nCols - 1; c >= 0; c--){
     h += `<div class="cell" data-col="${c}">${c > 0 ? `<div class="mark-box" id="mk${c}"></div>` : ''}</div>`;
   }
   h += '</div>';
 
-  // 1つめの かず
   h += '<div class="crow"><div class="cell op"></div>';
   for(let c = nCols - 1; c >= 0; c--){
     h += `<div class="cell digit" data-col="${c}"><span id="da${c}">${A[c] != null ? A[c] : ''}</span></div>`;
   }
   h += '</div>';
 
-  // 2つめの かず と きごう
   h += `<div class="crow"><div class="cell op">${op === '+' ? '＋' : '−'}</div>`;
   for(let c = nCols - 1; c >= 0; c--){
     h += `<div class="cell digit" data-col="${c}"><span>${B[c] != null ? B[c] : ''}</span></div>`;
@@ -316,7 +431,6 @@ function renderCalc(){
 
   h += '<div class="rule"></div>';
 
-  // こたえ
   h += '<div class="crow"><div class="cell op"></div>';
   for(let c = nCols - 1; c >= 0; c--){
     h += `<div class="cell digit" data-col="${c}"><div class="ans-box" id="an${c}"></div></div>`;
@@ -326,51 +440,67 @@ function renderCalc(){
   calc.innerHTML = h;
 }
 
+const isJudge = s => s && (s.kind === 'judgeC' || s.kind === 'judgeB');
 function cellOf(step){
+  if(isJudge(step)) return null;
   return step.kind === 'ans' ? $('an' + step.col) : $('mk' + step.col);
 }
 function clearHighlights(){
   document.querySelectorAll('.colhi').forEach(e => e.classList.remove('colhi'));
-  document.querySelectorAll('.active').forEach(e => e.classList.remove('active'));
-  document.querySelectorAll('.key.hintkey').forEach(e => e.classList.remove('hintkey'));
+  document.querySelectorAll('#calc .active').forEach(e => e.classList.remove('active'));
+  document.querySelectorAll('.hintkey').forEach(e => e.classList.remove('hintkey'));
 }
 function focusStep(){
   clearHighlights();
   const step = G.plan.steps[G.stepIndex];
   if(!step) return;
-  cellOf(step).classList.add('active');
   document.querySelectorAll(`[data-col="${step.col}"]`).forEach(e => e.classList.add('colhi'));
+  if(isJudge(step)){
+    showJudge(true, step);
+  }else{
+    showJudge(false);
+    cellOf(step).classList.add('active');
+  }
   setBubble(hintFor(step, false), false);
+}
+function showJudge(on, step){
+  $('pad').hidden = on;
+  $('judge').hidden = !on;
+  if(on){
+    const add = G.plan.op === '+';
+    $('jYes').textContent = add ? 'くり上がり　あり' : 'くり下がり　あり';
+    $('jNo').textContent  = add ? 'くり上がり　なし' : 'くり下がり　なし';
+  }
 }
 
 /* ---------------- ヒントの ことば ---------------- */
 function hintFor(step, detail){
   const place = PLACE[step.col] || '';
-  if(!save.settings.hint && !detail){
-    if(step.kind === 'ans')    return `${place}の くらいの こたえを かこう`;
-    if(step.kind === 'carry')  return `${place}の くらいの うえに かこう`;
+  const quiet = !save.settings.hint && !detail;
+
+  if(step.kind === 'judgeC'){
+    if(quiet) return `${place}の くらいの くり上がりは ある？ ない？`;
+    return `${step.carryIn ? step.carryIn + ' ＋ ' : ''}${step.x} ＋ ${step.y} は ${step.sum}。10 より 大きいかな？ くり上がりは ある？ ない？`;
+  }
+  if(step.kind === 'judgeB'){
+    if(quiet) return `${place}の くらいは そのまま ひける？`;
+    return `${step.x} から ${step.y} は ひけるかな？ ひけないときは となりの くらいから 1 かりるよ。`;
+  }
+  if(quiet){
+    if(step.kind === 'ans')   return `${place}の くらいの こたえを かこう`;
     return `${place}の くらいの うえに かこう`;
   }
   if(G.plan.op === '+'){
-    if(step.kind === 'carry'){
-      return `10 の たばが 1こ できたね！ ${place}の くらいの うえに 小さく 1 と かこう。`;
-    }
-    if(step.carryIn > 0){
-      return `くり上がりの 1 も わすれずに。 1 ＋ ${step.x} ＋ ${step.y} は？ ${place}の くらいに かこう。`;
-    }
+    if(step.kind === 'carry') return `10 の たばが 1こ できたね！ ${place}の くらいの うえに 小さく 1 と かこう。`;
+    if(step.carryIn > 0)      return `くり上がりの 1 も わすれずに。 1 ＋ ${step.x} ＋ ${step.y} は？ ${place}の くらいに かこう。`;
     if(step.x === 0 && step.y === 0) return `のこった 1 を そのまま かこう。`;
     return `${step.x} ＋ ${step.y} は？ ${place}の くらいに かこう。`;
   }
-  // ひき算
   if(step.kind === 'borrow'){
-    if(step.orig === 0){
-      return `${place}の くらいは 0 だね。となりから かりて 9 に なるよ。9 と かこう。`;
-    }
+    if(step.orig === 0) return `${place}の くらいは 0 だね。となりから かりて 9 に なるよ。9 と かこう。`;
     return `${step.x} から ${step.y} は ひけない！ ${place}の くらいの ${step.orig} から 1 かりて、うえに 小さく かこう。`;
   }
-  if(step.borrowed){
-    return `1 かりたので ${step.x} だね。 ${step.x} − ${step.y} は？`;
-  }
+  if(step.borrowed) return `1 かりたので ${step.x} だね。 ${step.x} − ${step.y} は？`;
   return `${step.x} − ${step.y} は？ ${place}の くらいに かこう。`;
 }
 function setBubble(text, cheer){
@@ -380,12 +510,31 @@ function setBubble(text, cheer){
 }
 
 /* ---------------- 入力 ---------------- */
+function wrongFeedback(step, shakeEl){
+  Sound.ng();
+  if(navigator.vibrate) navigator.vibrate(60);
+  if(shakeEl){
+    shakeEl.classList.add('shake');
+    setTimeout(() => shakeEl.classList.remove('shake'), 400);
+  }
+  G.wrongOnStep++; G.qMiss = true;
+  if(G.wrongOnStep === 1){ G.missInStage++; setBubble('おしい！ もういちど かんがえてみよう。', false); return; }
+  if(G.wrongOnStep === 2){ setBubble(hintFor(step, true), false); return; }
+  setBubble(hintFor(step, true) + '　→ ひかっている ボタンを おしてね。', false);
+  const sel = isJudge(step) ? `.jbtn[data-v="${step.value}"]` : `.key[data-d="${step.value}"]`;
+  const k = document.querySelector(sel);
+  if(k) k.classList.add('hintkey');
+}
+function advance(){
+  G.stepIndex++; G.wrongOnStep = 0; G.helpOnStep = 0;
+  if(G.stepIndex >= G.plan.steps.length) finishQuestion();
+  else focusStep();
+}
 function handleDigit(d){
   if(G.locked) return;
   const step = G.plan.steps[G.stepIndex];
-  if(!step) return;
+  if(!step || isJudge(step)) return;
   const cell = cellOf(step);
-
   if(d === step.value){
     Sound.ok();
     cell.textContent = String(d);
@@ -396,72 +545,66 @@ function handleDigit(d){
       const dg = $('da' + step.col);
       if(dg) dg.parentElement.classList.add('struck');
     }
-    G.stepIndex++; G.wrongOnStep = 0; G.helpOnStep = 0;
-    if(G.stepIndex >= G.plan.steps.length) finishQuestion();
-    else focusStep();
+    advance();
   }else{
-    Sound.ng();
-    if(navigator.vibrate) navigator.vibrate(60);
-    cell.classList.add('shake');
-    setTimeout(() => cell.classList.remove('shake'), 400);
-    G.wrongOnStep++; G.qMiss = true;
-    if(G.wrongOnStep === 1) G.missInStage++;
-    if(G.wrongOnStep === 1){
-      setBubble('おしい！ もういちど かんがえてみよう。', false);
-    }else if(G.wrongOnStep === 2){
-      setBubble(hintFor(step, true), false);
-    }else{
-      setBubble(hintFor(step, true) + '　→ ひかっている ボタンを おしてね。', false);
-      const key = document.querySelector(`.key[data-d="${step.value}"]`);
-      if(key) key.classList.add('hintkey');
-    }
+    wrongFeedback(step, cell);
+  }
+}
+function handleJudge(v){
+  if(G.locked) return;
+  const step = G.plan.steps[G.stepIndex];
+  if(!isJudge(step)) return;
+  if(v === step.value){
+    Sound.ok();
+    const btn = document.querySelector(`.jbtn[data-v="${v}"]`);
+    if(btn){ btn.classList.add('pop'); setTimeout(() => btn.classList.remove('pop'), 340); }
+    advance();
+  }else{
+    wrongFeedback(step, $('judge'));
   }
 }
 
+/* ---------------- 1もん せいかい ---------------- */
 function finishQuestion(){
   G.locked = true;
-  Sound.clearQ();
-  // つかわない こたえのマスは けす
-  G.plan.ans.forEach((v, i) => { if(v == null) $('an' + i).classList.add('ghost'); });
+  showJudge(false);
   clearHighlights();
+  G.plan.ans.forEach((v, i) => { if(v == null) $('an' + i).classList.add('ghost'); });
 
   const { a, b, op, result } = G.plan;
-  setBubble(`${a} ${op === '+' ? '＋' : '−'} ${b} ＝ ${result}　せいかい！`, true);
-  $('teacherFace').textContent = '🤩';
+  setBubble(`${a} ${op === '+' ? '＋' : '−'} ${b} ＝ ${result}　${CHEER[rnd(CHEER.length)]}`, true);
+  $('teacherFace').classList.add('happy');
 
-  const noMiss = !G.qMiss;
-  if(noMiss) G.streak++; else G.streak = 0;
+  /* はなまる ＋ ピンポン */
+  const hm = $('hanamaru');
+  hm.innerHTML = hanamaruSVG();
+  hm.classList.add('show');
+  Sound.pinpon();
+
+  if(!G.qMiss) G.streak++; else G.streak = 0;
+  const c = $('combo');
   if(G.streak >= 2){
-    const c = $('combo');
     c.textContent = `🔥 れんぞく ${G.streak}もん！`;
     c.classList.remove('show'); void c.offsetWidth; c.classList.add('show');
-  }else{
-    $('combo').textContent = '';
-  }
-
-  const p = $('praise');
-  p.innerHTML = `<div class="praise-pill">${CHEER[rnd(CHEER.length)]} 🎉</div>`;
-  p.classList.add('show');
-  sparkle(8);
+  }else c.textContent = '';
 
   save.totalQ++;
   store();
 
   setTimeout(() => {
-    p.classList.remove('show');
-    $('teacherFace').textContent = '🐥';
+    hm.classList.remove('show'); hm.innerHTML = '';
+    $('teacherFace').classList.remove('happy');
     G.qIndex++;
     if(G.qIndex >= QUESTIONS_PER_STAGE) finishStage();
     else nextQuestion();
-  }, 1250);
+  }, 1500);
 }
 
 function sparkle(n){
-  const marks = ['⭐','✨','🌟','💫'];
   for(let i = 0; i < n; i++){
     const s = document.createElement('div');
     s.className = 'fall';
-    s.textContent = marks[rnd(marks.length)];
+    s.textContent = ['⭐','✨','🌟','💫'][rnd(4)];
     s.style.left = rnd(100) + 'vw';
     s.style.animationDuration = (1.1 + Math.random()) + 's';
     document.body.appendChild(s);
@@ -477,28 +620,34 @@ function finishStage(){
   save.totalMiss += G.missInStage;
   save.totalStage++;
 
-  // モンスターを ゲット
   const own = new Set(save.monsters);
   const rest = MONSTERS.map((m, i) => i).filter(i => !own.has(i));
   let gotIndex, isNew = false;
   if(rest.length){ gotIndex = rest[rnd(rest.length)]; save.monsters.push(gotIndex); isNew = true; }
-  else { gotIndex = rnd(MONSTERS.length); }
-  store();
+  else gotIndex = rnd(MONSTERS.length);
 
-  $('clearTitle').textContent = 'ステージ クリア！';
+  store(true);
+  Store.log({ level:lv.id, name:lv.name + ' ' + lv.sub, stars:stars, miss:G.missInStage, q:QUESTIONS_PER_STAGE });
+
   $('clearStars').innerHTML = [1,2,3].map(i => `<span class="${i <= stars ? 'on' : ''}">★</span>`).join('');
-  $('clearMsg').textContent = G.missInStage === 0 ? 'ぜんもん いっぱつ せいかい！ すばらしい！' : `まちがえた かず：${G.missInStage}　つぎは ノーミスを ねらおう！`;
+  $('clearMsg').textContent = G.missInStage === 0
+    ? 'ぜんもん いっぱつ せいかい！ すばらしい！'
+    : `まちがえた かず：${G.missInStage}　つぎは ノーミスを ねらおう！`;
   $('clearName').textContent = '';
-  const egg = $('egg'), hatched = $('hatched');
-  egg.classList.remove('gone'); hatched.classList.remove('show'); hatched.textContent = '';
+  $('egg').innerHTML = eggSVG('egg-svg');
+  $('egg').classList.remove('gone');
+  $('hatched').innerHTML = '';
+  $('hatched').classList.remove('show');
   show('screen-clear');
   Sound.fanfare();
 
   setTimeout(() => {
-    egg.classList.add('gone');
-    hatched.textContent = MONSTERS[gotIndex][0];
-    hatched.classList.add('show');
-    $('clearName').textContent = (isNew ? '' : 'また あえたね！ ') + MONSTERS[gotIndex][1] + (isNew ? ' が うまれた！' : '');
+    $('egg').classList.add('gone');
+    $('hatched').innerHTML = monsterSVG(MONSTERS[gotIndex], 'big');
+    $('hatched').classList.add('show');
+    $('clearName').textContent = isNew
+      ? MONSTERS[gotIndex].name + ' が うまれた！'
+      : 'また あえたね！ ' + MONSTERS[gotIndex].name;
     sparkle(14);
   }, 1400);
 
@@ -512,14 +661,11 @@ function finishStage(){
 /* ---------------- ずかん / せいせき ---------------- */
 function renderDex(){
   const g = $('dexGrid');
-  g.innerHTML = '';
   const own = new Set(save.monsters);
-  MONSTERS.forEach((m, i) => {
-    const c = document.createElement('div');
-    c.className = 'dex-cell' + (own.has(i) ? '' : ' locked');
-    c.innerHTML = `<div class="face">${own.has(i) ? m[0] : '❔'}</div><div class="nm">${own.has(i) ? m[1] : '？？？'}</div>`;
-    g.appendChild(c);
-  });
+  g.innerHTML = MONSTERS.map((m, i) => own.has(i)
+    ? `<div class="dex-cell">${monsterSVG(m)}<div class="nm">${m.name}</div></div>`
+    : `<div class="dex-cell locked"><div class="q">?</div><div class="nm">？？？</div></div>`
+  ).join('');
   $('dexRatio').textContent = `${own.size} / ${MONSTERS.length}`;
 }
 function renderStats(){
@@ -543,37 +689,44 @@ function buildPad(){
     k.addEventListener('click', () => { Sound.tap(); handleDigit(d); });
     pad.appendChild(k);
   });
-  const help = document.createElement('button');
-  help.className = 'key help';
-  help.style.gridColumn = 'span 5';
-  help.textContent = '💡 ヒント';
-  help.addEventListener('click', () => {
+  document.querySelectorAll('.jbtn').forEach(b => {
+    b.addEventListener('click', () => { Sound.tap(); handleJudge(Number(b.dataset.v)); });
+  });
+  $('btnHelp').addEventListener('click', () => {
     Sound.tap();
     const step = G.plan && G.plan.steps[G.stepIndex];
     if(!step || G.locked) return;
     G.helpOnStep++;
     setBubble(hintFor(step, true), false);
     if(G.helpOnStep >= 2){
-      const key = document.querySelector(`.key[data-d="${step.value}"]`);
-      if(key) key.classList.add('hintkey');
+      const sel = isJudge(step) ? `.jbtn[data-v="${step.value}"]` : `.key[data-d="${step.value}"]`;
+      const k = document.querySelector(sel);
+      if(k) k.classList.add('hintkey');
     }
   });
-  pad.appendChild(help);
 }
 
 /* ---------------- せってい ---------------- */
 function syncSettings(){
   $('setHint').checked = save.settings.hint;
   $('setSound').checked = save.settings.sound;
+  $('setBgm').checked = save.settings.bgm;
   $('setUnlock').checked = save.settings.unlock;
+  document.querySelectorAll('#segJudge button').forEach(b => {
+    b.classList.toggle('on', b.dataset.v === save.settings.judge);
+  });
 }
 
 /* ---------------- 起動 ---------------- */
 function init(){
-  load();
   buildPad();
-  renderHome();
-  syncSettings();
+  $('teacherFace').innerHTML = monsterSVG(MONSTERS[0], 'teacher-mon');
+  Store.boot(() => {
+    syncSettings();
+    renderHome();
+    $('loading').hidden = true;
+    show('screen-home');
+  });
 
   $('btnBackHome').addEventListener('click', () => { Sound.tap(); renderHome(); show('screen-home'); });
   $('btnDex').addEventListener('click', () => { Sound.tap(); renderDex(); show('screen-dex'); });
@@ -583,20 +736,46 @@ function init(){
 
   $('btnSettings').addEventListener('click', () => { Sound.tap(); syncSettings(); $('modalSettings').hidden = false; });
   $('btnCloseSettings').addEventListener('click', () => { Sound.tap(); $('modalSettings').hidden = true; renderHome(); });
-  $('setHint').addEventListener('change', e => { save.settings.hint = e.target.checked; store(); });
-  $('setSound').addEventListener('change', e => { save.settings.sound = e.target.checked; store(); if(e.target.checked) Sound.tap(); });
-  $('setUnlock').addEventListener('change', e => { save.settings.unlock = e.target.checked; store(); renderHome(); });
+  $('setHint').addEventListener('change', e => { save.settings.hint = e.target.checked; store(true); });
+  $('setSound').addEventListener('change', e => { save.settings.sound = e.target.checked; store(true); if(e.target.checked) Sound.tap(); });
+  $('setBgm').addEventListener('change', e => { save.settings.bgm = e.target.checked; store(true); Bgm.sync(); });
+  $('setUnlock').addEventListener('change', e => { save.settings.unlock = e.target.checked; store(true); renderHome(); });
+  document.querySelectorAll('#segJudge button').forEach(b => {
+    b.addEventListener('click', () => {
+      Sound.tap();
+      save.settings.judge = b.dataset.v;
+      syncSettings(); store(true);
+    });
+  });
   $('btnReset').addEventListener('click', () => {
     if(confirm('きろく（★・モンスター・せいせき）を ぜんぶ けします。よろしいですか？')){
-      save = defaultSave(); store(); syncSettings(); renderHome();
+      const keep = save.settings;
+      save = defaultSave();
+      save.settings = keep;
+      store(true); syncSettings(); renderHome();
       $('modalSettings').hidden = true;
     }
   });
 
-  // キーボードでも あそべる（おうちの人・タブレット以外むけ）
+  /* キーボードでも あそべる（Chromebook） */
   window.addEventListener('keydown', e => {
     if(!$('screen-game').classList.contains('is-active')) return;
-    if(e.key >= '0' && e.key <= '9') handleDigit(Number(e.key));
+    if(e.key >= '0' && e.key <= '9'){ handleDigit(Number(e.key)); return; }
+    const step = G.plan && G.plan.steps[G.stepIndex];
+    if(isJudge(step)){
+      if(e.key === 'ArrowLeft'  || e.key === 'a') handleJudge(1);
+      if(e.key === 'ArrowRight' || e.key === 'n') handleJudge(0);
+    }
   });
+
+  /* タブを とじる / ふたを しめる ときに 書きのこしを 送る */
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'hidden' && Store.dirty) Store.flush();
+  });
+
+  /* さいしょの クリックで 音を つかえるように する */
+  const wake = () => { Audio2.ac(); Bgm.sync(); };
+  document.addEventListener('click', wake, { once:true });
+  document.addEventListener('keydown', wake, { once:true });
 }
 document.addEventListener('DOMContentLoaded', init);

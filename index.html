@@ -2,58 +2,78 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#ffb703">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="ひっさんモンスター">
 <meta name="description" content="小学2年生のための たし算・ひき算の ひっ算れんしゅうアプリ。くり上がり・くり下がりも 入力できます。">
 <title>ひっさんモンスター</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<div id="loading" class="loading">
+  <div class="loading-in">
+    <div class="loading-egg">🥚</div>
+    <div>よみこみちゅう…</div>
+  </div>
+</div>
+
 <div id="app">
 
   <!-- ========== ホーム ========== -->
-  <section id="screen-home" class="screen is-active">
+  <section id="screen-home" class="screen">
     <header class="home-head">
       <div class="logo">
-        <span class="logo-mascot" id="homeMascot">🐣</span>
-        <h1 class="logo-text">ひっさん<br><span>モンスター</span></h1>
+        <span class="logo-mascot" id="homeMascot"></span>
+        <h1 class="logo-text">ひっさん<span>モンスター</span></h1>
       </div>
-      <button class="icon-btn" id="btnSettings" aria-label="せってい">⚙️</button>
+      <div class="head-right">
+        <div class="user-box">
+          <div class="user-name" id="userName"></div>
+          <div class="save-state" id="saveState"></div>
+        </div>
+        <button class="icon-btn" id="btnSettings" aria-label="せってい">⚙️</button>
+      </div>
     </header>
 
     <div class="home-bar">
       <div class="chip"><span class="chip-ico">⭐</span><span id="totalStars">0</span></div>
       <button class="chip chip-btn" id="btnDex"><span class="chip-ico">📖</span>ずかん <span id="dexCount">0</span></button>
       <button class="chip chip-btn" id="btnStats"><span class="chip-ico">📊</span>せいせき</button>
+      <span class="home-lead">ステージを えらんでね！</span>
     </div>
 
-    <p class="home-lead">ステージを えらんでね！</p>
     <div class="stage-list" id="stageList"></div>
-    <p class="home-foot">こたえは <b>ポチポチ</b> おすだけ。くり上がり・くり下がりも かけるよ！</p>
   </section>
 
   <!-- ========== ゲーム ========== -->
   <section id="screen-game" class="screen">
     <header class="game-head">
       <button class="icon-btn" id="btnBackHome" aria-label="もどる">↩︎</button>
-      <div class="game-title" id="gameTitle">たしざん①</div>
+      <div class="game-title" id="gameTitle"></div>
+      <div class="qno" id="qNo"></div>
       <div class="qdots" id="qdots"></div>
     </header>
 
     <div class="game-body">
       <div class="calc-area">
         <div class="teacher">
-          <span class="teacher-face" id="teacherFace">🐥</span>
-          <div class="bubble" id="bubble">いちの くらいから けいさんしよう！</div>
+          <span class="teacher-face" id="teacherFace"></span>
+          <div class="bubble" id="bubble"></div>
         </div>
-        <div class="calc-wrap"><div class="calc" id="calc"></div></div>
+        <div class="calc-wrap">
+          <div class="calc" id="calc"></div>
+          <div class="hanamaru" id="hanamaru" aria-hidden="true"></div>
+        </div>
       </div>
 
       <div class="pad-area">
         <div class="combo" id="combo"></div>
         <div class="pad" id="pad"></div>
+        <div class="judge" id="judge" hidden>
+          <button class="jbtn yes" data-v="1"><span id="jYes">くり上がり　あり</span></button>
+          <button class="jbtn no"  data-v="0"><span id="jNo">くり上がり　なし</span></button>
+        </div>
+        <button class="help-bar" id="btnHelp">💡 ヒント</button>
       </div>
     </div>
 
@@ -63,10 +83,10 @@
   <!-- ========== クリア ========== -->
   <section id="screen-clear" class="screen">
     <div class="clear-box">
-      <div class="clear-title" id="clearTitle">ステージ クリア！</div>
+      <div class="clear-title">ステージ クリア！</div>
       <div class="stars" id="clearStars"></div>
-      <div class="egg-stage" id="eggStage">
-        <div class="egg" id="egg">🥚</div>
+      <div class="egg-stage">
+        <div class="egg" id="egg"></div>
         <div class="hatched" id="hatched"></div>
       </div>
       <div class="clear-name" id="clearName"></div>
@@ -103,10 +123,28 @@
   <div class="modal" id="modalSettings" hidden>
     <div class="modal-card">
       <h2>せってい</h2>
+
+      <div class="seg-row">
+        <span>くり上がり・くり下がりの はんだん</span>
+        <div class="seg" id="segJudge">
+          <button data-v="self">じぶんで えらぶ</button>
+          <button data-v="auto">じどう</button>
+        </div>
+      </div>
+      <div class="modal-note">
+        「じぶんで えらぶ」：くり上がり（くり下がり）が <b>あるか ないか</b> を 児童が ボタンで 答えます。<br>
+        「じどう」：ひつような ときだけ 小さい数の マスが ひらきます。まず ひっ算の かたちに なれたい ときに。
+      </div>
+
       <label class="switch-row"><span>ヒントを だす</span><input type="checkbox" id="setHint"><i></i></label>
-      <label class="switch-row"><span>おと を ならす</span><input type="checkbox" id="setSound"><i></i></label>
+      <label class="switch-row"><span>こうかおん（ピンポン など）</span><input type="checkbox" id="setSound"><i></i></label>
+      <label class="switch-row"><span>BGM を ながす</span><input type="checkbox" id="setBgm"><i></i></label>
       <label class="switch-row"><span>ステージを ぜんぶ ひらく</span><input type="checkbox" id="setUnlock"><i></i></label>
-      <div class="modal-note">おうちのかたへ：「ステージを ぜんぶ ひらく」を オンにすると、じゅんばん に かんけいなく あそべます。</div>
+
+      <div class="modal-note">
+        おうちのかた・先生へ：ヒントは さいしょ オフです。つまずいた ときは オンにすると、
+        ひっ算の 手じゅんを ことばで 案内します（ゲーム中の 💡ヒント ボタンでも 1回ずつ 出せます）。
+      </div>
       <div class="modal-btns">
         <button class="big-btn ghost" id="btnReset">きろくを けす</button>
         <button class="big-btn primary" id="btnCloseSettings">とじる</button>
@@ -115,6 +153,7 @@
   </div>
 
 </div>
+<script src="monsters.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
