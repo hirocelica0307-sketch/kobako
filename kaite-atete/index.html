@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>かいて あてて</title>
+<meta name="description" content="お題を 絵に かいて、みんなに あててもらう ゲームです。画面を さわるだけで あそべます。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h1>かいて あてて</h1>
+<p class="sub">えを かいて、みんなに あててもらおう</p>
+
+<!-- ① なまえを いれる -->
+<section class="card" id="stepName">
+    <div class="readout" id="nameOut"><span class="placeholder">なまえを いれてね</span></div>
+    <div id="hiraSlot"></div>
+    <div class="row" style="margin-top:12px">
+        <button class="btn go" id="nameNext" disabled>つぎへ</button>
+    </div>
+</section>
+
+<!-- ② つくる か はいる か -->
+<section class="card hidden" id="stepPick">
+    <p class="sub" style="text-align:center;margin-bottom:12px">
+        <b id="pickName"></b> さん、どちらに しますか？
+    </p>
+    <div class="row">
+        <button class="btn" id="btnCreate">へやを つくる</button>
+        <button class="btn" id="btnJoin">へやに はいる</button>
+    </div>
+    <div class="row" style="margin-top:14px">
+        <button class="btn sub-btn" id="backToName">なまえを なおす</button>
+    </div>
+</section>
+
+<!-- ③ 4けたの へやばんごうを いれる -->
+<section class="card hidden" id="stepCode">
+    <p class="sub" style="text-align:center;margin-bottom:8px">へやの ばんごう（4けた）</p>
+    <div class="digits" id="digits"></div>
+    <div id="numSlot"></div>
+    <div class="row" style="margin-top:12px">
+        <button class="btn go" id="codeGo" disabled>はいる</button>
+        <button class="btn sub-btn" id="backToPick">もどる</button>
+    </div>
+</section>
+
+<div class="notice wait hidden" id="notice"></div>
+
+<script type="module" src="home.js"></script>
+</body>
+</html>
