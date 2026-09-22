@@ -91,7 +91,9 @@ h1{ margin:0; font-size:clamp(18px,3vw,28px); letter-spacing:.06em; flex:none; }
 /* ── キーボード ───────────────────────────────
    あまった たての 場所に あわせて キーの 大きさが かわります。
    だから どんな 画面でも はみ出しません。 */
-.padbox{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:6px; }
+/* min-width:0 が ないと、中の キーボードより 小さく なれず、
+   一度 はみ出すと 元に もどれません（flex の きまり）。 */
+.padbox{ flex:1 1 auto; min-height:0; min-width:0; display:flex; flex-direction:column; gap:6px; }
 
 .keypad{ display:grid; gap:5px; }
 /* ます目の 数だけ きめます。大きさは keypad.js が はかって つけます。 */
@@ -117,7 +119,7 @@ h1{ margin:0; font-size:clamp(18px,3vw,28px); letter-spacing:.06em; flex:none; }
 .key:active{ background:var(--tap); transform:translateY(2px); }
 .key.blank{ visibility:hidden; }
 .key.mark{ background:var(--tap); }
-.key.wide{ min-height:46px; min-width:70px; padding:0 14px; font-size:clamp(13px,1.9vw,19px); }
+.key.wide{ min-height:54px; min-width:70px; padding:0 14px; font-size:clamp(13px,1.9vw,19px); }
 
 /* 下の ボタンは 5つで はばを 分けあいます（折りかえさない ため）*/
 .keyrow{ display:flex; gap:5px; justify-content:center; flex-wrap:nowrap; flex:none; margin:0 auto; }
@@ -291,5 +293,63 @@ h1{ margin:0; font-size:clamp(18px,3vw,28px); letter-spacing:.06em; flex:none; }
 }
 
 /* キーボードを 入れる ところ（あまった 場所を ぜんぶ つかいます）*/
-.slot{ flex:1 1 auto; min-height:0; display:flex; }
-.slot > .padbox{ flex:1 1 auto; min-height:0; }
+.slot{ flex:1 1 auto; min-height:0; min-width:0; display:flex; overflow:hidden; }
+.slot > .padbox{ flex:1 1 auto; min-height:0; min-width:0; }
+.side{ overflow:hidden; }          /* 念のため、はみ出しを ここで 止めます */
+#answerPanel{ min-width:0; }
+
+/* 上の帯は 1れつに おさめます（2れつに なると たての ばしょを とられ、
+   キーボードが 小さく なってしまうため）*/
+.topbar .members{ flex-wrap:nowrap; }
+.statusbar{ white-space:nowrap; overflow:hidden; }
+.statusbar > span{ overflow:hidden; text-overflow:ellipsis; }
+
+/* ── せの ひくい 画面（Chromebook の 小さめの かいぞうどなど）──
+   かざりを へらして、キーボードに たての ばしょを まわします。 */
+@media (max-height:720px){
+    body{ padding:6px; gap:5px; }
+    .card,.side{ padding:8px; gap:5px; }
+    .readout{ min-height:34px; font-size:clamp(18px,3vw,28px); }
+    #answerPanel .sub{ display:none; }              /* 「なにを かいて いるのかな？」*/
+    .btn{ min-height:40px; padding:8px 18px; }
+    .btn.sub-btn{ min-height:36px; }
+    .judge{ padding:5px 10px; font-size:clamp(13px,2vw,18px); }
+    .key.wide{ min-height:38px; }
+    .statusbar{ padding-bottom:4px; font-size:clamp(10px,1.5vw,14px); }
+    .member{ padding:3px 10px; }
+}
+@media (max-height:620px){
+    .readout{ min-height:28px; font-size:clamp(16px,2.6vw,24px); }
+    .judge{ display:none; }                          /* さらに せまい ときは しらせも たたみます */
+    .key.wide{ min-height:32px; font-size:clamp(9px,1.2vw,13px); }
+}
+
+/* ── ひらがなキーボードの 色わけ ───────────────────
+   よこの ならび（あ行・か行・さ行 …）ごとに うすく 色を かえます。
+   ぜんぶ 同じ色だと 目が すべって 文字を さがしにくく なるためです。
+   文字の 色は 変えず、うしろだけ うすく 染めるので 読みやすさは そのままです。 */
+.key.g0{ background:#fff1f0; border-color:#f3d3cf; }   /* あ行 */
+.key.g1{ background:#fff4e6; border-color:#f2d9bb; }   /* か行 */
+.key.g2{ background:#fffce2; border-color:#eee4b4; }   /* さ行 */
+.key.g3{ background:#f1faea; border-color:#cfe6c2; }   /* た行 */
+.key.g4{ background:#e8f7f3; border-color:#bfe0d8; }   /* な行 */
+.key.g5{ background:#eaf3fd; border-color:#c4d9f0; }   /* は行 */
+.key.g6{ background:#f1eefc; border-color:#d4cdee; }   /* ま行 */
+.key.g7{ background:#fdeef7; border-color:#eecde0; }   /* や行 */
+.key.g8{ background:#f8f2e6; border-color:#e3d7bf; }   /* ら行 */
+.key.g9{ background:#eef1f4; border-color:#d2d9df; }   /* わ行 */
+.key[class*="g"]:active{ filter:brightness(.93); }
+
+/* しるしを 上に、ことばを 下に */
+.key.wide{ flex-direction:column; gap:1px; line-height:1.05; padding:4px 2px; }
+.key.wide .glyph{ width:1.7em; height:1.7em; flex:none; display:block; }
+.key.wide .label{ font-size:.82em; }
+.key.mark .glyph{ color:var(--accent-dk); }
+
+/* 上の帯で 名まえが 入りきらない ときは、右はしを うすく して
+   「まだ つづきが ある」ことが わかるように します */
+.topbar .members{
+    position:relative;
+    -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent 100%);
+    mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent 100%);
+}

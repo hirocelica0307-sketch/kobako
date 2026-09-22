@@ -11,6 +11,7 @@
 <div class="topbar">
     <div class="roomcode"><span class="sub">へや</span><b id="code">----</b></div>
     <div class="members" id="members"></div>
+    <button class="btn sub-btn" id="soundBtn" title="おとを 入れる／切る">おと</button>
     <button class="btn sub-btn" id="leave">でる</button>
 </div>
 
@@ -69,6 +70,9 @@
             <p class="sub">あなたの おだい</p>
             <div class="odai" id="odai">－－</div>
             <p class="count" id="answeredCount">まだ だれも あてていません</p>
+            <div class="row">
+                <button class="btn sub-btn" id="changeOdai">おだいを かえる</button>
+            </div>
         </div>
 
         <div id="answerPanel" class="hidden">
@@ -80,6 +84,7 @@
             </div>
         </div>
 
+        <p class="count hidden" id="waitingFor"></p>
         <div class="judge hidden" id="judge"></div>
 
         <div class="row">
