@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>テスト｜おつよん</title>
+<link rel="stylesheet" href="style.css">
+<style>
+ .t{ padding:6px 10px; border-bottom:1px solid var(--line); font-size:14px; }
+ .t.ok::before{ content:'OK '; color:var(--ok); font-weight:700; }
+ .t.ng{ background:rgba(192,57,43,.12); }
+ .t.ng::before{ content:'NG '; color:var(--ng); font-weight:700; }
+</style>
+</head>
+<body>
+<header class="bar"><a class="back" href="index.html">← もどる</a><h1 class="logo">テスト</h1></header>
+<div class="wrap">
+  <div class="card">
+    <h2 id="head">じっこう中…</h2>
+    <div class="muted">このページは しくみが 正しく 動くかを 自動で たしかめます。学習データは 消えます。</div>
+  </div>
+  <div class="card" id="out"></div>
+</div>
+
+<script src="data/themes.js"></script>
+<script src="data/questions-official.js"></script>
+<script src="data/questions-extra.js"></script>
+<script src="data/questions-extra2.js"></script>
+<script src="data/knowledge.js"></script>
+<script src="store.js"></script>
+<script src="srs.js"></script>
+<script src="engine.js"></script>
+<script src="tests.js"></script>
+<script>
+(function(){
+  var res = O4Tests.runAll({
+    themes: OTSU4_THEMES, themeMap: OTSU4_THEME_MAP, subjects: OTSU4_SUBJECTS,
+    questions: OTSU4_QUESTIONS, cards: OTSU4_CARDS,
+    store: O4Store, srs: O4Srs, engine: O4Engine
+  });
+  var ng = res.filter(function(r){ return !r.pass; }).length;
+  document.getElementById('head').textContent = (res.length - ng) + ' / ' + res.length + ' 通過' + (ng ? '（NGあり）' : '　ぜんぶ OK');
+  document.getElementById('out').innerHTML = res.map(function(r){
+    return '<div class="t ' + (r.pass ? 'ok' : 'ng') + '">' + r.name + (r.pass ? '' : '　' + r.detail) + '</div>';
+  }).join('');
+})();
+</script>
+</body>
+</html>

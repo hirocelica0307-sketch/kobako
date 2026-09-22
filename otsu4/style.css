@@ -1,0 +1,168 @@
+/* おつよん ― 見た目 */
+:root{
+  --bg:#f5f6f8; --card:#fff; --ink:#1c2024; --sub:#5b6570; --line:#dfe3e8;
+  --main:#c0392b; --main-d:#93281c; --ok:#1f8a54; --ng:#c0392b; --warn:#c9820a;
+  --law:#2a78d6; --phys:#1baf7a; --prop:#eb6834;
+  --seq1:#cde2fb; --seq2:#9ec5f4; --seq3:#5598e7; --seq4:#2a78d6; --seq5:#256abf; --seq6:#184f95;
+  --surface:#fff; --track:#e8ebee;
+  --r:14px; --sh:0 1px 3px rgba(0,0,0,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#15181c; --card:#1e2227; --ink:#eceff3; --sub:#9aa5b1; --line:#2e343b;
+         --law:#3987e5; --phys:#199e70; --prop:#d95926;
+         --seq1:#104281; --seq2:#184f95; --seq3:#256abf; --seq4:#3987e5; --seq5:#6da7ec; --seq6:#b7d3f6;
+         --surface:#1e2227; --track:#2e343b; --sh:0 1px 3px rgba(0,0,0,.4); }
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  line-height:1.7; font-size:16px; padding-bottom:40px;
+}
+a{ color:inherit; }
+
+/* ---- ヘッダー ---- */
+.bar{
+  position:sticky; top:0; z-index:20; background:var(--main); color:#fff;
+  display:flex; align-items:center; gap:10px; padding:10px 16px;
+}
+.bar .logo{ font-size:17px; font-weight:700; margin:0; }
+.bar .spacer{ flex:1; }
+.bar a.back{ color:#fff; text-decoration:none; font-size:14px; opacity:.9; }
+.wrap{ max-width:760px; margin:0 auto; padding:16px; }
+
+/* ---- 箱 ---- */
+.card{ background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:16px; margin:0 0 14px; box-shadow:var(--sh); }
+.card h2{ margin:0 0 10px; font-size:17px; }
+.card h3{ margin:14px 0 6px; font-size:15px; color:var(--sub); }
+.muted{ color:var(--sub); font-size:13px; }
+.center{ text-align:center; }
+
+/* ---- ボタン ---- */
+.btn{
+  display:inline-block; border:none; border-radius:10px; padding:12px 16px;
+  background:var(--main); color:#fff; font-size:15px; font-weight:600;
+  cursor:pointer; text-decoration:none; text-align:center; font-family:inherit;
+}
+.btn:active{ background:var(--main-d); }
+.btn.ghost{ background:transparent; color:var(--ink); border:1px solid var(--line); }
+.btn.wide{ display:block; width:100%; margin:6px 0; }
+.btn.sm{ padding:8px 12px; font-size:14px; }
+.btn[disabled]{ opacity:.45; cursor:default; }
+.row{ display:flex; gap:8px; flex-wrap:wrap; }
+.row > *{ flex:1; }
+
+/* ---- メニュー ---- */
+.menu a{
+  display:flex; align-items:center; gap:12px; text-decoration:none;
+  background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+  padding:14px 16px; margin-bottom:10px; box-shadow:var(--sh);
+}
+.menu .ico{ font-size:24px; width:32px; text-align:center; }
+.menu .t{ font-weight:700; }
+.menu .d{ font-size:13px; color:var(--sub); }
+
+/* ---- メーター ---- */
+.meter{ height:10px; background:var(--line); border-radius:6px; overflow:hidden; margin:4px 0 2px; }
+.meter > i{ display:block; height:100%; background:var(--ok); }
+.meter.law > i{ background:var(--law); }
+.meter.phys > i{ background:var(--phys); }
+.meter.prop > i{ background:var(--prop); }
+.mrow{ margin-bottom:12px; }
+.mrow .lab{ display:flex; justify-content:space-between; font-size:14px; }
+
+/* ---- 学習カード ---- */
+.face{ min-height:120px; display:flex; align-items:center; justify-content:center; text-align:center; font-size:20px; font-weight:700; padding:20px 10px; }
+.back-face{ font-size:19px; font-weight:700; color:var(--ok); }
+.hint{ font-size:14px; color:var(--warn); margin-top:8px; }
+.note{ font-size:13px; color:var(--sub); margin-top:8px; }
+.tag{ display:inline-block; font-size:12px; padding:2px 8px; border-radius:999px; background:var(--line); color:var(--sub); margin-right:6px; }
+.tag.law{ background:var(--law); color:#fff; }
+.tag.phys{ background:var(--phys); color:#fff; }
+.tag.prop{ background:var(--prop); color:#fff; }
+.star{ color:var(--warn); font-size:13px; letter-spacing:1px; }
+
+/* ---- 問題 ---- */
+.qtext{ font-size:16px; font-weight:600; white-space:pre-wrap; margin:6px 0 14px; }
+.choices{ list-style:none; margin:0; padding:0; }
+.choices li{ margin-bottom:8px; }
+.choice{
+  display:flex; gap:10px; width:100%; text-align:left; align-items:flex-start;
+  background:var(--card); border:1px solid var(--line); border-radius:10px;
+  padding:12px 14px; font-size:15px; font-family:inherit; color:inherit; cursor:pointer; line-height:1.6;
+}
+.choice .n{ font-weight:700; color:var(--sub); flex:0 0 auto; }
+.choice.sel{ border-color:var(--main); }
+.choice.ok{ border-color:var(--ok); background:rgba(31,138,84,.10); }
+.choice.ng{ border-color:var(--ng); background:rgba(192,57,43,.10); }
+.judge{ font-size:18px; font-weight:700; margin:10px 0 6px; }
+.judge.ok{ color:var(--ok); } .judge.ng{ color:var(--ng); }
+.explain{ background:rgba(127,127,127,.08); border-radius:10px; padding:12px 14px; font-size:14px; }
+.explain b{ display:block; margin-bottom:2px; }
+.explain p{ margin:0 0 10px; }
+.progress{ font-size:13px; color:var(--sub); margin-bottom:8px; }
+
+/* ---- 本番のタイマー ---- */
+.timer{ font-variant-numeric:tabular-nums; font-weight:700; }
+.timer.warn{ color:#ffe08a; }
+.grid5{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+.grid5 button{ padding:8px 0; border-radius:8px; border:1px solid var(--line); background:var(--card); color:inherit; font-family:inherit; cursor:pointer; }
+.grid5 button.done{ background:var(--line); font-weight:700; }
+.grid5 button.now{ outline:2px solid var(--main); }
+
+/* ---- 結果 ---- */
+.result{ font-size:28px; font-weight:800; text-align:center; margin:10px 0; }
+.result.pass{ color:var(--ok); } .result.fail{ color:var(--ng); }
+table.sc{ width:100%; border-collapse:collapse; font-size:14px; }
+table.sc th, table.sc td{ border-bottom:1px solid var(--line); padding:8px 4px; text-align:left; }
+table.sc td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+
+/* ---- 計算問題の 途中式 ---- */
+.steps{ margin:8px 0 12px; }
+.step{
+  border-left:4px solid var(--main); background:rgba(127,127,127,.08);
+  border-radius:0 8px 8px 0; padding:10px 12px; margin-bottom:8px; font-size:14px;
+}
+.step b{ display:block; margin-bottom:2px; }
+.step span{ font-variant-numeric:tabular-nums; }
+.trick{
+  border:1px dashed var(--warn); border-radius:8px; padding:10px 12px;
+  font-size:14px; background:rgba(201,130,10,.08);
+}
+.trick b{ display:block; margin-bottom:2px; color:var(--warn); }
+
+/* ---- まちがえたときに 出る 知識カード ---- */
+.kcard{
+  border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:8px;
+}
+.kcard b{ display:block; font-size:14px; }
+.kcard span{ display:block; font-size:15px; font-weight:700; color:var(--ok); margin-top:2px; }
+.kcard i{ display:block; font-size:13px; color:var(--warn); font-style:normal; margin-top:2px; }
+
+/* ---- グラフ ---- */
+.viz{ display:block; width:100%; height:auto; overflow:visible; font-family:inherit; }
+.viz-grid{ stroke:var(--line); stroke-width:1; }
+.viz-ref{ stroke:var(--sub); stroke-width:1; opacity:.7; }
+.viz-axis{ fill:var(--sub); font-size:11px; }
+.viz-val{ fill:var(--ink); font-size:12px; font-weight:700; }
+.viz-inlab{ font-size:11px; font-weight:700; }
+.viz-track{ fill:var(--track); }
+.viz-dot{ stroke:var(--card); stroke-width:2; }
+.viz-legend{ display:flex; flex-wrap:wrap; gap:12px; margin-top:8px; font-size:13px; color:var(--sub); }
+.viz-legend.small{ font-size:12px; gap:8px; }
+.viz-legend i{ display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+.viz-tip{
+  position:fixed; z-index:99; display:none; pointer-events:none;
+  background:var(--ink); color:var(--bg); font-size:12px; line-height:1.5;
+  padding:6px 9px; border-radius:8px; max-width:220px;
+}
+.viz-tip b{ display:block; }
+
+/* 数字タイル */
+.tiles{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+.tile{ border:1px solid var(--line); border-radius:12px; padding:12px; }
+.tile .lab{ font-size:12px; color:var(--sub); }
+.tile .val{ font-size:26px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.2; }
+.tile .sub{ font-size:12px; color:var(--sub); }
+.viz-labbg{ fill:var(--card); opacity:.92; }
