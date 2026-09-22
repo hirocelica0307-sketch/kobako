@@ -113,14 +113,32 @@
               <option value="serial">いつも 並べ（一二／二〇二六）</option>
               <option value="keep">算用数字の まま</option>
             </select></label>
-          <label class="set-row"><span>行頭の 句読点を 前のマスに 詰める</span><input type="checkbox" id="setHang"></label>
-          <label class="set-row"><span>小さい字（っ ゃ ー）も 前のマスに 詰める</span><input type="checkbox" id="setSmallKana"></label>
+          <label class="set-row"><span>小数点を 中黒に する（三十二・五）</span><input type="checkbox" id="setDecimal"></label>
+          <label class="set-row"><span>アルファベット</span>
+            <select id="setLatin">
+              <option value="rule">大文字1字・小文字2字（よこ向き）</option>
+              <option value="perCell">ぜんぶ 1マス1字</option>
+            </select></label>
+          <label class="set-row"><span>行頭の 句読点を 前の行へ まわす</span><input type="checkbox" id="setHang"></label>
+          <label class="set-row"><span>まわし方</span>
+            <select id="setHangStyle">
+              <option value="inside">前のマスに 一緒に 入れる</option>
+              <option value="outside">マスの 外に ぶら下げる</option>
+            </select></label>
+          <label class="set-row"><span>小さい字（っ ゃ ー）も 前の行へ まわす</span><input type="checkbox" id="setSmallKana"></label>
           <label class="set-row"><span>「。」」を 1マスに まとめる</span><input type="checkbox" id="setKuten"></label>
           <label class="set-row"><span>会話文は 改行して 1マス目から</span><input type="checkbox" id="setDialogue"></label>
-          <label class="set-row"><span>「」が とじたら 改行して つぎも 1マス目から</span><input type="checkbox" id="setAfterQuote"></label>
+          <label class="set-row"><span>「」を とじた あとの 改行</span>
+            <select id="setAfterQuote">
+              <option value="dialogue">会話文だけ 改行（思ったことは そのまま）</option>
+              <option value="always">どの「」でも 改行する</option>
+              <option value="never">改行しない</option>
+            </select></label>
           <label class="set-row"><span>！ ？ の あとを 1マス あける</span><input type="checkbox" id="setBangSpace"></label>
           <label class="set-row"><span>…… —— を 2マス つかう</span><input type="checkbox" id="setEllipsis"></label>
+          <label class="set-row"><span>…… —— の 2マス目を 行頭に 置かない</span><input type="checkbox" id="setPair"></label>
           <label class="set-row"><span>行末の 「 を つぎの行へ 送る</span><input type="checkbox" id="setPushOpen"></label>
+          <label class="set-row"><span>長い 題名を つぎの行へ 分ける</span><input type="checkbox" id="setWrapTitle"></label>
           <p class="hint">きまりの くわしい 説明は <code>docs/RULES.md</code> に あります。</p>
         </div>
 

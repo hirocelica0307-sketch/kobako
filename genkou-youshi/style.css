@@ -192,3 +192,14 @@ body.nofix .cell.fix{ background:transparent; }
 .cell.hang .tail span.tk{ font-size:1.3em; }
 @media print{ .sheet-no{ display:none; } .sheet-wrap{ margin:0 auto; page-break-after:always; break-after:page; }
   .sheet-wrap:last-child{ page-break-after:auto; break-after:auto; } }
+
+/* ---------- アルファベット ---------- */
+.cell.lat1 span{                       /* 大文字は 1マス1字、たてに そのまま */
+  font-family:"Times New Roman",serif; font-size:.9em;
+}
+.cell.lat2 .latpair{                   /* 小文字は 1マス2字、よこ向きに */
+  display:block; white-space:nowrap; transform:rotate(90deg);
+  font-family:"Times New Roman",serif; font-size:.62em; letter-spacing:0;
+}
+/* ---------- 句読点を マスの 外に ぶら下げる とき ---------- */
+.sheet.hang-out .cell.hang .tail{ bottom:auto; top:100%; right:0; }

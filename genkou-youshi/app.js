@@ -17,9 +17,11 @@ const el = {
   setTitleOn:$('setTitleOn'), setTitleAlign:$('setTitleAlign'), setTitleIndent:$('setTitleIndent'),
   setNameOn:$('setNameOn'), setNameBottom:$('setNameBottom'), setNameGap:$('setNameGap'),
   setBodyGap:$('setBodyGap'), bodyGapHint:$('bodyGapHint'), setParaIndent:$('setParaIndent'),
-  setNumbers:$('setNumbers'), setHang:$('setHang'), setSmallKana:$('setSmallKana'),
+  setNumbers:$('setNumbers'), setDecimal:$('setDecimal'), setLatin:$('setLatin'),
+  setHang:$('setHang'), setHangStyle:$('setHangStyle'), setSmallKana:$('setSmallKana'),
   setKuten:$('setKuten'), setDialogue:$('setDialogue'), setAfterQuote:$('setAfterQuote'),
-  setBangSpace:$('setBangSpace'), setEllipsis:$('setEllipsis'), setPushOpen:$('setPushOpen'),
+  setBangSpace:$('setBangSpace'), setEllipsis:$('setEllipsis'), setPair:$('setPair'),
+  setPushOpen:$('setPushOpen'), setWrapTitle:$('setWrapTitle'),
   setCode:$('setCode'), btnCodeOut:$('btnCodeOut'), btnCodeIn:$('btnCodeIn'),
   btnReset:$('btnReset'), setMsg:$('setMsg')
 };
@@ -69,10 +71,12 @@ function sizeCells(){
 }
 
 /* 1つの マスに 字を 入れる。
-   ・ふつうの マス              … 1字を まんなかに
-   ・詰めた マス（「た。」「けっ」）… もとの 字は そのままの 大きさ、あとの 字は 小さく 右下に
-   ・句読点だけの マス（「。」」）  … 2つとも 小さく たてに ならべる   */
-function fillCell(d, text){
+   ・ふつうの マス                … 1字を まんなかに
+   ・アルファベット（小文字）       … 1マスに 2字、よこ向きに
+   ・詰めた マス（「た。」「けっ」） … もとの 字は そのままの 大きさ、あとの 字は 小さく 右下に
+   ・句読点だけの マス（「。」」）   … 2つとも 小さく たてに ならべる   */
+function fillCell(d, cell){
+  const text  = cell.text;
   const chars = Array.from(text);
   const mkSpan = ch => {
     const s = document.createElement('span');
@@ -81,6 +85,23 @@ function fillCell(d, text){
     if(k) s.className = k;
     return s;
   };
+
+  if(cell.cls === 'lat2'){            // 小文字は 1マスに 2字（よこ向き）
+    d.classList.add('lat2');
+    const s = document.createElement('span');
+    s.className = 'latpair';
+    s.textContent = text;
+    d.appendChild(s);
+    return;
+  }
+  if(cell.cls === 'lat1'){            // 大文字は 1マスに 1字
+    d.classList.add('lat1');
+    const s = document.createElement('span');
+    s.textContent = text;
+    d.appendChild(s);
+    return;
+  }
+
   if(chars.length === 1){ d.appendChild(mkSpan(chars[0])); return; }
 
   if(GY_NO_LINE_START.indexOf(chars[0]) >= 0){   // 「。」」のような 句読点だけの マス
@@ -110,7 +131,7 @@ function render(){
   const frag = document.createDocumentFragment();
   res.pages.forEach((pg, i) => {
     const sheet = document.createElement('div');
-    sheet.className = 'sheet';
+    sheet.className = 'sheet' + (cfg.hangStyle === 'outside' ? ' hang-out' : '');
     const label = document.createElement('div');
     label.className = 'sheet-no';
     label.textContent = (i + 1) + ' / ' + res.pages.length + ' まい目';
@@ -123,7 +144,7 @@ function render(){
           + (cell && cell.fix  ? ' fix'  : '')
           + (cell && cell.note ? ' note' : '');
         if(cell){
-          fillCell(d, cell.text);
+          fillCell(d, cell);
           const why = [];
           if(cell.note) why.push(cell.note);
           if(cell.fix && GY_FIX_LABEL[cell.fix]) why.push(GY_FIX_LABEL[cell.fix]);
@@ -183,14 +204,19 @@ function loadSettingsForm(){
   el.setBodyGap.value     = String(cfg.bodyGapColumns || 0);
   el.setParaIndent.value  = cfg.paragraphIndent;
   el.setNumbers.value     = cfg.numbers;
+  el.setDecimal.checked   = !!cfg.decimalNakaguro;
+  el.setLatin.value       = cfg.latinStyle;
   el.setHang.checked      = !!cfg.hangPunctuation;
+  el.setHangStyle.value   = cfg.hangStyle;
   el.setSmallKana.checked = !!cfg.hangSmallKana;
   el.setKuten.checked     = !!cfg.combineKutenBracket;
   el.setDialogue.checked  = !!cfg.dialogueNewline;
-  el.setAfterQuote.checked= !!cfg.newlineAfterQuote;
+  el.setAfterQuote.value  = cfg.quoteNewline;
   el.setBangSpace.checked = !!cfg.spaceAfterBangQuestion;
   el.setEllipsis.checked  = !!cfg.ellipsisTwoCells;
+  el.setPair.checked      = !!cfg.keepPairTogether;
   el.setPushOpen.checked  = !!cfg.pushOpenBracket;
+  el.setWrapTitle.checked = !!cfg.wrapLongTitle;
   bodyGapHint();
 }
 
@@ -213,14 +239,19 @@ function applySettingsForm(){
   cfg.paragraphIndent= num(el.setParaIndent, 0, 3, cfg.paragraphIndent);
 
   cfg.numbers               = el.setNumbers.value;
+  cfg.decimalNakaguro       = el.setDecimal.checked;
+  cfg.latinStyle            = el.setLatin.value;
   cfg.hangPunctuation       = el.setHang.checked;
+  cfg.hangStyle             = el.setHangStyle.value;
   cfg.hangSmallKana         = el.setSmallKana.checked;
   cfg.combineKutenBracket   = el.setKuten.checked;
   cfg.dialogueNewline       = el.setDialogue.checked;
-  cfg.newlineAfterQuote     = el.setAfterQuote.checked;
+  cfg.quoteNewline          = el.setAfterQuote.value;
   cfg.spaceAfterBangQuestion= el.setBangSpace.checked;
   cfg.ellipsisTwoCells      = el.setEllipsis.checked;
+  cfg.keepPairTogether      = el.setPair.checked;
   cfg.pushOpenBracket       = el.setPushOpen.checked;
+  cfg.wrapLongTitle         = el.setWrapTitle.checked;
 
   el.rowTitle.style.display = cfg.title.enabled ? '' : 'none';
   el.rowName .style.display = cfg.name.enabled  ? '' : 'none';
@@ -263,8 +294,9 @@ el.btnCloseSet.addEventListener('click', () => { el.panel.hidden = true; renderS
 
 [ el.setChars, el.setCols, el.setTitleOn, el.setTitleAlign, el.setTitleIndent,
   el.setNameOn, el.setNameBottom, el.setNameGap, el.setBodyGap, el.setParaIndent,
-  el.setNumbers, el.setHang, el.setSmallKana, el.setKuten, el.setDialogue,
-  el.setAfterQuote, el.setBangSpace, el.setEllipsis, el.setPushOpen
+  el.setNumbers, el.setDecimal, el.setLatin, el.setHang, el.setHangStyle,
+  el.setSmallKana, el.setKuten, el.setDialogue, el.setAfterQuote,
+  el.setBangSpace, el.setEllipsis, el.setPair, el.setPushOpen, el.setWrapTitle
 ].forEach(x => x.addEventListener('change', applySettingsForm));
 
 el.btnCodeOut.addEventListener('click', () => {

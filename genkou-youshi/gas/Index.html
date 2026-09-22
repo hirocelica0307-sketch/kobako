@@ -203,6 +203,17 @@ body.nofix .cell.fix{ background:transparent; }
 @media print{ .sheet-no{ display:none; } .sheet-wrap{ margin:0 auto; page-break-after:always; break-after:page; }
   .sheet-wrap:last-child{ page-break-after:auto; break-after:auto; } }
 
+/* ---------- アルファベット ---------- */
+.cell.lat1 span{                       /* 大文字は 1マス1字、たてに そのまま */
+  font-family:"Times New Roman",serif; font-size:.9em;
+}
+.cell.lat2 .latpair{                   /* 小文字は 1マス2字、よこ向きに */
+  display:block; white-space:nowrap; transform:rotate(90deg);
+  font-family:"Times New Roman",serif; font-size:.62em; letter-spacing:0;
+}
+/* ---------- 句読点を マスの 外に ぶら下げる とき ---------- */
+.sheet.hang-out .cell.hang .tail{ bottom:auto; top:100%; right:0; }
+
 </style>
 </head>
 <body>
@@ -310,14 +321,32 @@ body.nofix .cell.fix{ background:transparent; }
               <option value="serial">いつも 並べ（一二／二〇二六）</option>
               <option value="keep">算用数字の まま</option>
             </select></label>
-          <label class="set-row"><span>行頭の 句読点を 前のマスに 詰める</span><input type="checkbox" id="setHang"></label>
-          <label class="set-row"><span>小さい字（っ ゃ ー）も 前のマスに 詰める</span><input type="checkbox" id="setSmallKana"></label>
+          <label class="set-row"><span>小数点を 中黒に する（三十二・五）</span><input type="checkbox" id="setDecimal"></label>
+          <label class="set-row"><span>アルファベット</span>
+            <select id="setLatin">
+              <option value="rule">大文字1字・小文字2字（よこ向き）</option>
+              <option value="perCell">ぜんぶ 1マス1字</option>
+            </select></label>
+          <label class="set-row"><span>行頭の 句読点を 前の行へ まわす</span><input type="checkbox" id="setHang"></label>
+          <label class="set-row"><span>まわし方</span>
+            <select id="setHangStyle">
+              <option value="inside">前のマスに 一緒に 入れる</option>
+              <option value="outside">マスの 外に ぶら下げる</option>
+            </select></label>
+          <label class="set-row"><span>小さい字（っ ゃ ー）も 前の行へ まわす</span><input type="checkbox" id="setSmallKana"></label>
           <label class="set-row"><span>「。」」を 1マスに まとめる</span><input type="checkbox" id="setKuten"></label>
           <label class="set-row"><span>会話文は 改行して 1マス目から</span><input type="checkbox" id="setDialogue"></label>
-          <label class="set-row"><span>「」が とじたら 改行して つぎも 1マス目から</span><input type="checkbox" id="setAfterQuote"></label>
+          <label class="set-row"><span>「」を とじた あとの 改行</span>
+            <select id="setAfterQuote">
+              <option value="dialogue">会話文だけ 改行（思ったことは そのまま）</option>
+              <option value="always">どの「」でも 改行する</option>
+              <option value="never">改行しない</option>
+            </select></label>
           <label class="set-row"><span>！ ？ の あとを 1マス あける</span><input type="checkbox" id="setBangSpace"></label>
           <label class="set-row"><span>…… —— を 2マス つかう</span><input type="checkbox" id="setEllipsis"></label>
+          <label class="set-row"><span>…… —— の 2マス目を 行頭に 置かない</span><input type="checkbox" id="setPair"></label>
           <label class="set-row"><span>行末の 「 を つぎの行へ 送る</span><input type="checkbox" id="setPushOpen"></label>
+          <label class="set-row"><span>長い 題名を つぎの行へ 分ける</span><input type="checkbox" id="setWrapTitle"></label>
           <p class="hint">きまりの くわしい 説明は <code>docs/RULES.md</code> に あります。</p>
         </div>
 
@@ -372,15 +401,27 @@ const GY_DEFAULTS = {
   paragraphIndent : 1,   // 段落の はじめに あける マスの 数
 
   /* ---- 原稿用紙の きまり ---- */
-  hangPunctuation      : true,  // ② 行頭に 来る 句読点・とじかぎを 前のマスに 入れる
-  hangSmallKana        : true,  // ⑧ 小さい字（っ ゃ ー）も 同じく 前のマスに 入れる
-  combineKutenBracket  : true,  // ③ 「。」」を 1マスに まとめる
-  dialogueNewline      : true,  // ④ 会話文は 改行して 1マス目から
-  newlineAfterQuote    : true,  // ⑤ 「」が とじたら 改行して つぎも 1マス目から
-  numbers              : 'mixed', // ① 'mixed'=使い分け / 'positional'=位取り / 'serial'=並べ / 'keep'=算用数字のまま
-  spaceAfterBangQuestion: true, // ⑩ ！ ？ の あとを 1マス あける
-  ellipsisTwoCells     : true,  // ⑪ …… —— は 2マス つかう
-  pushOpenBracket      : true   // ⑫ 行の おわりに 来た 「 は つぎの行へ おくる
+  hangPunctuation      : true,  // 行頭に 来る 句読点・とじかぎを 前のマスに 入れる
+  hangStyle            : 'inside', // 'inside'=前のマスに 一緒に / 'outside'=マスの 外に ぶら下げる
+  hangSmallKana        : false, // 小さい字（っ ゃ ー）も 同じく 前のマスに 入れるか
+                                //   false … そのまま 行の はじめに 書く（一般的）
+                                //   true  … 句読点と 同じく 前のマスに 詰める
+  combineKutenBracket  : true,  // 「。」」を 1マスに まとめる
+  dialogueNewline      : true,  // 会話文は 改行して 1マス目から
+  quoteNewline         : 'dialogue', // 「」を とじた あとの 改行
+                                //   'dialogue' … 文の はじめの「」＝会話文だけ 改行する。
+                                //                文の 途中の「」（思ったこと・引用）は 改行しない
+                                //   'always'   … どの「」でも 改行する
+                                //   'never'    … 改行しない
+  numbers              : 'mixed', // 'mixed'=使い分け / 'positional'=位取り / 'serial'=並べ / 'keep'=算用数字のまま
+  decimalNakaguro      : true,  // 小数点を 中黒に する（三十二・五）
+  latinStyle           : 'rule',// 'rule'=大文字は 1マス1字・小文字は 1マス2字（よこ向き）
+                                // 'perCell'=ぜんぶ 1マス1字
+  spaceAfterBangQuestion: true, // ！ ？ の あとを 1マス あける
+  ellipsisTwoCells     : true,  // …… —— は 2マス つかう
+  keepPairTogether     : true,  // …… —— の 2マス目が 行頭に 来ないように する
+  pushOpenBracket      : true,  // 行の おわりに 来た 「 は つぎの行へ おくる
+  wrapLongTitle        : true   // 1行に 入りきらない 題名は つぎの行へ 分ける
 };
 
 /* 設定を 1つに まぜあわせる（あさい ものだけ 上書き） */
@@ -410,9 +451,13 @@ function gyUpgradeSettings(s){
   if(s.smallKanaAtLineStart !== undefined && s.hangSmallKana === undefined){
     out.hangSmallKana = !s.smallKanaAtLineStart;
   }
+  if(s.newlineAfterQuote !== undefined && s.quoteNewline === undefined){
+    out.quoteNewline = s.newlineAfterQuote ? 'dialogue' : 'never';
+  }
   delete out.bodyStartColumn;
   delete out.smallKanaAtLineStart;
   delete out.pages;
+  delete out.newlineAfterQuote;
   delete out.id;
   delete out.label;
   return out;
@@ -514,18 +559,27 @@ function gyNormalize(src, cfg){
     for(let i = 0; i < chars.length; i++){
       const c = chars[i];
 
-      /* 数字の ならび */
+      /* 数字の ならび（小数点も ふくむ） */
       if(/[0-9０-９]/.test(c)){
         const before = chars[i-1] || '';
+        const half = d => d.replace(/[０-９]/, x => String.fromCharCode(x.charCodeAt(0) - 0xfee0));
         let run = '';
-        while(i < chars.length && /[0-9０-９]/.test(chars[i])){
-          run += chars[i].replace(/[０-９]/, d => String.fromCharCode(d.charCodeAt(0) - 0xfee0));
+        while(i < chars.length && /[0-9０-９]/.test(chars[i])){ run += half(chars[i]); i++; }
+        /* 小数（32.5）は 中黒で つなぐ */
+        let dec = '';
+        if(cfg.decimalNakaguro && /[.．]/.test(chars[i] || '') && /[0-9０-９]/.test(chars[i+1] || '')){
           i++;
+          while(i < chars.length && /[0-9０-９]/.test(chars[i])){ dec += half(chars[i]); i++; }
         }
         const after = chars[i] || '';
-        const conv = gyDigitsToKanji(run, after, cfg.numbers, before);
+        let conv = gyDigitsToKanji(run, dec ? '' : after, cfg.numbers, before);
+        let src  = run;
+        if(dec){
+          conv += '・' + gyKanjiSerial(dec);   // 小数点いかは 1けたずつ
+          src  += '.' + dec;
+        }
         i--;
-        const changed = (conv !== run);
+        const changed = (conv !== src);
         for(const k of Array.from(conv)) units.push({ c:k, fix: changed ? 'num' : '' });
         if(changed) addFix('num');
         continue;
@@ -565,6 +619,13 @@ function gyNormalize(src, cfg){
         continue;
       }
 
+      /* アルファベットは そのまま（1マスに 何字 入れるかは compose.js で きめる） */
+      if(/[A-Za-z]/.test(c)){ units.push({ c:c, fix:'' }); continue; }
+      if(/[Ａ-Ｚａ-ｚ]/.test(c)){
+        units.push({ c: String.fromCharCode(c.charCodeAt(0) - 0xfee0), fix:'' });
+        continue;
+      }
+
       /* 半角 → 全角 */
       const z = gyToZenkaku(c);
       units.push({ c:z, fix: z === c ? '' : 'zen' });
@@ -574,23 +635,36 @@ function gyNormalize(src, cfg){
   }
 
   /* 会話文の ところで 行を かえる
-     ・「 で はじまる かたまり      … 1マス目から（段落の 1マスあけは しない）
-     ・。「 の ところ                … つぎの 会話を 新しい行へ
-     ・」 で とじた つぎの 文字から … 新しい行の 1マス目から          */
-  const out = [];
+     ・文の はじめ（段落の 先頭、または 。！？ の すぐ あと）に 来る 「 … 会話文
+       → 行を かえて 1マス目から 書き、とじた あとも 行を かえる
+     ・文の 途中に 来る 「   … 思ったこと・引用・強調
+       → 行は かえず、そのまま つづける                                   */
+  const out  = [];
+  const mode = cfg.quoteNewline || 'dialogue';
+  const OPEN = '「『', CLOSE = '」』';
+  const ENDS = '。！？';
   for(const p of paragraphs){
-    if(!cfg.dialogueNewline && !cfg.newlineAfterQuote){ out.push(p); continue; }
-    let cur = [], curTop = false;
+    let cur = [], curTop = false, openIsDialogue = false;
     const flush = nextTop => {
-      if(cur.length) out.push({ units:cur, dialogue: curTop || cur[0].c === '「' });
+      if(cur.length) out.push({ units:cur, dialogue: curTop || OPEN.indexOf(cur[0].c) >= 0 });
       cur = []; curTop = nextTop;
     };
     for(let i = 0; i < p.units.length; i++){
       const u = p.units[i], nx = p.units[i+1];
+      if(OPEN.indexOf(u.c) >= 0){
+        const prev = cur[cur.length - 1];
+        const atStart = !prev || ENDS.indexOf(prev.c) >= 0;
+        if(atStart && cfg.dialogueNewline && cur.length) flush(false);
+        openIsDialogue = atStart;
+        cur.push(u);
+        continue;
+      }
       cur.push(u);
-      if(!nx) continue;
-      if(cfg.dialogueNewline && u.c === '。' && nx.c === '「'){ flush(false); continue; }
-      if(cfg.newlineAfterQuote && (u.c === '」' || u.c === '』')){ flush(true); continue; }
+      if(CLOSE.indexOf(u.c) >= 0 && nx){
+        const doBreak = (mode === 'always') || (mode === 'dialogue' && openIsDialogue);
+        openIsDialogue = false;
+        if(doBreak) flush(true);
+      }
     }
     flush(false);
   }
@@ -650,13 +724,38 @@ function gyBuildItems(paragraphs, cfg){
     items.push({ t:'newpara', indent: p.dialogue ? 0 : cfg.paragraphIndent });
     const u = p.units;
     for(let i = 0; i < u.length; i++){
-      const c = u[i].c, nx = u[i+1];
+      const c = u[i].c, nx = u[i+1], pv = u[i-1];
+
+      /* アルファベット ― 大文字だけの ことばは 1マス1字、
+         小文字を ふくむ ことばは 1マスに 2字（よこ向き）    */
+      if(/[A-Za-z]/.test(c)){
+        if(cfg.latinStyle !== 'rule'){
+          items.push({ t:'cell', text:c, fix:u[i].fix || '', cls:'lat1' });
+          continue;
+        }
+        let run = '', j = i;
+        while(j < u.length && /[A-Za-z]/.test(u[j].c)){ run += u[j].c; j++; }
+        i = j - 1;
+        if(/^[A-Z]+$/.test(run)){
+          for(const ch of run) items.push({ t:'cell', text:ch, fix:'', cls:'lat1' });
+        }else{
+          for(let k = 0; k < run.length; k += 2){
+            items.push({ t:'cell', text: run.substr(k, 2), fix:'', cls:'lat2' });
+          }
+        }
+        continue;
+      }
+
       /* 「。」」を 1マスに */
       if(cfg.combineKutenBracket && (c === '。' || c === '、') && nx && GY_CLOSE.indexOf(nx.c) >= 0){
         items.push({ t:'cell', text: c + nx.c, fix: u[i].fix || nx.fix || '', cls:'multi', note: GY_NOTE.kuten });
         i++; continue;
       }
-      items.push({ t:'cell', text:c, fix:u[i].fix || '', cls: gyCls(c) });
+
+      /* …… —— の 2マス目は 行の はじめに 来ないように する */
+      const isPairTail = (c === '…' || c === '—') && pv && pv.c === c;
+      items.push({ t:'cell', text:c, fix:u[i].fix || '', cls: gyCls(c), noStart: isPairTail });
+
       /* ！ ？ の あとは 1マス あける */
       if(cfg.spaceAfterBangQuestion && (c === '！' || c === '？')){
         const after = nx ? nx.c : '';
@@ -689,7 +788,9 @@ function gyPlace(items, cfg){
     if(pos >= N){
       const prev = lastCell();
       const room = prev ? (Array.from(prev.text).length + Array.from(it.text).length) : 99;
-      if(cfg.hangPunctuation && prev && gyNoLineStart(it.text, cfg) && room <= 3){
+      const wantHang = (cfg.hangPunctuation && gyNoLineStart(it.text, cfg))
+                    || (cfg.keepPairTogether && it.noStart);
+      if(wantHang && prev && room <= 3){
         prev.text += it.text;
         prev.cls = 'multi';
         prev.note = GY_NOTE.hang;
@@ -720,17 +821,30 @@ function gyHeadColumns(title, name, cfg){
   const cols = [];
 
   if(cfg.title.enabled){
-    const col = blank();
-    const norm = gyNormalize(title || '', cfg).paragraphs[0];
+    const norm  = gyNormalize(title || '', cfg).paragraphs[0];
     const chars = norm ? norm.units.map(u => u.c) : [];
-    const start = (cfg.title.align === 'center')
-      ? Math.max(0, Math.floor((N - chars.length) / 2))
-      : Math.min(cfg.title.indent, Math.max(0, N - chars.length));
-    for(let i = 0; i < chars.length && start + i < N; i++){
-      col.cells[start + i] = { text: chars[i], cls: gyCls(chars[i]), role:'title', fix:'', note:'' };
+    const indent = (cfg.title.align === 'center') ? 0 : Math.min(cfg.title.indent, N - 1);
+    const room   = Math.max(1, N - indent);
+    /* 1行に 入りきらない 題名は つぎの行へ 分ける */
+    const lines = [];
+    if(!cfg.wrapLongTitle){
+      lines.push(chars.slice(0, room));
+    }else{
+      for(let i = 0; i < Math.max(1, Math.ceil(chars.length / room)); i++){
+        lines.push(chars.slice(i * room, (i + 1) * room));
+      }
     }
-    col.role = 'title';
-    cols.push(col);
+    for(const line of lines){
+      const col = blank();
+      const start = (cfg.title.align === 'center')
+        ? Math.max(0, Math.floor((N - line.length) / 2))
+        : Math.min(indent, Math.max(0, N - line.length));
+      for(let i = 0; i < line.length && start + i < N; i++){
+        col.cells[start + i] = { text: line[i], cls: gyCls(line[i]), role:'title', fix:'', note:'' };
+      }
+      col.role = 'title';
+      cols.push(col);
+    }
   }
 
   if(cfg.name.enabled){
@@ -778,8 +892,14 @@ function gyCompose(input, cfg){
     pages.push({ columns });
   }
 
+  /* 字数は「つかった マスの 数」で かぞえます
+     （1マス つかう ものは 句読点も かぎかっこも 1字と 数える きまりに 合わせる）*/
   let chars = 0;
-  for(const col of body) for(const cell of col.cells) if(cell) chars += Array.from(cell.text).length;
+  for(const col of body){
+    let last = -1;
+    for(let i = col.cells.length - 1; i >= 0; i--) if(col.cells[i]){ last = i; break; }
+    chars += last + 1;
+  }
 
   return { pages, columns: all.length, chars, fixes: norm.fixes };
 }
@@ -945,9 +1065,11 @@ const el = {
   setTitleOn:$('setTitleOn'), setTitleAlign:$('setTitleAlign'), setTitleIndent:$('setTitleIndent'),
   setNameOn:$('setNameOn'), setNameBottom:$('setNameBottom'), setNameGap:$('setNameGap'),
   setBodyGap:$('setBodyGap'), bodyGapHint:$('bodyGapHint'), setParaIndent:$('setParaIndent'),
-  setNumbers:$('setNumbers'), setHang:$('setHang'), setSmallKana:$('setSmallKana'),
+  setNumbers:$('setNumbers'), setDecimal:$('setDecimal'), setLatin:$('setLatin'),
+  setHang:$('setHang'), setHangStyle:$('setHangStyle'), setSmallKana:$('setSmallKana'),
   setKuten:$('setKuten'), setDialogue:$('setDialogue'), setAfterQuote:$('setAfterQuote'),
-  setBangSpace:$('setBangSpace'), setEllipsis:$('setEllipsis'), setPushOpen:$('setPushOpen'),
+  setBangSpace:$('setBangSpace'), setEllipsis:$('setEllipsis'), setPair:$('setPair'),
+  setPushOpen:$('setPushOpen'), setWrapTitle:$('setWrapTitle'),
   setCode:$('setCode'), btnCodeOut:$('btnCodeOut'), btnCodeIn:$('btnCodeIn'),
   btnReset:$('btnReset'), setMsg:$('setMsg')
 };
@@ -997,10 +1119,12 @@ function sizeCells(){
 }
 
 /* 1つの マスに 字を 入れる。
-   ・ふつうの マス              … 1字を まんなかに
-   ・詰めた マス（「た。」「けっ」）… もとの 字は そのままの 大きさ、あとの 字は 小さく 右下に
-   ・句読点だけの マス（「。」」）  … 2つとも 小さく たてに ならべる   */
-function fillCell(d, text){
+   ・ふつうの マス                … 1字を まんなかに
+   ・アルファベット（小文字）       … 1マスに 2字、よこ向きに
+   ・詰めた マス（「た。」「けっ」） … もとの 字は そのままの 大きさ、あとの 字は 小さく 右下に
+   ・句読点だけの マス（「。」」）   … 2つとも 小さく たてに ならべる   */
+function fillCell(d, cell){
+  const text  = cell.text;
   const chars = Array.from(text);
   const mkSpan = ch => {
     const s = document.createElement('span');
@@ -1009,6 +1133,23 @@ function fillCell(d, text){
     if(k) s.className = k;
     return s;
   };
+
+  if(cell.cls === 'lat2'){            // 小文字は 1マスに 2字（よこ向き）
+    d.classList.add('lat2');
+    const s = document.createElement('span');
+    s.className = 'latpair';
+    s.textContent = text;
+    d.appendChild(s);
+    return;
+  }
+  if(cell.cls === 'lat1'){            // 大文字は 1マスに 1字
+    d.classList.add('lat1');
+    const s = document.createElement('span');
+    s.textContent = text;
+    d.appendChild(s);
+    return;
+  }
+
   if(chars.length === 1){ d.appendChild(mkSpan(chars[0])); return; }
 
   if(GY_NO_LINE_START.indexOf(chars[0]) >= 0){   // 「。」」のような 句読点だけの マス
@@ -1038,7 +1179,7 @@ function render(){
   const frag = document.createDocumentFragment();
   res.pages.forEach((pg, i) => {
     const sheet = document.createElement('div');
-    sheet.className = 'sheet';
+    sheet.className = 'sheet' + (cfg.hangStyle === 'outside' ? ' hang-out' : '');
     const label = document.createElement('div');
     label.className = 'sheet-no';
     label.textContent = (i + 1) + ' / ' + res.pages.length + ' まい目';
@@ -1051,7 +1192,7 @@ function render(){
           + (cell && cell.fix  ? ' fix'  : '')
           + (cell && cell.note ? ' note' : '');
         if(cell){
-          fillCell(d, cell.text);
+          fillCell(d, cell);
           const why = [];
           if(cell.note) why.push(cell.note);
           if(cell.fix && GY_FIX_LABEL[cell.fix]) why.push(GY_FIX_LABEL[cell.fix]);
@@ -1111,14 +1252,19 @@ function loadSettingsForm(){
   el.setBodyGap.value     = String(cfg.bodyGapColumns || 0);
   el.setParaIndent.value  = cfg.paragraphIndent;
   el.setNumbers.value     = cfg.numbers;
+  el.setDecimal.checked   = !!cfg.decimalNakaguro;
+  el.setLatin.value       = cfg.latinStyle;
   el.setHang.checked      = !!cfg.hangPunctuation;
+  el.setHangStyle.value   = cfg.hangStyle;
   el.setSmallKana.checked = !!cfg.hangSmallKana;
   el.setKuten.checked     = !!cfg.combineKutenBracket;
   el.setDialogue.checked  = !!cfg.dialogueNewline;
-  el.setAfterQuote.checked= !!cfg.newlineAfterQuote;
+  el.setAfterQuote.value  = cfg.quoteNewline;
   el.setBangSpace.checked = !!cfg.spaceAfterBangQuestion;
   el.setEllipsis.checked  = !!cfg.ellipsisTwoCells;
+  el.setPair.checked      = !!cfg.keepPairTogether;
   el.setPushOpen.checked  = !!cfg.pushOpenBracket;
+  el.setWrapTitle.checked = !!cfg.wrapLongTitle;
   bodyGapHint();
 }
 
@@ -1141,14 +1287,19 @@ function applySettingsForm(){
   cfg.paragraphIndent= num(el.setParaIndent, 0, 3, cfg.paragraphIndent);
 
   cfg.numbers               = el.setNumbers.value;
+  cfg.decimalNakaguro       = el.setDecimal.checked;
+  cfg.latinStyle            = el.setLatin.value;
   cfg.hangPunctuation       = el.setHang.checked;
+  cfg.hangStyle             = el.setHangStyle.value;
   cfg.hangSmallKana         = el.setSmallKana.checked;
   cfg.combineKutenBracket   = el.setKuten.checked;
   cfg.dialogueNewline       = el.setDialogue.checked;
-  cfg.newlineAfterQuote     = el.setAfterQuote.checked;
+  cfg.quoteNewline          = el.setAfterQuote.value;
   cfg.spaceAfterBangQuestion= el.setBangSpace.checked;
   cfg.ellipsisTwoCells      = el.setEllipsis.checked;
+  cfg.keepPairTogether      = el.setPair.checked;
   cfg.pushOpenBracket       = el.setPushOpen.checked;
+  cfg.wrapLongTitle         = el.setWrapTitle.checked;
 
   el.rowTitle.style.display = cfg.title.enabled ? '' : 'none';
   el.rowName .style.display = cfg.name.enabled  ? '' : 'none';
@@ -1191,8 +1342,9 @@ el.btnCloseSet.addEventListener('click', () => { el.panel.hidden = true; renderS
 
 [ el.setChars, el.setCols, el.setTitleOn, el.setTitleAlign, el.setTitleIndent,
   el.setNameOn, el.setNameBottom, el.setNameGap, el.setBodyGap, el.setParaIndent,
-  el.setNumbers, el.setHang, el.setSmallKana, el.setKuten, el.setDialogue,
-  el.setAfterQuote, el.setBangSpace, el.setEllipsis, el.setPushOpen
+  el.setNumbers, el.setDecimal, el.setLatin, el.setHang, el.setHangStyle,
+  el.setSmallKana, el.setKuten, el.setDialogue, el.setAfterQuote,
+  el.setBangSpace, el.setEllipsis, el.setPair, el.setPushOpen, el.setWrapTitle
 ].forEach(x => x.addEventListener('change', applySettingsForm));
 
 el.btnCodeOut.addEventListener('click', () => {

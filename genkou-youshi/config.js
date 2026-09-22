@@ -29,15 +29,27 @@ const GY_DEFAULTS = {
   paragraphIndent : 1,   // 段落の はじめに あける マスの 数
 
   /* ---- 原稿用紙の きまり ---- */
-  hangPunctuation      : true,  // ② 行頭に 来る 句読点・とじかぎを 前のマスに 入れる
-  hangSmallKana        : true,  // ⑧ 小さい字（っ ゃ ー）も 同じく 前のマスに 入れる
-  combineKutenBracket  : true,  // ③ 「。」」を 1マスに まとめる
-  dialogueNewline      : true,  // ④ 会話文は 改行して 1マス目から
-  newlineAfterQuote    : true,  // ⑤ 「」が とじたら 改行して つぎも 1マス目から
-  numbers              : 'mixed', // ① 'mixed'=使い分け / 'positional'=位取り / 'serial'=並べ / 'keep'=算用数字のまま
-  spaceAfterBangQuestion: true, // ⑩ ！ ？ の あとを 1マス あける
-  ellipsisTwoCells     : true,  // ⑪ …… —— は 2マス つかう
-  pushOpenBracket      : true   // ⑫ 行の おわりに 来た 「 は つぎの行へ おくる
+  hangPunctuation      : true,  // 行頭に 来る 句読点・とじかぎを 前のマスに 入れる
+  hangStyle            : 'inside', // 'inside'=前のマスに 一緒に / 'outside'=マスの 外に ぶら下げる
+  hangSmallKana        : false, // 小さい字（っ ゃ ー）も 同じく 前のマスに 入れるか
+                                //   false … そのまま 行の はじめに 書く（一般的）
+                                //   true  … 句読点と 同じく 前のマスに 詰める
+  combineKutenBracket  : true,  // 「。」」を 1マスに まとめる
+  dialogueNewline      : true,  // 会話文は 改行して 1マス目から
+  quoteNewline         : 'dialogue', // 「」を とじた あとの 改行
+                                //   'dialogue' … 文の はじめの「」＝会話文だけ 改行する。
+                                //                文の 途中の「」（思ったこと・引用）は 改行しない
+                                //   'always'   … どの「」でも 改行する
+                                //   'never'    … 改行しない
+  numbers              : 'mixed', // 'mixed'=使い分け / 'positional'=位取り / 'serial'=並べ / 'keep'=算用数字のまま
+  decimalNakaguro      : true,  // 小数点を 中黒に する（三十二・五）
+  latinStyle           : 'rule',// 'rule'=大文字は 1マス1字・小文字は 1マス2字（よこ向き）
+                                // 'perCell'=ぜんぶ 1マス1字
+  spaceAfterBangQuestion: true, // ！ ？ の あとを 1マス あける
+  ellipsisTwoCells     : true,  // …… —— は 2マス つかう
+  keepPairTogether     : true,  // …… —— の 2マス目が 行頭に 来ないように する
+  pushOpenBracket      : true,  // 行の おわりに 来た 「 は つぎの行へ おくる
+  wrapLongTitle        : true   // 1行に 入りきらない 題名は つぎの行へ 分ける
 };
 
 /* 設定を 1つに まぜあわせる（あさい ものだけ 上書き） */
@@ -67,9 +79,13 @@ function gyUpgradeSettings(s){
   if(s.smallKanaAtLineStart !== undefined && s.hangSmallKana === undefined){
     out.hangSmallKana = !s.smallKanaAtLineStart;
   }
+  if(s.newlineAfterQuote !== undefined && s.quoteNewline === undefined){
+    out.quoteNewline = s.newlineAfterQuote ? 'dialogue' : 'never';
+  }
   delete out.bodyStartColumn;
   delete out.smallKanaAtLineStart;
   delete out.pages;
+  delete out.newlineAfterQuote;
   delete out.id;
   delete out.label;
   return out;

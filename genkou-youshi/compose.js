@@ -48,13 +48,38 @@ function gyBuildItems(paragraphs, cfg){
     items.push({ t:'newpara', indent: p.dialogue ? 0 : cfg.paragraphIndent });
     const u = p.units;
     for(let i = 0; i < u.length; i++){
-      const c = u[i].c, nx = u[i+1];
+      const c = u[i].c, nx = u[i+1], pv = u[i-1];
+
+      /* アルファベット ― 大文字だけの ことばは 1マス1字、
+         小文字を ふくむ ことばは 1マスに 2字（よこ向き）    */
+      if(/[A-Za-z]/.test(c)){
+        if(cfg.latinStyle !== 'rule'){
+          items.push({ t:'cell', text:c, fix:u[i].fix || '', cls:'lat1' });
+          continue;
+        }
+        let run = '', j = i;
+        while(j < u.length && /[A-Za-z]/.test(u[j].c)){ run += u[j].c; j++; }
+        i = j - 1;
+        if(/^[A-Z]+$/.test(run)){
+          for(const ch of run) items.push({ t:'cell', text:ch, fix:'', cls:'lat1' });
+        }else{
+          for(let k = 0; k < run.length; k += 2){
+            items.push({ t:'cell', text: run.substr(k, 2), fix:'', cls:'lat2' });
+          }
+        }
+        continue;
+      }
+
       /* 「。」」を 1マスに */
       if(cfg.combineKutenBracket && (c === '。' || c === '、') && nx && GY_CLOSE.indexOf(nx.c) >= 0){
         items.push({ t:'cell', text: c + nx.c, fix: u[i].fix || nx.fix || '', cls:'multi', note: GY_NOTE.kuten });
         i++; continue;
       }
-      items.push({ t:'cell', text:c, fix:u[i].fix || '', cls: gyCls(c) });
+
+      /* …… —— の 2マス目は 行の はじめに 来ないように する */
+      const isPairTail = (c === '…' || c === '—') && pv && pv.c === c;
+      items.push({ t:'cell', text:c, fix:u[i].fix || '', cls: gyCls(c), noStart: isPairTail });
+
       /* ！ ？ の あとは 1マス あける */
       if(cfg.spaceAfterBangQuestion && (c === '！' || c === '？')){
         const after = nx ? nx.c : '';
@@ -87,7 +112,9 @@ function gyPlace(items, cfg){
     if(pos >= N){
       const prev = lastCell();
       const room = prev ? (Array.from(prev.text).length + Array.from(it.text).length) : 99;
-      if(cfg.hangPunctuation && prev && gyNoLineStart(it.text, cfg) && room <= 3){
+      const wantHang = (cfg.hangPunctuation && gyNoLineStart(it.text, cfg))
+                    || (cfg.keepPairTogether && it.noStart);
+      if(wantHang && prev && room <= 3){
         prev.text += it.text;
         prev.cls = 'multi';
         prev.note = GY_NOTE.hang;
@@ -118,17 +145,30 @@ function gyHeadColumns(title, name, cfg){
   const cols = [];
 
   if(cfg.title.enabled){
-    const col = blank();
-    const norm = gyNormalize(title || '', cfg).paragraphs[0];
+    const norm  = gyNormalize(title || '', cfg).paragraphs[0];
     const chars = norm ? norm.units.map(u => u.c) : [];
-    const start = (cfg.title.align === 'center')
-      ? Math.max(0, Math.floor((N - chars.length) / 2))
-      : Math.min(cfg.title.indent, Math.max(0, N - chars.length));
-    for(let i = 0; i < chars.length && start + i < N; i++){
-      col.cells[start + i] = { text: chars[i], cls: gyCls(chars[i]), role:'title', fix:'', note:'' };
+    const indent = (cfg.title.align === 'center') ? 0 : Math.min(cfg.title.indent, N - 1);
+    const room   = Math.max(1, N - indent);
+    /* 1行に 入りきらない 題名は つぎの行へ 分ける */
+    const lines = [];
+    if(!cfg.wrapLongTitle){
+      lines.push(chars.slice(0, room));
+    }else{
+      for(let i = 0; i < Math.max(1, Math.ceil(chars.length / room)); i++){
+        lines.push(chars.slice(i * room, (i + 1) * room));
+      }
     }
-    col.role = 'title';
-    cols.push(col);
+    for(const line of lines){
+      const col = blank();
+      const start = (cfg.title.align === 'center')
+        ? Math.max(0, Math.floor((N - line.length) / 2))
+        : Math.min(indent, Math.max(0, N - line.length));
+      for(let i = 0; i < line.length && start + i < N; i++){
+        col.cells[start + i] = { text: line[i], cls: gyCls(line[i]), role:'title', fix:'', note:'' };
+      }
+      col.role = 'title';
+      cols.push(col);
+    }
   }
 
   if(cfg.name.enabled){
@@ -176,8 +216,14 @@ function gyCompose(input, cfg){
     pages.push({ columns });
   }
 
+  /* 字数は「つかった マスの 数」で かぞえます
+     （1マス つかう ものは 句読点も かぎかっこも 1字と 数える きまりに 合わせる）*/
   let chars = 0;
-  for(const col of body) for(const cell of col.cells) if(cell) chars += Array.from(cell.text).length;
+  for(const col of body){
+    let last = -1;
+    for(let i = col.cells.length - 1; i >= 0; i--) if(col.cells[i]){ last = i; break; }
+    chars += last + 1;
+  }
 
   return { pages, columns: all.length, chars, fixes: norm.fixes };
 }
