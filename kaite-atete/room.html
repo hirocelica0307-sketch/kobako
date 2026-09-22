@@ -29,6 +29,10 @@
             <div class="levels" id="levels"></div>
         </div>
         <div class="setrow">
+            <span class="setlabel">あなた（ぬし）は</span>
+            <div class="levels" id="hostRoles"></div>
+        </div>
+        <div class="setrow">
             <span class="setlabel">あそびかた</span>
             <div class="levels" id="modes"></div>
         </div>
@@ -70,9 +74,7 @@
             <p class="sub">あなたの おだい</p>
             <div class="odai" id="odai">－－</div>
             <p class="count" id="answeredCount">まだ だれも あてていません</p>
-            <div class="row">
-                <button class="btn sub-btn" id="changeOdai">おだいを かえる</button>
-            </div>
+
         </div>
 
         <div id="answerPanel" class="hidden">
@@ -84,11 +86,18 @@
             </div>
         </div>
 
+        <div id="adminPanel" class="hidden">
+            <p class="sub">みんなの ようす</p>
+            <div class="watchlist" id="watchlist"></div>
+        </div>
+
         <p class="count hidden" id="waitingFor"></p>
         <div class="judge hidden" id="judge"></div>
 
-        <div class="row">
+        <div class="row" id="hostRow">
             <button class="btn go hidden" id="nextTurn">つぎの 人へ</button>
+            <button class="btn sub-btn hidden" id="changeOdai">おだいを かえる</button>
+            <button class="btn sub-btn hidden" id="pauseBtn">いちじ ていし</button>
             <button class="btn sub-btn hidden" id="endGame">おわりに する</button>
         </div>
     </div>
