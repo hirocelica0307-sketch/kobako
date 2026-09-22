@@ -60,6 +60,9 @@ let arming = false, finishing = false, advancing = false;
 /* 音を 二重に 鳴らさない ための おぼえ */
 let wasDone = false, wasMyTurn = false, lastTick = -1, resultPlayed = false;
 let lastReroll = 0;   /* ぬしから「おだいを かえて」と たのまれた しるし */
+/* おだいを かくすか。えらんだら おぼえます（この 端末だけ）*/
+let odaiHidden = false;
+try { odaiHidden = localStorage.getItem('ka_odaihide') === '1'; } catch (e) {}
 const myStrokes = [];
 
 function say(t, bad) {
@@ -242,7 +245,12 @@ function render() {
     }
 
     if (drawer) {
+        /* おだいは 小さく、下の 左はしに。「かくす」を えらんで いれば ● に します
+           （まわりの 席から 見えて しまわない ように）*/
         $('odai').textContent = myWord || '（じゅんびちゅう…）';
+        $('odai').classList.toggle('hidden', odaiHidden);
+        $('odaiMask').classList.toggle('hidden', !odaiHidden);
+        $('hideOdai').textContent = odaiHidden ? 'みる' : 'かくす';
         const n = round && round.answered ? Object.keys(round.answered).length : 0;
         $('answeredCount').textContent = n === 0 ? 'まだ だれも あてていません' : n + ' にん あてました';
     }
@@ -662,6 +670,13 @@ $('ansGo').addEventListener('click', async () => {
         ansPad.clear();
         render();
     }
+});
+
+/* おだいを かくす ／ みる */
+$('hideOdai').addEventListener('click', () => {
+    odaiHidden = !odaiHidden;
+    try { localStorage.setItem('ka_odaihide', odaiHidden ? '1' : '0'); } catch (e) {}
+    render();
 });
 
 /* おと の 入り／切り（この 端末だけ）*/

@@ -236,10 +236,23 @@ h1{ margin:0; font-size:clamp(18px,3vw,28px); letter-spacing:.06em; flex:none; }
 .timer.hurry{ color:#b3402f; }
 .clock{ font-size:clamp(11px,1.7vw,15px); }
 
-.odai{
-    font-size:clamp(26px,4.8vw,50px); letter-spacing:.1em;
-    color:var(--accent-dk); background:var(--tap);
-    border-radius:var(--radius); padding:10px 8px; flex:none;
+/* ── おだい ───────────────────────────────────
+   まわりの 席から 見えにくい ように、**画面の 下の 左はしに 小さく**
+   出します。「かくす」を おすと ● に なり、その えらびは おぼえます。 */
+.odaibox{
+    display:flex; align-items:center; gap:8px; flex:none;
+    border:3px solid var(--line); border-radius:var(--radius);
+    background:var(--tap); padding:4px 10px; margin-right:auto;
+}
+.odailabel{ font-size:clamp(9px,1.2vw,12px); color:var(--ink-thin); }
+.odaiword{
+    font-size:clamp(15px,2vw,20px); letter-spacing:.06em; color:var(--accent-dk);
+    max-width:9em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.odaihidden{ font-size:clamp(11px,1.5vw,15px); color:var(--line); letter-spacing:.2em; }
+.btn.sub-btn.tiny{
+    min-height:30px; padding:2px 10px; font-size:clamp(10px,1.3vw,13px);
+    border-width:2px;
 }
 #drawerPanel{ display:flex; flex-direction:column; gap:6px; }
 #answerPanel{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:6px; }

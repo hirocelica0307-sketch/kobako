@@ -71,10 +71,8 @@
         </div>
 
         <div id="drawerPanel" class="hidden">
-            <p class="sub">あなたの おだい</p>
-            <div class="odai" id="odai">－－</div>
+            <p class="sub">あなたが かく ばんです</p>
             <p class="count" id="answeredCount">まだ だれも あてていません</p>
-
         </div>
 
         <div id="answerPanel" class="hidden">
@@ -104,6 +102,12 @@
 </div>
 
 <div class="tools hidden" id="tools">
+    <div class="odaibox" id="odaibox">
+        <span class="odailabel">おだい</span>
+        <b class="odaiword" id="odai">－－</b>
+        <span class="odaihidden hidden" id="odaiMask">● ● ● ●</span>
+        <button class="btn sub-btn tiny" id="hideOdai">かくす</button>
+    </div>
     <div class="swatches" id="swatches"></div>
     <div class="pens" id="pens"></div>
     <button class="btn sub-btn" id="undo">もどす</button>
