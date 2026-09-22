@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f7a5a">
+<meta name="description" content="よこ書きで うった文章を、原稿用紙の きまりどおりに たて書きへ 自動で なおす 小学生むけの 入力ツール。">
+<title>げんこうようし</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <header class="bar">
+    <h1 class="logo">げんこうようし</h1>
+
+    <div class="bar-mid">
+      <label class="field">
+        <span>かだい</span>
+        <select id="preset"></select>
+      </label>
+      <div class="count" id="count">0字</div>
+    </div>
+
+    <div class="bar-right">
+      <button class="btn btn-ghost" id="btnFix" aria-pressed="true">なおした ところ</button>
+      <button class="btn" id="btnPrint">いんさつ</button>
+      <button class="btn btn-ghost" id="btnSet" title="先生用の せってい">⚙ せってい</button>
+      <div class="save" id="save">　</div>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- ========== 左：うつ ========== -->
+    <section class="pane pane-in">
+      <div class="in-head">うつ（よこ書き）</div>
+
+      <label class="in-row" id="rowTitle">
+        <span class="in-label">だいめい</span>
+        <input type="text" id="inTitle" placeholder="六年間の思い出" autocomplete="off">
+      </label>
+
+      <label class="in-row" id="rowName">
+        <span class="in-label">なまえ</span>
+        <input type="text" id="inName" placeholder="山田　太郎" autocomplete="off">
+      </label>
+
+      <textarea id="inBody" placeholder="ここに 本文を うちます。&#10;行を かえると 段落に なります。&#10;&#10;「かぎかっこ」や 数字は、原稿用紙の きまりどおりに 右がわで なおります。"></textarea>
+
+      <div class="fixes" id="fixes"></div>
+    </section>
+
+    <!-- ========== 右：原稿用紙 ========== -->
+    <section class="pane pane-out">
+      <div class="out-head">
+        <span>げんこうようし（たて書き）</span>
+        <span class="note" id="note"></span>
+      </div>
+      <div class="sheets" id="sheets"></div>
+    </section>
+
+
+    <!-- ========== 先生用の せってい ========== -->
+    <section class="settings" id="settings" hidden aria-label="先生用の せってい">
+      <div class="set-head">
+        <b>せってい（先生用）</b>
+        <button class="btn" id="btnCloseSet">とじる</button>
+      </div>
+      <div class="set-body">
+
+        <div class="set-group">
+          <h3>かだい</h3>
+          <select id="setPreset"></select>
+          <div class="set-btns">
+            <button class="btn btn-sm" id="btnNewPreset">あたらしく つくる</button>
+            <button class="btn btn-sm" id="btnRenamePreset">なまえを かえる</button>
+            <button class="btn btn-sm btn-danger" id="btnDelPreset">けす</button>
+          </div>
+          <p class="hint">えらんだ かだいの きまりを 下で 直します。直すと すぐ 右に うつります。</p>
+        </div>
+
+        <div class="set-group">
+          <h3>マス</h3>
+          <label class="set-row"><span>1行の 字数</span><input type="number" id="setChars" min="4" max="40"></label>
+          <label class="set-row"><span>1まいの 行数</span><input type="number" id="setCols" min="2" max="40"></label>
+          <label class="set-row"><span>何まいまで</span><input type="number" id="setPages" min="1" max="10"></label>
+        </div>
+
+        <div class="set-group">
+          <h3>題名</h3>
+          <label class="set-row"><span>つかう</span><input type="checkbox" id="setTitleOn"></label>
+          <label class="set-row"><span>そろえ方</span>
+            <select id="setTitleAlign">
+              <option value="indent">上を あける</option>
+              <option value="center">まんなかに そろえる</option>
+            </select></label>
+          <label class="set-row"><span>上を あける マス</span><input type="number" id="setTitleIndent" min="0" max="20"></label>
+        </div>
+
+        <div class="set-group">
+          <h3>名前</h3>
+          <label class="set-row"><span>つかう</span><input type="checkbox" id="setNameOn"></label>
+          <label class="set-row"><span>下を あける マス</span><input type="number" id="setNameBottom" min="0" max="20"></label>
+          <label class="set-row"><span>姓と名の あいだ</span><input type="number" id="setNameGap" min="0" max="5"></label>
+        </div>
+
+        <div class="set-group">
+          <h3>本文</h3>
+          <label class="set-row"><span>はじまる 行</span><input type="number" id="setBodyStart" min="1" max="10"></label>
+          <label class="set-row"><span>段落の はじめに あける マス</span><input type="number" id="setParaIndent" min="0" max="3"></label>
+        </div>
+
+        <div class="set-group">
+          <h3>原稿用紙の きまり</h3>
+          <label class="set-row"><span>数字の 書き方</span>
+            <select id="setNumbers">
+              <option value="mixed">使い分け（十二人／二〇二六年）</option>
+              <option value="positional">いつも 位取り（十二／二千二十六）</option>
+              <option value="serial">いつも 並べ（一二／二〇二六）</option>
+              <option value="keep">算用数字の まま</option>
+            </select></label>
+          <label class="set-row"><span>行頭の 句読点を 前のマスに 詰める</span><input type="checkbox" id="setHang"></label>
+          <label class="set-row"><span>「。」」を 1マスに まとめる</span><input type="checkbox" id="setKuten"></label>
+          <label class="set-row"><span>会話文は 改行して 1マス目から</span><input type="checkbox" id="setDialogue"></label>
+          <label class="set-row"><span>小さい字は 行頭に 来てもよい</span><input type="checkbox" id="setSmallKana"></label>
+          <label class="set-row"><span>！ ？ の あとを 1マス あける</span><input type="checkbox" id="setBangSpace"></label>
+          <label class="set-row"><span>…… —— を 2マス つかう</span><input type="checkbox" id="setEllipsis"></label>
+          <label class="set-row"><span>行末の 「 を つぎの行へ 送る</span><input type="checkbox" id="setPushOpen"></label>
+          <p class="hint">きまりの くわしい 説明は <code>docs/RULES.md</code> に あります。</p>
+        </div>
+
+        <div class="set-group">
+          <h3>ほかの 端末に くばる</h3>
+          <p class="hint">「コードを 作る」で 出た 文字を 児童の 端末で 貼りつけて「読みこむ」と、同じ かだい・同じ きまりに なります。</p>
+          <textarea id="setCode" rows="3" placeholder="ここに せっていコードが 出ます"></textarea>
+          <div class="set-btns">
+            <button class="btn btn-sm" id="btnCodeOut">コードを 作る</button>
+            <button class="btn btn-sm" id="btnCodeIn">読みこむ</button>
+            <button class="btn btn-sm" id="btnReset">はじめの きまりに もどす</button>
+          </div>
+          <div class="hint" id="setMsg"></div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+</div>
+
+<style id="printSize"></style>
+
+<script src="config.js"></script>
+<script src="normalize.js"></script>
+<script src="compose.js"></script>
+<script src="storage.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

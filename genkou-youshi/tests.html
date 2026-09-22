@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>げんこうようし ― きまりの たしかめ</title>
+<style>
+ body{ font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif; margin:0; background:#eef3f0; color:#1e2a24; }
+ header{ background:#2f7a5a; color:#fff; padding:12px 18px; }
+ h1{ margin:0; font-size:18px; }
+ .sum{ font-size:15px; padding:12px 18px; }
+ .sum b{ font-size:20px; }
+ table{ border-collapse:collapse; width:100%; background:#fff; }
+ th,td{ border-bottom:1px solid #dde7e2; padding:8px 12px; font-size:13px; text-align:left; vertical-align:top; }
+ th{ background:#f3f7f5; position:sticky; top:0; }
+ .ok{ color:#1b7f4b; font-weight:bold; }
+ .ng{ color:#c62828; font-weight:bold; }
+ tr.bad{ background:#fff4f4; }
+ code{ font-family:"Noto Sans Mono","Courier New",monospace; font-size:14px; white-space:pre; }
+ .legend{ font-size:12px; color:#4a5a52; padding:0 18px 14px; }
+</style>
+</head>
+<body>
+<header><h1>げんこうようし ― きまりの たしかめ</h1></header>
+<div class="sum" id="sum">しらべています…</div>
+<div class="legend">␣ ＝ あきマス　／　{ } ＝ 1つの マスに 2字いじょう 入っている ところ</div>
+<table>
+  <thead><tr><th style="width:3em"></th><th>きまり</th><th>こう なるはず</th><th>じっさい</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+
+<script src="config.js"></script>
+<script src="normalize.js"></script>
+<script src="compose.js"></script>
+<script src="tests.js"></script>
+<script>
+(function(){
+  const r = gyRunTests();
+  const ng = r.filter(x => !x.ok).length;
+  document.getElementById('sum').innerHTML =
+    '<b>' + (r.length - ng) + ' / ' + r.length + '</b> 合格' +
+    (ng ? '　<span class="ng">' + ng + 'こ 合いません</span>' : '　<span class="ok">ぜんぶ 合いました</span>');
+  const tb = document.getElementById('rows');
+  for(const x of r){
+    const tr = document.createElement('tr');
+    if(!x.ok) tr.className = 'bad';
+    tr.innerHTML = '<td class="' + (x.ok ? 'ok">○' : 'ng">×') + '</td>'
+      + '<td></td><td><code></code></td><td><code></code></td>';
+    tr.children[1].textContent = x.rule;
+    tr.children[2].firstChild.textContent = x.want;
+    tr.children[3].firstChild.textContent = x.err ? ('エラー: ' + x.err) : x.got;
+    tb.appendChild(tr);
+  }
+})();
+</script>
+</body>
+</html>
