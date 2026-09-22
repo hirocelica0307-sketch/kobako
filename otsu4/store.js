@@ -102,6 +102,17 @@ function reviveCards(ids){
 }
 function todayCount(){ var p = load(); return { cards:p.day.cards, qs:p.day.qs, date:p.day.date }; }
 
+/* ---- 講義を 読んだ しるし ---- */
+function readMark(theme, on){
+  var p = load();
+  if (!p.read) p.read = {};
+  if (on === false) delete p.read[theme];
+  else p.read[theme] = todayStr();
+  save();
+  return !!p.read[theme];
+}
+function readMap(){ var p = load(); if (!p.read) p.read = {}; return p.read; }
+
 /* ---- 設定 ---- */
 var DEF_SET = { cardsPerDay:20, qsPerDay:10, shuffleChoices:false };
 function settings(){ var s = lsGet(KS, null) || {}; for (var k in DEF_SET) if (s[k] === undefined) s[k] = DEF_SET[k]; return s; }
@@ -130,6 +141,7 @@ return {
   load:load, save:save, state:state, put:put,
   countUp:countUp, todayCount:todayCount,
   history:history, streak:streak, reviveCards:reviveCards,
+  readMark:readMark, readMap:readMap,
   settings:settings, setSettings:setSettings,
   exams:exams, addExam:addExam,
   exportAll:exportAll, importAll:importAll, resetAll:resetAll

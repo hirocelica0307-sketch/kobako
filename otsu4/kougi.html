@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c0392b">
+<meta name="description" content="危険物乙4の 講義ページ。テーマごとに なぜ そうなるのか・覚え方（語呂合わせ・となえ歌）・これだけは覚えることを まとめて 読めます。">
+<title>講義｜おつよん</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="bar">
+  <a class="back" href="index.html">← もどる</a>
+  <h1 class="logo">講義</h1>
+  <div class="spacer"></div>
+  <div class="muted" style="color:#fff;opacity:.85" id="readCount"></div>
+</header>
+
+<div class="wrap">
+
+  <div class="card">
+    <h2>眺めて おぼえる ページ</h2>
+    <div class="muted">
+      テーマごとに <b>なぜ そうなるのか</b>・<b>覚え方（語呂合わせ・となえ歌）</b>・<b>これだけは 覚えること</b> を まとめました。
+      問題を 解かなくても、読んでいるだけで 力が つくように 書いてあります。
+    </div>
+    <div class="row" style="margin-top:12px" id="subjTabs"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn ghost sm" id="btnOpenAll">ぜんぶ ひらく</button>
+      <button class="btn ghost sm" id="btnCloseAll">ぜんぶ とじる</button>
+      <button class="btn ghost sm" id="btnUnread">読んでいない ものだけ</button>
+    </div>
+  </div>
+
+  <div id="list"></div>
+
+  <div class="card center muted">
+    ここに 書いてある ことばは、そのまま 問題の 選択肢に 出てきます。<br>
+    1日 2〜3テーマずつ 読むのが おすすめです。
+  </div>
+
+</div>
+
+<script src="data/themes.js"></script>
+<script src="data/questions-official.js"></script>
+<script src="data/questions-extra.js"></script>
+<script src="data/questions-extra2.js"></script>
+<script src="data/questions-deep.js"></script>
+<script src="data/knowledge.js"></script>
+<script src="data/knowledge-why.js"></script>
+<script src="data/notes.js"></script>
+<script src="data/goro.js"></script>
+<script src="store.js"></script>
+<script src="srs.js"></script>
+<script src="engine.js"></script>
+<script src="note.js"></script>
+<script src="app-kougi.js"></script>
+</body>
+</html>

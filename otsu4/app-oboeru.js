@@ -68,14 +68,23 @@ function show(){
   $('back').textContent  = c.back;
   $('hint').textContent  = c.hint ? '💡 ' + c.hint : '';
   $('note').textContent  = c.note ? '⚠️ ' + c.note : '';
+  $('why').style.display = 'none';
+  $('why').innerHTML = c.why ? '<b>なぜ そうなるの？</b>' + esc(c.why) : '';
+  $('themeNote').innerHTML = '';
   $('backArea').style.display = 'none';
   $('beforeFlip').style.display = '';
   $('afterFlip').style.display = 'none';
   window.scrollTo(0, 0);
 }
 
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+
 $('btnFlip').onclick = function(){
+  var cc = queue[idx];
   $('backArea').style.display = '';
+  if (cc.why) $('why').style.display = '';
+  var nb = O4Note.block(cc.theme);
+  if (nb){ $('themeNote').innerHTML = ''; $('themeNote').appendChild(nb); }
   $('beforeFlip').style.display = 'none';
   $('afterFlip').style.display = '';
   var c = queue[idx], st = O4Store.state('card', c.id);

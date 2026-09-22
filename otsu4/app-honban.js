@@ -146,10 +146,15 @@ function review(){
          '　／　正解：' + (mixes[i].a + 1) + '番</div>';
     h += '<div class="explain"><p><b>正解の選択肢</b>' + esc(mixes[i].choices[mixes[i].a]) + '</p>' +
          '<p><b>なぜ そうなる？</b>' + esc(q.why) + '</p>' +
+         (q.deep ? '<p><b>もう一歩 ふみこむと</b>' + esc(q.deep) + '</p>' : '') +
          (q.others ? '<p><b>ほかの選択肢・ポイント</b>' + esc(q.others) + '</p>' : '') + '</div>';
     if (q.steps && q.steps.length){
       h += '<div class="steps" style="margin-top:10px">' +
         stepsHtml(q) + '</div>';
+    }
+    if (typeof O4Note !== 'undefined'){
+      var nh = O4Note.html(q.theme);
+      if (nh) h += '<div class="note-card" style="margin-top:10px">' + nh + '</div>';
     }
     h += '<div class="row" style="margin-top:10px">' +
          '<a class="btn ghost sm" href="renshuu.html?theme=' + q.theme + '">類似問題を 解く</a>' +

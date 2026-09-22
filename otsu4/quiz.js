@@ -91,6 +91,7 @@ function run(opts){
 
       var ex = el('div', 'explain');
       ex.innerHTML = '<p><b>なぜ そうなる？</b>' + esc(q.why) + '</p>' +
+                     (q.deep ? '<p><b>もう一歩 ふみこむと</b>' + esc(q.deep) + '</p>' : '') +
                      (q.others ? '<p><b>ほかの選択肢・ポイント</b>' + esc(q.others) + '</p>' : '') +
                      (mixed ? '<p class="muted">※選択肢の ならびを まぜています。解説の 番号は「もとの番号」です。</p>' : '') +
                      (q.ref ? '<p class="muted">くわしくは docs/' + refFile(q.ref) + '</p>' : '');
@@ -98,6 +99,8 @@ function run(opts){
 
       if (q.steps && q.steps.length) area.appendChild(stepsBlock(q));
       if (!correct || conf !== 'high') area.appendChild(cardsBlock(q, correct));
+      var nb = (typeof O4Note !== 'undefined') ? O4Note.block(q.theme, { open: !correct }) : null;
+      if (nb) area.appendChild(nb);
 
       var b = el('button', 'btn wide', (i + 1 < qs.length) ? 'つぎの問題へ' : '結果を見る');
       b.onclick = function(){
