@@ -150,6 +150,40 @@ function runAll(env){
   ok('にがてドリルに 同じテーマの 別問題（類似問題）が 混ざる',
      drill.some(function(q){ return q.theme === target.theme && q.id !== target.id; }));
 
+  /* ---- まちがえたら 知識カードへ もどる ---- */
+  Store.resetAll();
+  var q2 = Q.filter(function(x){ return x.theme === 'hoankyori'; })[0];
+  var rel = Eng.relatedCards(q2, 3);
+  ok('問題から 同じテーマの 知識カードが 引ける',
+     rel.length > 0 && rel.every(function(c){ return c.theme === q2.theme; }));
+
+  /* さきに 覚えた ことにして、先の日に とばす */
+  var rid = rel[0].id;
+  Store.put('card', rid, Srs.gradeCard(Store.state('card', rid), 'easy'));
+  var farDue = Store.state('card', rid).due;
+  ok('覚えた カードは 先の日に とぶ', farDue > Store.todayStr(), 'due=' + farDue);
+
+  var revived = Store.reviveCards([rid]);
+  eq('まちがえた テーマの カードを きょうに もどせる', revived, 1);
+  eq('もどした カードの 日づけは きょう', Store.state('card', rid).due, Store.todayStr());
+  ok('もどした カードは きょうの 出題に 入る',
+     Eng.dueCards({ theme:q2.theme, limit:999 }).some(function(c){ return c.id === rid; }));
+
+  /* ---- 日ごとの きろく ---- */
+  Store.resetAll();
+  Store.countUp('q', true); Store.countUp('q', false); Store.countUp('card');
+  var h = Store.history(7);
+  eq('きろくは 7日ぶん ならぶ', h.length, 7);
+  var today = h[h.length - 1];
+  ok('きょうの きろくが 正しい', today.qs === 2 && today.ok === 1 && today.cards === 1,
+     JSON.stringify(today));
+  eq('学習した日は 連続1日と 数える', Store.streak(), 1);
+
+  Store.resetAll();
+  eq('なにも していなければ 連続0日', Store.streak(), 0);
+  var h2 = Store.history(14);
+  ok('やっていない日も 0として ならぶ', h2.length === 14 && h2.every(function(d){ return d.qs === 0; }));
+
   /* ---- カードは 覚えると 出なくなる ---- */
   Store.resetAll();
   var c0 = C[0];

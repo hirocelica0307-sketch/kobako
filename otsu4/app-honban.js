@@ -84,6 +84,8 @@ function finish(){
     var correct = (answers[i] === mixes[i].a);
     var st = O4Store.state('q', q.id);
     O4Store.put('q', q.id, O4Srs.gradeQuestion(st, correct, correct ? 'mid' : 'low'));
+    O4Store.countUp('q', correct);
+    if (!correct) O4Store.reviveCards(O4Engine.relatedCards(q, 3).map(function(c){ return c.id; }));
   });
   O4Store.addExam({ at:O4Store.todayStr(), mode:mode, law:r.law.ok, phys:r.phys.ok, prop:r.prop.ok, pass:r.pass });
 
@@ -149,7 +151,9 @@ function review(){
       h += '<div class="steps" style="margin-top:10px">' +
         stepsHtml(q) + '</div>';
     }
-    h += '<a class="btn ghost sm" style="margin-top:10px;display:inline-block" href="renshuu.html?theme=' + q.theme + '">このテーマの 類似問題を 解く</a>';
+    h += '<div class="row" style="margin-top:10px">' +
+         '<a class="btn ghost sm" href="renshuu.html?theme=' + q.theme + '">類似問題を 解く</a>' +
+         '<a class="btn ghost sm" href="oboeru.html?theme=' + q.theme + '">カードで おぼえ直す</a></div>';
     h += '</div>';
   });
   $('review').innerHTML = h || '<div class="card center">まちがいは ありませんでした。</div>';

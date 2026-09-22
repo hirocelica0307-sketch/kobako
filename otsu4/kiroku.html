@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c0392b">
+<title>きろく｜おつよん</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="bar">
+  <a class="back" href="index.html">← もどる</a>
+  <h1 class="logo">きろく</h1>
+  <div class="spacer"></div>
+  <button class="btn ghost sm" id="btnTable" style="background:rgba(255,255,255,.15);color:#fff;border-color:transparent">表で見る</button>
+</header>
+
+<div class="wrap">
+
+  <div class="card">
+    <h2>いまの ところ</h2>
+    <div class="tiles" id="tiles"></div>
+  </div>
+
+  <div class="card">
+    <h2>毎日の 学習量</h2>
+    <div class="muted">直近14日。カード（枚）と 問題（問）を ならべています。</div>
+    <div id="cVolume"></div>
+  </div>
+
+  <div class="card">
+    <h2>問題の 正答率</h2>
+    <div class="muted">直近14日。解いた日だけ 点が つきます。線は 合格ラインの60％。</div>
+    <div id="cRate"></div>
+  </div>
+
+  <div class="card">
+    <h2>科目ごとの おぼえ具合</h2>
+    <div class="muted">知識カードの 箱（0〜5）の 平均を ％に したもの。</div>
+    <div id="cSubject"></div>
+  </div>
+
+  <div class="card">
+    <h2>カードの 箱の 分布</h2>
+    <div class="muted">右にいくほど 定着ずみ。箱5が 卒業です。</div>
+    <div id="cBox"></div>
+  </div>
+
+  <div class="card">
+    <h2>模試の 点の うつりかわり</h2>
+    <div class="muted">科目ごとの 正答率（％）で そろえて います。合格は 3科目とも 60％以上。</div>
+    <div id="cExam"></div>
+  </div>
+
+  <div class="card">
+    <h2>にがてが 多い テーマ</h2>
+    <div class="muted">まちがい＋自信なしの 数。上位8つ。</div>
+    <div id="cWeak"></div>
+  </div>
+
+  <section id="tables" style="display:none">
+    <div class="card">
+      <h2>表で見る</h2>
+      <div class="muted" style="margin-bottom:8px">グラフと 同じ内容を 数字で 出します。</div>
+      <div id="tableOut"></div>
+    </div>
+  </section>
+
+</div>
+
+<script src="data/themes.js"></script>
+<script src="data/questions-official.js"></script>
+<script src="data/questions-extra.js"></script>
+<script src="data/questions-extra2.js"></script>
+<script src="data/knowledge.js"></script>
+<script src="store.js"></script>
+<script src="srs.js"></script>
+<script src="engine.js"></script>
+<script src="viz.js"></script>
+<script src="app-kiroku.js"></script>
+</body>
+</html>

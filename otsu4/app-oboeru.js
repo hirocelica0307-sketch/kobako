@@ -112,4 +112,14 @@ function finish(){
 $('btnAll').onclick = function(){ start({}); };
 
 renderPick();
+
+/* 問題ページから「おぼえ直す」で 来たときは、その テーマを すぐ 始める */
+(function(){
+  var m = /[?&]theme=([^&]+)/.exec(location.search);
+  if (!m) return;
+  var t = decodeURIComponent(m[1]);
+  if (!OTSU4_THEME_MAP[t]) return;
+  var list = O4Engine.dueCards({ theme:t, limit:999 });
+  start(list.length ? { theme:t } : { theme:t, includeDone:true, limit:10 });
+})();
 })();

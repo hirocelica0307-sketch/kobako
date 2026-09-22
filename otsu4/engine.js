@@ -64,6 +64,18 @@ function cardStats(subject){
   return { total: all.length, done: done, due: due, rate: all.length ? sum / all.length : 0 };
 }
 
+/* この問題に 関係する 知識カード（同じテーマ・まだ 覚えきっていないものを 先に） */
+function relatedCards(q, n){
+  n = n || 3;
+  var list = OTSU4_CARDS.filter(function(c){ return c.theme === q.theme; });
+  list.sort(function(a, b){
+    var sa = O4Store.state('card', a.id), sb = O4Store.state('card', b.id);
+    if (sa.box !== sb.box) return sa.box - sb.box;
+    return (b.star || 0) - (a.star || 0);
+  });
+  return list.slice(0, n);
+}
+
 /* ---------- 問題 ---------- */
 function pickQuestions(opts){
   opts = opts || {};
@@ -201,7 +213,7 @@ function shuffleChoices(q){
 
 return {
   shuffle:shuffle, interleave:interleave,
-  dueCards:dueCards, cardStats:cardStats,
+  dueCards:dueCards, cardStats:cardStats, relatedCards:relatedCards,
   pickQuestions:pickQuestions,
   weakList:weakList, weakThemes:weakThemes, weakDrill:weakDrill,
   examOfficial:examOfficial, examRandom:examRandom, scoreExam:scoreExam,

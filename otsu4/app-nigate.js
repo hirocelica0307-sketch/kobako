@@ -29,7 +29,7 @@ function renderPick(){
     return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">' +
       '<span class="tag ' + t.subject + '">' + OTSU4_SUBJECTS[t.subject].name + '</span>' +
       '<span style="flex:1">' + name + '<br><span class="muted">にがて ' + t.n + ' 問</span></span>' +
-      '<a class="btn ghost sm" href="oboeru.html">カード' + (cards ? '(' + cards + ')' : '') + '</a>' +
+      '<a class="btn ghost sm" href="oboeru.html?theme=' + t.theme + '">カード' + (cards ? '(' + cards + ')' : '') + '</a>' +
       '<a class="btn sm" href="renshuu.html?theme=' + t.theme + '">問題</a></div>';
   }).join('') : '<div class="muted">まだ ありません。</div>';
 

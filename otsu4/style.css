@@ -2,12 +2,16 @@
 :root{
   --bg:#f5f6f8; --card:#fff; --ink:#1c2024; --sub:#5b6570; --line:#dfe3e8;
   --main:#c0392b; --main-d:#93281c; --ok:#1f8a54; --ng:#c0392b; --warn:#c9820a;
-  --law:#2f6fb0; --phys:#1f8a54; --prop:#b5541f;
+  --law:#2a78d6; --phys:#1baf7a; --prop:#eb6834;
+  --seq1:#cde2fb; --seq2:#9ec5f4; --seq3:#5598e7; --seq4:#2a78d6; --seq5:#256abf; --seq6:#184f95;
+  --surface:#fff; --track:#e8ebee;
   --r:14px; --sh:0 1px 3px rgba(0,0,0,.08);
 }
 @media (prefers-color-scheme: dark){
   :root{ --bg:#15181c; --card:#1e2227; --ink:#eceff3; --sub:#9aa5b1; --line:#2e343b;
-         --law:#5b9bdc; --phys:#4cc48a; --prop:#e08b52; --sh:0 1px 3px rgba(0,0,0,.4); }
+         --law:#3987e5; --phys:#199e70; --prop:#d95926;
+         --seq1:#104281; --seq2:#184f95; --seq3:#256abf; --seq4:#3987e5; --seq5:#6da7ec; --seq6:#b7d3f6;
+         --surface:#1e2227; --track:#2e343b; --sh:0 1px 3px rgba(0,0,0,.4); }
 }
 *{ box-sizing:border-box; }
 html,body{ margin:0; padding:0; }
@@ -127,3 +131,38 @@ table.sc td.num{ text-align:right; font-variant-numeric:tabular-nums; }
   font-size:14px; background:rgba(201,130,10,.08);
 }
 .trick b{ display:block; margin-bottom:2px; color:var(--warn); }
+
+/* ---- まちがえたときに 出る 知識カード ---- */
+.kcard{
+  border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:8px;
+}
+.kcard b{ display:block; font-size:14px; }
+.kcard span{ display:block; font-size:15px; font-weight:700; color:var(--ok); margin-top:2px; }
+.kcard i{ display:block; font-size:13px; color:var(--warn); font-style:normal; margin-top:2px; }
+
+/* ---- グラフ ---- */
+.viz{ display:block; width:100%; height:auto; overflow:visible; font-family:inherit; }
+.viz-grid{ stroke:var(--line); stroke-width:1; }
+.viz-ref{ stroke:var(--sub); stroke-width:1; opacity:.7; }
+.viz-axis{ fill:var(--sub); font-size:11px; }
+.viz-val{ fill:var(--ink); font-size:12px; font-weight:700; }
+.viz-inlab{ font-size:11px; font-weight:700; }
+.viz-track{ fill:var(--track); }
+.viz-dot{ stroke:var(--card); stroke-width:2; }
+.viz-legend{ display:flex; flex-wrap:wrap; gap:12px; margin-top:8px; font-size:13px; color:var(--sub); }
+.viz-legend.small{ font-size:12px; gap:8px; }
+.viz-legend i{ display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+.viz-tip{
+  position:fixed; z-index:99; display:none; pointer-events:none;
+  background:var(--ink); color:var(--bg); font-size:12px; line-height:1.5;
+  padding:6px 9px; border-radius:8px; max-width:220px;
+}
+.viz-tip b{ display:block; }
+
+/* 数字タイル */
+.tiles{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+.tile{ border:1px solid var(--line); border-radius:12px; padding:12px; }
+.tile .lab{ font-size:12px; color:var(--sub); }
+.tile .val{ font-size:26px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.2; }
+.tile .sub{ font-size:12px; color:var(--sub); }
+.viz-labbg{ fill:var(--card); opacity:.92; }

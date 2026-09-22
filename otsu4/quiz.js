@@ -97,6 +97,7 @@ function run(opts){
       area.appendChild(ex);
 
       if (q.steps && q.steps.length) area.appendChild(stepsBlock(q));
+      if (!correct || conf !== 'high') area.appendChild(cardsBlock(q, correct));
 
       var b = el('button', 'btn wide', (i + 1 < qs.length) ? 'つぎの問題へ' : '結果を見る');
       b.onclick = function(){
@@ -107,6 +108,38 @@ function run(opts){
       area.appendChild(b);
       window.scrollTo(0, 0);
     }
+  }
+
+  /* ---- まちがえた（自信がなかった）とき、もとの 知識に もどす ---- */
+  function cardsBlock(q, correct){
+    var cards = O4Engine.relatedCards(q, 3);
+    var box = el('div', 'card');
+    var th = OTSU4_THEME_MAP[q.theme] || { name:'' };
+    box.appendChild(el('h3', '', (correct ? '自信が なかったので' : 'まちがえたので') + '、もとの 知識に もどります'));
+
+    if (!cards.length){
+      box.appendChild(el('div', 'muted', 'このテーマの カードは ありません。'));
+      return box;
+    }
+
+    /* きょうの カードに 自動で もどす */
+    var revived = O4Store.reviveCards(cards.map(function(c){ return c.id; }));
+
+    cards.forEach(function(c){
+      var d = el('div', 'kcard');
+      d.innerHTML = '<b>' + esc(c.front) + '</b><span>' + esc(c.back) + '</span>' +
+                    (c.hint ? '<i>💡 ' + esc(c.hint) + '</i>' : '');
+      box.appendChild(d);
+    });
+
+    box.appendChild(el('div', 'muted',
+      revived ? 'この ' + revived + ' 枚を「きょう 出すカード」に もどしました。'
+              : 'この カードは すでに きょうの 分に 入っています。'));
+
+    var a = el('a', 'btn ghost wide', '「' + th.name + '」の カードで おぼえ直す');
+    a.href = 'oboeru.html?theme=' + q.theme;
+    box.appendChild(a);
+    return box;
   }
 
   /* ---- 計算問題の 途中式（1つずつ ひらく） ---- */
@@ -158,7 +191,7 @@ function run(opts){
 function record(q, correct, conf){
   var st = O4Store.state('q', q.id);
   O4Store.put('q', q.id, O4Srs.gradeQuestion(st, correct, conf));
-  O4Store.countUp('q');
+  O4Store.countUp('q', correct);
 }
 
 return { run:run, record:record };
