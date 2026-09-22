@@ -14,21 +14,40 @@
     <button class="btn sub-btn" id="leave">でる</button>
 </div>
 
-<!-- ① あつまる －－ みんなが そろうのを まつ -->
+<!-- ① あつまる -->
 <section class="card" id="waiting">
-    <p class="sub" style="text-align:center;margin:0 0 10px">
-        この ばんごうを つたえて、みんなを よびましょう
-    </p>
-    <div class="members big" id="membersBig"></div>
-    <p class="count" id="count">まだ だれも いません</p>
+    <div class="memberzone">
+        <p class="sub" style="text-align:center">この ばんごうを つたえて、みんなを よびましょう</p>
+        <div class="members big" id="membersBig"></div>
+        <p class="count" id="count">まだ だれも いません</p>
+    </div>
 
-    <div class="levels" id="levels"></div>
+    <div class="settings hidden" id="settings">
+        <div class="setrow">
+            <span class="setlabel">むずかしさ</span>
+            <div class="levels" id="levels"></div>
+        </div>
+        <div class="setrow">
+            <span class="setlabel">あそびかた</span>
+            <div class="levels" id="modes"></div>
+        </div>
+        <div class="setrow" id="lapRow">
+            <span class="setlabel">なんしゅう</span>
+            <div class="levels" id="laps"></div>
+        </div>
+        <div class="setrow hidden" id="minRow">
+            <span class="setlabel">ぜんたいの じかん</span>
+            <div id="minSlot"></div>
+        </div>
+        <div class="setrow">
+            <span class="setlabel">1かいの じかん</span>
+            <div id="secSlot"></div>
+        </div>
+    </div>
 
-    <div class="row" style="margin-top:14px">
+    <div class="row">
         <button class="btn go hidden" id="start">はじめる</button>
-        <p class="sub hidden" id="waitMsg" style="margin:0">
-            へやの ぬしが はじめるのを まっています…
-        </p>
+        <p class="sub hidden" id="waitMsg">へやの ぬしが はじめるのを まっています…</p>
     </div>
 </section>
 
@@ -40,25 +59,32 @@
     </div>
 
     <div class="side">
-        <!-- かく人 -->
+        <div class="statusbar">
+            <span id="turnLabel">－</span>
+            <span class="clock" id="clock"></span>
+            <span class="timer" id="timer">－</span>
+        </div>
+
         <div id="drawerPanel" class="hidden">
-            <p class="sub" style="margin:0 0 6px">あなたの おだい</p>
+            <p class="sub">あなたの おだい</p>
             <div class="odai" id="odai">－－</div>
             <p class="count" id="answeredCount">まだ だれも あてていません</p>
-            <div class="row" style="margin-top:10px">
-                <button class="btn go" id="nextOdai">つぎの おだい</button>
+        </div>
+
+        <div id="answerPanel" class="hidden">
+            <p class="sub">なにを かいて いるのかな？</p>
+            <div class="readout" id="ansOut"><span class="placeholder">こたえを いれてね</span></div>
+            <div class="slot" id="ansSlot"></div>
+            <div class="row">
+                <button class="btn go" id="ansGo" disabled>こたえる</button>
             </div>
         </div>
 
-        <!-- こたえる人 -->
-        <div id="answerPanel" class="hidden">
-            <p class="sub" style="margin:0 0 4px">なにを かいて いるのかな？</p>
-            <div class="readout" id="ansOut"><span class="placeholder">こたえを いれてね</span></div>
-            <div id="ansSlot"></div>
-            <div class="row" style="margin-top:8px">
-                <button class="btn go" id="ansGo" disabled>こたえる</button>
-            </div>
-            <div class="judge hidden" id="judge"></div>
+        <div class="judge hidden" id="judge"></div>
+
+        <div class="row">
+            <button class="btn go hidden" id="nextTurn">つぎの 人へ</button>
+            <button class="btn sub-btn hidden" id="endGame">おわりに する</button>
         </div>
     </div>
 </div>
@@ -68,8 +94,17 @@
     <div class="pens" id="pens"></div>
     <button class="btn sub-btn" id="undo">もどす</button>
     <button class="btn sub-btn hidden" id="clear">ぜんぶ けす</button>
-    <button class="btn sub-btn hidden" id="backToWait">あつまるに もどる</button>
 </div>
+
+<!-- ③ けっか -->
+<section class="card hidden" id="result">
+    <h2 class="resulttitle">けっか はっぴょう</h2>
+    <div class="ranking" id="ranking"></div>
+    <div class="row">
+        <button class="btn go hidden" id="again">もういちど</button>
+        <p class="sub hidden" id="againMsg">へやの ぬしを まっています…</p>
+    </div>
+</section>
 
 <div class="notice wait" id="notice">つないでいます…</div>
 

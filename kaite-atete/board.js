@@ -39,8 +39,38 @@ export function createBoard(opt) {
     let lastSent = 0;
     let redrawWanted = false;
 
+    /* ── 外わくの 大きさを きめる ─────────────────
+       よこに キーボードが ならぶので、絵が ばしょを とりすぎると
+       キーが つぶれます。のこりの ばしょから 絵の 大きさを 計算します。
+       （CSS の aspect-ratio だけでは よこはばからの 上限が かけられません）*/
+    let sideMin = opt.sideMin || 330;
+
+    function layout() {
+        const wrap = base.parentElement;
+        const area = wrap && wrap.parentElement;
+        if (!wrap || !area) return;
+        const areaW = area.clientWidth, areaH = area.clientHeight;
+        if (!areaW || !areaH) return;
+
+        const cs = getComputedStyle(area);
+        const gap = parseFloat(cs.columnGap || cs.gap) || 10;
+        const stacked = cs.flexDirection === 'column';
+
+        let w;
+        if (stacked) {
+            /* たてに つむ ときは、絵に 半分ほど わたします */
+            w = Math.min(areaW, areaH * 0.38 * 4 / 3);
+        } else {
+            w = Math.min(areaW - sideMin - gap, areaH * 4 / 3);
+        }
+        w = Math.max(160, Math.floor(w));
+        wrap.style.width = w + 'px';
+        wrap.style.height = Math.floor(w * 3 / 4) + 'px';
+    }
+
     /* ── 大きさを そろえる ───────────────────── */
     function fit() {
+        layout();
         const rect = base.getBoundingClientRect();
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         for (const c of [base, overlay]) {
@@ -177,6 +207,8 @@ export function createBoard(opt) {
         setWidth(w) { width = w; },
         getColor: () => color,
         setEnabled(v) { canDraw = !!v; overlay.style.cursor = v ? 'crosshair' : 'default'; },
+        /** よこに ならぶ はこ（どうぐ／キーボード）に のこす 最低の はば */
+        setSideMin(px) { sideMin = px; fit(); },
 
         /** かき おわった線が 1本 ふえた */
         addStroke(id, stroke) {

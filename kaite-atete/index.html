@@ -10,37 +10,36 @@
 <body>
 
 <h1>かいて あてて</h1>
-<p class="sub">えを かいて、みんなに あててもらおう</p>
 
 <!-- ① なまえを いれる -->
 <section class="card" id="stepName">
     <div class="readout" id="nameOut"><span class="placeholder">なまえを いれてね</span></div>
-    <div id="hiraSlot"></div>
-    <div class="row" style="margin-top:12px">
+    <div class="slot" id="hiraSlot"></div>
+    <div class="row">
         <button class="btn go" id="nameNext" disabled>つぎへ</button>
     </div>
 </section>
 
 <!-- ② つくる か はいる か -->
 <section class="card hidden" id="stepPick">
-    <p class="sub" style="text-align:center;margin-bottom:12px">
-        <b id="pickName"></b> さん、どちらに しますか？
-    </p>
-    <div class="row">
-        <button class="btn" id="btnCreate">へやを つくる</button>
-        <button class="btn" id="btnJoin">へやに はいる</button>
+    <div class="memberzone" style="align-items:center;justify-content:center">
+        <p class="sub" style="text-align:center"><b id="pickName"></b> さん、どちらに しますか？</p>
+        <div class="row">
+            <button class="btn" id="btnCreate">へやを つくる</button>
+            <button class="btn" id="btnJoin">へやに はいる</button>
+        </div>
     </div>
-    <div class="row" style="margin-top:14px">
+    <div class="row">
         <button class="btn sub-btn" id="backToName">なまえを なおす</button>
     </div>
 </section>
 
 <!-- ③ 4けたの へやばんごうを いれる -->
 <section class="card hidden" id="stepCode">
-    <p class="sub" style="text-align:center;margin-bottom:8px">へやの ばんごう（4けた）</p>
+    <p class="sub" style="text-align:center">へやの ばんごう（4けた）</p>
     <div class="digits" id="digits"></div>
-    <div id="numSlot"></div>
-    <div class="row" style="margin-top:12px">
+    <div class="slot" id="numSlot"></div>
+    <div class="row">
         <button class="btn go" id="codeGo" disabled>はいる</button>
         <button class="btn sub-btn" id="backToPick">もどる</button>
     </div>

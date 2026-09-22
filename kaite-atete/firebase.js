@@ -244,17 +244,30 @@ export function setPhase(conn, code, phase) {
    ことばは かく人の タブだけが おぼえていて、おわりに みんなへ 見せます。
    ------------------------------------------------------------------ */
 
-/** あたらしい おだいを はじめます。 */
-export function startRound(conn, code, round) {
+/** つぎの 人の 番に します。ことばは まだ きまっていません
+    （かく人の タブが じぶんで えらんで、そのあと armRound で 入れます）。 */
+export function setupRound(conn, code, drawer, level) {
     const { db, fb } = conn;
     return fb.set(fb.ref(db, `rooms/${code}/round`), {
-        drawer: round.drawer,
-        level: round.level,
-        hash: round.hash,
-        startedAt: Date.now(),
-        answered: null,
-        word: null
+        drawer, level,
+        hash: null, startedAt: null, endsAt: null,
+        answered: null, word: null, done: false
     });
+}
+
+/** かく人の タブが、えらんだ ことばの hash と 時間を 入れます。 */
+export function armRound(conn, code, hash, seconds) {
+    const { db, fb } = conn;
+    const now = Date.now();
+    return fb.update(fb.ref(db, `rooms/${code}/round`), {
+        hash, startedAt: now, endsAt: now + seconds * 1000
+    });
+}
+
+/** この 回を おわりに します（こたえを みんなに 見せます）。 */
+export function finishRound(conn, code, word) {
+    const { db, fb } = conn;
+    return fb.update(fb.ref(db, `rooms/${code}/round`), { word: word || null, done: true });
 }
 
 /** いまの おだいを 見はります。 */
@@ -273,4 +286,58 @@ export function markAnswered(conn, code, memberId) {
 export function revealWord(conn, code, word) {
     const { db, fb } = conn;
     return fb.set(fb.ref(db, `rooms/${code}/round/word`), word);
+}
+
+/* ── ゲーム（じゅんばんと とくてん）───────────────
+   だれが どの 順で かくかを きめ、とくてんを ためます。
+   ------------------------------------------------------------------ */
+
+/** ゲームを はじめます（あそびかた・じゅんばん・とくてんの リセット）。 */
+export async function startGame(conn, code, game) {
+    const { db, fb } = conn;
+    await fb.set(fb.ref(db, `rooms/${code}/game`), {
+        mode: game.mode,
+        order: game.order,
+        laps: game.laps || null,
+        seconds: game.seconds,
+        endsAt: game.endsAt || null,
+        turn: 0,
+        startedAt: Date.now()
+    });
+    await fb.remove(fb.ref(db, `rooms/${code}/scores`));
+}
+
+/** ランダムの ときは、つぎの かく人を そのつど 入れかえます。 */
+export function setGameTurn(conn, code, turn) {
+    const { db, fb } = conn;
+    return fb.set(fb.ref(db, `rooms/${code}/game/turn`), turn);
+}
+
+/** いまの じゅんばんを 見はります。 */
+export function watchGame(conn, code, cb) {
+    const { db, fb } = conn;
+    return fb.onValue(fb.ref(db, `rooms/${code}/game`), snap => cb(snap.val()));
+}
+
+/** つぎの 番に すすめます。 */
+export function setTurn(conn, code, turn) {
+    const { db, fb } = conn;
+    return fb.set(fb.ref(db, `rooms/${code}/game/turn`), turn);
+}
+
+/** とくてんを 見はります。 */
+export function watchScores(conn, code, cb) {
+    const { db, fb } = conn;
+    return fb.onValue(fb.ref(db, `rooms/${code}/scores`), snap => cb(snap.val() || {}));
+}
+
+/** とくてんを たします。{メンバーID: たす数} を わたします。 */
+export async function addScores(conn, code, deltas) {
+    const { db, fb } = conn;
+    const ref = fb.ref(db, `rooms/${code}/scores`);
+    const snap = await fb.get(ref);
+    const now = snap.val() || {};
+    const next = { ...now };
+    for (const [id, add] of Object.entries(deltas)) next[id] = (now[id] || 0) + add;
+    return fb.set(ref, next);
 }
