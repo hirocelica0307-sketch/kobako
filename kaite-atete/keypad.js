@@ -33,6 +33,40 @@ for (const map of [DAKUTEN, HANDAKUTEN, KOGAKI]) {
     for (const [from, to] of Object.entries(map)) UNDO[to] = from;
 }
 
+/** ボタンの 上に 出す しるしを つくります（線や まるで えがきます）。 */
+function makeGlyph(kind) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('class', 'glyph');
+    svg.setAttribute('aria-hidden', 'true');
+
+    const add = (tag, attrs) => {
+        const el = document.createElementNS(NS, tag);
+        for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+        svg.appendChild(el);
+        return el;
+    };
+    const stroke = { fill: 'none', stroke: 'currentColor', 'stroke-width': 2.6, 'stroke-linecap': 'round' };
+
+    if (kind === 'dakuten') {                 /* ゛ ＝ みじかい 線 2ほん */
+        add('line', { ...stroke, x1: 7,  y1: 6, x2: 4,  y2: 15 });
+        add('line', { ...stroke, x1: 15, y1: 6, x2: 12, y2: 15 });
+    } else if (kind === 'handakuten') {       /* ゜ ＝ まる */
+        add('circle', { ...stroke, cx: 12, cy: 11, r: 6 });
+    } else if (kind === 'small') {            /* 小さい字 ＝ 大小の しかく */
+        add('rect', { ...stroke, x: 3,  y: 4,  width: 11, height: 11, rx: 2 });
+        add('rect', { ...stroke, x: 15, y: 11, width: 6,  height: 6,  rx: 1.5 });
+    } else if (kind === 'back') {             /* けす ＝ もどる やじるし */
+        add('path', { ...stroke, d: 'M20 12H6' });
+        add('path', { ...stroke, d: 'M11 7l-5 5 5 5' });
+    } else {                                  /* ぜんぶけす ＝ ばつ */
+        add('line', { ...stroke, x1: 6,  y1: 6,  x2: 18, y2: 18 });
+        add('line', { ...stroke, x1: 18, y1: 6,  x2: 6,  y2: 18 });
+    }
+    return svg;
+}
+
 function makeKey(label, cls) {
     const b = document.createElement('button');
     b.type = 'button';
@@ -77,29 +111,37 @@ export function createHiraganaKeypad(opt = {}) {
         tell();
     };
 
-    /* 五十音表は「行（あいうえお）」がたての ならびに なるように 置きます */
+    /* 五十音表は「行（あいうえお）」がたての ならびに なるように 置きます。
+       よこの ならび（あ・か・さ…）ごとに 色を かえると、
+       ぜんぶ 同じ色より 文字が 見つけやすく なります。 */
     for (const row of KANA_GRID) {
-        for (const ch of row) {
-            if (!ch) { pad.appendChild(makeKey('', 'blank')); continue; }
-            const k = makeKey(ch);
+        row.forEach((ch, col) => {
+            if (!ch) { pad.appendChild(makeKey('', 'blank')); return; }
+            const k = makeKey(ch, 'g' + col);     /* g0＝あ行、g1＝か行 … */
             k.addEventListener('click', () => put(ch));
             pad.appendChild(k);
-        }
+        });
     }
 
     const tools = document.createElement('div');
     tools.className = 'keyrow';
-    /* 記号だけだと 低学年には 伝わりにくいので、ふだん つかう 言葉で 出します。
-       「てんてん」＝濁点、「まる」＝半濁点、「ちいさく」＝小さい字 */
+    /* ことばだけでなく、しるしも いっしょに 出します。
+       ゛や ゜は 1文字で 出すと とても 小さく なって 見えないので、
+       じぶんで 線と まるを ひいて 大きく 見せます。 */
     const toolDefs = [
-        ['てんてん',  'mark wide', () => mark(DAKUTEN)],
-        ['まる',      'mark wide', () => mark(HANDAKUTEN)],
-        ['ちいさく',  'mark wide', () => mark(KOGAKI)],
-        ['けす',      'wide',      () => { value = value.slice(0, -1); tell(); }],
-        ['ぜんぶけす','wide',      () => { value = ''; tell(); }]
+        ['てんてん',  'dakuten',    'mark wide', () => mark(DAKUTEN)],
+        ['まる',      'handakuten', 'mark wide', () => mark(HANDAKUTEN)],
+        ['ちいさく',  'small',      'mark wide', () => mark(KOGAKI)],
+        ['けす',      'back',       'wide',      () => { value = value.slice(0, -1); tell(); }],
+        ['ぜんぶけす','clear',      'wide',      () => { value = ''; tell(); }]
     ];
-    for (const [label, cls, fn] of toolDefs) {
-        const k = makeKey(label, cls);
+    for (const [label, kind, cls, fn] of toolDefs) {
+        const k = makeKey('', cls);
+        k.append(makeGlyph(kind));
+        const t = document.createElement('span');
+        t.className = 'label';
+        t.textContent = label;
+        k.appendChild(t);
         k.addEventListener('click', fn);
         tools.appendChild(k);
     }
@@ -108,7 +150,7 @@ export function createHiraganaKeypad(opt = {}) {
     /* あまった ばしょに 合わせて キーボードの 大きさを きめます。
        10れつ×5だん なので、よこ:たて ＝ 2:1 なら キーが 正方形に なります。
        CSS の のびちぢみ だけでは 正しく 決まらないので、ここで 計算します。 */
-    fitPad(el, pad, tools, 660, 2);
+    fitPad(el, pad, tools, 760, 2);
 
     return {
         el,
@@ -127,13 +169,25 @@ export function createHiraganaKeypad(opt = {}) {
  */
 function fitPad(box, pad, extra, maxW, ratio) {
     const relayout = () => {
-        const availW = box.clientWidth;
+        /* よこはばは「入れものの 親」から はかります。
+           box じしんを はかると、キーボードを 大きく した ぶんだけ
+           box も 大きく なって しまい、一度 はみ出すと 元に もどれません。 */
+        const host = box.parentElement || box;
+        const hostStyle = host === box ? null : getComputedStyle(host);
+        const padX = hostStyle
+            ? (parseFloat(hostStyle.paddingLeft) || 0) + (parseFloat(hostStyle.paddingRight) || 0)
+            : 0;
+        const availW = Math.max(0, host.clientWidth - padX);
         const extraH = extra ? extra.offsetHeight + 6 : 0;
         const availH = box.clientHeight - extraH;
         if (availW <= 0 || availH <= 0) return;
-        const w = Math.max(180, Math.min(maxW, availW, availH * ratio));
+        /* よこは あいている はばいっぱい、たては あいている 高さまで。
+           たてが たりない ときは キーが よこ長に なります。
+           （たて よこ 両方を ちぢめると、キーが 小さすぎて 押せなく なります）*/
+        const w = Math.max(180, Math.min(maxW, availW));
+        const h = Math.max(120, Math.min(w / ratio, availH));
         pad.style.width = Math.floor(w) + 'px';
-        pad.style.height = Math.floor(w / ratio) + 'px';
+        pad.style.height = Math.floor(h) + 'px';
         /* 下の ボタンの れつも 同じ はばに して、2だんに 折りかえさない ように します
            （折りかえすと たての ばしょを とられて、キーが 小さく なります）*/
         if (extra) extra.style.width = Math.floor(w) + 'px';
@@ -141,7 +195,10 @@ function fitPad(box, pad, extra, maxW, ratio) {
     if (typeof ResizeObserver !== 'undefined') {
         const ro = new ResizeObserver(relayout);
         ro.observe(box);
-        if (box.parentElement) ro.observe(box.parentElement);   /* 入れものの 変化も 見ます */
+        if (box.parentElement) ro.observe(box.parentElement);
+        if (box.parentElement && box.parentElement.parentElement) {
+            ro.observe(box.parentElement.parentElement);
+        }
     }
     window.addEventListener('resize', relayout);
     /* 画面が できあがる 前に はかると 小さく 出ます。

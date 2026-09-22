@@ -7,16 +7,24 @@
 export const MIN = 1;
 export const MAX = 99;
 
+/* はんいは つかう ところごとに かえられます
+   （ぜんたいの じかんは 1〜99ふん、1かいの じかんは 30〜120びょう など）*/
+
 /**
  * @param {object} opt
  *   opt.value  さいしょの 数
  *   opt.unit   数の うしろに つける ことば（'ふん'・'びょう' など）
+ *   opt.min    いちばん 小さい 数（きめなければ 1）
+ *   opt.max    いちばん 大きい 数（きめなければ 99）
  *   opt.onChange 数が かわったら よばれる
  */
 export function createStepper(opt = {}) {
     const unit = opt.unit || '';
     const onChange = opt.onChange || (() => {});
-    let value = clamp(opt.value || MIN);
+    const lo = opt.min != null ? opt.min : MIN;
+    const hi = opt.max != null ? opt.max : MAX;
+    const clamp = v => Math.min(hi, Math.max(lo, Math.round(v)));
+    let value = clamp(opt.value != null ? opt.value : lo);
 
     const el = document.createElement('div');
     el.className = 'stepper';
@@ -60,8 +68,4 @@ export function createStepper(opt = {}) {
         getValue: () => value,
         setValue(v) { value = clamp(v); paint(); }
     };
-}
-
-function clamp(v) {
-    return Math.min(MAX, Math.max(MIN, Math.round(v)));
 }

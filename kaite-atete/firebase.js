@@ -250,6 +250,7 @@ export function setupRound(conn, code, drawer, level) {
     const { db, fb } = conn;
     return fb.set(fb.ref(db, `rooms/${code}/round`), {
         drawer, level,
+        setupAt: Date.now(),          /* かく人が おだいを 出さないまま 止まるのを 見つける ため */
         hash: null, startedAt: null, endsAt: null,
         answered: null, word: null, done: false
     });

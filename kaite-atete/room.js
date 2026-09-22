@@ -11,6 +11,7 @@ import { createHiraganaKeypad } from './keypad.js';
 import { LEVELS, pickWord, hashWord, normalize } from './odai.js';
 import { scoreRound } from './scoring.js';
 import { createStepper } from './stepper.js';
+import { sound } from './audio.js';
 
 const $ = id => document.getElementById(id);
 
@@ -26,8 +27,13 @@ const LAP_CHOICES = [
     { n: 2, label: '2しゅう', note: 'ひとり 2かい' },
     { n: 3, label: '3しゅう', note: 'ひとり 3かい' }
 ];
-const DEFAULT_MINUTES = 5;    // ランダムの ときの ぜんたいの 時間
-const DEFAULT_SECONDS = 30;   // 1かいの 時間
+const DEFAULT_MINUTES = 5;    // ランダムの ときの ぜんたいの 時間（ふん）
+const MIN_MINUTES = 1, MAX_MINUTES = 99;
+const DEFAULT_SECONDS = 60;   // 1かいの 時間（びょう）
+const MIN_SECONDS = 30, MAX_SECONDS = 120;
+/* かく人が いなく なって 止まったとき、ぬしが すすめるまでの 待ち時間 */
+const STUCK_SETUP_MS = 8000;  // おだいが 出ないまま
+const STUCK_END_MS = 3000;    // 時間が すぎたのに おわらない
 
 const code = readStore('ka_room');
 const myName = readStore('ka_name');
@@ -44,6 +50,8 @@ let level = LEVELS[0].key, mode = 'order', laps = 1;
 let minutes = DEFAULT_MINUTES, seconds = DEFAULT_SECONDS;
 let myWord = null, recent = [];
 let arming = false, finishing = false, advancing = false;
+/* 音を 二重に 鳴らさない ための おぼえ */
+let wasDone = false, wasMyTurn = false, lastTick = -1, resultPlayed = false;
 const myStrokes = [];
 
 function say(t, bad) {
@@ -72,7 +80,7 @@ function shuffle(a) {
 }
 
 /* ── あつまった人 ─────────────────────────── */
-function chip(m) {
+function chip(m, compact) {
     const el = document.createElement('div');
     el.className = 'member' + (m.id === myId ? ' me' : '') + (m.online === false ? ' off' : '');
     const dot = document.createElement('span');
@@ -80,6 +88,10 @@ function chip(m) {
     dot.style.background = m.color || '#ccc';
     el.appendChild(dot);
     el.appendChild(document.createTextNode(m.name || 'だれか'));
+
+    /* 人数が 多い ときは、上の帯では 名まえを ゆうせんし、
+       てんすうなどは はぶきます（名まえが 切れると 見づらい ため）*/
+    if (compact) return el;
 
     const tags = [];
     if (phase === 'playing' && round && round.drawer === m.id) tags.push('かく人');
@@ -96,10 +108,12 @@ function chip(m) {
 }
 
 function drawMembers() {
+    const crowded = members.length > 4;
     for (const id of ['members', 'membersBig']) {
         const box = $(id);
         box.textContent = '';
-        for (const m of members) box.appendChild(chip(m));
+        /* 上の帯は 1れつなので、人数が 多い ときは かんたんな 見せかたに */
+        for (const m of members) box.appendChild(chip(m, id === 'members' && crowded));
     }
     const here = onlineIds().length;
     $('count').textContent = here === 0 ? 'まだ だれも いません' : here + ' にん あつまりました';
@@ -208,6 +222,20 @@ function render() {
         $('odai').textContent = myWord || '（じゅんびちゅう…）';
         const n = round && round.answered ? Object.keys(round.answered).length : 0;
         $('answeredCount').textContent = n === 0 ? 'まだ だれも あてていません' : n + ' にん あてました';
+        /* おだいは、まだ だれも あてていない あいだだけ かえられます */
+        $('changeOdai').classList.toggle('hidden', !round || !round.hash || round.done || n > 0);
+    }
+
+    /* 先生（ぬし）と かく人には「まだの 人」を 出します。
+       だれを 待っているかが 見えると、つぎに すすめる はんだんが できます。 */
+    const showWaiting = playing && round && round.hash && !done && (isHost || drawer);
+    $('waitingFor').classList.toggle('hidden', !showWaiting);
+    if (showWaiting) {
+        const answered = round.answered || {};
+        const yet = onlineIds().filter(id => id !== round.drawer && !answered[id]).map(nameOf);
+        $('waitingFor').textContent = yet.length === 0
+            ? 'ぜんいん あてました！'
+            : 'まだの 人 … ' + yet.join('、');
     }
 
     /* しらせ（せいかい・ちがう・こたえの はっぴょう）*/
@@ -265,10 +293,16 @@ setInterval(() => {
         const rest = Math.max(0, Math.ceil(restMs / 1000));
         const mm = Math.floor(rest / 60), ss = rest % 60;
         $('clock').textContent = 'ぜんたい ' + mm + ':' + String(ss).padStart(2, '0');
-        /* 時間が きたら ぬしが おわりに します（ぬしは かならず いるので）*/
-        if (rest === 0 && isHost && !advancing) {
+        /* 時間が きたら ぬしが おわりに します（ぬしは かならず いるので）。
+           ここで 例外が 出ると advancing が たったままに なり、
+           「つぎの 人へ」が 黙って きかなく なるので、かならず 元に もどします。 */
+        if (rest === 0 && isHost && conn && !advancing) {
             advancing = true;
-            setPhase(conn, code, 'result').finally(() => { advancing = false; });
+            try {
+                setPhase(conn, code, 'result').catch(() => {}).finally(() => { advancing = false; });
+            } catch (e) {
+                advancing = false;
+            }
         }
     } else {
         $('clock').textContent = '';
@@ -281,6 +315,12 @@ setInterval(() => {
     $('timer').textContent = 'のこり ' + left + ' びょう';
     $('timer').classList.toggle('hurry', left <= Math.max(3, Math.round(((game && game.seconds) || DEFAULT_SECONDS) / 3)));
     if (left === 0 && amDrawer()) endRound();
+
+    /* のこり 3びょうから、1びょうごとに 小さく 鳴らします */
+    if (left <= 3 && left > 0 && left !== lastTick) { lastTick = left; sound.tick(); }
+    if (left > 3) lastTick = -1;
+
+    watchdog();
 }, 300);
 
 /* ── おだいの じゅんび（かく人の タブだけ）──────── */
@@ -318,9 +358,51 @@ async function endRound() {
     }
 }
 
+/* ── 進行が 止まっていないか 見はる ───────────────
+   かく人の タブが いなく なると、おだいが 出ないまま・
+   時間が すぎたのに おわらないまま 止まります。
+   その ときは ぬしが かわりに すすめます。 */
+function watchdog() {
+    if (!conn || phase !== 'playing' || !isHost || !game || !round || advancing || finishing) return;
+    const now = Date.now();
+    const drawerHere = onlineIds().includes(round.drawer);
+
+    /* おだいが 出ないまま 止まっている */
+    if (!round.hash && !round.done && round.setupAt && now - round.setupAt > STUCK_SETUP_MS) {
+        say('かく人が いないので、つぎの 人に すすみます');
+        advance();
+        return;
+    }
+    /* 時間が すぎたのに おわっていない（かく人が いない）*/
+    if (round.hash && !round.done && round.endsAt && !drawerHere
+        && now > round.endsAt + STUCK_END_MS) {
+        hostFinish();
+    }
+}
+
+/* かく人が いなく なった ときに、ぬしが この かいを おわらせます。
+   ことばは 知らないので 出せませんが、とくてんは つけられます。 */
+async function hostFinish() {
+    if (!conn || !round || round.done || finishing) return;
+    finishing = true;
+    try {
+        const deltas = scoreRound(round.answered, round.drawer);
+        if (Object.keys(deltas).length) await addScores(conn, code, deltas);
+        await finishRound(conn, code, null);
+    } catch (e) {
+        say('この かいを おわれませんでした', true);
+    } finally {
+        finishing = false;
+    }
+}
+
 /* ── つぎの 人へ ─────────────────────────── */
 async function advance() {
-    if (!conn || !game || advancing) return;
+    /* 黙って 何も しないと「ボタンが きかない」ように 見えるので、
+       できない ときは かならず わけを 出します */
+    if (!conn) { say('つうしんが できていません。すこし まってから もう一度 おしてください', true); return; }
+    if (!game) { say('ゲームの じょうほうが ありません', true); return; }
+    if (advancing) return;
     advancing = true;
     try {
         const next = game.turn + 1;
@@ -381,8 +463,10 @@ buildChooser('modes', MODES, it => {
 buildChooser('laps', LAP_CHOICES, it => { laps = it.n; });
 $('settings').classList.toggle('hidden', !isHost);
 
-const minPad = createStepper({ value: DEFAULT_MINUTES, unit: 'ふん', onChange: v => { minutes = v; } });
-const secPad = createStepper({ value: DEFAULT_SECONDS, unit: 'びょう', onChange: v => { seconds = v; } });
+const minPad = createStepper({ value: DEFAULT_MINUTES, min: MIN_MINUTES, max: MAX_MINUTES,
+                               unit: 'ふん', onChange: v => { minutes = v; } });
+const secPad = createStepper({ value: DEFAULT_SECONDS, min: MIN_SECONDS, max: MAX_SECONDS,
+                               unit: 'びょう', onChange: v => { seconds = v; } });
 $('minSlot').appendChild(minPad.el);
 $('secSlot').appendChild(secPad.el);
 board.setWidth(PEN_WIDTHS[1]);
@@ -400,6 +484,15 @@ function onRound(r) {
         clearStore('ka_myans');
         if (r && r.drawer !== myId) myWord = null;
     }
+    /* ── 音 ──────────────────────────────── */
+    const nowDone = !!(r && r.done);
+    if (nowDone && !wasDone) sound.roundEnd();
+    wasDone = nowDone;
+
+    const myTurn = !!(r && r.drawer === myId && r.hash && !r.done);
+    if (myTurn && !wasMyTurn) sound.yourTurn();
+    wasMyTurn = myTurn;
+
     round = r;
     /* 画面を 読みこみ なおしたときは、おぼえている ことばを つかいます */
     if (round && round.drawer === myId && round.hash && !myWord) {
@@ -420,8 +513,13 @@ function onRound(r) {
         conn = c;
 
         watchMembers(c, code, list => { members = list; drawMembers(); render(); });
-        watchInfo(c, code, info => { phase = info.phase || 'waiting'; render();
-            if (phase === 'playing') requestAnimationFrame(() => board.refit()); });
+        watchInfo(c, code, info => {
+            phase = info.phase || 'waiting';
+            if (phase === 'result' && !resultPlayed) { resultPlayed = true; sound.fanfare(); }
+            if (phase !== 'result') resultPlayed = false;
+            render();
+            if (phase === 'playing') requestAnimationFrame(() => board.refit());
+        });
         watchGame(c, code, g => { game = g; render(); armIfMine(); });
         watchRound(c, code, onRound);
         watchScores(c, code, s => { scores = s; drawMembers(); render(); });
@@ -472,14 +570,44 @@ $('ansGo').addEventListener('click', async () => {
     const guess = ansPad.getValue();
     if (!guess || !round || !round.hash || !conn) return;
     if (hashWord(guess) === round.hash) {
+        sound.ok();
         writeStore('ka_myans', normalize(guess));
         $('judge').dataset.wrong = '';
         try { await markAnswered(conn, code, myId); } catch (e) {}
         render();
     } else {
+        sound.ng();
         $('judge').dataset.wrong = '1';
         ansPad.clear();
         render();
+    }
+});
+
+/* おと の 入り／切り（この 端末だけ）*/
+function paintSound() {
+    $('soundBtn').textContent = sound.isOn() ? 'おと' : 'おと ✕';
+    $('soundBtn').style.opacity = sound.isOn() ? '' : '.55';
+}
+$('soundBtn').addEventListener('click', () => { sound.toggle(); paintSound(); });
+paintSound();
+
+/* おだいを かえる（まだ だれも あてていない あいだだけ）*/
+$('changeOdai').addEventListener('click', async () => {
+    if (!conn || !round || !amDrawer() || arming) return;
+    $('changeOdai').disabled = true;
+    try {
+        const word = pickWord(round.level || level, recent);
+        recent = [word, ...recent].slice(0, 30);
+        myWord = word;
+        writeStore('ka_word', word);
+        await clearBoard(conn, code);
+        myStrokes.length = 0;
+        await armRound(conn, code, hashWord(word), (game && game.seconds) || DEFAULT_SECONDS);
+        render();
+    } catch (e) {
+        say('おだいを かえられませんでした', true);
+    } finally {
+        $('changeOdai').disabled = false;
     }
 });
 
