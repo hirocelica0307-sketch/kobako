@@ -16,10 +16,6 @@
     <h1 class="logo">げんこうようし</h1>
 
     <div class="bar-mid">
-      <label class="field">
-        <span>かだい</span>
-        <select id="preset"></select>
-      </label>
       <div class="count" id="count">0字</div>
     </div>
 
@@ -71,21 +67,11 @@
       <div class="set-body">
 
         <div class="set-group">
-          <h3>かだい</h3>
-          <select id="setPreset"></select>
-          <div class="set-btns">
-            <button class="btn btn-sm" id="btnNewPreset">あたらしく つくる</button>
-            <button class="btn btn-sm" id="btnRenamePreset">なまえを かえる</button>
-            <button class="btn btn-sm btn-danger" id="btnDelPreset">けす</button>
-          </div>
-          <p class="hint">えらんだ かだいの きまりを 下で 直します。直すと すぐ 右に うつります。</p>
-        </div>
-
-        <div class="set-group">
           <h3>マス</h3>
           <label class="set-row"><span>1行の 字数</span><input type="number" id="setChars" min="4" max="40"></label>
           <label class="set-row"><span>1まいの 行数</span><input type="number" id="setCols" min="2" max="40"></label>
-          <label class="set-row"><span>何まいまで</span><input type="number" id="setPages" min="1" max="10"></label>
+          <p class="hint">まい数は きめません。1まい目の さいごまで 書いて つぎの 字を 打つと、
+             自動で 2まい目が ふえます。</p>
         </div>
 
         <div class="set-group">
@@ -108,7 +94,13 @@
 
         <div class="set-group">
           <h3>本文</h3>
-          <label class="set-row"><span>はじまる 行</span><input type="number" id="setBodyStart" min="1" max="10"></label>
+          <label class="set-row"><span>はじまり</span>
+            <select id="setBodyGap">
+              <option value="0">すぐ つぎの行から</option>
+              <option value="1">1行 あけてから</option>
+              <option value="2">2行 あけてから</option>
+            </select></label>
+          <p class="hint" id="bodyGapHint"></p>
           <label class="set-row"><span>段落の はじめに あける マス</span><input type="number" id="setParaIndent" min="0" max="3"></label>
         </div>
 
@@ -121,19 +113,39 @@
               <option value="serial">いつも 並べ（一二／二〇二六）</option>
               <option value="keep">算用数字の まま</option>
             </select></label>
-          <label class="set-row"><span>行頭の 句読点を 前のマスに 詰める</span><input type="checkbox" id="setHang"></label>
+          <label class="set-row"><span>小数点を 中黒に する（三十二・五）</span><input type="checkbox" id="setDecimal"></label>
+          <label class="set-row"><span>アルファベット</span>
+            <select id="setLatin">
+              <option value="rule">大文字1字・小文字2字（よこ向き）</option>
+              <option value="perCell">ぜんぶ 1マス1字</option>
+            </select></label>
+          <label class="set-row"><span>行頭の 句読点を 前の行へ まわす</span><input type="checkbox" id="setHang"></label>
+          <label class="set-row"><span>まわし方</span>
+            <select id="setHangStyle">
+              <option value="inside">前のマスに 一緒に 入れる</option>
+              <option value="outside">マスの 外に ぶら下げる</option>
+            </select></label>
+          <label class="set-row"><span>小さい字（っ ゃ ー）も 前の行へ まわす</span><input type="checkbox" id="setSmallKana"></label>
           <label class="set-row"><span>「。」」を 1マスに まとめる</span><input type="checkbox" id="setKuten"></label>
           <label class="set-row"><span>会話文は 改行して 1マス目から</span><input type="checkbox" id="setDialogue"></label>
-          <label class="set-row"><span>小さい字は 行頭に 来てもよい</span><input type="checkbox" id="setSmallKana"></label>
+          <label class="set-row"><span>段落が 会話から はじまる ときは 1マス あける</span><input type="checkbox" id="setDialogueIndent"></label>
+          <label class="set-row"><span>「」を とじた あとの 改行</span>
+            <select id="setAfterQuote">
+              <option value="dialogue">会話文だけ 改行（思ったことは そのまま）</option>
+              <option value="always">どの「」でも 改行する</option>
+              <option value="never">改行しない</option>
+            </select></label>
           <label class="set-row"><span>！ ？ の あとを 1マス あける</span><input type="checkbox" id="setBangSpace"></label>
           <label class="set-row"><span>…… —— を 2マス つかう</span><input type="checkbox" id="setEllipsis"></label>
+          <label class="set-row"><span>…… —— の 2マス目を 行頭に 置かない</span><input type="checkbox" id="setPair"></label>
           <label class="set-row"><span>行末の 「 を つぎの行へ 送る</span><input type="checkbox" id="setPushOpen"></label>
+          <label class="set-row"><span>長い 題名を つぎの行へ 分ける</span><input type="checkbox" id="setWrapTitle"></label>
           <p class="hint">きまりの くわしい 説明は <code>docs/RULES.md</code> に あります。</p>
         </div>
 
         <div class="set-group">
           <h3>ほかの 端末に くばる</h3>
-          <p class="hint">「コードを 作る」で 出た 文字を 児童の 端末で 貼りつけて「読みこむ」と、同じ かだい・同じ きまりに なります。</p>
+          <p class="hint">「コードを 作る」で 出た 文字を 児童の 端末で 貼りつけて「読みこむ」と、同じ きまりに なります。</p>
           <textarea id="setCode" rows="3" placeholder="ここに せっていコードが 出ます"></textarea>
           <div class="set-btns">
             <button class="btn btn-sm" id="btnCodeOut">コードを 作る</button>

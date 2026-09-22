@@ -92,18 +92,27 @@ function gyNormalize(src, cfg){
     for(let i = 0; i < chars.length; i++){
       const c = chars[i];
 
-      /* 数字の ならび */
+      /* 数字の ならび（小数点も ふくむ） */
       if(/[0-9０-９]/.test(c)){
         const before = chars[i-1] || '';
+        const half = d => d.replace(/[０-９]/, x => String.fromCharCode(x.charCodeAt(0) - 0xfee0));
         let run = '';
-        while(i < chars.length && /[0-9０-９]/.test(chars[i])){
-          run += chars[i].replace(/[０-９]/, d => String.fromCharCode(d.charCodeAt(0) - 0xfee0));
+        while(i < chars.length && /[0-9０-９]/.test(chars[i])){ run += half(chars[i]); i++; }
+        /* 小数（32.5）は 中黒で つなぐ */
+        let dec = '';
+        if(cfg.decimalNakaguro && /[.．]/.test(chars[i] || '') && /[0-9０-９]/.test(chars[i+1] || '')){
           i++;
+          while(i < chars.length && /[0-9０-９]/.test(chars[i])){ dec += half(chars[i]); i++; }
         }
         const after = chars[i] || '';
-        const conv = gyDigitsToKanji(run, after, cfg.numbers, before);
+        let conv = gyDigitsToKanji(run, dec ? '' : after, cfg.numbers, before);
+        let src  = run;
+        if(dec){
+          conv += '・' + gyKanjiSerial(dec);   // 小数点いかは 1けたずつ
+          src  += '.' + dec;
+        }
         i--;
-        const changed = (conv !== run);
+        const changed = (conv !== src);
         for(const k of Array.from(conv)) units.push({ c:k, fix: changed ? 'num' : '' });
         if(changed) addFix('num');
         continue;
@@ -143,6 +152,13 @@ function gyNormalize(src, cfg){
         continue;
       }
 
+      /* アルファベットは そのまま（1マスに 何字 入れるかは compose.js で きめる） */
+      if(/[A-Za-z]/.test(c)){ units.push({ c:c, fix:'' }); continue; }
+      if(/[Ａ-Ｚａ-ｚ]/.test(c)){
+        units.push({ c: String.fromCharCode(c.charCodeAt(0) - 0xfee0), fix:'' });
+        continue;
+      }
+
       /* 半角 → 全角 */
       const z = gyToZenkaku(c);
       units.push({ c:z, fix: z === c ? '' : 'zen' });
@@ -151,21 +167,45 @@ function gyNormalize(src, cfg){
     if(units.length) paragraphs.push({ units, dialogue:false });
   }
 
-  /* 会話文を わける（「 で はじまる 段落 ／ 。「 の ところ） */
-  const out = [];
+  /* 会話文の ところで 行を かえる
+     ・文の はじめ（段落の 先頭、または 。！？ の すぐ あと）に 来る 「 … 会話文
+       → 行を かえて 1マス目から 書き、とじた あとも 行を かえる
+     ・文の 途中に 来る 「   … 思ったこと・引用・強調
+       → 行は かえず、そのまま つづける                                   */
+  const out  = [];
+  const mode = cfg.quoteNewline || 'dialogue';
+  const OPEN = '「『', CLOSE = '」』';
+  const ENDS = '。！？';
   for(const p of paragraphs){
-    if(!cfg.dialogueNewline){ out.push(p); continue; }
-    let cur = [];
+    let cur = [], curTop = false, openIsDialogue = false, first = true;
+    const flush = nextTop => {
+      if(cur.length){
+        const isQuote = OPEN.indexOf(cur[0].c) >= 0;
+        /* paraHead … 打った 段落の いちばん さいしょが 会話文だった、という しるし */
+        out.push({ units:cur, dialogue: curTop || isQuote, paraHead: first && isQuote });
+        first = false;
+      }
+      cur = []; curTop = nextTop;
+    };
     for(let i = 0; i < p.units.length; i++){
       const u = p.units[i], nx = p.units[i+1];
+      if(OPEN.indexOf(u.c) >= 0){
+        const prev = cur[cur.length - 1];
+        const atStart = !prev || ENDS.indexOf(prev.c) >= 0;
+        if(atStart && cfg.dialogueNewline && cur.length) flush(false);
+        openIsDialogue = atStart;
+        cur.push(u);
+        continue;
+      }
       cur.push(u);
-      if(u.c === '。' && nx && nx.c === '「'){
-        out.push({ units:cur, dialogue: cur[0].c === '「' });
-        cur = [];
+      if(CLOSE.indexOf(u.c) >= 0 && nx){
+        const doBreak = (mode === 'always') || (mode === 'dialogue' && openIsDialogue);
+        openIsDialogue = false;
+        if(doBreak) flush(true);
       }
     }
-    if(cur.length) out.push({ units:cur, dialogue: cur[0].c === '「' });
+    flush(false);
   }
 
-  return { paragraphs: cfg.dialogueNewline ? out : paragraphs, fixes };
+  return { paragraphs: out, fixes };
 }
