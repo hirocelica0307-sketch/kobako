@@ -21,6 +21,9 @@
     </p>
     <div class="members big" id="membersBig"></div>
     <p class="count" id="count">まだ だれも いません</p>
+
+    <div class="levels" id="levels"></div>
+
     <div class="row" style="margin-top:14px">
         <button class="btn go hidden" id="start">はじめる</button>
         <p class="sub hidden" id="waitMsg" style="margin:0">
@@ -29,10 +32,35 @@
     </div>
 </section>
 
-<!-- ② おえかき －－ みんなで 1まいの ばんに かく -->
-<div class="board-wrap hidden" id="play">
-    <canvas id="base"></canvas>
-    <canvas id="overlay" class="overlay"></canvas>
+<!-- ② おえかき -->
+<div class="playarea hidden" id="play">
+    <div class="board-wrap">
+        <canvas id="base"></canvas>
+        <canvas id="overlay" class="overlay"></canvas>
+    </div>
+
+    <div class="side">
+        <!-- かく人 -->
+        <div id="drawerPanel" class="hidden">
+            <p class="sub" style="margin:0 0 6px">あなたの おだい</p>
+            <div class="odai" id="odai">－－</div>
+            <p class="count" id="answeredCount">まだ だれも あてていません</p>
+            <div class="row" style="margin-top:10px">
+                <button class="btn go" id="nextOdai">つぎの おだい</button>
+            </div>
+        </div>
+
+        <!-- こたえる人 -->
+        <div id="answerPanel" class="hidden">
+            <p class="sub" style="margin:0 0 4px">なにを かいて いるのかな？</p>
+            <div class="readout" id="ansOut"><span class="placeholder">こたえを いれてね</span></div>
+            <div id="ansSlot"></div>
+            <div class="row" style="margin-top:8px">
+                <button class="btn go" id="ansGo" disabled>こたえる</button>
+            </div>
+            <div class="judge hidden" id="judge"></div>
+        </div>
+    </div>
 </div>
 
 <div class="tools hidden" id="tools">
