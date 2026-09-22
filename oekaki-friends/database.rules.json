@@ -1,0 +1,14 @@
+{
+  "rules": {
+    "casual_rooms": {
+      "$room": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "wordStats": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}
