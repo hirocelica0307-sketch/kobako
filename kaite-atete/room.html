@@ -3,29 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>あつまる｜かいて あてて</title>
+<title>おえかき｜かいて あてて</title>
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="play">
 
-<div class="card">
-    <div class="roomcode">
-        <span class="sub">へやの ばんごう</span>
-        <b id="code">----</b>
-    </div>
+<div class="topbar">
+    <div class="roomcode"><span class="sub">へや</span><b id="code">----</b></div>
+    <div class="members" id="members"></div>
+    <button class="btn sub-btn" id="leave">でる</button>
 </div>
 
-<div class="card">
-    <p class="sub" style="text-align:center;margin-bottom:10px">あつまった ひと</p>
-    <div class="members" id="members"></div>
-    <p class="count" id="count">まだ だれも いません</p>
+<div class="board-wrap">
+    <canvas id="base"></canvas>
+    <canvas id="overlay" class="overlay"></canvas>
+</div>
+
+<div class="tools">
+    <div class="swatches" id="swatches"></div>
+    <div class="pens" id="pens"></div>
+    <button class="btn sub-btn" id="undo">もどす</button>
+    <button class="btn sub-btn hidden" id="clear">ぜんぶ けす</button>
 </div>
 
 <div class="notice wait" id="notice">つないでいます…</div>
-
-<div class="row">
-    <button class="btn sub-btn" id="leave">へやを でる</button>
-</div>
 
 <script type="module" src="room.js"></script>
 </body>

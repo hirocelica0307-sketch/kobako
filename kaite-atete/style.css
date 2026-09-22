@@ -141,3 +141,63 @@ h1{ margin:0; font-size:clamp(20px,3.4vw,30px); letter-spacing:.06em; }
     .card{ padding:10px; }
     .keypad.hira{ gap:4px; }
 }
+
+/* ── おえかきの 画面 ──────────────────────────── */
+body.play{ gap:6px; }
+
+.topbar{
+    width:100%; max-width:1100px;
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    background:var(--panel); border:3px solid var(--line);
+    border-radius:var(--radius); padding:8px 12px;
+}
+.topbar .roomcode{ gap:8px; flex:none; }
+.topbar .roomcode b{ font-size:clamp(24px,4vw,38px); }
+.topbar .members{ margin:0; flex:1 1 200px; justify-content:flex-start; overflow:auto; }
+.topbar .member{ padding:4px 12px; font-size:clamp(13px,1.8vw,17px); border-width:2px; }
+.topbar .member .dot{ width:14px; height:14px; }
+.topbar .btn.sub-btn{ min-height:40px; min-width:0; padding:6px 14px; flex:none; }
+
+/* かく ところ。たて よこの 比を 4:3 に そろえているので、
+   画面の 大きさが ちがっても 同じ かたちに 見えます。 */
+.board-wrap{
+    position:relative;
+    height:min(58vh, 62vw); aspect-ratio:4/3;
+    background:#fff; border:3px solid var(--line); border-radius:var(--radius);
+    overflow:hidden; flex:none;
+}
+.board-wrap canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+#overlay{ touch-action:none; cursor:crosshair; }
+
+.tools{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap; justify-content:center;
+    background:var(--panel); border:3px solid var(--line);
+    border-radius:var(--radius); padding:8px 14px;
+}
+.swatches,.pens{ display:flex; gap:8px; align-items:center; }
+
+.swatch{
+    width:42px; height:42px; border-radius:50%;
+    border:3px solid var(--line); cursor:pointer; padding:0;
+    font:inherit; font-size:13px; color:var(--ink);
+    transition:transform .08s;
+}
+.swatch.eraser{ background:#fff; }
+.swatch.on{ border-color:var(--ink); transform:scale(1.14); }
+
+.pen{
+    width:50px; height:42px; border-radius:10px;
+    border:3px solid var(--line); background:var(--panel); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:0;
+}
+.pen span{ background:var(--ink); border-radius:50%; display:block; }
+.pen.on{ border-color:var(--ink); background:var(--tap); }
+
+.tools .btn.sub-btn{ min-height:42px; min-width:0; padding:6px 16px; }
+
+@media (max-width:640px){
+    .board-wrap{ height:auto; width:100%; aspect-ratio:4/3; }
+    .tools{ gap:8px; padding:6px 8px; }
+    .swatch{ width:36px; height:36px; }
+    .pen{ width:42px; height:36px; }
+}

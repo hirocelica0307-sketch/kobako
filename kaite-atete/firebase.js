@@ -156,3 +156,68 @@ export async function leaveRoom(conn, code, memberId) {
     const { db, fb } = conn;
     await fb.remove(fb.ref(db, `rooms/${code}/members/${memberId}`));
 }
+
+/* ── おえかき ──────────────────────────────────
+   線（ストローク）の やりとりです。
+   ・かいている とちゅう … rooms/{code}/live/{メンバーID}
+       すこしずつ 上書きします。見ている人は 線が のびていくのが わかります。
+   ・かき おわった線  … rooms/{code}/strokes/{線のID}
+       ふでを はなした ときに ここへ うつします。
+   点は 0〜1000 の 整数で もちます。画面の 大きさが ちがっても
+   同じ かたちに なるようにするためです。
+   ------------------------------------------------------------------ */
+
+/** かいている とちゅうの 線を 送ります（とちゅう経過）。 */
+export function sendLive(conn, code, memberId, stroke) {
+    const { db, fb } = conn;
+    return fb.set(fb.ref(db, `rooms/${code}/live/${memberId}`), stroke);
+}
+
+/** とちゅう経過を 消します。 */
+export function clearLive(conn, code, memberId) {
+    const { db, fb } = conn;
+    return fb.remove(fb.ref(db, `rooms/${code}/live/${memberId}`));
+}
+
+/** かき おわった線を くわえます。線の ID を 返します。 */
+export async function commitStroke(conn, code, stroke) {
+    const { db, fb } = conn;
+    const ref = await fb.push(fb.ref(db, `rooms/${code}/strokes`), stroke);
+    return ref.key;
+}
+
+/** 線を 1本 消します（もどす）。 */
+export function removeStroke(conn, code, strokeId) {
+    const { db, fb } = conn;
+    return fb.remove(fb.ref(db, `rooms/${code}/strokes/${strokeId}`));
+}
+
+/** ぜんぶ 消します。 */
+export async function clearBoard(conn, code) {
+    const { db, fb } = conn;
+    await fb.remove(fb.ref(db, `rooms/${code}/strokes`));
+    await fb.remove(fb.ref(db, `rooms/${code}/live`));
+}
+
+/** つうしんが 切れたら、自分の とちゅう経過を 消す よやくを します。 */
+export function clearLiveOnDisconnect(conn, code, memberId) {
+    const { db, fb } = conn;
+    fb.onDisconnect(fb.ref(db, `rooms/${code}/live/${memberId}`)).remove();
+}
+
+/**
+ * かき おわった線を 見はります。
+ * すでに ある線も さいしょに ぜんぶ とどきます（あとから 入った人も 同じ絵に なります）。
+ */
+export function watchStrokes(conn, code, onAdd, onRemove) {
+    const { db, fb } = conn;
+    const ref = fb.ref(db, `rooms/${code}/strokes`);
+    fb.onChildAdded(ref, snap => onAdd(snap.key, snap.val()));
+    fb.onChildRemoved(ref, snap => onRemove(snap.key));
+}
+
+/** かいている とちゅうの 線を 見はります。 */
+export function watchLive(conn, code, cb) {
+    const { db, fb } = conn;
+    return fb.onValue(fb.ref(db, `rooms/${code}/live`), snap => cb(snap.val() || {}));
+}
