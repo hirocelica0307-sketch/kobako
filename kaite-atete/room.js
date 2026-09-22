@@ -5,7 +5,8 @@ import { connect, watchMembers, enterRoom, leaveRoom, myMemberId, readStore, wri
          sendLive, clearLive, clearLiveOnDisconnect, commitStroke, removeStroke,
          clearBoard, watchStrokes, watchLive, watchInfo, setPhase,
          setupRound, armRound, finishRound, watchRound, markAnswered,
-         startGame, watchGame, setTurn, watchScores, addScores } from './firebase.js';
+         startGame, watchGame, setTurn, watchScores, addScores,
+         updateRound, updateGame, bumpMiss } from './firebase.js';
 import { createBoard, ERASER } from './board.js';
 import { createHiraganaKeypad } from './keypad.js';
 import { LEVELS, pickWord, hashWord, normalize } from './odai.js';
@@ -21,6 +22,12 @@ const $ = id => document.getElementById(id);
 const MODES = [
     { key: 'order',  label: 'じゅんばん', note: 'みんな おなじ かいすう' },
     { key: 'random', label: 'ランダム',   note: 'つぎの 人は くじびき' }
+];
+/* ぬしは「あそぶ」か「かんりする（先生）」かを えらべます。
+   かんりする ときは ゲームに 入らず、みんなの ようすを 見て すすめます。 */
+const HOST_ROLES = [
+    { key: 'play',  label: 'あそぶ',     note: 'いっしょに さんか' },
+    { key: 'admin', label: 'かんりする', note: 'さんかせず すすめる' }
 ];
 const LAP_CHOICES = [
     { n: 1, label: '1しゅう', note: 'ひとり 1かい' },
@@ -46,12 +53,13 @@ $('code').textContent = code;
 let conn = null, board = null;
 let members = [], game = null, round = null, scores = {};
 let phase = 'waiting';
-let level = LEVELS[0].key, mode = 'order', laps = 1;
+let level = LEVELS[0].key, mode = 'order', laps = 1, hostRole = 'play';
 let minutes = DEFAULT_MINUTES, seconds = DEFAULT_SECONDS;
 let myWord = null, recent = [];
 let arming = false, finishing = false, advancing = false;
 /* 音を 二重に 鳴らさない ための おぼえ */
 let wasDone = false, wasMyTurn = false, lastTick = -1, resultPlayed = false;
+let lastReroll = 0;   /* ぬしから「おだいを かえて」と たのまれた しるし */
 const myStrokes = [];
 
 function say(t, bad) {
@@ -68,6 +76,11 @@ const amDrawer = () => !!round && round.drawer === myId;
 const iAnswered = () => !!round && !!round.answered && !!round.answered[myId];
 const totalTurns = () => (game && game.order ? game.order.length * (game.laps || 1) : 0);
 const isRandom = () => !!game && game.mode === 'random';
+const adminId = () => (game && game.admin) || null;
+const amAdmin = () => adminId() === myId;
+/* あそぶ 人だけ（かんりする ぬしは ふくみません）*/
+const playerIds = () => onlineIds().filter(id => id !== adminId());
+const paused = () => !!(game && game.pausedAt);
 const gameLeftMs = () => (game && game.endsAt ? game.endsAt - Date.now() : null);
 
 function shuffle(a) {
@@ -192,24 +205,34 @@ function render() {
     $('again').classList.toggle('hidden', !result || !isHost);
     $('againMsg').classList.toggle('hidden', !result || isHost);
 
+    const admin = playing && amAdmin();
     const drawer = playing && amDrawer();
-    const answerer = playing && !amDrawer();
+    const answerer = playing && !drawer && !admin;
     const done = !!(round && round.done);
 
     $('drawerPanel').classList.toggle('hidden', !drawer);
-    $('answerPanel').classList.toggle('hidden', !answerer || done || iAnswered());
+    $('answerPanel').classList.toggle('hidden', !answerer || done || iAnswered() || paused());
+    $('adminPanel').classList.toggle('hidden', !admin);
     $('tools').classList.toggle('hidden', !drawer || done);
     $('clear').classList.toggle('hidden', !drawer);
     document.body.classList.toggle('answering', answerer);
+    document.body.classList.toggle('paused', playing && paused());
     if (board) {
-        board.setEnabled(drawer && !done);
+        board.setEnabled(drawer && !done && !paused());
         /* こたえる人は よこに ひらがなキーボードが 出るので、広めに のこします */
         board.setSideMin(answerer ? 520 : 330);
     }
 
-    /* つぎへ すすめられるのは、かいた人 と ぬし */
-    $('nextTurn').classList.toggle('hidden', !playing || !done || !(drawer || isHost));
+    /* ボタンは ぜんぶ ぬし（先生）が おします */
+    $('nextTurn').classList.toggle('hidden', !playing || !isHost || (!done && !admin));
+    $('nextTurn').textContent = done ? 'つぎの 人へ' : 'つぎの 人に かわる';
+    $('changeOdai').classList.toggle('hidden',
+        !playing || !isHost || !round || !round.hash || done);
+    $('pauseBtn').classList.toggle('hidden', !playing || !isHost);
+    $('pauseBtn').textContent = paused() ? 'さいかい' : 'いちじ ていし';
     $('endGame').classList.toggle('hidden', !playing || !isHost);
+
+    if (admin) drawWatchlist();
 
     if (playing && game) {
         const who = nameOf(round ? round.drawer : null) + ' さんの ばん';
@@ -222,17 +245,15 @@ function render() {
         $('odai').textContent = myWord || '（じゅんびちゅう…）';
         const n = round && round.answered ? Object.keys(round.answered).length : 0;
         $('answeredCount').textContent = n === 0 ? 'まだ だれも あてていません' : n + ' にん あてました';
-        /* おだいは、まだ だれも あてていない あいだだけ かえられます */
-        $('changeOdai').classList.toggle('hidden', !round || !round.hash || round.done || n > 0);
     }
 
     /* 先生（ぬし）と かく人には「まだの 人」を 出します。
        だれを 待っているかが 見えると、つぎに すすめる はんだんが できます。 */
-    const showWaiting = playing && round && round.hash && !done && (isHost || drawer);
+    const showWaiting = playing && round && round.hash && !done && !admin && (isHost || drawer);
     $('waitingFor').classList.toggle('hidden', !showWaiting);
     if (showWaiting) {
         const answered = round.answered || {};
-        const yet = onlineIds().filter(id => id !== round.drawer && !answered[id]).map(nameOf);
+        const yet = playerIds().filter(id => id !== round.drawer && !answered[id]).map(nameOf);
         $('waitingFor').textContent = yet.length === 0
             ? 'ぜんいん あてました！'
             : 'まだの 人 … ' + yet.join('、');
@@ -257,6 +278,43 @@ function render() {
     if (result) renderRanking();
 }
 
+/* 先生（かんり）の 画面。だれが あてて、だれが こまっているかが わかります。
+   みんなの 画面を そのまま 映す ひつようは ありません。
+   絵は みんな 同じ ものを 見ているので、ちがうのは「こたえの ようす」だけです。 */
+function drawWatchlist() {
+    const box = $('watchlist');
+    box.textContent = '';
+    const answered = (round && round.answered) || {};
+    const misses = (round && round.misses) || {};
+    const order = Object.entries(answered).sort((a, b) => a[1] - b[1]).map(e => e[0]);
+
+    for (const m of members) {
+        if (m.id === adminId()) continue;
+        const row = document.createElement('div');
+        let cls = 'watchrow';
+        let st = 'まだ こたえていません';
+        if (round && round.drawer === m.id) { cls += ' draw'; st = 'かいています'; }
+        else if (answered[m.id]) { cls += ' ok'; st = (order.indexOf(m.id) + 1) + ' ばんめに せいかい'; }
+        if (m.online === false) { cls += ' off'; st = 'はなれて います'; }
+        row.className = cls;
+
+        const dot = document.createElement('span');
+        dot.className = 'dot'; dot.style.background = m.color || '#ccc';
+        const nm = document.createElement('span');
+        nm.className = 'nm'; nm.textContent = m.name || 'だれか';
+        const stt = document.createElement('span');
+        stt.className = 'st'; stt.textContent = st;
+        row.append(dot, nm, stt);
+
+        if (misses[m.id]) {
+            const ms = document.createElement('span');
+            ms.className = 'miss';
+            ms.textContent = '✕' + misses[m.id];
+            row.appendChild(ms);
+        }
+        box.appendChild(row);
+    }
+}
 function renderRanking() {
     const box = $('ranking');
     box.textContent = '';
@@ -286,6 +344,14 @@ function renderRanking() {
 /* ── のこり時間 ───────────────────────────── */
 setInterval(() => {
     if (phase !== 'playing') { $('timer').textContent = '－'; $('clock').textContent = ''; return; }
+
+    /* いちじ ていし中は 時間を 止めます */
+    if (paused()) {
+        $('timer').textContent = 'いちじ ていし';
+        $('timer').classList.remove('hurry');
+        $('clock').textContent = '';
+        return;
+    }
 
     /* ぜんたいの 時間（ランダムの ときだけ）*/
     const restMs = gameLeftMs();
@@ -324,8 +390,9 @@ setInterval(() => {
 }, 300);
 
 /* ── おだいの じゅんび（かく人の タブだけ）──────── */
-async function armIfMine() {
-    if (!conn || !round || round.done || round.hash || arming) return;
+async function armIfMine(force) {
+    if (!conn || !round || round.done || arming) return;
+    if (!force && round.hash) return;
     if (round.drawer !== myId) return;
     arming = true;
     try {
@@ -364,6 +431,7 @@ async function endRound() {
    その ときは ぬしが かわりに すすめます。 */
 function watchdog() {
     if (!conn || phase !== 'playing' || !isHost || !game || !round || advancing || finishing) return;
+    if (paused()) return;      /* 止めている あいだは 見はりも 止めます */
     const now = Date.now();
     const drawerHere = onlineIds().includes(round.drawer);
 
@@ -425,7 +493,7 @@ async function advance() {
 
 /** ランダムの ときの くじびき。いま かいた人は なるべく つづけて ひきません。 */
 function drawLots() {
-    const here = onlineIds();
+    const here = playerIds();
     const now = round ? round.drawer : null;
     const pool = here.length > 1 ? here.filter(id => id !== now) : here;
     return pool[Math.floor(Math.random() * pool.length)];
@@ -434,7 +502,7 @@ function drawLots() {
 /* ぜんいんが あてたら、かく人の タブが この かいを おわらせます */
 function checkAllAnswered() {
     if (!amDrawer() || !round || round.done || !round.hash) return;
-    const others = onlineIds().filter(id => id !== myId);
+    const others = playerIds().filter(id => id !== myId);
     if (!others.length) return;
     const answered = round.answered || {};
     if (others.every(id => answered[id])) endRound();
@@ -454,6 +522,7 @@ board = createBoard({
 });
 buildTools();
 buildChooser('levels', LEVELS.map(l => ({ ...l, n: l.key })), it => { level = it.key; });
+buildChooser('hostRoles', HOST_ROLES, it => { hostRole = it.key; });
 buildChooser('modes', MODES, it => {
     mode = it.key;
     /* じゅんばんなら「なんしゅう」、ランダムなら「ぜんたいの じかん」*/
@@ -501,6 +570,14 @@ function onRound(r) {
     }
     render();
     drawMembers();
+
+    /* ぬしが「おだいを かえる」を おしたら、かく人の タブが えらびなおします */
+    const reroll = (r && r.reroll) || 0;
+    if (reroll > lastReroll) {
+        lastReroll = reroll;
+        if (r && r.drawer === myId && !r.done) { armIfMine(true); return; }
+    }
+
     armIfMine();
     checkAllAnswered();
 }
@@ -537,10 +614,13 @@ $('start').addEventListener('click', async () => {
     if (!conn) return;
     $('start').disabled = true;
     try {
-        const order = shuffle(onlineIds());
-        if (!order.length) throw new Error('だれも いません');
+        const admin = hostRole === 'admin' ? myId : null;
+        const order = shuffle(onlineIds().filter(id => id !== admin));
+        if (!order.length) {
+            throw new Error(admin ? 'あそぶ 人が いません（ぬしは かんり中です）' : 'だれも いません');
+        }
         await startGame(conn, code, {
-            mode, order, seconds,
+            mode, order, seconds, admin,
             laps: mode === 'order' ? laps : null,
             endsAt: mode === 'random' ? Date.now() + minutes * 60000 : null
         });
@@ -577,6 +657,7 @@ $('ansGo').addEventListener('click', async () => {
         render();
     } else {
         sound.ng();
+        try { await bumpMiss(conn, code, myId); } catch (e) {}
         $('judge').dataset.wrong = '1';
         ansPad.clear();
         render();
@@ -591,23 +672,35 @@ function paintSound() {
 $('soundBtn').addEventListener('click', () => { sound.toggle(); paintSound(); });
 paintSound();
 
-/* おだいを かえる（まだ だれも あてていない あいだだけ）*/
+/* おだいを かえる。ぬしは ことばを 知らないので、
+   「かえて」と たのむ しるしだけ おき、かく人の タブが えらびなおします。 */
 $('changeOdai').addEventListener('click', async () => {
-    if (!conn || !round || !amDrawer() || arming) return;
+    if (!conn || !round) return;
     $('changeOdai').disabled = true;
+    try { await updateRound(conn, code, { reroll: Date.now() }); }
+    catch (e) { say('おだいを かえられませんでした', true); }
+    finally { $('changeOdai').disabled = false; }
+});
+
+/* いちじ ていし ／ さいかい。
+   止めている あいだ すすんだ ぶんを、おわる 時こくに たし直します。 */
+$('pauseBtn').addEventListener('click', async () => {
+    if (!conn || !game) return;
+    $('pauseBtn').disabled = true;
     try {
-        const word = pickWord(round.level || level, recent);
-        recent = [word, ...recent].slice(0, 30);
-        myWord = word;
-        writeStore('ka_word', word);
-        await clearBoard(conn, code);
-        myStrokes.length = 0;
-        await armRound(conn, code, hashWord(word), (game && game.seconds) || DEFAULT_SECONDS);
-        render();
+        if (paused()) {
+            const delta = Date.now() - game.pausedAt;
+            if (round && round.endsAt) await updateRound(conn, code, { endsAt: round.endsAt + delta });
+            const patch = { pausedAt: null };
+            if (game.endsAt) patch.endsAt = game.endsAt + delta;
+            await updateGame(conn, code, patch);
+        } else {
+            await updateGame(conn, code, { pausedAt: Date.now() });
+        }
     } catch (e) {
-        say('おだいを かえられませんでした', true);
+        say('できませんでした', true);
     } finally {
-        $('changeOdai').disabled = false;
+        $('pauseBtn').disabled = false;
     }
 });
 

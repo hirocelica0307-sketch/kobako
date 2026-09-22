@@ -342,3 +342,30 @@ export async function addScores(conn, code, deltas) {
     for (const [id, add] of Object.entries(deltas)) next[id] = (now[id] || 0) + add;
     return fb.set(ref, next);
 }
+
+/* ── ぬし（先生）の そうさ ──────────────────────
+   ボタンは ぜんぶ ぬしが おします。ぬしは おだいの ことばを
+   知らないので、「かえて」と たのむ しるしだけ おいて、
+   かく人の タブに えらびなおして もらいます。
+   ------------------------------------------------------------------ */
+
+/** いまの かいの 一部だけを 書きかえます。 */
+export function updateRound(conn, code, patch) {
+    const { db, fb } = conn;
+    return fb.update(fb.ref(db, `rooms/${code}/round`), patch);
+}
+
+/** ゲームの 一部だけを 書きかえます。 */
+export function updateGame(conn, code, patch) {
+    const { db, fb } = conn;
+    return fb.update(fb.ref(db, `rooms/${code}/game`), patch);
+}
+
+/** まちがえた 回数を 1つ ふやします（先生が「だれが こまっているか」を 見る ため）。 */
+export function bumpMiss(conn, code, memberId) {
+    const { db, fb } = conn;
+    return fb.runTransaction(
+        fb.ref(db, `rooms/${code}/round/misses/${memberId}`),
+        n => (n || 0) + 1
+    );
+}
