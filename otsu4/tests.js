@@ -88,6 +88,37 @@ function runAll(env){
   var deepN = Q.filter(function(q){ return q.deep; }).length;
   ok('ふみこんだ解説が 100問以上に ついている', deepN >= 100, 'deep=' + deepN);
 
+  /* ---- 講義ページの 中身 ---- */
+  var noGoro = T.filter(function(th){
+    var g = env.goro[th.key];
+    return !g || !g.length;
+  }).map(function(th){ return th.key; });
+  eq('すべての テーマに おぼえ方が ついている', noGoro.length, 0, noGoro.join(','));
+
+  var TYPES = { goro:1, uta:1, image:1, kotsu:1 };
+  var badGoro = [];
+  T.forEach(function(th){
+    (env.goro[th.key] || []).forEach(function(g){
+      if (!TYPES[g.type] || !g.t || !g.d || g.d.length < 10) badGoro.push(th.key + '/' + g.t);
+    });
+  });
+  eq('おぼえ方は すべて 種類・見出し・説明が そろっている', badGoro.length, 0, badGoro.slice(0, 3).join(','));
+
+  var goroN = 0, utaN = 0;
+  T.forEach(function(th){
+    (env.goro[th.key] || []).forEach(function(g){ goroN++; if (g.type === 'uta') utaN++; });
+  });
+  ok('おぼえ方が 100個以上 ある', goroN >= 100, 'goro=' + goroN);
+  ok('となえ歌も 用意されている', utaN >= 3, 'uta=' + utaN);
+
+  /* ---- 読んだ しるし ---- */
+  Store.resetAll();
+  eq('はじめは どれも 読んでいない', Object.keys(Store.readMap()).length, 0);
+  Store.readMark('shiteisuryo');
+  ok('読んだ しるしが つく', !!Store.readMap()['shiteisuryo']);
+  Store.readMark('shiteisuryo', false);
+  eq('読んだ しるしを 外せる', Object.keys(Store.readMap()).length, 0);
+
   /* ---- 間隔反復 ---- */
   eq('箱0の つぎは きょう', Srs.nextDays(0), 0);
   eq('箱1の つぎは 1日後', Srs.nextDays(1), 1);
@@ -221,13 +252,13 @@ if (typeof module !== 'undefined' && require.main === module){
                           setItem:function(k, v){ this._d[k] = v; },
                           removeItem:function(k){ delete this._d[k]; } };
   ['data/themes.js','data/questions-official.js','data/questions-extra.js','data/questions-extra2.js',
-   'data/questions-deep.js','data/knowledge.js','data/knowledge-why.js','data/notes.js',
+   'data/questions-deep.js','data/knowledge.js','data/knowledge-why.js','data/notes.js','data/goro.js',
    'store.js','srs.js','engine.js'].forEach(function(f){
     (0, eval)(fs.readFileSync(path.join(dir, f), 'utf8'));
   });
   var res = runAll({
     themes: OTSU4_THEMES, themeMap: OTSU4_THEME_MAP, subjects: OTSU4_SUBJECTS,
-    questions: OTSU4_QUESTIONS, cards: OTSU4_CARDS, notes: OTSU4_NOTES,
+    questions: OTSU4_QUESTIONS, cards: OTSU4_CARDS, notes: OTSU4_NOTES, goro: OTSU4_GORO,
     store: O4Store, srs: O4Srs, engine: O4Engine
   });
   var ng = res.filter(function(r){ return !r.pass; });

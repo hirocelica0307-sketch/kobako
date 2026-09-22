@@ -30,6 +30,7 @@
 <script src="data/knowledge.js"></script>
 <script src="data/knowledge-why.js"></script>
 <script src="data/notes.js"></script>
+<script src="data/goro.js"></script>
 <script src="store.js"></script>
 <script src="srs.js"></script>
 <script src="engine.js"></script>
@@ -39,7 +40,7 @@
 (function(){
   var res = O4Tests.runAll({
     themes: OTSU4_THEMES, themeMap: OTSU4_THEME_MAP, subjects: OTSU4_SUBJECTS,
-    questions: OTSU4_QUESTIONS, cards: OTSU4_CARDS, notes: OTSU4_NOTES,
+    questions: OTSU4_QUESTIONS, cards: OTSU4_CARDS, notes: OTSU4_NOTES, goro: OTSU4_GORO,
     store: O4Store, srs: O4Srs, engine: O4Engine
   });
   var ng = res.filter(function(r){ return !r.pass; }).length;

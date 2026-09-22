@@ -188,3 +188,35 @@ table.sc td.num{ text-align:right; font-variant-numeric:tabular-nums; }
   border-radius:0 8px 8px 0; padding:10px 12px; margin-top:10px; font-size:14px; text-align:left;
 }
 .why b{ display:block; margin-bottom:2px; color:var(--ok); }
+
+/* ---- 講義ページ ---- */
+.kougi{ padding:0; overflow:hidden; }
+.kougi-head{
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap; width:100%;
+  background:none; border:none; padding:14px 16px; font-family:inherit; font-size:15px;
+  color:inherit; cursor:pointer; text-align:left;
+}
+.kougi-name{ font-weight:700; }
+.kougi-arrow{ margin-left:auto; color:var(--sub); font-size:12px; }
+.kougi-body{ padding:0 16px 16px; }
+.tag.done{ background:var(--ok); color:#fff; }
+h3.sec{
+  font-size:14px; color:var(--main); margin:18px 0 8px;
+  padding-bottom:4px; border-bottom:2px solid var(--line);
+}
+.goro{ border-radius:10px; padding:10px 12px; margin-bottom:8px; background:rgba(127,127,127,.08); }
+.goro-h{ display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+.goro-ico{ font-size:15px; }
+.goro-lab{ font-size:11px; color:var(--sub); }
+.goro-t{ font-size:16px; font-weight:800; line-height:1.5; }
+.goro-d{ font-size:13px; color:var(--sub); margin-top:4px; line-height:1.7; }
+.g-goro{ background:rgba(201,130,10,.10); }
+.g-uta{ background:rgba(180,84,240,.10); }
+.g-image{ background:rgba(42,120,214,.10); }
+.kpoint{ border-left:3px solid var(--line); padding:8px 0 8px 12px; margin-bottom:10px; }
+.kq{ font-size:14px; color:var(--sub); }
+.kq .star{ margin-left:6px; font-size:11px; }
+.ka{ font-size:16px; font-weight:800; color:var(--ok); margin:2px 0; }
+.kw{ font-size:13px; line-height:1.7; }
+.kh{ font-size:13px; color:var(--warn); margin-top:2px; }
+.kn{ font-size:13px; color:var(--sub); margin-top:2px; }
