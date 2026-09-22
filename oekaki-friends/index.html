@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-YTH979WTKL"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-YTH979WTKL');
+</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>教育アプリ｜お絵かきクイズ フレンズ｜みんなで遊べる無料お絵かき当てっこゲーム</title>
+    <meta name="description" content="お絵かきクイズ フレンズは、お題を絵にして仲間に当ててもらう無料のオンラインお絵かきゲームです。スマホやパソコンから部屋を作ってすぐに遊べます。小学校の先生が作った学習・あそびアプリ「ota tools」のひとつです。">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://otatools.github.io/toolbox/oekakifriends/">
+    <meta name="theme-color" content="#ff8a3d">
+
+    <!-- OGP（SNSでシェアされたときのプレビュー表示） -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="ota tools">
+    <meta property="og:locale" content="ja_JP">
+    <meta property="og:url" content="https://otatools.github.io/toolbox/oekakifriends/">
+    <meta property="og:title" content="お絵かきクイズ フレンズ｜みんなで遊べる無料お絵かき当てっこゲーム">
+    <meta property="og:description" content="お題を絵にして仲間に当ててもらう無料のオンラインお絵かきゲーム。スマホやパソコンから部屋を作ってすぐに遊べます。">
+    <meta property="og:image" content="https://otatools.github.io/toolbox/oekakifriends/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="お絵かきクイズ フレンズ｜みんなで遊べる無料お絵かき当てっこゲーム">
+    <meta name="twitter:description" content="お題を絵にして仲間に当ててもらう無料のオンラインお絵かきゲーム。スマホやパソコンから部屋を作ってすぐに遊べます。">
+    <meta name="twitter:image" content="https://otatools.github.io/toolbox/oekakifriends/og-image.png">
+
+    <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "お絵かきクイズ フレンズ",
+        "description": "お題を絵にして仲間に当ててもらう無料のオンラインお絵かきゲーム。スマホやパソコンから部屋を作ってすぐに遊べます。",
+        "url": "https://otatools.github.io/toolbox/oekakifriends/",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Web",
+        "inLanguage": "ja",
+        "isAccessibleForFree": true,
+        "image": "https://otatools.github.io/toolbox/oekakifriends/og-image.png",
+        "publisher": {
+            "@type": "Organization",
+            "name": "ota tools"
+        }
+    }
+    </script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- display=optionalは「読み込みが少しでも遅いと、そのページ表示では二度と
+         カワイイ方のフォントに切り替わらない（次に開いたときだけ効く）」という
+         挙動だったため、通信が遅い時に毎回ふつうのゴシック体のまま固定されてしまう
+         不具合になっていた。display=swapに戻し、代わりに下のスクリプトで
+         「フォントの読み込みが確定してから中身を表示する」ようにして、
+         がたつき（表示中の入れ替わり）を防ぐ。 -->
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* iOS Safariはビューポートのmaximum-scale/user-scalable=noを無視して
+           ダブルタップ・ピンチで拡大してしまうことがある（CSSのtouch-actionだけでは
+           完全には止めきれないので、JS側でもgestureイベントを止める。下のscriptを参照）。
+           拡大されたまま次のページ（room.html）に移動すると、そちらでも拡大された
+           ままになってしまうことがあるため、この入口の画面にも同じ対策を入れておく。 */
+        * { box-sizing: border-box; touch-action: manipulation; -webkit-touch-callout: none; }
+        body { -webkit-user-select: none; user-select: none; }
+        input, textarea { -webkit-user-select: text; user-select: text; }
+        /* 日本語の短いラベル・見出しが、スマホの狭い画面で意味の区切りと関係ない
+           変なところで折り返されるのを防ぐ（room.htmlと同じ対策）。 */
+        body { word-break: keep-all; overflow-wrap: break-word; }
+        /* iOSのSafariはアドレスバー表示中、100vhが実際に見えている高さより
+           大きくなる。その大きい高さの中でcenter配置すると、実際に見えている
+           画面の中では中身が下寄りに見えてしまう。100dvh（動的ビューポート高さ）が
+           使える環境ではそちらを優先し、さらに画面より中身が長い場合でも
+           先頭からきちんとスクロールできるよう、centerではなくflex-start＋
+           margin:autoでセンタリングする（入りきる時は中央、入りきらない時は上から）。 */
+        body {
+            margin: 0; min-height: 100vh; overflow-x: hidden; overflow-y: auto;
+            display: flex; align-items: center; justify-content: flex-start; flex-direction: column;
+            font-family: 'Zen Maru Gothic', sans-serif; color: #2c2a4a;
+            background: radial-gradient(circle at 20% 15%, #fffaf0 0%, #eef6ff 55%, #e3f7f2 100%);
+            position: relative;
+        }
+        @supports (height: 100dvh) {
+            body { min-height: 100dvh; }
+        }
+
+        .page-content {
+            display: flex; flex-direction: column; align-items: center;
+            width: 100%; margin: auto 0;
+            /* フォントの読み込みが確定するまで中身を隠しておき（下のスクリプトでhtmlに
+               fonts-readyクラスが付いたら表示する）、表示中にフォントがガクッと
+               入れ替わって見える「がたつき」を防ぐ。背景の丸模様はフォントに関係ないので
+               隠さず、中身が出るまでの間も画面が真っ白にならないようにする。 */
+            opacity: 0; transition: opacity 0.2s ease;
+        }
+        html.fonts-ready .page-content { opacity: 1; }
+
+        .bg-shapes { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.7; }
+
+        .title-wrap { text-align: center; margin-bottom: 22px; z-index: 2; }
+        .title-wrap h1 {
+            font-family: 'Zen Maru Gothic', sans-serif;
+            font-weight: 900;
+            font-size: clamp(38px, 8vw, 48px); margin: 0; line-height: 1.25;
+            color: #2c2a4a;
+            letter-spacing: 1px;
+        }
+        .title-wrap h1 .accent { color: #ff8a3d; }
+        .title-underline { display: block; margin: 8px auto 0; width: 160px; }
+        .title-wrap .sub { font-size: 14px; color: #6b6f9a; font-weight: 500; margin-top: 10px; letter-spacing: 1px; }
+
+        .box {
+            background: #ffffff;
+            padding: 28px; border-radius: 18px; width: 350px; max-width: 88vw;
+            text-align: center; box-shadow: 0 10px 30px rgba(60,50,120,0.12);
+            border: 1px solid rgba(60,50,120,0.08);
+            z-index: 2;
+        }
+        .box h2 { font-family: 'Zen Maru Gothic', sans-serif; font-weight: 700; font-size: 18px; color: #2c2a4a; margin-top: 0; letter-spacing: 1px; }
+        input {
+            width: 100%; padding: 14px; margin: 10px 0; border-radius: 10px;
+            border: 2px solid #e4e6f5; box-sizing: border-box; font-size: 17px;
+            font-family: 'Zen Maru Gothic', sans-serif; text-align: center;
+            background: #f7f8fd; color: #2c2a4a;
+        }
+        input:focus { outline: none; border-color: #ff9248; }
+        .btn {
+            width: 100%; padding: 15px; border: none; border-radius: 12px;
+            font-weight: 700; cursor: pointer; margin: 8px 0; font-size: 16px;
+            font-family: 'Zen Maru Gothic', sans-serif; box-sizing: border-box;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            box-shadow: 0 5px 0 rgba(0,0,0,0.15);
+            transition: transform 0.08s ease, box-shadow 0.08s ease;
+            letter-spacing: 1px;
+        }
+        .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0,0,0,0.15); }
+        .btn svg { width: 22px; height: 22px; flex-shrink: 0; }
+        .btn-orange { background: #ff8a3d; color: #2a1500; }
+        .btn-cyan { background: #3ed6c6; color: #04302b; }
+        .btn-sub { background: #eef1fb; color: #4d5085; box-shadow: 0 4px 0 rgba(0,0,0,0.06); font-size: 14px; font-weight: 500; }
+        .footer { margin-top: 22px; font-size: 12px; color: #9497c2; z-index: 2; font-weight: 500; letter-spacing: 1px; }
+        .name-note { font-size: 14px; color: #6b6f9a; margin-bottom: 10px; font-weight: 500; }
+        .name-note .name-value { color: #ff8a3d; font-weight: 700; }
+
+        /* ウィンドウを縦に小さくしたとき（ブラウザの高さそのものが低いとき）用の
+           調整（room.htmlの部屋づくり画面と同じ考え方）。タイトルや余白がvw基準の
+           clampだけだと、横幅は十分あるのに縦だけ低いウィンドウでは大きいまま
+           収まりきらず、スクロールしないと「部屋を作る」ボタンまで見えないことが
+           あったため、高さのメディアクエリでさらに詰める。 */
+        @media (max-height: 620px) {
+            .title-wrap { margin-bottom: 10px; }
+            .title-wrap h1 { font-size: clamp(24px, 6vh, 40px); line-height: 1.15; }
+            .title-underline { margin: 4px auto 0; width: 120px; }
+            .title-wrap .sub { font-size: 12px; margin-top: 4px; }
+            .box { padding: 16px; }
+            .box h2 { font-size: 15px; margin: 0 0 4px; }
+            input { padding: 10px; margin: 6px 0; font-size: 15px; }
+            .btn { padding: 10px; margin: 5px 0; font-size: 14px; }
+            .footer { margin-top: 10px; }
+        }
+        /* さらに低いときは、見出しなど無くても困らないものから省いてスペースを作る */
+        @media (max-height: 420px) {
+            .title-wrap .sub { display: none; }
+            .footer { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <svg class="bg-shapes" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice">
+        <circle cx="40" cy="90" r="70" fill="#ff8a3d" opacity="0.10"/>
+        <circle cx="370" cy="650" r="110" fill="#3ed6c6" opacity="0.10"/>
+        <circle cx="350" cy="120" r="45" fill="#7c6bff" opacity="0.10"/>
+        <circle cx="30" cy="700" r="55" fill="#ff5d8f" opacity="0.08"/>
+    </svg>
+
+    <div class="page-content">
+        <div class="title-wrap">
+            <h1>お絵かき<span class="accent">クイズ</span><br>フレンズ</h1>
+            <svg class="title-underline" viewBox="0 0 160 10" width="160" height="10">
+                <path d="M2 6 C 40 2, 80 9, 120 4 S 158 2, 158 5" stroke="#ff8a3d" stroke-width="3" fill="none" stroke-linecap="round"/>
+            </svg>
+            <div class="sub">みんなで対戦・協力お絵かき当てゲーム</div>
+        </div>
+
+        <div class="box" id="modeSelect">
+            <h2>なまえを入れてね</h2>
+            <input type="text" id="playerName" placeholder="なまえ" autocomplete="off" maxlength="10">
+            <button class="btn btn-orange" id="createBtn" onclick="createRoom()">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z" fill="currentColor"/><path d="M4 20c0-3.6 3.6-6.5 8-6.5s8 2.9 8 6.5" fill="currentColor"/></svg>
+                部屋を作る（ホスト）
+            </button>
+            <button class="btn btn-cyan" onclick="showJoin()">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M9 4h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 12h11m0 0l-3.5-3.5M14 12l-3.5 3.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                部屋に入る
+            </button>
+        </div>
+
+        <div class="box" id="joinBox" style="display:none;">
+            <h2>部屋に入る</h2>
+            <div class="name-note" id="joinNameNote"></div>
+            <input type="text" id="roomID" placeholder="部屋番号" inputmode="numeric" autocomplete="off" maxlength="4">
+            <button class="btn btn-cyan" id="joinBtn" onclick="joinRoom()">入室する</button>
+            <button class="btn btn-sub" onclick="backToSelect()">もどる</button>
+        </div>
+
+        <div class="footer">お絵かきクイズ フレンズ | Ver 1.2 | ota tools</div>
+    </div>
+
+    <script>
+        // フォントの読み込みが確定する（読み込み終わる／またはあきらめる）まで
+        // 中身を隠しておき、確定してから表示することで、表示中にフォントが
+        // 入れ替わって見える「がたつき」を防ぐ（読み込みに時間がかかる場合に
+        // 備えて、0.5秒待っても終わらなければ、いったんそのフォントで表示する）。
+        (function revealWhenFontsReady() {
+            function reveal() { document.documentElement.classList.add('fonts-ready'); }
+            if (document.fonts && document.fonts.ready) {
+                Promise.race([
+                    document.fonts.ready,
+                    new Promise(resolve => setTimeout(resolve, 500))
+                ]).then(reveal);
+            } else {
+                reveal();
+            }
+        })();
+
+        // 「もどる」ボタンやスワイプ戻るで、ブラウザがこのページをbfcache（そのままの状態）から
+        // 復元すると、Firebaseとのつながりが止まったままになり、部屋を作る/入るが反応しなく
+        // なることがある。そのときはページを丸ごと読み込み直して、つながりをやり直す。
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) { location.reload(); }
+        });
+
+        // iOS Safariはmaximum-scale/user-scalable=noを無視してピンチ拡大してしまうことが
+        // あり、ここで拡大されたまま次のroom.htmlに進むと、そちらでも拡大されたままの
+        // 見た目で始まってしまう。gestureイベント自体を止め、それでもすり抜けて拡大
+        // されてしまった場合の保険として、拡大を検知したら一瞬だけmaximum-scaleを
+        // 上書きして等倍に戻す（room.htmlと同じ対策）。
+        ['gesturestart', 'gesturechange', 'gestureend'].forEach(type => {
+            document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+        });
+        function resetZoomIfNeeded() {
+            if (!window.visualViewport || window.visualViewport.scale <= 1.02) return;
+            const meta = document.querySelector('meta[name="viewport"]');
+            if (!meta) return;
+            const original = meta.getAttribute('content');
+            meta.setAttribute('content', original + ', maximum-scale=1.0');
+            requestAnimationFrame(() => meta.setAttribute('content', original));
+        }
+        if (window.visualViewport) {
+            visualViewport.addEventListener('resize', resetZoomIfNeeded);
+            visualViewport.addEventListener('scroll', resetZoomIfNeeded);
+        }
+        document.addEventListener('gestureend', () => setTimeout(resetZoomIfNeeded, 50), { passive: true });
+
+        const config = {
+            apiKey: "AIzaSyCo4uq1uJBRcgU-c7mWemukU25MrX635m0",
+            authDomain: "oekaki-quiz-23ab5.firebaseapp.com",
+            databaseURL: "https://oekaki-quiz-23ab5-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "oekaki-quiz-23ab5",
+            appId: "1:61801325910:web:330fa68a1701dbbc9822f7"
+        };
+        firebase.initializeApp(config);
+        const db = firebase.database();
+        // Firebase Authはデフォルトでログイン状態をindexedDBに保存しようとするが、
+        // Safari（特にプライベートブラウズモードや、ストレージを制限する設定のとき）は
+        // このindexedDBへのアクセスがエラーにも成功にもならず、ずっと固まったままに
+        // なることがある（Firebase側の既知の問題）。このアプリでは合言葉がわりの
+        // 部屋番号・名前をこちらで管理しており、Firebase Authのログイン状態を
+        // ページをまたいで覚えておく必要はないため、保存先を「そのページを見ている間だけ
+        // メモリ上に置く」方式（NONE）にして、indexedDBそのものを使わないようにする。
+        // これでSafariでのフリーズを避けられる（失敗してもゲームの動作には影響しない）。
+        try { firebase.auth().setPersistence(firebase.auth.Auth.Persistence.NONE).catch(() => {}); } catch (e) {}
+        // スマホの一部のブラウザ（アプリ内ブラウザや、プライベートブラウズモードなど）では
+        // 匿名サインイン（signInAnonymously）がエラーになったり、応答が返ってこないまま
+        // 止まってしまうことがある。以前はエラーを拾っていなかったため、その場合
+        // 「部屋を作る」ボタンが押せなくなったまま何も起きず、パソコンでは
+        // 問題なく作れるのにスマホだけ作れない、という不具合になっていた。
+        // タイムアウトとエラー処理を必ず入れて、失敗したときはボタンを元にもどし、
+        // 理由をアラートで知らせるようにする。
+        // スマホの再接続には数秒〜十数秒かかることがあるため、余裕をもたせて長めにする。
+        const authReady = new Promise((resolve, reject) => {
+            let settled = false;
+            const timeoutId = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                reject(new Error('サインインの応答がありませんでした（通信状態をご確認ください）'));
+            }, 30000);
+            firebase.auth().onAuthStateChanged(user => {
+                if (settled) return;
+                if (user) {
+                    settled = true;
+                    clearTimeout(timeoutId);
+                    resolve(user);
+                } else {
+                    firebase.auth().signInAnonymously().catch(err => {
+                        if (settled) return;
+                        settled = true;
+                        clearTimeout(timeoutId);
+                        reject(err);
+                    });
+                }
+            });
+        });
+
+        function toHalfWidthDigits(str) {
+            return String(str).replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
+        }
+        // あか・だいだい・うすだいだい・きいろ・きみどり・みどり・みずいろ・あお・むらさき・ももいろ・ちゃいろ・くろ の12色
+        const BASE_PLAYER_COLORS = ["#e53935","#fb8c00","#ffb74d","#fdd835","#9ccc65","#43a047","#29b6f6","#1e88e5","#9575cd","#f06292","#8d6e63","#333333"];
+        function hexToHsl(hex) {
+            const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
+            const max = Math.max(r,g,b), min = Math.min(r,g,b);
+            let h, s; const l = (max+min)/2;
+            if (max === min) { h = s = 0; }
+            else {
+                const d = max - min;
+                s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+                if (max === r) h = (g-b)/d + (g<b?6:0);
+                else if (max === g) h = (b-r)/d + 2;
+                else h = (r-g)/d + 4;
+                h /= 6;
+            }
+            return [h*360, s*100, l*100];
+        }
+        function hslToHex(h, s, l) {
+            h/=360; s/=100; l/=100;
+            let r, g, b;
+            if (s === 0) { r = g = b = l; }
+            else {
+                const hue2rgb = (p,q,t) => { if(t<0)t+=1; if(t>1)t-=1; if(t<1/6) return p+(q-p)*6*t; if(t<1/2) return q; if(t<2/3) return p+(q-p)*(2/3-t)*6; return p; };
+                const q = l < 0.5 ? l*(1+s) : l+s-l*s;
+                const p = 2*l-q;
+                r = hue2rgb(p,q,h+1/3); g = hue2rgb(p,q,h); b = hue2rgb(p,q,h-1/3);
+            }
+            const toHex = x => Math.round(Math.max(0,Math.min(1,x))*255).toString(16).padStart(2,'0');
+            return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+        }
+        // 12人を超えたら、同じ12色を少し明るく／暗くした色を足して、色が足りなくならないようにする
+        function getPalette(neededCount) {
+            const need = Math.max(BASE_PLAYER_COLORS.length, neededCount);
+            const palette = BASE_PLAYER_COLORS.slice();
+            let round = 1;
+            while (palette.length < need) {
+                const delta = (round % 2 === 1 ? -1 : 1) * Math.ceil(round/2) * 14;
+                for (const hex of BASE_PLAYER_COLORS) {
+                    if (palette.length >= need) break;
+                    const [h, s, l] = hexToHsl(hex);
+                    palette.push(hslToHex(h, s, Math.max(8, Math.min(92, l + delta))));
+                }
+                round++;
+            }
+            return palette;
+        }
+        function pickRandomColor(existingColors) {
+            const palette = getPalette(existingColors.length + 1);
+            const avail = palette.filter(c => !existingColors.includes(c));
+            const pool = avail.length ? avail : palette;
+            return pool[Math.floor(Math.random() * pool.length)];
+        }
+        function makeUid(name) {
+            return 'u_' + btoa(encodeURIComponent(name)).replace(/[^A-Za-z0-9]/g, '');
+        }
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+        }
+
+        /* ===== なまえの記憶 ===== */
+        function loadSavedName() {
+            try { return localStorage.getItem('friends_saved_name') || ''; } catch (e) { return ''; }
+        }
+        function saveSavedName(name) {
+            try { localStorage.setItem('friends_saved_name', name); } catch (e) {}
+        }
+        (function initSavedName() {
+            const saved = loadSavedName();
+            if (!saved) return;
+            document.getElementById('playerName').value = saved;
+        })();
+        document.getElementById('playerName').addEventListener('input', e => saveSavedName(e.target.value.trim()));
+
+        // maxlength属性はコピー&ペーストなどで回避されることがあるため、念のためJS側でも
+        // 長さを切っておく（room.html側の表示崩れを防ぐための保険）。
+        function getPlayerName() { return document.getElementById('playerName').value.trim().slice(0, 10); }
+
+        function backToSelect() {
+            joinBox.style.display = 'none';
+            modeSelect.style.display = 'block';
+        }
+        function showJoin() {
+            const name = getPlayerName();
+            if (!name) return alert('さきになまえを入れてね');
+            saveSavedName(name);
+            document.getElementById('joinNameNote').innerHTML = `なまえ： <span class="name-value">${escapeHtml(name)}</span>`;
+            modeSelect.style.display = 'none';
+            joinBox.style.display = 'block';
+            const roomInput = document.getElementById('roomID');
+            roomInput.addEventListener('input', (e) => {
+                if (e.isComposing) return;
+                normalizeRoomInput(roomInput);
+            });
+            roomInput.addEventListener('compositionend', () => normalizeRoomInput(roomInput));
+        }
+        function normalizeRoomInput(el) {
+            const converted = toHalfWidthDigits(el.value).replace(/[^0-9]/g, '');
+            if (el.value !== converted) el.value = converted;
+        }
+
+        async function createRoom() {
+            const name = getPlayerName();
+            if (!name) return alert('なまえを入れてね');
+            saveSavedName(name);
+            const btn = document.getElementById('createBtn');
+            btn.disabled = true;
+            try {
+                await authReady;
+
+                const uid = makeUid(name);
+                const roomPayload = {
+                    hostUid: uid,
+                    settings: { category: "", roundsPerPerson: 1 },
+                    turnOrder: [],
+                    usedWords: {},
+                    progress: { roundNumber: 0, totalRounds: 0 },
+                    state: {
+                        phase: "lobby",
+                        currentDrawer: "",
+                        drawerName: "",
+                        correctAnswer: "",
+                        countdown: 3,
+                        timeLeft: 45,
+                        correctCount: 0,
+                        active: false
+                    },
+                    users: {
+                        [uid]: { name: name, score: 0, image: "", isCorrect: false, joinedAt: Date.now(), color: pickRandomColor([]) }
+                    }
+                };
+
+                // 部屋番号は1000〜9999のランダムな4桁（9000通り）なので、同じ時間帯に
+                // たくさんのクラスが同時に使うと、まれに既存の部屋と同じ番号を引いてしまう
+                // ことがある。そのままset()すると既存の部屋を丸ごと上書きしてしまうため、
+                // 「今その番号の部屋が本当に存在しないときだけ書き込む」トランザクションを使い、
+                // もし埋まっていたら番号を引き直して何回か試す。
+                let room = null;
+                for (let attempt = 0; attempt < 10; attempt++) {
+                    const candidate = String(Math.floor(1000 + Math.random() * 9000));
+                    const result = await db.ref(`casual_rooms/${candidate}`).transaction(current => {
+                        if (current !== null) return; // すでに部屋がある→書き込まない（アボート）
+                        return roomPayload;
+                    });
+                    if (result.committed) { room = candidate; break; }
+                }
+                if (!room) {
+                    alert('こんでいて部屋番号を作れませんでした。もう一度お試しください。');
+                    btn.disabled = false;
+                    return;
+                }
+
+                sessionStorage.setItem('friends_room', room);
+                sessionStorage.setItem('friends_uid', uid);
+                sessionStorage.setItem('friends_name', name);
+                sessionStorage.setItem('friends_isHost', "1");
+                location.href = 'room.html';
+            } catch (err) {
+                console.error(err);
+                alert('部屋を作れませんでした。時間をおいてもう一度お試しください。\n(エラー: ' + (err && err.message ? err.message : err) + ')');
+                btn.disabled = false;
+            }
+        }
+
+        async function joinRoom() {
+            const room = toHalfWidthDigits(document.getElementById('roomID').value).replace(/[^0-9]/g, '');
+            const name = getPlayerName();
+            if (!room || !name) return alert('部屋番号となまえを入れてね');
+            saveSavedName(name);
+            const btn = document.getElementById('joinBtn');
+            btn.disabled = true;
+            let uid;
+            try {
+                await authReady;
+
+                const roomSnap = await db.ref(`casual_rooms/${room}`).once('value');
+                if (!roomSnap.exists()) {
+                    alert('その部屋番号は見つかりません。部屋番号を確認してね。');
+                    btn.disabled = false;
+                    return;
+                }
+                const roomData = roomSnap.val();
+                const phase = (roomData.state || {}).phase || 'lobby';
+
+                const existingUsers = roomData.users || {};
+                // 名前からその子のID（uid）を決めているので、「同じ名前を持つ人がいる」ことは
+                // 「自分がもう一度入ろうとしている（＝いったん切れて戻ってきた）」ことと
+                // 見分けがつかない。以前はここで一律にブロックしていたため、通信が切れて
+                // 入りなおそうとした子が、自分の名前なのに「使われています」と弾かれ、
+                // 点数も引き継げなくなっていた（下のscore引き継ぎコードが到達不能だった）。
+                // 今は「自分のuidの席」がすでにあれば、そのまま同じ席に入りなおす扱いにする。
+                uid = makeUid(name);
+                const takenColors = Object.values(existingUsers).map(u => u && u.color).filter(Boolean);
+                await db.ref(`casual_rooms/${room}/users/${uid}`).update({
+                    name: name,
+                    score: (roomData.users && roomData.users[uid] && roomData.users[uid].score) || 0,
+                    image: "",
+                    isCorrect: false,
+                    joinedAt: Date.now(),
+                    color: pickRandomColor(takenColors)
+                });
+
+                // 遅れてきた子でも、途中からでも入れるようにする。ゲームがもう始まって
+                // いる（ロビー・最終結果の画面ではない）ときは、いまの順番（turnOrder）の
+                // 最後にこの子を追加しておく（同時に何人か参加してもtransactionで
+                // 安全に追記できる）。
+                const isMidGame = phase !== 'lobby' && phase !== 'final';
+                if (isMidGame) {
+                    await db.ref(`casual_rooms/${room}/turnOrder`).transaction(current => {
+                        current = current || [];
+                        if (!current.includes(uid)) current.push(uid);
+                        return current;
+                    });
+                    // 「回数で終了」のときだけ、自分の描く回数を決める必要がある
+                    // （「時間で終了」のときは、みんなと同じ順番の輪にただ加わるだけでよい）。
+                    // フルの回数をもらえるのではなく、いま一番進んでいる子（＝残り回数が
+                    // いちばん少ない子）に合わせた、残りの回数だけをもらう。
+                    if ((roomData.settings || {}).endType === 'rounds') {
+                        const latestUsersSnap = await db.ref(`casual_rooms/${room}/users`).once('value');
+                        const latestUsers = latestUsersSnap.val() || {};
+                        const remainders = Object.entries(latestUsers)
+                            .filter(([otherUid]) => otherUid !== uid)
+                            .map(([, u]) => (u && typeof u.roundsRemaining === 'number') ? u.roundsRemaining : null)
+                            .filter(v => v !== null);
+                        const roundsForNewcomer = remainders.length ? Math.min(...remainders) : ((roomData.settings || {}).roundsPerPerson || 1);
+                        await db.ref(`casual_rooms/${room}/users/${uid}/roundsRemaining`).set(roundsForNewcomer);
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                alert('入室できませんでした。時間をおいてもう一度お試しください。\n(エラー: ' + (err && err.message ? err.message : err) + ')');
+                btn.disabled = false;
+                return;
+            }
+
+            sessionStorage.setItem('friends_room', room);
+            sessionStorage.setItem('friends_uid', uid);
+            sessionStorage.setItem('friends_name', name);
+            sessionStorage.setItem('friends_isHost', "0");
+            location.href = 'room.html';
+        }
+    </script>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, updateDoc, increment, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyB4fpt6ffIuTBDJo_9g37kYr6KOWNgIcEY",
+        authDomain: "otatoolssite.firebaseapp.com",
+        projectId: "otatoolssite",
+        storageBucket: "otatoolssite.firebasestorage.app",
+        messagingSenderId: "20522292752",
+        appId: "1:20522292752:web:22fba7fecb61736593dc95"
+    };
+
+    // アプリ固有のID
+    const THIS_APP_ID = "33"; 
+    
+    const PORTAL_APP_ID = "otatoolssite-v1";
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    signInAnonymously(auth).then(async () => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const storageKey = `ota_visited_${THIS_APP_ID}`;
+        
+        if (localStorage.getItem(storageKey) === todayStr) {
+            return;
+        }
+        const docRef = doc(db, 'artifacts', PORTAL_APP_ID, 'public', 'data', 'app_views', THIS_APP_ID);
+                try {
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                await updateDoc(docRef, { count: increment(1) });
+            } else {
+                await setDoc(docRef, { count: 1 }); 
+            }
+            localStorage.setItem(storageKey, todayStr);
+        } catch (e) { 
+            console.error("閲覧数のカウントに失敗しました:", e); 
+        }
+    }).catch((error) => {
+        console.error("Firebase認証エラー:", error);
+    });
+</script>
+</body>
+</html>
