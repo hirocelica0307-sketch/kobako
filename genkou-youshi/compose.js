@@ -37,7 +37,7 @@ function gyCls(c){ return gyIsLatin(c) ? 'latin' : ''; }
 function gyNoLineStart(text, cfg){
   const c = Array.from(text)[0];
   if(GY_NO_LINE_START.indexOf(c) >= 0) return true;
-  if(!cfg.smallKanaAtLineStart && GY_SMALL_KANA.indexOf(c) >= 0) return true;
+  if(cfg.hangSmallKana && GY_SMALL_KANA.indexOf(c) >= 0) return true;
   return false;
 }
 
@@ -150,14 +150,15 @@ function gyHeadColumns(title, name, cfg){
     cols.push(col);
   }
 
-  while(cols.length < cfg.bodyStartColumn - 1) cols.push(blank());
+  for(let i = 0; i < (cfg.bodyGapColumns || 0); i++) cols.push(blank());
   return cols;
 }
 
 /* --- 本体 ---
    input : { title, name, body }
    cfg   : きまり
-   もどり値 : { pages, columns, chars, over, fixes } */
+   もどり値 : { pages, columns, chars, fixes }
+   まい数は きめません。書いた ぶんだけ 1まいずつ ふえます。 */
 function gyCompose(input, cfg){
   cfg = cfg || GY_DEFAULTS;
   const norm  = gyNormalize(input.body || '', cfg);
@@ -167,23 +168,16 @@ function gyCompose(input, cfg){
   const all   = head.concat(body);
 
   const per   = cfg.columnsPerPage;
-  const nPage = Math.max(cfg.pages, Math.ceil(all.length / per) || 1);
+  const nPage = Math.max(1, Math.ceil(all.length / per));
   const pages = [];
   for(let i = 0; i < nPage; i++){
     const columns = all.slice(i * per, (i + 1) * per);
     while(columns.length < per) columns.push({ cells: new Array(cfg.charsPerColumn).fill(null) });
-    pages.push({ columns, over: i >= cfg.pages });
+    pages.push({ columns });
   }
 
   let chars = 0;
   for(const col of body) for(const cell of col.cells) if(cell) chars += Array.from(cell.text).length;
 
-  return {
-    pages,
-    columns : all.length,
-    chars,
-    capacity: cfg.charsPerColumn * cfg.columnsPerPage * cfg.pages,
-    over    : Math.max(0, all.length - per * cfg.pages),
-    fixes   : norm.fixes
-  };
+  return { pages, columns: all.length, chars, fixes: norm.fixes };
 }

@@ -151,21 +151,27 @@ function gyNormalize(src, cfg){
     if(units.length) paragraphs.push({ units, dialogue:false });
   }
 
-  /* 会話文を わける（「 で はじまる 段落 ／ 。「 の ところ） */
+  /* 会話文の ところで 行を かえる
+     ・「 で はじまる かたまり      … 1マス目から（段落の 1マスあけは しない）
+     ・。「 の ところ                … つぎの 会話を 新しい行へ
+     ・」 で とじた つぎの 文字から … 新しい行の 1マス目から          */
   const out = [];
   for(const p of paragraphs){
-    if(!cfg.dialogueNewline){ out.push(p); continue; }
-    let cur = [];
+    if(!cfg.dialogueNewline && !cfg.newlineAfterQuote){ out.push(p); continue; }
+    let cur = [], curTop = false;
+    const flush = nextTop => {
+      if(cur.length) out.push({ units:cur, dialogue: curTop || cur[0].c === '「' });
+      cur = []; curTop = nextTop;
+    };
     for(let i = 0; i < p.units.length; i++){
       const u = p.units[i], nx = p.units[i+1];
       cur.push(u);
-      if(u.c === '。' && nx && nx.c === '「'){
-        out.push({ units:cur, dialogue: cur[0].c === '「' });
-        cur = [];
-      }
+      if(!nx) continue;
+      if(cfg.dialogueNewline && u.c === '。' && nx.c === '「'){ flush(false); continue; }
+      if(cfg.newlineAfterQuote && (u.c === '」' || u.c === '』')){ flush(true); continue; }
     }
-    if(cur.length) out.push({ units:cur, dialogue: cur[0].c === '「' });
+    flush(false);
   }
 
-  return { paragraphs: cfg.dialogueNewline ? out : paragraphs, fixes };
+  return { paragraphs: out, fixes };
 }

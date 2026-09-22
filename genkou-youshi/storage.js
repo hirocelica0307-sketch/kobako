@@ -7,9 +7,9 @@
 var gyStore = (function(){
 'use strict';
 
-const K_KADAI = 'genkou-youshi/kadai';
-const K_DOC   = 'genkou-youshi/doc/';
-const K_PEND  = 'genkou-youshi/pending';
+const K_SET  = 'genkou-youshi/settings';
+const K_DOC  = 'genkou-youshi/doc';
+const K_PEND = 'genkou-youshi/pending';
 
 function lsGet(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
 function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
@@ -17,86 +17,78 @@ function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return tr
 const hasGas = (typeof google !== 'undefined' && google.script && google.script.run);
 
 const S = {
-  mode    : hasGas ? 'gas' : 'local',
-  user    : '',
+  mode     : hasGas ? 'gas' : 'local',
+  user     : '',
   isTeacher: !hasGas,      /* ファイルを そのまま ひらいた ときは だれでも 設定できる。
                               Apps Script の ときは サーバーが 先生かどうかを かえす */
-  status  : '',
-  onStatus: null,
-  _kadai  : null,
-  _docs   : {},
-  _pend   : {},
-  _timer  : null,
-  _sending: false
+  status   : '',
+  onStatus : null,
+  _set     : null,
+  _doc     : null,
+  _pend    : null,
+  _timer   : null,
+  _sending : false
 };
 
 function say(t){ S.status = t; if(S.onStatus) S.onStatus(t); }
 
-/* ---------- かだい ---------- */
-S.getKadai = function(){
-  if(!S._kadai) S._kadai = lsGet(K_KADAI, null) || gyDefaultKadai();
-  return S._kadai;
+/* ---------- きまり（設定） ---------- */
+S.getSettings = function(){
+  if(!S._set) S._set = gyUpgradeSettings(lsGet(K_SET, null));
+  return S._set;
 };
-S.setKadai = function(list){
-  S._kadai = list;
-  lsSet(K_KADAI, list);
+S.setSettings = function(obj){
+  S._set = obj;
+  lsSet(K_SET, obj);
   if(S.mode === 'gas'){
     try{
       google.script.run
-        .withSuccessHandler(() => say('かだいを ほぞんしました'))
-        .withFailureHandler(() => say('かだいを 送れませんでした'))
-        .gySaveKadai(list);
-    }catch(e){ say('かだいを 送れませんでした'); }
+        .withSuccessHandler(() => say('きまりを ほぞんしました'))
+        .withFailureHandler(() => say('きまりを 送れませんでした'))
+        .gySaveSettings(obj);
+    }catch(e){ say('きまりを 送れませんでした'); }
   }
 };
-S.resetKadai = function(){ S.setKadai(gyDefaultKadai()); return S._kadai; };
+S.resetSettings = function(){ S.setSettings(gyDefaultSettings()); return S._set; };
 
 /* ---------- 書いた もの ---------- */
-S.getDoc = function(id){
-  if(S._docs[id]) return S._docs[id];
-  const d = lsGet(K_DOC + id, null) || { title:'', name:'', body:'', at:'' };
-  S._docs[id] = d;
-  return d;
+S.getDoc = function(){
+  if(!S._doc) S._doc = lsGet(K_DOC, null) || { title:'', name:'', body:'', chars:0, pages:1, at:'' };
+  return S._doc;
 };
-S.setDoc = function(id, doc){
+S.setDoc = function(doc){
   doc.at = new Date().toISOString();
-  S._docs[id] = doc;
-  const okLocal = lsSet(K_DOC + id, doc);
+  S._doc = doc;
+  const okLocal = lsSet(K_DOC, doc);
   if(S.mode === 'local'){
     say(okLocal ? 'この たんまつに ほぞん' : 'ほぞんできません');
     return;
   }
-  S._pend[id] = doc;
-  lsSet(K_PEND, S._pend);
+  S._pend = doc;
+  lsSet(K_PEND, doc);
   say('ほぞん中…');
-  flushSoon();
+  clearTimeout(S._timer);
+  S._timer = setTimeout(flush, 800);
 };
 
 /* ---------- Apps Script へ 送る ---------- */
-function flushSoon(){
-  clearTimeout(S._timer);
-  S._timer = setTimeout(flush, 800);
-}
 function flush(){
-  if(S.mode !== 'gas' || S._sending) return;
-  const ids = Object.keys(S._pend);
-  if(!ids.length){ return; }
-  const id = ids[0], doc = S._pend[id];
+  if(S.mode !== 'gas' || S._sending || !S._pend) return;
+  const doc = S._pend;
   S._sending = true;
   try{
     google.script.run
       .withSuccessHandler(() => {
         S._sending = false;
-        if(S._pend[id] === doc){ delete S._pend[id]; lsSet(K_PEND, S._pend); }
-        if(Object.keys(S._pend).length){ flushSoon(); }
-        else say('ほぞんしました');
+        if(S._pend === doc){ S._pend = null; lsSet(K_PEND, null); say('ほぞんしました'); }
+        else setTimeout(flush, 100);
       })
       .withFailureHandler(() => {
         S._sending = false;
         say('ほぞんまち（つながったら 送ります）');
         setTimeout(flush, 15000);
       })
-      .gySaveDoc(id, doc);
+      .gySaveDoc(doc);
   }catch(e){
     S._sending = false;
     say('ほぞんまち（つながったら 送ります）');
@@ -106,8 +98,9 @@ function flush(){
 
 /* ---------- はじめに 1回 ---------- */
 S.init = function(done){
-  S._pend = lsGet(K_PEND, {}) || {};
-  S.getKadai();
+  S._pend = lsGet(K_PEND, null);
+  S.getSettings();
+  S.getDoc();
   if(S.mode !== 'gas'){ say(''); done(); return; }
 
   say('よみこみ中…');
@@ -117,13 +110,12 @@ S.init = function(done){
         if(res){
           S.user = res.user || '';
           S.isTeacher = !!res.isTeacher;
-          if(res.kadai && res.kadai.length){ S._kadai = res.kadai; lsSet(K_KADAI, res.kadai); }
-          if(res.docs) for(const id in res.docs){
-            /* 端末に 新しい 下書きが あれば そちらを のこす */
-            const mine = lsGet(K_DOC + id, null);
-            const theirs = res.docs[id];
-            const use = (mine && theirs && mine.at > theirs.at) ? mine : theirs;
-            S._docs[id] = use; lsSet(K_DOC + id, use);
+          if(res.settings){ S._set = gyUpgradeSettings(res.settings); lsSet(K_SET, S._set); }
+          if(res.doc){
+            /* 端末の 下書きの ほうが 新しければ そちらを のこす */
+            const mine = lsGet(K_DOC, null);
+            const use = (mine && mine.at && mine.at > (res.doc.at || '')) ? mine : res.doc;
+            S._doc = use; lsSet(K_DOC, use);
           }
         }
         say('');

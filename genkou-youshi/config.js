@@ -1,12 +1,12 @@
-/* 原稿用紙ツール ― きまり（設定）の既定値
-   ここの値は 先生が 設定画面で かえられます。
+/* 原稿用紙ツール ― きまり（設定）
+   先生が 設定画面（⚙）で かえられます。
    きまりの くわしい 説明は docs/RULES.md を 見てください。 */
 
 const GY_DEFAULTS = {
   /* ---- マスの かたち ---- */
   charsPerColumn : 20,   // 1行に 入る 字数（たてに ならぶ マスの 数）
   columnsPerPage : 20,   // 1まいの 行数（よこに ならぶ 行の 数）
-  pages          : 1,    // なんまい まで 書けるか
+  /* まい数は きめません。書いた ぶんだけ 1まいずつ ふえます。 */
 
   /* ---- 題名 ---- */
   title: {
@@ -23,29 +23,22 @@ const GY_DEFAULTS = {
   },
 
   /* ---- 本文 ---- */
-  bodyStartColumn : 3,   // 本文が はじまる 行（1から かぞえる）
+  bodyGapColumns  : 0,   // 名前の つぎに あける 行の 数
+                         //   0 … すぐ つぎの行（3行目）から
+                         //   1 … 1行 あけて（4行目）から
   paragraphIndent : 1,   // 段落の はじめに あける マスの 数
 
   /* ---- 原稿用紙の きまり ---- */
-  hangPunctuation      : true,  // ② 行のはじめに来る 句読点・とじかぎを 前のマスに 入れる
+  hangPunctuation      : true,  // ② 行頭に 来る 句読点・とじかぎを 前のマスに 入れる
+  hangSmallKana        : true,  // ⑧ 小さい字（っ ゃ ー）も 同じく 前のマスに 入れる
   combineKutenBracket  : true,  // ③ 「。」」を 1マスに まとめる
   dialogueNewline      : true,  // ④ 会話文は 改行して 1マス目から
+  newlineAfterQuote    : true,  // ⑤ 「」が とじたら 改行して つぎも 1マス目から
   numbers              : 'mixed', // ① 'mixed'=使い分け / 'positional'=位取り / 'serial'=並べ / 'keep'=算用数字のまま
-  smallKanaAtLineStart : true,  // ⑧ 小さい字（っ ゃ ー）は 行のはじめに 来てもよい
-  spaceAfterBangQuestion: true, // ⑨ ！ ？ の あとを 1マス あける
-  ellipsisTwoCells     : true,  // ⑩ …… —— は 2マス つかう
-  pushOpenBracket      : true   // ⑪ 行の おわりに 来た 「 は つぎの行へ おくる
+  spaceAfterBangQuestion: true, // ⑩ ！ ？ の あとを 1マス あける
+  ellipsisTwoCells     : true,  // ⑪ …… —— は 2マス つかう
+  pushOpenBracket      : true   // ⑫ 行の おわりに 来た 「 は つぎの行へ おくる
 };
-
-/* ---- かだい（先生が つくる 課題の ひな型）---- */
-const GY_PRESETS = [
-  { id:'bunshu',  label:'そつぎょう文集', charsPerColumn:20, columnsPerPage:20, pages:2,
-    title:{enabled:true, align:'indent', indent:3}, name:{enabled:true, bottomGap:1, gapBetween:1} },
-  { id:'kansou',  label:'読書かんそう文', charsPerColumn:20, columnsPerPage:20, pages:1,
-    title:{enabled:true, align:'indent', indent:3}, name:{enabled:true, bottomGap:1, gapBetween:1} },
-  { id:'furikaeri', label:'今日の ふりかえり', charsPerColumn:20, columnsPerPage:10, pages:1,
-    title:{enabled:false, align:'indent', indent:3}, name:{enabled:true, bottomGap:1, gapBetween:1} }
-];
 
 /* 設定を 1つに まぜあわせる（あさい ものだけ 上書き） */
 function gyMergeConfig(base, over){
@@ -53,17 +46,31 @@ function gyMergeConfig(base, over){
   for(const k in (over || {})){
     if(over[k] && typeof over[k] === 'object' && !Array.isArray(over[k])){
       out[k] = Object.assign({}, out[k] || {}, over[k]);
-    }else if(over[k] !== undefined && k !== 'id' && k !== 'label'){
+    }else if(over[k] !== undefined){
       out[k] = over[k];
     }
   }
   return out;
 }
 
-/* かだい 1つぶんの 完全な きまりを 作る（既定値 ＋ かだいの 上書き） */
-function gyKadaiFromPreset(p){
-  const k = gyMergeConfig(GY_DEFAULTS, p);
-  k.id = p.id; k.label = p.label;
-  return k;
+function gyDefaultSettings(){ return gyMergeConfig(GY_DEFAULTS, {}); }
+
+/* 前の かたちで 保存されて いた ものを いまの かたちに なおす */
+function gyUpgradeSettings(s){
+  if(!s || typeof s !== 'object') return gyDefaultSettings();
+  if(Array.isArray(s)) s = s[0] || {};            // むかしは かだいの 一覧だった
+  const out = gyMergeConfig(GY_DEFAULTS, s);
+  if(s.bodyStartColumn !== undefined && s.bodyGapColumns === undefined){
+    const head = (out.title.enabled ? 1 : 0) + (out.name.enabled ? 1 : 0);
+    out.bodyGapColumns = Math.max(0, s.bodyStartColumn - 1 - head);
+  }
+  if(s.smallKanaAtLineStart !== undefined && s.hangSmallKana === undefined){
+    out.hangSmallKana = !s.smallKanaAtLineStart;
+  }
+  delete out.bodyStartColumn;
+  delete out.smallKanaAtLineStart;
+  delete out.pages;
+  delete out.id;
+  delete out.label;
+  return out;
 }
-function gyDefaultKadai(){ return GY_PRESETS.map(gyKadaiFromPreset); }

@@ -11,7 +11,7 @@ function gyColStr(col){
 function gyTestCases(){
   const C = o => gyMergeConfig(GY_DEFAULTS, Object.assign({
     charsPerColumn:10, columnsPerPage:10, pages:1,
-    title:{enabled:false}, name:{enabled:false}, bodyStartColumn:1
+    title:{enabled:false}, name:{enabled:false}, bodyGapColumns:0
   }, o));
 
   return [
@@ -35,7 +35,7 @@ function gyTestCases(){
       cfg:C({}), input:{body:'ぼくは言った。「おはよう。」'},
       col:0, want:'␣ぼくは言った。␣␣' },
 
-    { rule:'⑦ 段落の はじめは 1マス あける',
+    { rule:'段落の はじめは 1マス あける',
       cfg:C({}), input:{body:'あい\nうえ'},
       col:1, want:'␣うえ␣␣␣␣␣␣␣' },
 
@@ -66,32 +66,60 @@ function gyTestCases(){
       cfg:C({charsPerColumn:5}), input:{body:'あいう「え」'},
       col:1, want:'「え」␣␣' },
 
-    { rule:'⑧ 小さい字（っ）は 行のはじめに 来てもよい',
+    { rule:'⑧ 小さい字（っ）も 行頭に 来たら 前のマスに 詰める',
       cfg:C({charsPerColumn:5}), input:{body:'あいうえっお'},
-      col:1, want:'っお␣␣␣' },
+      col:0, want:'␣あいう{えっ}' },
+    { rule:'⑧ 長音（ー）も 同じく 前のマスに 詰める',
+      cfg:C({charsPerColumn:5}), input:{body:'あいうえーお'},
+      col:0, want:'␣あいう{えー}' },
+    { rule:'⑧ ふつうの字は 詰めずに つぎの行へ',
+      cfg:C({charsPerColumn:5}), input:{body:'あいうえおか'},
+      col:1, want:'おか␣␣␣' },
 
-    { rule:'⑤ 題名は 1行目・上を 3マス あける',
-      cfg:C({charsPerColumn:10, title:{enabled:true, align:'indent', indent:3}, bodyStartColumn:2}),
+    { rule:'⑤ 「」が とじたら 改行して つぎも 1マス目から',
+      cfg:C({}), input:{body:'「おはよう。」と言った。'},
+      col:1, want:'と言った。␣␣␣␣␣' },
+    { rule:'⑤ とじたあとの 会話も 1マス目から',
+      cfg:C({}), input:{body:'「あ。」「い。」'},
+      col:1, want:'「い{。」}␣␣␣␣␣␣␣' },
+
+    { rule:'本文の はじまりを 1行 あけられる',
+      cfg:C({charsPerColumn:10, title:{enabled:true, align:'indent', indent:3},
+             name:{enabled:true, bottomGap:1, gapBetween:1}, bodyGapColumns:1}),
+      input:{title:'あ', name:'い', body:'う'},
+      col:3, want:'␣う␣␣␣␣␣␣␣␣' },
+    { rule:'あけない ときは すぐ つぎの行から',
+      cfg:C({charsPerColumn:10, title:{enabled:true, align:'indent', indent:3},
+             name:{enabled:true, bottomGap:1, gapBetween:1}, bodyGapColumns:0}),
+      input:{title:'あ', name:'い', body:'う'},
+      col:2, want:'␣う␣␣␣␣␣␣␣␣' },
+
+    { rule:'まい数は 書いた ぶんだけ ふえる',
+      cfg:C({charsPerColumn:5, columnsPerPage:2}), input:{body:'あ'.repeat(30)},
+      pages:4 },
+
+    { rule:'題名は 1行目・上を 3マス あける',
+      cfg:C({charsPerColumn:10, title:{enabled:true, align:'indent', indent:3}}),
       input:{title:'思い出', body:'あ'},
       col:0, want:'␣␣␣思い出␣␣␣␣' },
 
-    { rule:'⑤ 題名を まんなかに そろえる ことも できる',
-      cfg:C({charsPerColumn:10, title:{enabled:true, align:'center'}, bodyStartColumn:2}),
+    { rule:'題名を まんなかに そろえる ことも できる',
+      cfg:C({charsPerColumn:10, title:{enabled:true, align:'center'}}),
       input:{title:'思い出です', body:'あ'},
       col:0, want:'␣␣思い出です␣␣␣' },
 
-    { rule:'⑥ 名前は 下を 1マス あけて 下づめ・姓と名の あいだ 1マス',
-      cfg:C({charsPerColumn:10, name:{enabled:true, bottomGap:1, gapBetween:1}, bodyStartColumn:2}),
+    { rule:'名前は 下を 1マス あけて 下づめ・姓と名の あいだ 1マス',
+      cfg:C({charsPerColumn:10, name:{enabled:true, bottomGap:1, gapBetween:1}}),
       input:{name:'山田 太郎', body:'あ'},
       col:0, want:'␣␣␣␣山田␣太郎␣' },
 
     { rule:'本文は 題名・名前の つぎの 行から はじまる',
       cfg:C({charsPerColumn:10, title:{enabled:true, align:'indent', indent:3},
-             name:{enabled:true, bottomGap:1, gapBetween:1}, bodyStartColumn:3}),
+             name:{enabled:true, bottomGap:1, gapBetween:1}}),
       input:{title:'あ', name:'い', body:'う'},
       col:2, want:'␣う␣␣␣␣␣␣␣␣' },
 
-    { rule:'⑫ 半角の 字は 全角に なおす',
+    { rule:'半角の 字は 全角に なおす',
       cfg:C({}), input:{body:'ABC'},
       col:0, want:'␣ＡＢＣ␣␣␣␣␣␣' },
 
@@ -107,11 +135,17 @@ function gyRunTests(){
     let got = '', ok = false, err = '';
     try{
       const res = gyCompose(Object.assign({title:'', name:'', body:''}, t.input), t.cfg);
-      const cols = res.pages[0].columns;
-      got = cols[t.col] ? gyColStr(cols[t.col]) : '（行が ありません）';
-      ok = (got === t.want);
+      if(t.pages !== undefined){
+        got = res.pages.length + 'まい';
+        ok  = (res.pages.length === t.pages);
+      }else{
+        const cols = [];
+        for(const pg of res.pages) for(const c of pg.columns) cols.push(c);
+        got = cols[t.col] ? gyColStr(cols[t.col]) : '（行が ありません）';
+        ok = (got === t.want);
+      }
     }catch(e){ err = String(e && e.message || e); }
-    out.push({ rule:t.rule, want:t.want, got, ok, err });
+    out.push({ rule:t.rule, want:(t.pages !== undefined ? t.pages + 'まい' : t.want), got, ok, err });
   }
   return out;
 }

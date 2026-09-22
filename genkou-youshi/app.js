@@ -7,70 +7,35 @@ const $ = id => document.getElementById(id);
 const el = {
   title:$('inTitle'), name:$('inName'), body:$('inBody'),
   sheets:$('sheets'), count:$('count'), fixes:$('fixes'),
-  note:$('note'), save:$('save'), preset:$('preset'),
+  note:$('note'), save:$('save'),
   rowTitle:$('rowTitle'), rowName:$('rowName'),
   btnPrint:$('btnPrint'), btnFix:$('btnFix'), btnSet:$('btnSet'),
   printSize:$('printSize'),
 
   panel:$('settings'), btnCloseSet:$('btnCloseSet'),
-  setPreset:$('setPreset'),
-  btnNewPreset:$('btnNewPreset'), btnRenamePreset:$('btnRenamePreset'), btnDelPreset:$('btnDelPreset'),
-  setChars:$('setChars'), setCols:$('setCols'), setPages:$('setPages'),
+  setChars:$('setChars'), setCols:$('setCols'),
   setTitleOn:$('setTitleOn'), setTitleAlign:$('setTitleAlign'), setTitleIndent:$('setTitleIndent'),
   setNameOn:$('setNameOn'), setNameBottom:$('setNameBottom'), setNameGap:$('setNameGap'),
-  setBodyStart:$('setBodyStart'), setParaIndent:$('setParaIndent'),
-  setNumbers:$('setNumbers'), setHang:$('setHang'), setKuten:$('setKuten'),
-  setDialogue:$('setDialogue'), setSmallKana:$('setSmallKana'),
+  setBodyGap:$('setBodyGap'), bodyGapHint:$('bodyGapHint'), setParaIndent:$('setParaIndent'),
+  setNumbers:$('setNumbers'), setHang:$('setHang'), setSmallKana:$('setSmallKana'),
+  setKuten:$('setKuten'), setDialogue:$('setDialogue'), setAfterQuote:$('setAfterQuote'),
   setBangSpace:$('setBangSpace'), setEllipsis:$('setEllipsis'), setPushOpen:$('setPushOpen'),
   setCode:$('setCode'), btnCodeOut:$('btnCodeOut'), btnCodeIn:$('btnCodeIn'),
   btnReset:$('btnReset'), setMsg:$('setMsg')
 };
 
-let kadai   = [];      // かだいの 一覧（1つ1つが きまり まるごと）
-let current = null;    // いま えらんでいる かだい
-let raf     = null;
-let chars   = 0;       // いまの 字数（先生の シートにも のせる）
-
-/* ================= かだい ================= */
-function kadaiById(id){ return kadai.find(k => k.id === id) || kadai[0]; }
-
-function fillSelect(sel, keep){
-  sel.innerHTML = '';
-  for(const k of kadai){
-    const o = document.createElement('option');
-    o.value = k.id;
-    o.textContent = k.label + '（' + (k.charsPerColumn * k.columnsPerPage) + '字' +
-                    (k.pages > 1 ? '×' + k.pages + 'まい' : '') + '）';
-    sel.appendChild(o);
-  }
-  if(keep) sel.value = keep;
-}
-function refreshSelects(){
-  fillSelect(el.preset, current.id);
-  fillSelect(el.setPreset, current.id);
-}
-
-function selectKadai(id, keepText){
-  if(!keepText && current) saveDoc();
-  current = kadaiById(id);
-  el.rowTitle.style.display = current.title.enabled ? '' : 'none';
-  el.rowName .style.display = current.name.enabled  ? '' : 'none';
-  const d = gyStore.getDoc(current.id);
-  el.title.value = d.title || '';
-  el.name .value = d.name  || (gyStore.user ? '' : '');
-  el.body .value = d.body  || '';
-  try{ localStorage.setItem('genkou-youshi/last', current.id); }catch(e){}
-  refreshSelects();
-  loadSettingsForm();
-  render();
-}
+let cfg   = null;   // いまの きまり
+let raf   = null;
+let chars = 0;      // いまの 字数（先生の シートにも のせる）
+let pages = 1;      // いまの まい数
 
 /* ================= ほぞん ================= */
 let saveTimer = null;
 function saveDoc(){
-  if(!current) return;
-  gyStore.setDoc(current.id, {
-    title:el.title.value, name:el.name.value, body:el.body.value, chars:chars
+  if(!cfg) return;
+  gyStore.setDoc({
+    title:el.title.value, name:el.name.value, body:el.body.value,
+    chars:chars, pages:pages
   });
 }
 function saveSoon(){
@@ -91,7 +56,7 @@ function fitCell(w, h, M, N, bCol, bCell){
 }
 
 function sizeCells(){
-  const N = current.charsPerColumn, M = current.columnsPerPage;
+  const N = cfg.charsPerColumn, M = cfg.columnsPerPage;
   const box  = el.sheets.getBoundingClientRect();
   const w    = Math.max(240, box.width  - 40);
   const h    = Math.max(240, box.height - 40);
@@ -104,9 +69,9 @@ function sizeCells(){
 }
 
 /* 1つの マスに 字を 入れる。
-   ・ふつうの マス            … 1字を まんなかに
-   ・詰めた マス（「た。」）   … もとの 字は そのままの 大きさ、句読点だけ 小さく 右下に
-   ・句読点だけの マス（「。」」）… 2つとも 小さく たてに ならべる   */
+   ・ふつうの マス              … 1字を まんなかに
+   ・詰めた マス（「た。」「けっ」）… もとの 字は そのままの 大きさ、あとの 字は 小さく 右下に
+   ・句読点だけの マス（「。」」）  … 2つとも 小さく たてに ならべる   */
 function fillCell(d, text){
   const chars = Array.from(text);
   const mkSpan = ch => {
@@ -129,18 +94,26 @@ function fillCell(d, text){
   d.appendChild(main);
   const tail = document.createElement('div');
   tail.className = 'tail';
-  for(let i = 1; i < chars.length; i++) tail.appendChild(mkSpan(chars[i]));
+  for(let i = 1; i < chars.length; i++){
+    const s = mkSpan(chars[i]);
+    /* 小さい字は 句読点より 大きめに（読めるように） */
+    if(GY_SMALL_KANA.indexOf(chars[i]) >= 0) s.classList.add('tk');
+    tail.appendChild(s);
+  }
   d.appendChild(tail);
 }
 
 function render(){
-  const res = gyCompose({ title:el.title.value, name:el.name.value, body:el.body.value }, current);
+  const res = gyCompose({ title:el.title.value, name:el.name.value, body:el.body.value }, cfg);
   sizeCells();
 
   const frag = document.createDocumentFragment();
-  for(const pg of res.pages){
+  res.pages.forEach((pg, i) => {
     const sheet = document.createElement('div');
-    sheet.className = 'sheet' + (pg.over ? ' over' : '');
+    sheet.className = 'sheet';
+    const label = document.createElement('div');
+    label.className = 'sheet-no';
+    label.textContent = (i + 1) + ' / ' + res.pages.length + ' まい目';
     for(const col of pg.columns){
       const c = document.createElement('div');
       c.className = 'col';
@@ -160,19 +133,20 @@ function render(){
       }
       sheet.appendChild(c);
     }
-    frag.appendChild(sheet);
-  }
+    const wrap = document.createElement('div');
+    wrap.className = 'sheet-wrap';
+    wrap.appendChild(sheet);
+    wrap.appendChild(label);
+    frag.appendChild(wrap);
+  });
   el.sheets.innerHTML = '';
   el.sheets.appendChild(frag);
 
   chars = res.chars;
-  const cap = current.charsPerColumn * current.columnsPerPage * current.pages;
-  el.count.textContent = res.chars + '字／' + cap + '字';
-  el.count.className = 'count' + (res.over > 0 ? ' over' : '');
-  el.note.textContent = res.over > 0
-    ? 'あと ' + res.over + '行 ぶん はみ出しています'
-    : (current.pages > 1 ? current.pages + 'まいまで 書けます' : '');
-
+  pages = res.pages.length;
+  el.count.textContent = res.chars + '字・' + pages + 'まい';
+  el.note.textContent  = '1まい ' + (cfg.charsPerColumn * cfg.columnsPerPage) + '字（' +
+                         cfg.charsPerColumn + '字 × ' + cfg.columnsPerPage + '行）';
   el.fixes.innerHTML = '';
   for(const k in res.fixes){
     if(!GY_FIX_LABEL[k]) continue;
@@ -189,27 +163,35 @@ function renderSoon(){
 }
 
 /* ================= 先生用の せってい ================= */
+function headColumns(){
+  return (cfg.title.enabled ? 1 : 0) + (cfg.name.enabled ? 1 : 0);
+}
+function bodyGapHint(){
+  const start = headColumns() + (cfg.bodyGapColumns || 0) + 1;
+  el.bodyGapHint.textContent = '本文は ' + start + '行目から はじまります。';
+}
+
 function loadSettingsForm(){
-  const c = current;
-  el.setChars.value       = c.charsPerColumn;
-  el.setCols.value        = c.columnsPerPage;
-  el.setPages.value       = c.pages;
-  el.setTitleOn.checked   = !!c.title.enabled;
-  el.setTitleAlign.value  = c.title.align;
-  el.setTitleIndent.value = c.title.indent;
-  el.setNameOn.checked    = !!c.name.enabled;
-  el.setNameBottom.value  = c.name.bottomGap;
-  el.setNameGap.value     = c.name.gapBetween;
-  el.setBodyStart.value   = c.bodyStartColumn;
-  el.setParaIndent.value  = c.paragraphIndent;
-  el.setNumbers.value     = c.numbers;
-  el.setHang.checked      = !!c.hangPunctuation;
-  el.setKuten.checked     = !!c.combineKutenBracket;
-  el.setDialogue.checked  = !!c.dialogueNewline;
-  el.setSmallKana.checked = !!c.smallKanaAtLineStart;
-  el.setBangSpace.checked = !!c.spaceAfterBangQuestion;
-  el.setEllipsis.checked  = !!c.ellipsisTwoCells;
-  el.setPushOpen.checked  = !!c.pushOpenBracket;
+  el.setChars.value       = cfg.charsPerColumn;
+  el.setCols.value        = cfg.columnsPerPage;
+  el.setTitleOn.checked   = !!cfg.title.enabled;
+  el.setTitleAlign.value  = cfg.title.align;
+  el.setTitleIndent.value = cfg.title.indent;
+  el.setNameOn.checked    = !!cfg.name.enabled;
+  el.setNameBottom.value  = cfg.name.bottomGap;
+  el.setNameGap.value     = cfg.name.gapBetween;
+  el.setBodyGap.value     = String(cfg.bodyGapColumns || 0);
+  el.setParaIndent.value  = cfg.paragraphIndent;
+  el.setNumbers.value     = cfg.numbers;
+  el.setHang.checked      = !!cfg.hangPunctuation;
+  el.setSmallKana.checked = !!cfg.hangSmallKana;
+  el.setKuten.checked     = !!cfg.combineKutenBracket;
+  el.setDialogue.checked  = !!cfg.dialogueNewline;
+  el.setAfterQuote.checked= !!cfg.newlineAfterQuote;
+  el.setBangSpace.checked = !!cfg.spaceAfterBangQuestion;
+  el.setEllipsis.checked  = !!cfg.ellipsisTwoCells;
+  el.setPushOpen.checked  = !!cfg.pushOpenBracket;
+  bodyGapHint();
 }
 
 function num(input, min, max, now){
@@ -219,41 +201,34 @@ function num(input, min, max, now){
 }
 
 function applySettingsForm(){
-  const c = current;
-  c.charsPerColumn = num(el.setChars, 4, 40, c.charsPerColumn);
-  c.columnsPerPage = num(el.setCols,  2, 40, c.columnsPerPage);
-  c.pages          = num(el.setPages, 1, 10, c.pages);
-  c.title.enabled  = el.setTitleOn.checked;
-  c.title.align    = el.setTitleAlign.value;
-  c.title.indent   = num(el.setTitleIndent, 0, c.charsPerColumn, c.title.indent);
-  c.name.enabled   = el.setNameOn.checked;
-  c.name.bottomGap = num(el.setNameBottom, 0, c.charsPerColumn, c.name.bottomGap);
-  c.name.gapBetween= num(el.setNameGap, 0, 5, c.name.gapBetween);
-  c.paragraphIndent= num(el.setParaIndent, 0, 3, c.paragraphIndent);
+  cfg.charsPerColumn = num(el.setChars, 4, 40, cfg.charsPerColumn);
+  cfg.columnsPerPage = num(el.setCols,  2, 40, cfg.columnsPerPage);
+  cfg.title.enabled  = el.setTitleOn.checked;
+  cfg.title.align    = el.setTitleAlign.value;
+  cfg.title.indent   = num(el.setTitleIndent, 0, cfg.charsPerColumn, cfg.title.indent);
+  cfg.name.enabled   = el.setNameOn.checked;
+  cfg.name.bottomGap = num(el.setNameBottom, 0, cfg.charsPerColumn, cfg.name.bottomGap);
+  cfg.name.gapBetween= num(el.setNameGap, 0, 5, cfg.name.gapBetween);
+  cfg.bodyGapColumns = parseInt(el.setBodyGap.value, 10) || 0;
+  cfg.paragraphIndent= num(el.setParaIndent, 0, 3, cfg.paragraphIndent);
 
-  /* 本文の はじまりは 題名・名前を 使うぶんより 前には できない */
-  const least = (c.title.enabled ? 1 : 0) + (c.name.enabled ? 1 : 0) + 1;
-  c.bodyStartColumn = Math.max(least, num(el.setBodyStart, 1, 10, c.bodyStartColumn));
-  el.setBodyStart.value = c.bodyStartColumn;
+  cfg.numbers               = el.setNumbers.value;
+  cfg.hangPunctuation       = el.setHang.checked;
+  cfg.hangSmallKana         = el.setSmallKana.checked;
+  cfg.combineKutenBracket   = el.setKuten.checked;
+  cfg.dialogueNewline       = el.setDialogue.checked;
+  cfg.newlineAfterQuote     = el.setAfterQuote.checked;
+  cfg.spaceAfterBangQuestion= el.setBangSpace.checked;
+  cfg.ellipsisTwoCells      = el.setEllipsis.checked;
+  cfg.pushOpenBracket       = el.setPushOpen.checked;
 
-  c.numbers               = el.setNumbers.value;
-  c.hangPunctuation       = el.setHang.checked;
-  c.combineKutenBracket   = el.setKuten.checked;
-  c.dialogueNewline       = el.setDialogue.checked;
-  c.smallKanaAtLineStart  = el.setSmallKana.checked;
-  c.spaceAfterBangQuestion= el.setBangSpace.checked;
-  c.ellipsisTwoCells      = el.setEllipsis.checked;
-  c.pushOpenBracket       = el.setPushOpen.checked;
+  el.rowTitle.style.display = cfg.title.enabled ? '' : 'none';
+  el.rowName .style.display = cfg.name.enabled  ? '' : 'none';
 
-  el.rowTitle.style.display = c.title.enabled ? '' : 'none';
-  el.rowName .style.display = c.name.enabled  ? '' : 'none';
-
-  gyStore.setKadai(kadai);
-  refreshSelects();
+  bodyGapHint();
+  gyStore.setSettings(cfg);
   renderSoon();
 }
-
-function newId(){ return 'k' + Date.now().toString(36); }
 
 function msg(t){ el.setMsg.textContent = t; }
 
@@ -276,8 +251,6 @@ function b64dec(b64){
   el.name .addEventListener(ev, () => { renderSoon(); saveSoon(); });
   el.body .addEventListener(ev, () => { renderSoon(); saveSoon(); });
 });
-el.preset.addEventListener('change', () => selectKadai(el.preset.value));
-el.setPreset.addEventListener('change', () => selectKadai(el.setPreset.value));
 
 el.btnPrint.addEventListener('click', () => window.print());
 el.btnFix.addEventListener('click', () => {
@@ -288,60 +261,39 @@ el.btnFix.addEventListener('click', () => {
 el.btnSet.addEventListener('click', () => { el.panel.hidden = false; loadSettingsForm(); renderSoon(); });
 el.btnCloseSet.addEventListener('click', () => { el.panel.hidden = true; renderSoon(); });
 
-[ el.setChars, el.setCols, el.setPages, el.setTitleOn, el.setTitleAlign, el.setTitleIndent,
-  el.setNameOn, el.setNameBottom, el.setNameGap, el.setBodyStart, el.setParaIndent,
-  el.setNumbers, el.setHang, el.setKuten, el.setDialogue, el.setSmallKana,
-  el.setBangSpace, el.setEllipsis, el.setPushOpen
+[ el.setChars, el.setCols, el.setTitleOn, el.setTitleAlign, el.setTitleIndent,
+  el.setNameOn, el.setNameBottom, el.setNameGap, el.setBodyGap, el.setParaIndent,
+  el.setNumbers, el.setHang, el.setSmallKana, el.setKuten, el.setDialogue,
+  el.setAfterQuote, el.setBangSpace, el.setEllipsis, el.setPushOpen
 ].forEach(x => x.addEventListener('change', applySettingsForm));
-
-el.btnNewPreset.addEventListener('click', () => {
-  const label = prompt('あたらしい かだいの なまえ', 'あたらしい かだい');
-  if(!label) return;
-  const k = JSON.parse(JSON.stringify(current));
-  k.id = newId(); k.label = label;
-  kadai.push(k);
-  gyStore.setKadai(kadai);
-  selectKadai(k.id);
-  msg('「' + label + '」を つくりました');
-});
-el.btnRenamePreset.addEventListener('click', () => {
-  const label = prompt('かだいの なまえ', current.label);
-  if(!label) return;
-  current.label = label;
-  gyStore.setKadai(kadai);
-  refreshSelects();
-  msg('なまえを かえました');
-});
-el.btnDelPreset.addEventListener('click', () => {
-  if(kadai.length <= 1){ msg('かだいが 1つだけの ときは けせません'); return; }
-  if(!confirm('「' + current.label + '」を けしますか。書いた 文章は のこります。')) return;
-  kadai = kadai.filter(k => k.id !== current.id);
-  gyStore.setKadai(kadai);
-  selectKadai(kadai[0].id);
-  msg('けしました');
-});
 
 el.btnCodeOut.addEventListener('click', () => {
   try{
-    el.setCode.value = b64enc(JSON.stringify(kadai));
+    el.setCode.value = b64enc(JSON.stringify(cfg));
     el.setCode.select();
     msg('このコードを 児童の 端末で 貼りつけて「読みこむ」を おします');
   }catch(e){ msg('コードを 作れませんでした'); }
 });
 el.btnCodeIn.addEventListener('click', () => {
   try{
-    const list = JSON.parse(b64dec(el.setCode.value));
-    if(!Array.isArray(list) || !list.length || !list[0].charsPerColumn) throw new Error('形が ちがいます');
-    kadai = list;
-    gyStore.setKadai(kadai);
-    selectKadai(kadai[0].id);
-    msg('読みこみました（かだい ' + kadai.length + 'つ）');
+    const obj = JSON.parse(b64dec(el.setCode.value));
+    if(!obj || !obj.charsPerColumn) throw new Error('形が ちがいます');
+    cfg = gyUpgradeSettings(obj);
+    gyStore.setSettings(cfg);
+    loadSettingsForm();
+    el.rowTitle.style.display = cfg.title.enabled ? '' : 'none';
+    el.rowName .style.display = cfg.name.enabled  ? '' : 'none';
+    renderSoon();
+    msg('読みこみました');
   }catch(e){ msg('コードが ちがうようです'); }
 });
 el.btnReset.addEventListener('click', () => {
-  if(!confirm('かだいと きまりを はじめの ものに もどしますか。')) return;
-  kadai = gyStore.resetKadai();
-  selectKadai(kadai[0].id);
+  if(!confirm('きまりを はじめの ものに もどしますか。書いた 文章は のこります。')) return;
+  cfg = gyStore.resetSettings();
+  loadSettingsForm();
+  el.rowTitle.style.display = cfg.title.enabled ? '' : 'none';
+  el.rowName .style.display = cfg.name.enabled  ? '' : 'none';
+  renderSoon();
   msg('もどしました');
 });
 
@@ -351,12 +303,16 @@ window.addEventListener('beforeunload', saveDoc);
 /* ================= はじまり ================= */
 gyStore.onStatus = t => { el.save.textContent = t || '　'; };
 gyStore.init(function(){
-  kadai = gyStore.getKadai();
-  /* Apps Script 版では、かだいを かえられるのは 先生だけ */
+  cfg = gyStore.getSettings();
   if(!gyStore.isTeacher){ el.btnSet.hidden = true; el.panel.hidden = true; }
-  let last = null;
-  try{ last = localStorage.getItem('genkou-youshi/last'); }catch(e){}
-  selectKadai((last && kadai.some(k => k.id === last)) ? last : kadai[0].id, true);
+  const d = gyStore.getDoc();
+  el.title.value = d.title || '';
+  el.name .value = d.name  || '';
+  el.body .value = d.body  || '';
+  el.rowTitle.style.display = cfg.title.enabled ? '' : 'none';
+  el.rowName .style.display = cfg.name.enabled  ? '' : 'none';
+  loadSettingsForm();
+  render();
 });
 
 })();

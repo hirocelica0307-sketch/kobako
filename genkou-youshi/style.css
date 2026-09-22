@@ -132,12 +132,7 @@ body.nofix .cell.fix{ background:transparent; }
   .main{ display:block; }
   .pane-out{ display:block; }
   .sheets{ overflow:visible; padding:0; }
-  .sheet{
-    box-shadow:none; background:#fff; margin:0 auto;
-    page-break-after:always; break-after:page;
-  }
-  .sheet:last-child{ page-break-after:auto; break-after:auto; }
-  .sheet.over{ display:none; }
+  .sheet{ box-shadow:none; background:#fff; margin:0 auto; }
   .cell.fix{ background:transparent !important; }
 }
 
@@ -186,3 +181,14 @@ body.nofix .cell.fix{ background:transparent; }
   .settings{ width:100%; }
 }
 @media print{ .settings{ display:none !important; } }
+
+/* ---------- まい数の 見出し（自動で ふえます） ---------- */
+.sheet-wrap{ margin:0 auto 22px; width:max-content; }
+.sheet{ margin:0 auto; }
+.sheet-no{
+  text-align:center; font-size:12px; color:#6a7a72; padding-top:6px;
+}
+/* 詰めた マスの 中の 小さい字は 句読点より 大きめに */
+.cell.hang .tail span.tk{ font-size:1.3em; }
+@media print{ .sheet-no{ display:none; } .sheet-wrap{ margin:0 auto; page-break-after:always; break-after:page; }
+  .sheet-wrap:last-child{ page-break-after:auto; break-after:auto; } }
