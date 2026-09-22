@@ -221,3 +221,19 @@ export function watchLive(conn, code, cb) {
     const { db, fb } = conn;
     return fb.onValue(fb.ref(db, `rooms/${code}/live`), snap => cb(snap.val() || {}));
 }
+
+/* ── 部屋の 場面（あつまる／おえかき）──────────────
+   へやの ぬしが「はじめる」を おすと、みんなの 画面が いっせいに 変わります。
+   ------------------------------------------------------------------ */
+
+/** いまの 場面を 見はります。 */
+export function watchInfo(conn, code, cb) {
+    const { db, fb } = conn;
+    return fb.onValue(fb.ref(db, `rooms/${code}/info`), snap => cb(snap.val() || {}));
+}
+
+/** 場面を かえます（'waiting' ＝ あつまる ／ 'playing' ＝ おえかき）。 */
+export function setPhase(conn, code, phase) {
+    const { db, fb } = conn;
+    return fb.set(fb.ref(db, `rooms/${code}/info/phase`), phase);
+}

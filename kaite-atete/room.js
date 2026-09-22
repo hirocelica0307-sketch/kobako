@@ -3,7 +3,7 @@
    （だれが かくかの 順番や、お題・とくてんは このあとの 段階で つけます） */
 import { connect, watchMembers, enterRoom, leaveRoom, myMemberId, readStore, clearStore,
          sendLive, clearLive, clearLiveOnDisconnect, commitStroke, removeStroke,
-         clearBoard, watchStrokes, watchLive } from './firebase.js';
+         clearBoard, watchStrokes, watchLive, watchInfo, setPhase } from './firebase.js';
 import { createBoard, ERASER } from './board.js';
 
 const $ = id => document.getElementById(id);
@@ -25,27 +25,33 @@ function say(text, bad) {
 const hideSay = () => { $('notice').className = 'notice wait hidden'; };
 
 /* ── あつまった人 ─────────────────────────── */
-function drawMembers(list) {
-    const box = $('members');
-    box.textContent = '';
-    for (const m of list) {
-        const el = document.createElement('div');
-        el.className = 'member'
-            + (m.id === myId ? ' me' : '')
-            + (m.online === false ? ' off' : '');
-        const dot = document.createElement('span');
-        dot.className = 'dot';
-        dot.style.background = m.color || '#ccc';
-        el.appendChild(dot);
-        el.appendChild(document.createTextNode(m.name || 'だれか'));
-        if (m.isHost) {
-            const t = document.createElement('span');
-            t.className = 'tag';
-            t.textContent = 'ぬし';
-            el.appendChild(t);
-        }
-        box.appendChild(el);
+function chip(m) {
+    const el = document.createElement('div');
+    el.className = 'member'
+        + (m.id === myId ? ' me' : '')
+        + (m.online === false ? ' off' : '');
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = m.color || '#ccc';
+    el.appendChild(dot);
+    el.appendChild(document.createTextNode(m.name || 'だれか'));
+    if (m.isHost) {
+        const t = document.createElement('span');
+        t.className = 'tag';
+        t.textContent = 'ぬし';
+        el.appendChild(t);
     }
+    return el;
+}
+
+function drawMembers(list) {
+    for (const id of ['members', 'membersBig']) {
+        const box = $(id);
+        box.textContent = '';
+        for (const m of list) box.appendChild(chip(m));
+    }
+    const here = list.filter(m => m.online !== false).length;
+    $('count').textContent = here === 0 ? 'まだ だれも いません' : here + ' にん あつまりました';
 }
 
 /* ── どうぐ（色・ふとさ）───────────────────── */
@@ -123,6 +129,31 @@ board = createBoard({
 buildTools();
 board.setWidth(PEN_WIDTHS[1]);
 
+/* ── あつまる ／ おえかき の きりかえ ───────────
+   へやの ぬしが「はじめる」を おすと、みんなの 画面が いっせいに かわります。 */
+let phase = null;
+
+function applyPhase(next) {
+    if (next === phase) return;
+    phase = next;
+    const playing = (next === 'playing');
+
+    $('waiting').classList.toggle('hidden', playing);
+    $('play').classList.toggle('hidden', !playing);
+    $('tools').classList.toggle('hidden', !playing);
+
+    /* ぬしだけに 出す ボタン */
+    $('start').classList.toggle('hidden', playing || !isHost);
+    $('backToWait').classList.toggle('hidden', !playing || !isHost);
+    $('clear').classList.toggle('hidden', !playing || !isHost);
+    $('waitMsg').classList.toggle('hidden', playing || isHost);
+
+    /* かくれている あいだは 大きさが はかれないので、
+       出したあとに measure しなおします */
+    if (playing) requestAnimationFrame(() => board.refit());
+}
+applyPhase('waiting');
+
 (async () => {
     try {
         const c = await connect();
@@ -131,6 +162,7 @@ board.setWidth(PEN_WIDTHS[1]);
         conn = c;
 
         watchMembers(c, code, drawMembers);
+        watchInfo(c, code, info => applyPhase(info.phase || 'waiting'));
         watchStrokes(c, code,
             (id, stroke) => board.addStroke(id, stroke),
             id => board.dropStroke(id));
@@ -143,6 +175,20 @@ board.setWidth(PEN_WIDTHS[1]);
 })();
 
 /* ── ボタン ───────────────────────────────── */
+$('start').addEventListener('click', async () => {
+    if (!conn) return;
+    $('start').disabled = true;
+    try { await setPhase(conn, code, 'playing'); }
+    catch (e) { say('はじめられませんでした', true); }
+    finally { $('start').disabled = false; }
+});
+
+$('backToWait').addEventListener('click', async () => {
+    if (!conn) return;
+    try { await setPhase(conn, code, 'waiting'); }
+    catch (e) { say('もどれませんでした', true); }
+});
+
 $('undo').addEventListener('click', async () => {
     const id = myStrokes.pop();
     if (!id) return;

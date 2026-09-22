@@ -201,3 +201,8 @@ body.play{ gap:6px; }
     .swatch{ width:36px; height:36px; }
     .pen{ width:42px; height:36px; }
 }
+
+/* あつまる画面の 人の ならび（おおきめ） */
+.members.big{ gap:12px; margin-top:6px; }
+.members.big .member{ padding:8px 18px; font-size:clamp(16px,2.6vw,24px); border-width:3px; }
+.members.big .member .dot{ width:20px; height:20px; }
