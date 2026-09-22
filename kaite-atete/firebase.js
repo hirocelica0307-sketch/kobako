@@ -237,3 +237,40 @@ export function setPhase(conn, code, phase) {
     const { db, fb } = conn;
     return fb.set(fb.ref(db, `rooms/${code}/info/phase`), phase);
 }
+
+/* ── おだい（ラウンド）──────────────────────────
+   おだいの ことばは そのまま 入れません。数字に かえた もの（hash）だけを
+   おきます。こうすると、こたえる人の 画面から ことばが 見えません。
+   ことばは かく人の タブだけが おぼえていて、おわりに みんなへ 見せます。
+   ------------------------------------------------------------------ */
+
+/** あたらしい おだいを はじめます。 */
+export function startRound(conn, code, round) {
+    const { db, fb } = conn;
+    return fb.set(fb.ref(db, `rooms/${code}/round`), {
+        drawer: round.drawer,
+        level: round.level,
+        hash: round.hash,
+        startedAt: Date.now(),
+        answered: null,
+        word: null
+    });
+}
+
+/** いまの おだいを 見はります。 */
+export function watchRound(conn, code, cb) {
+    const { db, fb } = conn;
+    return fb.onValue(fb.ref(db, `rooms/${code}/round`), snap => cb(snap.val()));
+}
+
+/** せいかいした 人を しるします（はやい 順に ならべられるよう 時こくで）。 */
+export function markAnswered(conn, code, memberId) {
+    const { db, fb } = conn;
+    return fb.set(fb.ref(db, `rooms/${code}/round/answered/${memberId}`), Date.now());
+}
+
+/** おだいの ことばを みんなに 見せます（おわった とき）。 */
+export function revealWord(conn, code, word) {
+    const { db, fb } = conn;
+    return fb.set(fb.ref(db, `rooms/${code}/round/word`), word);
+}

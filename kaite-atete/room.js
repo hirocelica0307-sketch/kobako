@@ -1,10 +1,13 @@
 /* おえかきの 画面
-   いま 部屋に いる人を ならべ、みんなで 1まいの ばんに 絵を かきます。
-   （だれが かくかの 順番や、お題・とくてんは このあとの 段階で つけます） */
-import { connect, watchMembers, enterRoom, leaveRoom, myMemberId, readStore, clearStore,
+   あつまる → はじめる → おえかき。
+   かく人には おだいが 見え、ほかの人は ひらがなで こたえます。 */
+import { connect, watchMembers, enterRoom, leaveRoom, myMemberId, readStore, writeStore, clearStore,
          sendLive, clearLive, clearLiveOnDisconnect, commitStroke, removeStroke,
-         clearBoard, watchStrokes, watchLive, watchInfo, setPhase } from './firebase.js';
+         clearBoard, watchStrokes, watchLive, watchInfo, setPhase,
+         startRound, watchRound, markAnswered, revealWord } from './firebase.js';
 import { createBoard, ERASER } from './board.js';
+import { createHiraganaKeypad } from './keypad.js';
+import { LEVELS, pickWord, hashWord, normalize } from './odai.js';
 
 const $ = id => document.getElementById(id);
 
@@ -15,7 +18,15 @@ const myId = myMemberId();
 
 if (!code || !myName) location.replace('index.html');
 $('code').textContent = code;
-if (isHost) $('clear').classList.remove('hidden');
+
+let conn = null;
+let board = null;
+let round = null;            // いまの おだい（みんなが 見られる ぶん）
+let myWord = null;           // かく人だけが もつ ことば
+let level = LEVELS[0].key;
+let recent = [];             // さっき 出た おだい（つづけて 出ないように）
+let members = [];
+const myStrokes = [];
 
 function say(text, bad) {
     const n = $('notice');
@@ -35,31 +46,33 @@ function chip(m) {
     dot.style.background = m.color || '#ccc';
     el.appendChild(dot);
     el.appendChild(document.createTextNode(m.name || 'だれか'));
-    if (m.isHost) {
+
+    const tags = [];
+    if (round && round.drawer === m.id) tags.push('かく人');
+    else if (round && round.answered && round.answered[m.id]) tags.push('せいかい');
+    else if (m.isHost) tags.push('ぬし');
+    if (tags.length) {
         const t = document.createElement('span');
         t.className = 'tag';
-        t.textContent = 'ぬし';
+        t.textContent = tags.join('・');
         el.appendChild(t);
     }
     return el;
 }
 
-function drawMembers(list) {
+function drawMembers() {
     for (const id of ['members', 'membersBig']) {
         const box = $(id);
         box.textContent = '';
-        for (const m of list) box.appendChild(chip(m));
+        for (const m of members) box.appendChild(chip(m));
     }
-    const here = list.filter(m => m.online !== false).length;
+    const here = members.filter(m => m.online !== false).length;
     $('count').textContent = here === 0 ? 'まだ だれも いません' : here + ' にん あつまりました';
 }
 
 /* ── どうぐ（色・ふとさ）───────────────────── */
 const PEN_COLORS = ['#33291f','#e8503a','#f0872a','#f2c12e','#3b86d4','#46a83c','#d45ea0'];
 const PEN_WIDTHS = [8, 16, 30];
-
-let board = null;
-const myStrokes = [];   // 自分が かいた線（もどす ための ならび）
 
 function buildTools() {
     const sw = $('swatches');
@@ -69,17 +82,12 @@ function buildTools() {
     };
     for (const c of PEN_COLORS) {
         const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'swatch';
-        b.style.background = c;
-        b.title = 'この いろで かく';
+        b.type = 'button'; b.className = 'swatch'; b.style.background = c;
         b.addEventListener('click', () => { board.setColor(c); pick(b, sw); });
         sw.appendChild(b);
     }
     const er = document.createElement('button');
-    er.type = 'button';
-    er.className = 'swatch eraser';
-    er.textContent = 'けし';
+    er.type = 'button'; er.className = 'swatch eraser'; er.textContent = 'けし';
     er.addEventListener('click', () => { board.setColor(ERASER); pick(er, sw); });
     sw.appendChild(er);
     sw.firstChild.classList.add('on');
@@ -87,8 +95,7 @@ function buildTools() {
     const pens = $('pens');
     for (const w of PEN_WIDTHS) {
         const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'pen';
+        b.type = 'button'; b.className = 'pen';
         const dot = document.createElement('span');
         /* 実さいの ふとさは w のまま。ボタンの 中の まるは 見た目だけ おさえます */
         dot.style.width = dot.style.height = Math.min(26, Math.round(w * 0.9)) + 'px';
@@ -99,21 +106,129 @@ function buildTools() {
     pens.children[1].classList.add('on');
 }
 
-/* ── はじめる ─────────────────────────────── */
-let conn = null;
+/* ── むずかしさ えらび（ぬしだけ）─────────────── */
+function buildLevels() {
+    const box = $('levels');
+    for (const lv of LEVELS) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'level';
+        b.innerHTML = '';
+        const big = document.createElement('b'); big.textContent = lv.label;
+        const small = document.createElement('span'); small.textContent = lv.note;
+        b.append(big, small);
+        b.addEventListener('click', () => {
+            level = lv.key;
+            for (const x of box.children) x.classList.remove('on');
+            b.classList.add('on');
+        });
+        box.appendChild(b);
+    }
+    box.firstChild.classList.add('on');
+    box.classList.toggle('hidden', !isHost);
+}
 
-/* ばんと どうぐは、つうしんを 待たずに さきに 組み立てます。
-   こうすると ネットが つながらない ときでも、じぶんの 画面では
-   絵が かけます（送れないだけ）。道具ごと 消えることが ありません。 */
+/* ── こたえる ための キーボード ────────────────── */
+const ansPad = createHiraganaKeypad({
+    max: 8,
+    onChange(v) {
+        $('ansOut').textContent = v;
+        if (!v) $('ansOut').innerHTML = '<span class="placeholder">こたえを いれてね</span>';
+        $('ansGo').disabled = v.length === 0;
+    }
+});
+
+/* ── 場面と やくわりの きりかえ ─────────────── */
+let phase = null;
+
+function amDrawer() { return !!round && round.drawer === myId; }
+function iAnswered() { return !!round && !!round.answered && !!round.answered[myId]; }
+
+function applyPhase(next) {
+    phase = next;
+    const playing = (next === 'playing');
+
+    $('waiting').classList.toggle('hidden', playing);
+    $('play').classList.toggle('hidden', !playing);
+    $('start').classList.toggle('hidden', playing || !isHost);
+    $('waitMsg').classList.toggle('hidden', playing || isHost);
+    $('backToWait').classList.toggle('hidden', !playing || !isHost);
+
+    applyRole();
+    if (playing) requestAnimationFrame(() => board.refit());
+}
+
+/* かく人か、こたえる人か で 見せる ものを かえます */
+function applyRole() {
+    const playing = (phase === 'playing');
+    const drawer = playing && amDrawer();
+    const answerer = playing && !amDrawer();
+
+    $('drawerPanel').classList.toggle('hidden', !drawer);
+    $('answerPanel').classList.toggle('hidden', !answerer);
+    $('tools').classList.toggle('hidden', !drawer);
+    $('clear').classList.toggle('hidden', !drawer);
+    $('nextOdai').classList.toggle('hidden', !drawer);
+    document.body.classList.toggle('answering', answerer);
+
+    if (board) board.setEnabled(drawer);
+
+    /* かく人には ことばを 見せます。画面を 読みこみ なおしても、
+       おだいが 同じ ものなら おぼえている ことばを つかいます。 */
+    if (drawer) {
+        if (!myWord || hashWord(myWord) !== (round && round.hash)) {
+            const kept = readStore('ka_word');
+            myWord = (kept && round && hashWord(kept) === round.hash) ? kept : null;
+        }
+        $('odai').textContent = myWord || '（おだいを よみこめません。つぎの おだいを おしてください）';
+        const n = round && round.answered ? Object.keys(round.answered).length : 0;
+        $('answeredCount').textContent = n === 0 ? 'まだ だれも あてていません' : n + ' にん あてました';
+    }
+
+    if (answerer) {
+        const done = iAnswered();
+        $('ansSlot').classList.toggle('hidden', done);
+        $('ansGo').classList.toggle('hidden', done);
+        $('judge').classList.toggle('hidden', !done && !$('judge').dataset.wrong);
+        if (done) {
+            $('judge').className = 'judge ok';
+            $('judge').textContent = 'せいかい！';
+            $('ansOut').textContent = readStore('ka_myans') || '';
+        }
+    }
+
+    /* おわった おだいの ことばが みんなに 見えたら 出します */
+    if (playing && round && round.word) {
+        $('judge').classList.remove('hidden');
+        $('judge').className = 'judge reveal';
+        $('judge').textContent = 'こたえは「' + round.word + '」でした';
+    }
+}
+
+/* おだいが かわったら、こたえの 入力や 「ちがうみたい」を まっさらに もどします。
+   これを しないと、まえの おだいの こたえが のこったままに なります。 */
+let lastRoundId = null;
+function onRound(r) {
+    const id = r ? (r.hash + ':' + r.startedAt) : null;
+    if (id !== lastRoundId) {
+        lastRoundId = id;
+        ansPad.clear();
+        $('judge').dataset.wrong = '';
+        $('judge').classList.add('hidden');
+        clearStore('ka_myans');
+    }
+    round = r;
+    applyRole();
+    drawMembers();
+}
+
+/* ── はじめる ─────────────────────────────── */
 board = createBoard({
     base: $('base'),
     overlay: $('overlay'),
-    /* かいている とちゅう … ときどき 送る */
     onProgress(stroke) {
         if (!conn) return;
         sendLive(conn, code, myId, stroke).catch(() => {});
     },
-    /* ふでを はなした … かき おわった線に うつす */
     async onFinish(stroke) {
         if (!conn) return;
         try {
@@ -127,31 +242,9 @@ board = createBoard({
     }
 });
 buildTools();
+buildLevels();
 board.setWidth(PEN_WIDTHS[1]);
-
-/* ── あつまる ／ おえかき の きりかえ ───────────
-   へやの ぬしが「はじめる」を おすと、みんなの 画面が いっせいに かわります。 */
-let phase = null;
-
-function applyPhase(next) {
-    if (next === phase) return;
-    phase = next;
-    const playing = (next === 'playing');
-
-    $('waiting').classList.toggle('hidden', playing);
-    $('play').classList.toggle('hidden', !playing);
-    $('tools').classList.toggle('hidden', !playing);
-
-    /* ぬしだけに 出す ボタン */
-    $('start').classList.toggle('hidden', playing || !isHost);
-    $('backToWait').classList.toggle('hidden', !playing || !isHost);
-    $('clear').classList.toggle('hidden', !playing || !isHost);
-    $('waitMsg').classList.toggle('hidden', playing || isHost);
-
-    /* かくれている あいだは 大きさが はかれないので、
-       出したあとに measure しなおします */
-    if (playing) requestAnimationFrame(() => board.refit());
-}
+$('ansSlot').appendChild(ansPad.el);
 applyPhase('waiting');
 
 (async () => {
@@ -161,8 +254,9 @@ applyPhase('waiting');
         clearLiveOnDisconnect(c, code, myId);
         conn = c;
 
-        watchMembers(c, code, drawMembers);
+        watchMembers(c, code, list => { members = list; drawMembers(); });
         watchInfo(c, code, info => applyPhase(info.phase || 'waiting'));
+        watchRound(c, code, onRound);
         watchStrokes(c, code,
             (id, stroke) => board.addStroke(id, stroke),
             id => board.dropStroke(id));
@@ -170,17 +264,49 @@ applyPhase('waiting');
 
         hideSay();
     } catch (e) {
-        say((e.message || 'つうしんが できませんでした') + '／じぶんの 画面には かけます', true);
+        say((e.message || 'つうしんが できませんでした'), true);
     }
 })();
 
-/* ── ボタン ───────────────────────────────── */
+/* ── おだいを くばる ─────────────────────── */
+async function newRound() {
+    const word = pickWord(level, recent);
+    recent = [word, ...recent].slice(0, 20);
+    myWord = word;
+    writeStore('ka_word', word);
+    clearStore('ka_myans');
+    $('judge').dataset.wrong = '';
+    ansPad.clear();
+    await clearBoard(conn, code);
+    myStrokes.length = 0;
+    await startRound(conn, code, { drawer: myId, level, hash: hashWord(word) });
+}
+
 $('start').addEventListener('click', async () => {
     if (!conn) return;
     $('start').disabled = true;
-    try { await setPhase(conn, code, 'playing'); }
-    catch (e) { say('はじめられませんでした', true); }
-    finally { $('start').disabled = false; }
+    try {
+        await newRound();
+        await setPhase(conn, code, 'playing');
+    } catch (e) {
+        say('はじめられませんでした', true);
+    } finally {
+        $('start').disabled = false;
+    }
+});
+
+$('nextOdai').addEventListener('click', async () => {
+    if (!conn) return;
+    $('nextOdai').disabled = true;
+    try {
+        if (myWord) await revealWord(conn, code, myWord);   // こたえを みんなに 見せてから
+        await new Promise(r => setTimeout(r, 1200));
+        await newRound();
+    } catch (e) {
+        say('つぎに いけませんでした', true);
+    } finally {
+        $('nextOdai').disabled = false;
+    }
 });
 
 $('backToWait').addEventListener('click', async () => {
@@ -189,29 +315,43 @@ $('backToWait').addEventListener('click', async () => {
     catch (e) { say('もどれませんでした', true); }
 });
 
+/* ── こたえる ─────────────────────────────── */
+$('ansGo').addEventListener('click', async () => {
+    const guess = ansPad.getValue();
+    if (!guess || !round || !conn) return;
+
+    if (hashWord(guess) === round.hash) {
+        writeStore('ka_myans', normalize(guess));
+        try { await markAnswered(conn, code, myId); } catch (e) {}
+        $('judge').dataset.wrong = '';
+        applyRole();
+    } else {
+        $('judge').dataset.wrong = '1';
+        $('judge').className = 'judge ng';
+        $('judge').textContent = 'ちがうみたい。もういちど！';
+        $('judge').classList.remove('hidden');
+        ansPad.clear();
+    }
+});
+
+/* ── ボタン ───────────────────────────────── */
 $('undo').addEventListener('click', async () => {
     const id = myStrokes.pop();
-    if (!id) return;
+    if (!id || !conn) return;
     try { await removeStroke(conn, code, id); } catch (e) { myStrokes.push(id); }
 });
 
 $('clear').addEventListener('click', async () => {
-    if (!confirm('ぜんぶ けしますか？')) return;
-    try {
-        await clearBoard(conn, code);
-        myStrokes.length = 0;
-    } catch (e) { say('けせませんでした', true); }
+    if (!conn || !confirm('ぜんぶ けしますか？')) return;
+    try { await clearBoard(conn, code); myStrokes.length = 0; }
+    catch (e) { say('けせませんでした', true); }
 });
 
 $('leave').addEventListener('click', async () => {
     $('leave').disabled = true;
     try {
-        if (conn) {
-            await clearLive(conn, code, myId);
-            await leaveRoom(conn, code, myId);
-        }
+        if (conn) { await clearLive(conn, code, myId); await leaveRoom(conn, code, myId); }
     } catch (e) {}
-    clearStore('ka_room');
-    clearStore('ka_host');
+    clearStore('ka_room'); clearStore('ka_host'); clearStore('ka_word');
     location.href = 'index.html';
 });
