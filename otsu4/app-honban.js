@@ -125,6 +125,14 @@ function finish(){
   window.scrollTo(0, 0);
 }
 
+function stepsHtml(q){
+  var h = q.steps.map(function(st){
+    return '<div class="step"><b>' + esc(st.t) + '</b><span>' + esc(st.d) + '</span></div>';
+  }).join('');
+  if (q.trick) h += '<div class="trick"><b>いちばん ラクな 解き方</b>' + esc(q.trick) + '</div>';
+  return h;
+}
+
 function review(){
   var h = '';
   Q.forEach(function(q, i){
@@ -137,6 +145,10 @@ function review(){
     h += '<div class="explain"><p><b>正解の選択肢</b>' + esc(mixes[i].choices[mixes[i].a]) + '</p>' +
          '<p><b>なぜ そうなる？</b>' + esc(q.why) + '</p>' +
          (q.others ? '<p><b>ほかの選択肢・ポイント</b>' + esc(q.others) + '</p>' : '') + '</div>';
+    if (q.steps && q.steps.length){
+      h += '<div class="steps" style="margin-top:10px">' +
+        stepsHtml(q) + '</div>';
+    }
     h += '<a class="btn ghost sm" style="margin-top:10px;display:inline-block" href="renshuu.html?theme=' + q.theme + '">このテーマの 類似問題を 解く</a>';
     h += '</div>';
   });

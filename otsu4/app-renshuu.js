@@ -80,4 +80,6 @@ renderPick();
 var t = qs('theme');
 if (t && OTSU4_THEME_MAP[t]) start({ theme:t, limit:10 });
 $('btnToday').onclick = function(){ start({ limit:set.qsPerDay }); };
+$('nCalc').textContent = OTSU4_QUESTIONS.filter(function(q){ return q.steps && q.steps.length; }).length;
+$('btnCalc').onclick = function(){ start({ calcOnly:true, limit:8 }); };
 })();

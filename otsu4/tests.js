@@ -47,6 +47,31 @@ function runAll(env){
   }).map(function(th){ return th.key; });
   eq('問題が 0問の テーマがない', empty.length, 0, empty.join(','));
 
+  /* ---- テーマごとの 問題数（★5は5問以上、★4は3問以上、★3以下は2問以上）---- */
+  var cnt = {};
+  Q.forEach(function(q){ cnt[q.theme] = (cnt[q.theme] || 0) + 1; });
+  var need = function(star){ return star === 5 ? 5 : star === 4 ? 3 : 2; };
+  var thin = T.filter(function(th){ return (cnt[th.key] || 0) < need(th.star); })
+              .map(function(th){ return th.key + '(' + (cnt[th.key] || 0) + ')'; });
+  eq('出やすさに 見あう 問題数が そろっている', thin.length, 0, thin.join(','));
+
+  /* ---- 計算問題の 途中式 ---- */
+  var calc = Q.filter(function(q){ return q.steps && q.steps.length; });
+  ok('計算問題に 途中式が ついている（10問以上）', calc.length >= 10, '計算問題=' + calc.length);
+  var badStep = calc.filter(function(q){
+    if (!q.trick) return true;
+    return q.steps.some(function(st){ return !st.t || !st.d; });
+  }).map(function(q){ return q.id; });
+  eq('途中式は すべて 見出しと 中身と ラクな解き方が そろっている', badStep.length, 0, badStep.join(','));
+  var calcSub = {};
+  calc.forEach(function(q){ calcSub[q.subject] = true; });
+  ok('計算問題は 法令にも 物理化学にも ある', calcSub.law && calcSub.phys);
+
+  /* ---- 計算問題だけを しぼれる ---- */
+  var onlyCalc = Eng.pickQuestions({ calcOnly:true, limit:99 });
+  ok('calcOnly で 計算問題だけに しぼれる',
+     onlyCalc.length > 0 && onlyCalc.every(function(q){ return q.steps && q.steps.length; }));
+
   /* ---- 間隔反復 ---- */
   eq('箱0の つぎは きょう', Srs.nextDays(0), 0);
   eq('箱1の つぎは 1日後', Srs.nextDays(1), 1);
@@ -145,8 +170,8 @@ if (typeof module !== 'undefined' && require.main === module){
   global.localStorage = { _d:{}, getItem:function(k){ return this._d[k] || null; },
                           setItem:function(k, v){ this._d[k] = v; },
                           removeItem:function(k){ delete this._d[k]; } };
-  ['data/themes.js','data/questions-official.js','data/questions-extra.js','data/knowledge.js',
-   'store.js','srs.js','engine.js'].forEach(function(f){
+  ['data/themes.js','data/questions-official.js','data/questions-extra.js','data/questions-extra2.js',
+   'data/knowledge.js','store.js','srs.js','engine.js'].forEach(function(f){
     (0, eval)(fs.readFileSync(path.join(dir, f), 'utf8'));
   });
   var res = runAll({

@@ -113,3 +113,17 @@ a{ color:inherit; }
 table.sc{ width:100%; border-collapse:collapse; font-size:14px; }
 table.sc th, table.sc td{ border-bottom:1px solid var(--line); padding:8px 4px; text-align:left; }
 table.sc td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+
+/* ---- 計算問題の 途中式 ---- */
+.steps{ margin:8px 0 12px; }
+.step{
+  border-left:4px solid var(--main); background:rgba(127,127,127,.08);
+  border-radius:0 8px 8px 0; padding:10px 12px; margin-bottom:8px; font-size:14px;
+}
+.step b{ display:block; margin-bottom:2px; }
+.step span{ font-variant-numeric:tabular-nums; }
+.trick{
+  border:1px dashed var(--warn); border-radius:8px; padding:10px 12px;
+  font-size:14px; background:rgba(201,130,10,.08);
+}
+.trick b{ display:block; margin-bottom:2px; color:var(--warn); }

@@ -73,6 +73,7 @@ function pickQuestions(opts){
     if (opts.subject && q.subject !== opts.subject) return false;
     if (opts.theme   && q.theme   !== opts.theme)   return false;
     if (opts.src     && q.src     !== opts.src)     return false;
+    if (opts.calcOnly && !(q.steps && q.steps.length)) return false;
     if (opts.onlyDue){
       var st = O4Store.state('q', q.id);
       if (!O4Srs.isDue(st, today)) return false;

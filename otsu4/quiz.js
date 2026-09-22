@@ -96,6 +96,8 @@ function run(opts){
                      (q.ref ? '<p class="muted">くわしくは docs/' + refFile(q.ref) + '</p>' : '');
       area.appendChild(ex);
 
+      if (q.steps && q.steps.length) area.appendChild(stepsBlock(q));
+
       var b = el('button', 'btn wide', (i + 1 < qs.length) ? 'つぎの問題へ' : '結果を見る');
       b.onclick = function(){
         i++;
@@ -105,6 +107,38 @@ function run(opts){
       area.appendChild(b);
       window.scrollTo(0, 0);
     }
+  }
+
+  /* ---- 計算問題の 途中式（1つずつ ひらく） ---- */
+  function stepsBlock(q){
+    var box = el('div', 'card');
+    box.appendChild(el('h3', '', '途中式を 1つずつ 見る'));
+    var list = el('div', 'steps');
+    box.appendChild(list);
+
+    var n = 0;
+    var more = el('button', 'btn ghost wide', '① から 見る');
+    var all  = el('button', 'btn ghost wide', 'ぜんぶ 出す');
+
+    function addOne(){
+      var st = q.steps[n];
+      var d = el('div', 'step');
+      d.innerHTML = '<b>' + esc(st.t) + '</b><span>' + esc(st.d) + '</span>';
+      list.appendChild(d);
+      n++;
+      if (n >= q.steps.length){
+        more.remove(); all.remove();
+        if (q.trick) list.appendChild(el('div', 'trick', '<b>いちばん ラクな 解き方</b>' + esc(q.trick)));
+      } else {
+        more.textContent = 'つぎの式（' + (n + 1) + '／' + q.steps.length + '）';
+      }
+    }
+    more.onclick = addOne;
+    all.onclick = function(){ while (n < q.steps.length) addOne(); };
+
+    box.appendChild(more);
+    box.appendChild(all);
+    return box;
   }
 
   function refFile(ref){
