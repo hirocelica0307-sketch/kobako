@@ -103,7 +103,9 @@ body{
 /* たて書きの 字の 向き（フォントに たよらず 自分で きめる） */
 .cell span{ display:block; line-height:1; }
 .cell span.rot{ transform:rotate(90deg); }
-.cell span.tr { transform:translate(30%,-30%); }
+.cell span.rot.ro{ transform:translateY(-40%) rotate(90deg); }  /* ひらく かっこは 上に */
+.cell span.rot.rc{ transform:translateY(40%)  rotate(90deg); }  /* とじる かっこは 下に */
+.cell span.tr { transform:translate(44%,-44%); }
 .cell span.sk { transform:translate(16%,-16%); }
 /* 句読点だけの マス（「。」」）… 2つとも 小さく たてに ならべる */
 .cell.stack{ flex-direction:column; }

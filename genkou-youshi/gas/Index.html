@@ -113,7 +113,9 @@ body{
 /* たて書きの 字の 向き（フォントに たよらず 自分で きめる） */
 .cell span{ display:block; line-height:1; }
 .cell span.rot{ transform:rotate(90deg); }
-.cell span.tr { transform:translate(30%,-30%); }
+.cell span.rot.ro{ transform:translateY(-40%) rotate(90deg); }  /* ひらく かっこは 上に */
+.cell span.rot.rc{ transform:translateY(40%)  rotate(90deg); }  /* とじる かっこは 下に */
+.cell span.tr { transform:translate(44%,-44%); }
 .cell span.sk { transform:translate(16%,-16%); }
 /* 句読点だけの マス（「。」」）… 2つとも 小さく たてに ならべる */
 .cell.stack{ flex-direction:column; }
@@ -606,11 +608,15 @@ const GY_NOTE = {
    rot = 90どまわす（かぎかっこ・長音・ダッシュ・リーダ）
    tr  = マスの 右上に 置く（句読点）
    sk  = 少し 右上に よせる（小さい字）            */
-const GY_ROTATE = '「」『』（）〔〕【】〈〉《》｛｝［］ー—―〜～…‥＝';
-const GY_TOPRIGHT = '、。，．';
+const GY_ROT_OPEN  = '「『（〔【〈《｛［';   // 90どまわして マスの 上へ
+const GY_ROT_CLOSE = '」』）〕】〉》｝］';   // 90どまわして マスの 下へ
+const GY_ROT_MID   = 'ー—―〜～…‥＝';      // 90どまわして まんなかに
+const GY_TOPRIGHT  = '、。，．';            // マスの 右上に
 function gyCharClass(c){
-  if(GY_ROTATE.indexOf(c) >= 0)   return 'rot';
-  if(GY_TOPRIGHT.indexOf(c) >= 0) return 'tr';
+  if(GY_ROT_OPEN .indexOf(c) >= 0) return 'rot ro';
+  if(GY_ROT_CLOSE.indexOf(c) >= 0) return 'rot rc';
+  if(GY_ROT_MID  .indexOf(c) >= 0) return 'rot';
+  if(GY_TOPRIGHT .indexOf(c) >= 0) return 'tr';
   if(GY_SMALL_KANA.indexOf(c) >= 0) return 'sk';
   return '';
 }
