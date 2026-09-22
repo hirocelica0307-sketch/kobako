@@ -54,6 +54,7 @@ export function createHiraganaKeypad(opt = {}) {
     let value = '';
 
     const el = document.createElement('div');
+    el.className = 'padbox';          /* あまった たての 場所に 合わせて のびます */
 
     const pad = document.createElement('div');
     pad.className = 'keypad hira';
@@ -104,11 +105,50 @@ export function createHiraganaKeypad(opt = {}) {
     }
     el.appendChild(tools);
 
+    /* あまった ばしょに 合わせて キーボードの 大きさを きめます。
+       10れつ×5だん なので、よこ:たて ＝ 2:1 なら キーが 正方形に なります。
+       CSS の のびちぢみ だけでは 正しく 決まらないので、ここで 計算します。 */
+    fitPad(el, pad, tools, 660, 2);
+
     return {
         el,
         getValue: () => value,
         clear() { value = ''; tell(); }
     };
+}
+
+/**
+ * キーボードの 大きさを、入れものの あきに 合わせて きめます。
+ * @param box   入れもの（.padbox）
+ * @param pad   キーの ます目
+ * @param extra 下に つく ボタンの れつ（なければ null）
+ * @param maxW  いちばん 大きい はば
+ * @param ratio よこ ÷ たて（2 なら 10れつ×5だん）
+ */
+function fitPad(box, pad, extra, maxW, ratio) {
+    const relayout = () => {
+        const availW = box.clientWidth;
+        const extraH = extra ? extra.offsetHeight + 6 : 0;
+        const availH = box.clientHeight - extraH;
+        if (availW <= 0 || availH <= 0) return;
+        const w = Math.max(180, Math.min(maxW, availW, availH * ratio));
+        pad.style.width = Math.floor(w) + 'px';
+        pad.style.height = Math.floor(w / ratio) + 'px';
+        /* 下の ボタンの れつも 同じ はばに して、2だんに 折りかえさない ように します
+           （折りかえすと たての ばしょを とられて、キーが 小さく なります）*/
+        if (extra) extra.style.width = Math.floor(w) + 'px';
+    };
+    if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(relayout);
+        ro.observe(box);
+        if (box.parentElement) ro.observe(box.parentElement);   /* 入れものの 変化も 見ます */
+    }
+    window.addEventListener('resize', relayout);
+    /* 画面が できあがる 前に はかると 小さく 出ます。
+       すこし 時間を あけて 何回か はかりなおします。 */
+    relayout();
+    requestAnimationFrame(relayout);
+    for (const ms of [60, 200, 600]) setTimeout(relayout, ms);
 }
 
 /**
@@ -125,6 +165,7 @@ export function createNumberKeypad(opt = {}) {
     let value = '';
 
     const el = document.createElement('div');
+    el.className = 'padbox';
     const pad = document.createElement('div');
     pad.className = 'keypad num';
     el.appendChild(pad);
@@ -152,6 +193,9 @@ export function createNumberKeypad(opt = {}) {
     const del = makeKey('けす', 'mark');
     del.addEventListener('click', () => { value = value.slice(0, -1); tell(); });
     pad.appendChild(del);
+
+    /* 3れつ×4だん なので よこ:たて ＝ 3:4 */
+    fitPad(el, pad, null, 300, 3 / 4);
 
     return {
         el,

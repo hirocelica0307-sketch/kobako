@@ -292,13 +292,25 @@ export function revealWord(conn, code, word) {
    だれが どの 順で かくかを きめ、とくてんを ためます。
    ------------------------------------------------------------------ */
 
-/** ゲームを はじめます（じゅんばん・しゅう数・とくてんの リセット）。 */
-export async function startGame(conn, code, order, laps) {
+/** ゲームを はじめます（あそびかた・じゅんばん・とくてんの リセット）。 */
+export async function startGame(conn, code, game) {
     const { db, fb } = conn;
     await fb.set(fb.ref(db, `rooms/${code}/game`), {
-        order, laps, turn: 0, startedAt: Date.now()
+        mode: game.mode,
+        order: game.order,
+        laps: game.laps || null,
+        seconds: game.seconds,
+        endsAt: game.endsAt || null,
+        turn: 0,
+        startedAt: Date.now()
     });
     await fb.remove(fb.ref(db, `rooms/${code}/scores`));
+}
+
+/** ランダムの ときは、つぎの かく人を そのつど 入れかえます。 */
+export function setGameTurn(conn, code, turn) {
+    const { db, fb } = conn;
+    return fb.set(fb.ref(db, `rooms/${code}/game/turn`), turn);
 }
 
 /** いまの じゅんばんを 見はります。 */

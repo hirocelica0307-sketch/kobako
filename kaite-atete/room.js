@@ -10,14 +10,24 @@ import { createBoard, ERASER } from './board.js';
 import { createHiraganaKeypad } from './keypad.js';
 import { LEVELS, pickWord, hashWord, normalize } from './odai.js';
 import { scoreRound } from './scoring.js';
+import { createStepper } from './stepper.js';
 
 const $ = id => document.getElementById(id);
 
-const ROUND_SECONDS = 90;     // 1かいの 時間
-const LAP_CHOICES = [
-    { n: 1, label: '1しゅう', note: 'ぜんいん 1かいずつ' },
-    { n: 2, label: '2しゅう', note: 'ぜんいん 2かいずつ' }
+/* あそびかたは 2つ。
+   じゅんばん … みんなが おなじ かいすう かきます（なんしゅうで きめます）
+   ランダム   … つぎに かく人を くじびきで きめます（ぜんたいの 時間で おわります） */
+const MODES = [
+    { key: 'order',  label: 'じゅんばん', note: 'みんな おなじ かいすう' },
+    { key: 'random', label: 'ランダム',   note: 'つぎの 人は くじびき' }
 ];
+const LAP_CHOICES = [
+    { n: 1, label: '1しゅう', note: 'ひとり 1かい' },
+    { n: 2, label: '2しゅう', note: 'ひとり 2かい' },
+    { n: 3, label: '3しゅう', note: 'ひとり 3かい' }
+];
+const DEFAULT_MINUTES = 5;    // ランダムの ときの ぜんたいの 時間
+const DEFAULT_SECONDS = 30;   // 1かいの 時間
 
 const code = readStore('ka_room');
 const myName = readStore('ka_name');
@@ -30,7 +40,8 @@ $('code').textContent = code;
 let conn = null, board = null;
 let members = [], game = null, round = null, scores = {};
 let phase = 'waiting';
-let level = LEVELS[0].key, laps = 1;
+let level = LEVELS[0].key, mode = 'order', laps = 1;
+let minutes = DEFAULT_MINUTES, seconds = DEFAULT_SECONDS;
 let myWord = null, recent = [];
 let arming = false, finishing = false, advancing = false;
 const myStrokes = [];
@@ -48,6 +59,8 @@ const onlineIds = () => members.filter(m => m.online !== false).map(m => m.id);
 const amDrawer = () => !!round && round.drawer === myId;
 const iAnswered = () => !!round && !!round.answered && !!round.answered[myId];
 const totalTurns = () => (game && game.order ? game.order.length * (game.laps || 1) : 0);
+const isRandom = () => !!game && game.mode === 'random';
+const gameLeftMs = () => (game && game.endsAt ? game.endsAt - Date.now() : null);
 
 function shuffle(a) {
     const r = a.slice();
@@ -140,7 +153,6 @@ function buildChooser(boxId, items, onPick) {
         box.appendChild(b);
     }
     box.firstChild.classList.add('on');
-    box.classList.toggle('hidden', !isHost);
 }
 
 const ansPad = createHiraganaKeypad({
@@ -175,15 +187,21 @@ function render() {
     $('tools').classList.toggle('hidden', !drawer || done);
     $('clear').classList.toggle('hidden', !drawer);
     document.body.classList.toggle('answering', answerer);
-    if (board) board.setEnabled(drawer && !done);
+    if (board) {
+        board.setEnabled(drawer && !done);
+        /* こたえる人は よこに ひらがなキーボードが 出るので、広めに のこします */
+        board.setSideMin(answerer ? 520 : 330);
+    }
 
     /* つぎへ すすめられるのは、かいた人 と ぬし */
     $('nextTurn').classList.toggle('hidden', !playing || !done || !(drawer || isHost));
     $('endGame').classList.toggle('hidden', !playing || !isHost);
 
     if (playing && game) {
-        $('turnLabel').textContent = (game.turn + 1) + ' / ' + totalTurns() + ' かいめ　'
-            + nameOf(round ? round.drawer : null) + ' さんの ばん';
+        const who = nameOf(round ? round.drawer : null) + ' さんの ばん';
+        $('turnLabel').textContent = isRandom()
+            ? (game.turn + 1) + ' かいめ　' + who
+            : (game.turn + 1) + ' / ' + totalTurns() + ' かいめ　' + who;
     }
 
     if (drawer) {
@@ -239,11 +257,29 @@ function renderRanking() {
 
 /* ── のこり時間 ───────────────────────────── */
 setInterval(() => {
-    if (phase !== 'playing' || !round || !round.endsAt) { $('timer').textContent = '－'; return; }
-    if (round.done) { $('timer').textContent = 'おしまい'; return; }
+    if (phase !== 'playing') { $('timer').textContent = '－'; $('clock').textContent = ''; return; }
+
+    /* ぜんたいの 時間（ランダムの ときだけ）*/
+    const restMs = gameLeftMs();
+    if (isRandom() && restMs !== null) {
+        const rest = Math.max(0, Math.ceil(restMs / 1000));
+        const mm = Math.floor(rest / 60), ss = rest % 60;
+        $('clock').textContent = 'ぜんたい ' + mm + ':' + String(ss).padStart(2, '0');
+        /* 時間が きたら ぬしが おわりに します（ぬしは かならず いるので）*/
+        if (rest === 0 && isHost && !advancing) {
+            advancing = true;
+            setPhase(conn, code, 'result').finally(() => { advancing = false; });
+        }
+    } else {
+        $('clock').textContent = '';
+    }
+
+    /* 1かいの のこり時間 */
+    if (!round || !round.endsAt) { $('timer').textContent = '－'; return; }
+    if (round.done) { $('timer').textContent = 'おしまい'; $('timer').classList.remove('hurry'); return; }
     const left = Math.max(0, Math.ceil((round.endsAt - Date.now()) / 1000));
     $('timer').textContent = 'のこり ' + left + ' びょう';
-    $('timer').classList.toggle('hurry', left <= 15);
+    $('timer').classList.toggle('hurry', left <= Math.max(3, Math.round(((game && game.seconds) || DEFAULT_SECONDS) / 3)));
     if (left === 0 && amDrawer()) endRound();
 }, 300);
 
@@ -259,7 +295,7 @@ async function armIfMine() {
         writeStore('ka_word', word);
         await clearBoard(conn, code);
         myStrokes.length = 0;
-        await armRound(conn, code, hashWord(word), ROUND_SECONDS);
+        await armRound(conn, code, hashWord(word), (game && game.seconds) || DEFAULT_SECONDS);
     } catch (e) {
         say('おだいを くばれませんでした', true);
     } finally {
@@ -288,10 +324,13 @@ async function advance() {
     advancing = true;
     try {
         const next = game.turn + 1;
-        if (next >= totalTurns()) {
+        const over = isRandom()
+            ? (gameLeftMs() !== null && gameLeftMs() <= 0)   // 時間ぎれ
+            : (next >= totalTurns());                        // ぜんいん かきおわった
+        if (over) {
             await setPhase(conn, code, 'result');
         } else {
-            const drawer = game.order[next % game.order.length];
+            const drawer = isRandom() ? drawLots() : game.order[next % game.order.length];
             await setTurn(conn, code, next);
             await setupRound(conn, code, drawer, round ? round.level : level);
         }
@@ -300,6 +339,14 @@ async function advance() {
     } finally {
         advancing = false;
     }
+}
+
+/** ランダムの ときの くじびき。いま かいた人は なるべく つづけて ひきません。 */
+function drawLots() {
+    const here = onlineIds();
+    const now = round ? round.drawer : null;
+    const pool = here.length > 1 ? here.filter(id => id !== now) : here;
+    return pool[Math.floor(Math.random() * pool.length)];
 }
 
 /* ぜんいんが あてたら、かく人の タブが この かいを おわらせます */
@@ -325,7 +372,19 @@ board = createBoard({
 });
 buildTools();
 buildChooser('levels', LEVELS.map(l => ({ ...l, n: l.key })), it => { level = it.key; });
+buildChooser('modes', MODES, it => {
+    mode = it.key;
+    /* じゅんばんなら「なんしゅう」、ランダムなら「ぜんたいの じかん」*/
+    $('lapRow').classList.toggle('hidden', mode !== 'order');
+    $('minRow').classList.toggle('hidden', mode !== 'random');
+});
 buildChooser('laps', LAP_CHOICES, it => { laps = it.n; });
+$('settings').classList.toggle('hidden', !isHost);
+
+const minPad = createStepper({ value: DEFAULT_MINUTES, unit: 'ふん', onChange: v => { minutes = v; } });
+const secPad = createStepper({ value: DEFAULT_SECONDS, unit: 'びょう', onChange: v => { seconds = v; } });
+$('minSlot').appendChild(minPad.el);
+$('secSlot').appendChild(secPad.el);
 board.setWidth(PEN_WIDTHS[1]);
 $('ansSlot').appendChild(ansPad.el);
 render();
@@ -382,7 +441,11 @@ $('start').addEventListener('click', async () => {
     try {
         const order = shuffle(onlineIds());
         if (!order.length) throw new Error('だれも いません');
-        await startGame(conn, code, order, laps);
+        await startGame(conn, code, {
+            mode, order, seconds,
+            laps: mode === 'order' ? laps : null,
+            endsAt: mode === 'random' ? Date.now() + minutes * 60000 : null
+        });
         await setupRound(conn, code, order[0], level);
         await setPhase(conn, code, 'playing');
     } catch (e) {
