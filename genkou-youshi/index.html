@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f7a5a">
+<meta name="description" content="よこ書きで うった文章を、原稿用紙の きまりどおりに たて書きへ 自動で なおす 小学生むけの 入力ツール。">
+<title>げんこうようし</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <header class="bar">
+    <h1 class="logo">げんこうようし</h1>
+
+    <div class="bar-mid">
+      <label class="field">
+        <span>かだい</span>
+        <select id="preset"></select>
+      </label>
+      <div class="count" id="count">0字</div>
+    </div>
+
+    <div class="bar-right">
+      <button class="btn btn-ghost" id="btnFix" aria-pressed="true">なおした ところ</button>
+      <button class="btn" id="btnPrint">いんさつ</button>
+      <div class="save" id="save">　</div>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- ========== 左：うつ ========== -->
+    <section class="pane pane-in">
+      <div class="in-head">うつ（よこ書き）</div>
+
+      <label class="in-row" id="rowTitle">
+        <span class="in-label">だいめい</span>
+        <input type="text" id="inTitle" placeholder="六年間の思い出" autocomplete="off">
+      </label>
+
+      <label class="in-row" id="rowName">
+        <span class="in-label">なまえ</span>
+        <input type="text" id="inName" placeholder="山田　太郎" autocomplete="off">
+      </label>
+
+      <textarea id="inBody" placeholder="ここに 本文を うちます。&#10;行を かえると 段落に なります。&#10;&#10;「かぎかっこ」や 数字は、原稿用紙の きまりどおりに 右がわで なおります。"></textarea>
+
+      <div class="fixes" id="fixes"></div>
+    </section>
+
+    <!-- ========== 右：原稿用紙 ========== -->
+    <section class="pane pane-out">
+      <div class="out-head">
+        <span>げんこうようし（たて書き）</span>
+        <span class="note" id="note"></span>
+      </div>
+      <div class="sheets" id="sheets"></div>
+    </section>
+
+  </main>
+</div>
+
+<style id="printSize"></style>
+
+<script src="config.js"></script>
+<script src="normalize.js"></script>
+<script src="compose.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
