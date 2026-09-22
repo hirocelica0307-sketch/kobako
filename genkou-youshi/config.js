@@ -36,6 +36,9 @@ const GY_DEFAULTS = {
                                 //   true  … 句読点と 同じく 前のマスに 詰める
   combineKutenBracket  : true,  // 「。」」を 1マスに まとめる
   dialogueNewline      : true,  // 会話文は 改行して 1マス目から
+  dialogueParagraphIndent: false, // 新しい 段落が 会話から はじまる ときの 「 の 位置
+                                //   false … いつも 1マス目（既定）
+                                //   true  … 1マス あけて 2マス目から
   quoteNewline         : 'dialogue', // 「」を とじた あとの 改行
                                 //   'dialogue' … 文の はじめの「」＝会話文だけ 改行する。
                                 //                文の 途中の「」（思ったこと・引用）は 改行しない

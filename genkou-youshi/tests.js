@@ -76,6 +76,16 @@ function gyTestCases(){
       cfg:C({charsPerColumn:5, hangSmallKana:true}), input:{body:'あいうえーお'},
       col:0, want:'␣あいう{えー}' },
 
+    { rule:'段落が 会話から はじまる とき、設定で 1マス あけられる',
+      cfg:C({dialogueParagraphIndent:true}), input:{body:'「おはよう。」と言った。'},
+      col:0, want:'␣「おはよう{。」}␣␣␣' },
+    { rule:'その ときも とじた あとは 1マス目から',
+      cfg:C({dialogueParagraphIndent:true}), input:{body:'「おはよう。」と言った。'},
+      col:1, want:'と言った。␣␣␣␣␣' },
+    { rule:'文の 途中から はじまる 会話は 1マス あけない',
+      cfg:C({dialogueParagraphIndent:true}), input:{body:'ぼくは言った。「おはよう。」'},
+      col:1, want:'「おはよう{。」}␣␣␣␣' },
+
     { rule:'会話文の 「」を とじたら 改行して つぎも 1マス目から',
       cfg:C({}), input:{body:'「おはよう。」と言った。'},
       col:1, want:'と言った。␣␣␣␣␣' },

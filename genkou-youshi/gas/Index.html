@@ -336,6 +336,7 @@ body.nofix .cell.fix{ background:transparent; }
           <label class="set-row"><span>小さい字（っ ゃ ー）も 前の行へ まわす</span><input type="checkbox" id="setSmallKana"></label>
           <label class="set-row"><span>「。」」を 1マスに まとめる</span><input type="checkbox" id="setKuten"></label>
           <label class="set-row"><span>会話文は 改行して 1マス目から</span><input type="checkbox" id="setDialogue"></label>
+          <label class="set-row"><span>段落が 会話から はじまる ときは 1マス あける</span><input type="checkbox" id="setDialogueIndent"></label>
           <label class="set-row"><span>「」を とじた あとの 改行</span>
             <select id="setAfterQuote">
               <option value="dialogue">会話文だけ 改行（思ったことは そのまま）</option>
@@ -408,6 +409,9 @@ const GY_DEFAULTS = {
                                 //   true  … 句読点と 同じく 前のマスに 詰める
   combineKutenBracket  : true,  // 「。」」を 1マスに まとめる
   dialogueNewline      : true,  // 会話文は 改行して 1マス目から
+  dialogueParagraphIndent: false, // 新しい 段落が 会話から はじまる ときの 「 の 位置
+                                //   false … いつも 1マス目（既定）
+                                //   true  … 1マス あけて 2マス目から
   quoteNewline         : 'dialogue', // 「」を とじた あとの 改行
                                 //   'dialogue' … 文の はじめの「」＝会話文だけ 改行する。
                                 //                文の 途中の「」（思ったこと・引用）は 改行しない
@@ -644,9 +648,14 @@ function gyNormalize(src, cfg){
   const OPEN = '「『', CLOSE = '」』';
   const ENDS = '。！？';
   for(const p of paragraphs){
-    let cur = [], curTop = false, openIsDialogue = false;
+    let cur = [], curTop = false, openIsDialogue = false, first = true;
     const flush = nextTop => {
-      if(cur.length) out.push({ units:cur, dialogue: curTop || OPEN.indexOf(cur[0].c) >= 0 });
+      if(cur.length){
+        const isQuote = OPEN.indexOf(cur[0].c) >= 0;
+        /* paraHead … 打った 段落の いちばん さいしょが 会話文だった、という しるし */
+        out.push({ units:cur, dialogue: curTop || isQuote, paraHead: first && isQuote });
+        first = false;
+      }
       cur = []; curTop = nextTop;
     };
     for(let i = 0; i < p.units.length; i++){
@@ -721,7 +730,12 @@ function gyNoLineStart(text, cfg){
 function gyBuildItems(paragraphs, cfg){
   const items = [];
   for(const p of paragraphs){
-    items.push({ t:'newpara', indent: p.dialogue ? 0 : cfg.paragraphIndent });
+    /* 会話文は 1マス目から。ただし 新しい 段落が 会話から はじまる ときは
+       設定に よって 1マス あけて 2マス目からに できる。 */
+    const indent = p.dialogue
+      ? ((cfg.dialogueParagraphIndent && p.paraHead) ? cfg.paragraphIndent : 0)
+      : cfg.paragraphIndent;
+    items.push({ t:'newpara', indent: indent });
     const u = p.units;
     for(let i = 0; i < u.length; i++){
       const c = u[i].c, nx = u[i+1], pv = u[i-1];
@@ -1067,7 +1081,8 @@ const el = {
   setBodyGap:$('setBodyGap'), bodyGapHint:$('bodyGapHint'), setParaIndent:$('setParaIndent'),
   setNumbers:$('setNumbers'), setDecimal:$('setDecimal'), setLatin:$('setLatin'),
   setHang:$('setHang'), setHangStyle:$('setHangStyle'), setSmallKana:$('setSmallKana'),
-  setKuten:$('setKuten'), setDialogue:$('setDialogue'), setAfterQuote:$('setAfterQuote'),
+  setKuten:$('setKuten'), setDialogue:$('setDialogue'),
+  setDialogueIndent:$('setDialogueIndent'), setAfterQuote:$('setAfterQuote'),
   setBangSpace:$('setBangSpace'), setEllipsis:$('setEllipsis'), setPair:$('setPair'),
   setPushOpen:$('setPushOpen'), setWrapTitle:$('setWrapTitle'),
   setCode:$('setCode'), btnCodeOut:$('btnCodeOut'), btnCodeIn:$('btnCodeIn'),
@@ -1259,6 +1274,7 @@ function loadSettingsForm(){
   el.setSmallKana.checked = !!cfg.hangSmallKana;
   el.setKuten.checked     = !!cfg.combineKutenBracket;
   el.setDialogue.checked  = !!cfg.dialogueNewline;
+  el.setDialogueIndent.checked = !!cfg.dialogueParagraphIndent;
   el.setAfterQuote.value  = cfg.quoteNewline;
   el.setBangSpace.checked = !!cfg.spaceAfterBangQuestion;
   el.setEllipsis.checked  = !!cfg.ellipsisTwoCells;
@@ -1294,6 +1310,7 @@ function applySettingsForm(){
   cfg.hangSmallKana         = el.setSmallKana.checked;
   cfg.combineKutenBracket   = el.setKuten.checked;
   cfg.dialogueNewline       = el.setDialogue.checked;
+  cfg.dialogueParagraphIndent= el.setDialogueIndent.checked;
   cfg.quoteNewline          = el.setAfterQuote.value;
   cfg.spaceAfterBangQuestion= el.setBangSpace.checked;
   cfg.ellipsisTwoCells      = el.setEllipsis.checked;
@@ -1343,7 +1360,7 @@ el.btnCloseSet.addEventListener('click', () => { el.panel.hidden = true; renderS
 [ el.setChars, el.setCols, el.setTitleOn, el.setTitleAlign, el.setTitleIndent,
   el.setNameOn, el.setNameBottom, el.setNameGap, el.setBodyGap, el.setParaIndent,
   el.setNumbers, el.setDecimal, el.setLatin, el.setHang, el.setHangStyle,
-  el.setSmallKana, el.setKuten, el.setDialogue, el.setAfterQuote,
+  el.setSmallKana, el.setKuten, el.setDialogue, el.setDialogueIndent, el.setAfterQuote,
   el.setBangSpace, el.setEllipsis, el.setPair, el.setPushOpen, el.setWrapTitle
 ].forEach(x => x.addEventListener('change', applySettingsForm));
 

@@ -19,7 +19,8 @@ const el = {
   setBodyGap:$('setBodyGap'), bodyGapHint:$('bodyGapHint'), setParaIndent:$('setParaIndent'),
   setNumbers:$('setNumbers'), setDecimal:$('setDecimal'), setLatin:$('setLatin'),
   setHang:$('setHang'), setHangStyle:$('setHangStyle'), setSmallKana:$('setSmallKana'),
-  setKuten:$('setKuten'), setDialogue:$('setDialogue'), setAfterQuote:$('setAfterQuote'),
+  setKuten:$('setKuten'), setDialogue:$('setDialogue'),
+  setDialogueIndent:$('setDialogueIndent'), setAfterQuote:$('setAfterQuote'),
   setBangSpace:$('setBangSpace'), setEllipsis:$('setEllipsis'), setPair:$('setPair'),
   setPushOpen:$('setPushOpen'), setWrapTitle:$('setWrapTitle'),
   setCode:$('setCode'), btnCodeOut:$('btnCodeOut'), btnCodeIn:$('btnCodeIn'),
@@ -211,6 +212,7 @@ function loadSettingsForm(){
   el.setSmallKana.checked = !!cfg.hangSmallKana;
   el.setKuten.checked     = !!cfg.combineKutenBracket;
   el.setDialogue.checked  = !!cfg.dialogueNewline;
+  el.setDialogueIndent.checked = !!cfg.dialogueParagraphIndent;
   el.setAfterQuote.value  = cfg.quoteNewline;
   el.setBangSpace.checked = !!cfg.spaceAfterBangQuestion;
   el.setEllipsis.checked  = !!cfg.ellipsisTwoCells;
@@ -246,6 +248,7 @@ function applySettingsForm(){
   cfg.hangSmallKana         = el.setSmallKana.checked;
   cfg.combineKutenBracket   = el.setKuten.checked;
   cfg.dialogueNewline       = el.setDialogue.checked;
+  cfg.dialogueParagraphIndent= el.setDialogueIndent.checked;
   cfg.quoteNewline          = el.setAfterQuote.value;
   cfg.spaceAfterBangQuestion= el.setBangSpace.checked;
   cfg.ellipsisTwoCells      = el.setEllipsis.checked;
@@ -295,7 +298,7 @@ el.btnCloseSet.addEventListener('click', () => { el.panel.hidden = true; renderS
 [ el.setChars, el.setCols, el.setTitleOn, el.setTitleAlign, el.setTitleIndent,
   el.setNameOn, el.setNameBottom, el.setNameGap, el.setBodyGap, el.setParaIndent,
   el.setNumbers, el.setDecimal, el.setLatin, el.setHang, el.setHangStyle,
-  el.setSmallKana, el.setKuten, el.setDialogue, el.setAfterQuote,
+  el.setSmallKana, el.setKuten, el.setDialogue, el.setDialogueIndent, el.setAfterQuote,
   el.setBangSpace, el.setEllipsis, el.setPair, el.setPushOpen, el.setWrapTitle
 ].forEach(x => x.addEventListener('change', applySettingsForm));
 

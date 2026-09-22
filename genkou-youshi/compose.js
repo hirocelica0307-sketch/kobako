@@ -45,7 +45,12 @@ function gyNoLineStart(text, cfg){
 function gyBuildItems(paragraphs, cfg){
   const items = [];
   for(const p of paragraphs){
-    items.push({ t:'newpara', indent: p.dialogue ? 0 : cfg.paragraphIndent });
+    /* 会話文は 1マス目から。ただし 新しい 段落が 会話から はじまる ときは
+       設定に よって 1マス あけて 2マス目からに できる。 */
+    const indent = p.dialogue
+      ? ((cfg.dialogueParagraphIndent && p.paraHead) ? cfg.paragraphIndent : 0)
+      : cfg.paragraphIndent;
+    items.push({ t:'newpara', indent: indent });
     const u = p.units;
     for(let i = 0; i < u.length; i++){
       const c = u[i].c, nx = u[i+1], pv = u[i-1];

@@ -177,9 +177,14 @@ function gyNormalize(src, cfg){
   const OPEN = '「『', CLOSE = '」』';
   const ENDS = '。！？';
   for(const p of paragraphs){
-    let cur = [], curTop = false, openIsDialogue = false;
+    let cur = [], curTop = false, openIsDialogue = false, first = true;
     const flush = nextTop => {
-      if(cur.length) out.push({ units:cur, dialogue: curTop || OPEN.indexOf(cur[0].c) >= 0 });
+      if(cur.length){
+        const isQuote = OPEN.indexOf(cur[0].c) >= 0;
+        /* paraHead … 打った 段落の いちばん さいしょが 会話文だった、という しるし */
+        out.push({ units:cur, dialogue: curTop || isQuote, paraHead: first && isQuote });
+        first = false;
+      }
       cur = []; curTop = nextTop;
     };
     for(let i = 0; i < p.units.length; i++){
