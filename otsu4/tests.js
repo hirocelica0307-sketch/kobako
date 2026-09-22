@@ -72,6 +72,22 @@ function runAll(env){
   ok('calcOnly で 計算問題だけに しぼれる',
      onlyCalc.length > 0 && onlyCalc.every(function(q){ return q.steps && q.steps.length; }));
 
+  /* ---- 「なぜ そうなるか」が そろっているか ---- */
+  var noWhy = C.filter(function(c){ return !c.why || c.why.length < 15; }).map(function(c){ return c.id; });
+  eq('すべての カードに 理由（why）が ついている', noWhy.length, 0, noWhy.slice(0, 5).join(','));
+
+  var thin = Q.filter(function(q){ return (q.why || '').length < 45 && !q.deep; }).map(function(q){ return q.id; });
+  eq('解説が 薄い問題が のこっていない', thin.length, 0, thin.slice(0, 5).join(','));
+
+  var noNote = T.filter(function(th){
+    var n = env.notes[th.key];
+    return !n || !n.title || !n.body || n.body.length < 80;
+  }).map(function(th){ return th.key; });
+  eq('すべての テーマに 全体像の 解説が ついている', noNote.length, 0, noNote.join(','));
+
+  var deepN = Q.filter(function(q){ return q.deep; }).length;
+  ok('ふみこんだ解説が 100問以上に ついている', deepN >= 100, 'deep=' + deepN);
+
   /* ---- 間隔反復 ---- */
   eq('箱0の つぎは きょう', Srs.nextDays(0), 0);
   eq('箱1の つぎは 1日後', Srs.nextDays(1), 1);
@@ -205,12 +221,13 @@ if (typeof module !== 'undefined' && require.main === module){
                           setItem:function(k, v){ this._d[k] = v; },
                           removeItem:function(k){ delete this._d[k]; } };
   ['data/themes.js','data/questions-official.js','data/questions-extra.js','data/questions-extra2.js',
-   'data/knowledge.js','store.js','srs.js','engine.js'].forEach(function(f){
+   'data/questions-deep.js','data/knowledge.js','data/knowledge-why.js','data/notes.js',
+   'store.js','srs.js','engine.js'].forEach(function(f){
     (0, eval)(fs.readFileSync(path.join(dir, f), 'utf8'));
   });
   var res = runAll({
     themes: OTSU4_THEMES, themeMap: OTSU4_THEME_MAP, subjects: OTSU4_SUBJECTS,
-    questions: OTSU4_QUESTIONS, cards: OTSU4_CARDS,
+    questions: OTSU4_QUESTIONS, cards: OTSU4_CARDS, notes: OTSU4_NOTES,
     store: O4Store, srs: O4Srs, engine: O4Engine
   });
   var ng = res.filter(function(r){ return !r.pass; });
