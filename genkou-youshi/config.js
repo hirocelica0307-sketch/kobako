@@ -59,3 +59,11 @@ function gyMergeConfig(base, over){
   }
   return out;
 }
+
+/* かだい 1つぶんの 完全な きまりを 作る（既定値 ＋ かだいの 上書き） */
+function gyKadaiFromPreset(p){
+  const k = gyMergeConfig(GY_DEFAULTS, p);
+  k.id = p.id; k.label = p.label;
+  return k;
+}
+function gyDefaultKadai(){ return GY_PRESETS.map(gyKadaiFromPreset); }

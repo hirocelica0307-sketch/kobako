@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<!-- このファイルは tools/build-gas.mjs が 自動生成します。直接 編集しないでください。 -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f7a5a">
+<meta name="description" content="よこ書きで うった文章を、原稿用紙の きまりどおりに たて書きへ 自動で なおす 小学生むけの 入力ツール。">
+<title>げんこうようし</title>
+<style>
+/* 原稿用紙ツール ― 見た目 */
+
+:root{
+  --ink:   #1e2a24;
+  --paper: #fffdf6;
+  --rule:  #3d8d6b;   /* 原稿用紙の みどりの けい線 */
+  --rule2: #a9d2bf;
+  --accent:#2f7a5a;
+  --bg:    #eef3f0;
+  --fix:   #fff2b8;   /* なおした ところ */
+  --cell:  26px;
+  --gapc:  calc(var(--cell) * 0.18);
+}
+
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; }
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif;
+  -webkit-text-size-adjust:100%;
+}
+#app{ height:100%; display:flex; flex-direction:column; }
+
+/* ---------- 上の バー ---------- */
+.bar{
+  flex:0 0 auto; display:flex; align-items:center; gap:14px;
+  padding:8px 14px; background:var(--accent); color:#fff;
+  box-shadow:0 2px 6px rgba(0,0,0,.18);
+}
+.logo{ font-size:19px; margin:0; letter-spacing:.06em; white-space:nowrap; }
+.bar-mid{ display:flex; align-items:center; gap:14px; flex:1 1 auto; }
+.bar-right{ display:flex; align-items:center; gap:10px; }
+.field{ display:flex; align-items:center; gap:6px; font-size:13px; }
+.field select{
+  font:inherit; font-size:14px; padding:4px 8px; border-radius:8px;
+  border:none; background:#ffffff; color:var(--ink);
+}
+.count{ font-size:15px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.count.over{ background:#ffd6d6; color:#a12; border-radius:8px; padding:2px 8px; }
+.save{ font-size:12px; min-width:7em; text-align:right; opacity:.9; }
+
+.btn{
+  font:inherit; font-size:14px; padding:7px 14px; border:none; border-radius:10px;
+  background:#ffd166; color:#3a2d00; cursor:pointer; white-space:nowrap;
+}
+.btn:hover{ filter:brightness(1.06); }
+.btn-ghost{ background:rgba(255,255,255,.18); color:#fff; }
+.btn-ghost[aria-pressed="false"]{ opacity:.55; }
+
+/* ---------- 左右の わけ ---------- */
+.main{ flex:1 1 auto; display:flex; min-height:0; }
+.pane{ display:flex; flex-direction:column; min-height:0; min-width:0; }
+.pane-in{ flex:0 0 34%; border-right:2px solid #d3ded8; background:#fff; }
+.pane-out{ flex:1 1 auto; background:var(--bg); }
+
+.in-head,.out-head{
+  flex:0 0 auto; padding:7px 12px; font-size:13px; color:#4a5a52;
+  background:#f3f7f5; border-bottom:1px solid #dde7e2;
+  display:flex; justify-content:space-between; gap:10px;
+}
+.out-head .note{ color:var(--accent); }
+
+.in-row{ display:flex; align-items:center; gap:8px; padding:8px 12px 0; }
+.in-label{ flex:0 0 4.5em; font-size:13px; color:#4a5a52; }
+.in-row input{
+  flex:1 1 auto; min-width:0; font:inherit; font-size:16px; padding:7px 10px;
+  border:2px solid #dde7e2; border-radius:9px; background:#fff;
+}
+.in-row input:focus,#inBody:focus{ outline:none; border-color:var(--accent); }
+
+#inBody{
+  flex:1 1 auto; margin:10px 12px; padding:12px; min-height:0;
+  font:inherit; font-size:17px; line-height:1.9;
+  border:2px solid #dde7e2; border-radius:10px; resize:none; background:#fff;
+}
+
+.fixes{ flex:0 0 auto; max-height:26%; overflow:auto; padding:0 12px 12px; }
+.fix-item{
+  font-size:13px; color:#5a4a10; background:var(--fix);
+  border-radius:8px; padding:6px 10px; margin-top:6px;
+}
+
+/* ---------- 原稿用紙 ---------- */
+.sheets{ flex:1 1 auto; overflow:auto; padding:18px; }
+.sheet{
+  background:var(--paper); margin:0 auto 22px; padding:calc(var(--cell) * .7);
+  box-shadow:0 2px 10px rgba(0,0,0,.14); width:max-content;
+  display:flex; flex-direction:row-reverse; gap:var(--gapc);
+}
+.sheet.over{ opacity:.45; outline:3px dashed #d66; }
+.col{
+  display:flex; flex-direction:column;
+  border:1.5px solid var(--rule); background:#fff;
+}
+.cell{
+  width:var(--cell); height:var(--cell);
+  border-bottom:1px solid var(--rule2);
+  display:flex; align-items:center; justify-content:center;
+  font-family:"Hiragino Mincho ProN","Noto Serif JP","Yu Mincho","YuMincho",serif;
+  font-size:calc(var(--cell) * .78); line-height:1;
+}
+.cell:last-child{ border-bottom:none; }
+/* たて書きの 字の 向き（フォントに たよらず 自分で きめる） */
+.cell span{ display:block; line-height:1; }
+.cell span.rot{ transform:rotate(90deg); }
+.cell span.tr { transform:translate(30%,-30%); }
+.cell span.sk { transform:translate(16%,-16%); }
+/* 句読点だけの マス（「。」」）… 2つとも 小さく たてに ならべる */
+.cell.stack{ flex-direction:column; }
+.cell.stack span{ font-size:.62em; }
+.cell.stack span.tr{ transform:translate(34%,0); }
+.cell.stack span.sk{ transform:none; }
+/* 詰めた マス（「た。」）… もとの 字は そのまま、句読点だけ 小さく 右下に */
+.cell.hang{ position:relative; }
+.cell.hang .tail{
+  position:absolute; right:1px; bottom:0;
+  display:flex; flex-direction:column; align-items:center;
+  font-size:.46em; line-height:1;
+}
+.cell.hang .tail span.tr,.cell.hang .tail span.sk{ transform:none; }
+.cell.fix{ background:var(--fix); }
+.cell.note{ cursor:help; }
+body.nofix .cell.fix{ background:transparent; }
+
+/* ---------- いんさつ ---------- */
+@page{ size:A4 portrait; margin:12mm; }
+@media print{
+  body{ background:#fff; }
+  .bar,.pane-in,.out-head,.fixes{ display:none !important; }
+  .main{ display:block; }
+  .pane-out{ display:block; }
+  .sheets{ overflow:visible; padding:0; }
+  .sheet{
+    box-shadow:none; background:#fff; margin:0 auto;
+    page-break-after:always; break-after:page;
+  }
+  .sheet:last-child{ page-break-after:auto; break-after:auto; }
+  .sheet.over{ display:none; }
+  .cell.fix{ background:transparent !important; }
+}
+
+/* ---------- せまい 画面（タブレットを たてに した とき）---------- */
+@media (max-width:820px){
+  .main{ flex-direction:column; }
+  .pane-in{ flex:0 0 46%; border-right:none; border-bottom:2px solid #d3ded8; }
+  .logo{ font-size:16px; }
+}
+
+/* ---------- 先生用の せってい ---------- */
+.main{ position:relative; }
+.settings{
+  position:absolute; top:0; bottom:0; left:0; width:min(420px, 46%);
+  background:#fff; border-right:2px solid #d3ded8; z-index:20;
+  display:flex; flex-direction:column;
+  box-shadow:6px 0 18px rgba(0,0,0,.12);
+}
+.settings[hidden]{ display:none; }
+.set-head{
+  flex:0 0 auto; display:flex; align-items:center; justify-content:space-between;
+  padding:10px 14px; background:#f3f7f5; border-bottom:1px solid #dde7e2;
+}
+.set-body{ flex:1 1 auto; overflow:auto; padding:6px 14px 18px; }
+.set-group{ padding:12px 0; border-bottom:1px solid #eef3f0; }
+.set-group h3{ margin:0 0 8px; font-size:14px; color:var(--accent); }
+.set-group > select,.set-group > textarea{
+  width:100%; font:inherit; font-size:15px; padding:6px 8px;
+  border:2px solid #dde7e2; border-radius:8px; background:#fff;
+}
+.set-row{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:5px 0; font-size:14px;
+}
+.set-row input[type="number"]{ width:5em; font:inherit; font-size:15px; padding:5px 7px;
+  border:2px solid #dde7e2; border-radius:8px; text-align:right; }
+.set-row input[type="checkbox"]{ width:22px; height:22px; accent-color:var(--accent); }
+.set-row select{ font:inherit; font-size:14px; padding:5px 7px; border:2px solid #dde7e2; border-radius:8px; }
+.set-btns{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.btn-sm{ font-size:13px; padding:5px 10px; background:#e8f0ec; color:var(--ink); }
+.btn-danger{ background:#ffdede; color:#a12; }
+.hint{ font-size:12px; color:#6a7a72; margin:8px 0 0; line-height:1.6; }
+.hint code{ background:#eef3f0; padding:1px 4px; border-radius:4px; }
+
+@media (max-width:820px){
+  .settings{ width:100%; }
+}
+@media print{ .settings{ display:none !important; } }
+
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <header class="bar">
+    <h1 class="logo">げんこうようし</h1>
+
+    <div class="bar-mid">
+      <label class="field">
+        <span>かだい</span>
+        <select id="preset"></select>
+      </label>
+      <div class="count" id="count">0字</div>
+    </div>
+
+    <div class="bar-right">
+      <button class="btn btn-ghost" id="btnFix" aria-pressed="true">なおした ところ</button>
+      <button class="btn" id="btnPrint">いんさつ</button>
+      <button class="btn btn-ghost" id="btnSet" title="先生用の せってい">⚙ せってい</button>
+      <div class="save" id="save">　</div>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- ========== 左：うつ ========== -->
+    <section class="pane pane-in">
+      <div class="in-head">うつ（よこ書き）</div>
+
+      <label class="in-row" id="rowTitle">
+        <span class="in-label">だいめい</span>
+        <input type="text" id="inTitle" placeholder="六年間の思い出" autocomplete="off">
+      </label>
+
+      <label class="in-row" id="rowName">
+        <span class="in-label">なまえ</span>
+        <input type="text" id="inName" placeholder="山田　太郎" autocomplete="off">
+      </label>
+
+      <textarea id="inBody" placeholder="ここに 本文を うちます。&#10;行を かえると 段落に なります。&#10;&#10;「かぎかっこ」や 数字は、原稿用紙の きまりどおりに 右がわで なおります。"></textarea>
+
+      <div class="fixes" id="fixes"></div>
+    </section>
+
+    <!-- ========== 右：原稿用紙 ========== -->
+    <section class="pane pane-out">
+      <div class="out-head">
+        <span>げんこうようし（たて書き）</span>
+        <span class="note" id="note"></span>
+      </div>
+      <div class="sheets" id="sheets"></div>
+    </section>
+
+
+    <!-- ========== 先生用の せってい ========== -->
+    <section class="settings" id="settings" hidden aria-label="先生用の せってい">
+      <div class="set-head">
+        <b>せってい（先生用）</b>
+        <button class="btn" id="btnCloseSet">とじる</button>
+      </div>
+      <div class="set-body">
+
+        <div class="set-group">
+          <h3>かだい</h3>
+          <select id="setPreset"></select>
+          <div class="set-btns">
+            <button class="btn btn-sm" id="btnNewPreset">あたらしく つくる</button>
+            <button class="btn btn-sm" id="btnRenamePreset">なまえを かえる</button>
+            <button class="btn btn-sm btn-danger" id="btnDelPreset">けす</button>
+          </div>
+          <p class="hint">えらんだ かだいの きまりを 下で 直します。直すと すぐ 右に うつります。</p>
+        </div>
+
+        <div class="set-group">
+          <h3>マス</h3>
+          <label class="set-row"><span>1行の 字数</span><input type="number" id="setChars" min="4" max="40"></label>
+          <label class="set-row"><span>1まいの 行数</span><input type="number" id="setCols" min="2" max="40"></label>
+          <label class="set-row"><span>何まいまで</span><input type="number" id="setPages" min="1" max="10"></label>
+        </div>
+
+        <div class="set-group">
+          <h3>題名</h3>
+          <label class="set-row"><span>つかう</span><input type="checkbox" id="setTitleOn"></label>
+          <label class="set-row"><span>そろえ方</span>
+            <select id="setTitleAlign">
+              <option value="indent">上を あける</option>
+              <option value="center">まんなかに そろえる</option>
+            </select></label>
+          <label class="set-row"><span>上を あける マス</span><input type="number" id="setTitleIndent" min="0" max="20"></label>
+        </div>
+
+        <div class="set-group">
+          <h3>名前</h3>
+          <label class="set-row"><span>つかう</span><input type="checkbox" id="setNameOn"></label>
+          <label class="set-row"><span>下を あける マス</span><input type="number" id="setNameBottom" min="0" max="20"></label>
+          <label class="set-row"><span>姓と名の あいだ</span><input type="number" id="setNameGap" min="0" max="5"></label>
+        </div>
+
+        <div class="set-group">
+          <h3>本文</h3>
+          <label class="set-row"><span>はじまる 行</span><input type="number" id="setBodyStart" min="1" max="10"></label>
+          <label class="set-row"><span>段落の はじめに あける マス</span><input type="number" id="setParaIndent" min="0" max="3"></label>
+        </div>
+
+        <div class="set-group">
+          <h3>原稿用紙の きまり</h3>
+          <label class="set-row"><span>数字の 書き方</span>
+            <select id="setNumbers">
+              <option value="mixed">使い分け（十二人／二〇二六年）</option>
+              <option value="positional">いつも 位取り（十二／二千二十六）</option>
+              <option value="serial">いつも 並べ（一二／二〇二六）</option>
+              <option value="keep">算用数字の まま</option>
+            </select></label>
+          <label class="set-row"><span>行頭の 句読点を 前のマスに 詰める</span><input type="checkbox" id="setHang"></label>
+          <label class="set-row"><span>「。」」を 1マスに まとめる</span><input type="checkbox" id="setKuten"></label>
+          <label class="set-row"><span>会話文は 改行して 1マス目から</span><input type="checkbox" id="setDialogue"></label>
+          <label class="set-row"><span>小さい字は 行頭に 来てもよい</span><input type="checkbox" id="setSmallKana"></label>
+          <label class="set-row"><span>！ ？ の あとを 1マス あける</span><input type="checkbox" id="setBangSpace"></label>
+          <label class="set-row"><span>…… —— を 2マス つかう</span><input type="checkbox" id="setEllipsis"></label>
+          <label class="set-row"><span>行末の 「 を つぎの行へ 送る</span><input type="checkbox" id="setPushOpen"></label>
+          <p class="hint">きまりの くわしい 説明は <code>docs/RULES.md</code> に あります。</p>
+        </div>
+
+        <div class="set-group">
+          <h3>ほかの 端末に くばる</h3>
+          <p class="hint">「コードを 作る」で 出た 文字を 児童の 端末で 貼りつけて「読みこむ」と、同じ かだい・同じ きまりに なります。</p>
+          <textarea id="setCode" rows="3" placeholder="ここに せっていコードが 出ます"></textarea>
+          <div class="set-btns">
+            <button class="btn btn-sm" id="btnCodeOut">コードを 作る</button>
+            <button class="btn btn-sm" id="btnCodeIn">読みこむ</button>
+            <button class="btn btn-sm" id="btnReset">はじめの きまりに もどす</button>
+          </div>
+          <div class="hint" id="setMsg"></div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+</div>
+
+<style id="printSize"></style>
+
+<script>
+/* 原稿用紙ツール ― きまり（設定）の既定値
+   ここの値は 先生が 設定画面で かえられます。
+   きまりの くわしい 説明は docs/RULES.md を 見てください。 */
+
+const GY_DEFAULTS = {
+  /* ---- マスの かたち ---- */
+  charsPerColumn : 20,   // 1行に 入る 字数（たてに ならぶ マスの 数）
+  columnsPerPage : 20,   // 1まいの 行数（よこに ならぶ 行の 数）
+  pages          : 1,    // なんまい まで 書けるか
+
+  /* ---- 題名 ---- */
+  title: {
+    enabled : true,
+    align   : 'indent',  // 'indent' = 上を あける / 'center' = まんなか
+    indent  : 3          // 上を あける マスの 数
+  },
+
+  /* ---- 名前 ---- */
+  name: {
+    enabled   : true,
+    bottomGap : 1,       // 下を あける マスの 数
+    gapBetween: 1        // 姓と名の あいだの マスの 数
+  },
+
+  /* ---- 本文 ---- */
+  bodyStartColumn : 3,   // 本文が はじまる 行（1から かぞえる）
+  paragraphIndent : 1,   // 段落の はじめに あける マスの 数
+
+  /* ---- 原稿用紙の きまり ---- */
+  hangPunctuation      : true,  // ② 行のはじめに来る 句読点・とじかぎを 前のマスに 入れる
+  combineKutenBracket  : true,  // ③ 「。」」を 1マスに まとめる
+  dialogueNewline      : true,  // ④ 会話文は 改行して 1マス目から
+  numbers              : 'mixed', // ① 'mixed'=使い分け / 'positional'=位取り / 'serial'=並べ / 'keep'=算用数字のまま
+  smallKanaAtLineStart : true,  // ⑧ 小さい字（っ ゃ ー）は 行のはじめに 来てもよい
+  spaceAfterBangQuestion: true, // ⑨ ！ ？ の あとを 1マス あける
+  ellipsisTwoCells     : true,  // ⑩ …… —— は 2マス つかう
+  pushOpenBracket      : true   // ⑪ 行の おわりに 来た 「 は つぎの行へ おくる
+};
+
+/* ---- かだい（先生が つくる 課題の ひな型）---- */
+const GY_PRESETS = [
+  { id:'bunshu',  label:'そつぎょう文集', charsPerColumn:20, columnsPerPage:20, pages:2,
+    title:{enabled:true, align:'indent', indent:3}, name:{enabled:true, bottomGap:1, gapBetween:1} },
+  { id:'kansou',  label:'読書かんそう文', charsPerColumn:20, columnsPerPage:20, pages:1,
+    title:{enabled:true, align:'indent', indent:3}, name:{enabled:true, bottomGap:1, gapBetween:1} },
+  { id:'furikaeri', label:'今日の ふりかえり', charsPerColumn:20, columnsPerPage:10, pages:1,
+    title:{enabled:false, align:'indent', indent:3}, name:{enabled:true, bottomGap:1, gapBetween:1} }
+];
+
+/* 設定を 1つに まぜあわせる（あさい ものだけ 上書き） */
+function gyMergeConfig(base, over){
+  const out = JSON.parse(JSON.stringify(base));
+  for(const k in (over || {})){
+    if(over[k] && typeof over[k] === 'object' && !Array.isArray(over[k])){
+      out[k] = Object.assign({}, out[k] || {}, over[k]);
+    }else if(over[k] !== undefined && k !== 'id' && k !== 'label'){
+      out[k] = over[k];
+    }
+  }
+  return out;
+}
+
+/* かだい 1つぶんの 完全な きまりを 作る（既定値 ＋ かだいの 上書き） */
+function gyKadaiFromPreset(p){
+  const k = gyMergeConfig(GY_DEFAULTS, p);
+  k.id = p.id; k.label = p.label;
+  return k;
+}
+function gyDefaultKadai(){ return GY_PRESETS.map(gyKadaiFromPreset); }
+
+</script>
+<script>
+/* 原稿用紙ツール ― 入力を 原稿用紙の 書き方に なおす
+   よこ書きで 打った 文章を、たて書きの 原稿用紙に 入れられる 形に そろえます。
+   なおした ところには しるし（fix）を つけて、あとで 色を つけられる ように します。 */
+
+/* なおした りゆう（画面に 出す ことば） */
+const GY_FIX_LABEL = {
+  num   : '数字を 漢数字に なおしました',
+  zen   : '半角の 字を 全角に なおしました',
+  punct : '読点・句点・記号を 全角に なおしました',
+  dots  : '「…」を 2マスの 「……」に なおしました',
+  dash  : '「—」を 2マスの 「——」に なおしました',
+  space : 'よけいな 空白を とりました'
+};
+
+const GY_D_KANJI = '〇一二三四五六七八九';
+
+/* 位取り（十二 / 三百五十 / 二千二十六） */
+function gyKanjiPositional(digits){
+  let n = parseInt(digits, 10);
+  if(!isFinite(n)) return digits;
+  if(n === 0) return '〇';
+  const big = ['', '万', '億', '兆'];
+  const small = ['', '十', '百', '千'];
+  let out = '', gi = 0;
+  while(n > 0){
+    const g = n % 10000;
+    if(g > 0){
+      let s = '', gg = g, i = 0;
+      while(gg > 0){
+        const d = gg % 10;
+        if(d > 0) s = ((d === 1 && i > 0) ? '' : GY_D_KANJI[d]) + small[i] + s;
+        gg = Math.floor(gg / 10); i++;
+      }
+      out = s + big[gi] + out;
+    }
+    n = Math.floor(n / 10000); gi++;
+  }
+  return out;
+}
+
+/* 並べ（二〇二六 / 三五〇） */
+function gyKanjiSerial(digits){
+  let out = '';
+  for(const d of digits) out += GY_D_KANJI[Number(d)];
+  return out;
+}
+
+/* 数字の ならびを 漢数字に する。after は そのすぐ あとの 字 */
+function gyDigitsToKanji(digits, after, mode, before){
+  if(mode === 'keep') return digits;
+  if(mode === 'positional') return gyKanjiPositional(digits);
+  if(mode === 'serial')     return gyKanjiSerial(digits);
+  /* mixed（使い分け）*/
+  if(/[-−－ー]/.test(before || '') || /[-−－]/.test(after || ''))
+    return gyKanjiSerial(digits);          // 電話番号などの つながった 数字
+  if(digits.length >= 7)               return gyKanjiSerial(digits);  // けたの とても 多い 番号
+  if(digits.length > 1 && digits[0] === '0') return gyKanjiSerial(digits);  // 0で はじまる 番号
+  if(digits.length === 4 && after === '年')  return gyKanjiSerial(digits);  // 二〇二六年
+  if(after === '組' || after === '番' || after === '号') return gyKanjiSerial(digits);
+  return gyKanjiPositional(digits);
+}
+
+/* 半角 → 全角（数字は べつに あつかうので ここでは ふくめない） */
+function gyToZenkaku(ch){
+  const code = ch.charCodeAt(0);
+  if(code >= 0x21 && code <= 0x7e) return String.fromCharCode(code + 0xfee0);
+  return ch;
+}
+
+const GY_PUNCT_MAP = { ',':'、', '.':'。', '!':'！', '?':'？', '，':'、', '．':'。' };
+
+/* --- 本体 ---
+   src : 児童が 打った 文章（よこ書き・改行は \n）
+   cfg : きまり
+   もどり値 : { paragraphs:[{units:[{c,fix}], dialogue:bool}], fixes:{りゆう:かず} } */
+function gyNormalize(src, cfg){
+  cfg = cfg || GY_DEFAULTS;
+  const fixes = {};
+  const addFix = k => { if(k) fixes[k] = (fixes[k] || 0) + 1; };
+
+  const rawParas = String(src == null ? '' : src)
+    .replace(/\r\n?/g, '\n')
+    .split('\n');
+
+  const paragraphs = [];
+  for(const raw of rawParas){
+    const line = raw.replace(/^[ 　\t]+/, m => { if(m) addFix('space'); return ''; })
+                    .replace(/[ 　\t]+$/, '');
+    if(line === ''){ continue; }                 // 空行は とばす
+    const chars = Array.from(line);
+    const units = [];
+    for(let i = 0; i < chars.length; i++){
+      const c = chars[i];
+
+      /* 数字の ならび */
+      if(/[0-9０-９]/.test(c)){
+        const before = chars[i-1] || '';
+        let run = '';
+        while(i < chars.length && /[0-9０-９]/.test(chars[i])){
+          run += chars[i].replace(/[０-９]/, d => String.fromCharCode(d.charCodeAt(0) - 0xfee0));
+          i++;
+        }
+        const after = chars[i] || '';
+        const conv = gyDigitsToKanji(run, after, cfg.numbers, before);
+        i--;
+        const changed = (conv !== run);
+        for(const k of Array.from(conv)) units.push({ c:k, fix: changed ? 'num' : '' });
+        if(changed) addFix('num');
+        continue;
+      }
+
+      /* 三点リーダ … / ... / 。。。 */
+      if(cfg.ellipsisTwoCells && (c === '…' || (c === '.' && chars[i+1] === '.' && chars[i+2] === '.'))){
+        let n = 0;
+        if(c === '…'){ while(chars[i+n] === '…') n++; i += n - 1; }
+        else { while(chars[i+n] === '.') n++; i += n - 1; }
+        units.push({ c:'…', fix:'dots' }); units.push({ c:'…', fix:'dots' });
+        addFix('dots');
+        continue;
+      }
+
+      /* ダッシュ ― / — / -- */
+      if(cfg.ellipsisTwoCells && (c === '—' || c === '―' || (c === '-' && chars[i+1] === '-'))){
+        let n = 0;
+        while(chars[i+n] === c) n++;
+        i += n - 1;
+        units.push({ c:'—', fix:'dash' }); units.push({ c:'—', fix:'dash' });
+        addFix('dash');
+        continue;
+      }
+
+      /* 空白 ― 原稿用紙では ことばの あいだを あけないので とる */
+      if(c === ' ' || c === '　' || c === '\t'){
+        addFix('space');
+        continue;
+      }
+
+      /* 句読点の なおし */
+      if(GY_PUNCT_MAP[c]){
+        const to = GY_PUNCT_MAP[c];
+        units.push({ c:to, fix: to === c ? '' : 'punct' });
+        if(to !== c) addFix('punct');
+        continue;
+      }
+
+      /* 半角 → 全角 */
+      const z = gyToZenkaku(c);
+      units.push({ c:z, fix: z === c ? '' : 'zen' });
+      if(z !== c) addFix('zen');
+    }
+    if(units.length) paragraphs.push({ units, dialogue:false });
+  }
+
+  /* 会話文を わける（「 で はじまる 段落 ／ 。「 の ところ） */
+  const out = [];
+  for(const p of paragraphs){
+    if(!cfg.dialogueNewline){ out.push(p); continue; }
+    let cur = [];
+    for(let i = 0; i < p.units.length; i++){
+      const u = p.units[i], nx = p.units[i+1];
+      cur.push(u);
+      if(u.c === '。' && nx && nx.c === '「'){
+        out.push({ units:cur, dialogue: cur[0].c === '「' });
+        cur = [];
+      }
+    }
+    if(cur.length) out.push({ units:cur, dialogue: cur[0].c === '「' });
+  }
+
+  return { paragraphs: cfg.dialogueNewline ? out : paragraphs, fixes };
+}
+
+</script>
+<script>
+/* 原稿用紙ツール ― 文章を マスに わりつける
+   なおした 文章を うけとり、原稿用紙の きまりに そって
+   「どの行の どのマスに なにを 書くか」を きめます。 */
+
+const GY_CLOSE         = '」』）〕】〉》｝］';
+const GY_NO_LINE_START = '。、，．」』）〕】〉》｝］？！ゝゞヽヾ';
+const GY_NO_LINE_END   = '「『（〔【〈《｛［';
+const GY_SMALL_KANA    = 'ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶー';
+
+/* なぜ そう なったかの 説明（マスに さわると 出ます） */
+const GY_NOTE = {
+  hang : '行の はじめに 来るので、前のマスに 一緒に 入れました',
+  push : '「 が 行の おわりに 来るので、つぎの行へ おくりました',
+  kuten: '「。」を 1マスに まとめました'
+};
+
+/* たて書きに したとき、字を どう 置くか
+   rot = 90どまわす（かぎかっこ・長音・ダッシュ・リーダ）
+   tr  = マスの 右上に 置く（句読点）
+   sk  = 少し 右上に よせる（小さい字）            */
+const GY_ROTATE = '「」『』（）〔〕【】〈〉《》｛｝［］ー—―〜～…‥＝';
+const GY_TOPRIGHT = '、。，．';
+function gyCharClass(c){
+  if(GY_ROTATE.indexOf(c) >= 0)   return 'rot';
+  if(GY_TOPRIGHT.indexOf(c) >= 0) return 'tr';
+  if(GY_SMALL_KANA.indexOf(c) >= 0) return 'sk';
+  return '';
+}
+
+function gyIsLatin(c){ return /[Ａ-Ｚａ-ｚA-Za-z]/.test(c); }
+function gyCls(c){ return gyIsLatin(c) ? 'latin' : ''; }
+
+function gyNoLineStart(text, cfg){
+  const c = Array.from(text)[0];
+  if(GY_NO_LINE_START.indexOf(c) >= 0) return true;
+  if(!cfg.smallKanaAtLineStart && GY_SMALL_KANA.indexOf(c) >= 0) return true;
+  return false;
+}
+
+/* 段落を マス1つぶんずつの ならびに する */
+function gyBuildItems(paragraphs, cfg){
+  const items = [];
+  for(const p of paragraphs){
+    items.push({ t:'newpara', indent: p.dialogue ? 0 : cfg.paragraphIndent });
+    const u = p.units;
+    for(let i = 0; i < u.length; i++){
+      const c = u[i].c, nx = u[i+1];
+      /* 「。」」を 1マスに */
+      if(cfg.combineKutenBracket && (c === '。' || c === '、') && nx && GY_CLOSE.indexOf(nx.c) >= 0){
+        items.push({ t:'cell', text: c + nx.c, fix: u[i].fix || nx.fix || '', cls:'multi', note: GY_NOTE.kuten });
+        i++; continue;
+      }
+      items.push({ t:'cell', text:c, fix:u[i].fix || '', cls: gyCls(c) });
+      /* ！ ？ の あとは 1マス あける */
+      if(cfg.spaceAfterBangQuestion && (c === '！' || c === '？')){
+        const after = nx ? nx.c : '';
+        if(after && GY_NO_LINE_START.indexOf(after) < 0) items.push({ t:'blank' });
+      }
+    }
+  }
+  return items;
+}
+
+/* マスの ならびを 行に つめる（ここで 禁則処理を する） */
+function gyPlace(items, cfg){
+  const N = cfg.charsPerColumn;
+  const cols = [];
+  let cur = null, pos = N;
+
+  const startCol = () => { cur = { cells: new Array(N).fill(null) }; cols.push(cur); pos = 0; return cur; };
+  const lastCell = () => {
+    for(let ci = cols.length - 1; ci >= 0; ci--){
+      const cc = cols[ci].cells;
+      for(let i = N - 1; i >= 0; i--) if(cc[i]) return cc[i];
+    }
+    return null;
+  };
+
+  for(const it of items){
+    if(it.t === 'newpara'){ startCol(); pos = Math.min(it.indent, N); continue; }
+    if(it.t === 'blank'){ if(pos < N - 1) pos++; continue; }
+
+    if(pos >= N){
+      const prev = lastCell();
+      const room = prev ? (Array.from(prev.text).length + Array.from(it.text).length) : 99;
+      if(cfg.hangPunctuation && prev && gyNoLineStart(it.text, cfg) && room <= 3){
+        prev.text += it.text;
+        prev.cls = 'multi';
+        prev.note = GY_NOTE.hang;
+        if(it.fix && !prev.fix) prev.fix = it.fix;
+        continue;
+      }
+      startCol();
+    }
+
+    if(cfg.pushOpenBracket && pos === N - 1 && GY_NO_LINE_END.indexOf(it.text) >= 0){
+      startCol();
+      cur.cells[pos] = null;
+      if(cols.length >= 2){
+        const prevCol = cols[cols.length - 2];
+        prevCol.note = GY_NOTE.push;
+      }
+    }
+
+    cur.cells[pos++] = { text: it.text, fix: it.fix || '', cls: it.cls || '', note: it.note || '' };
+  }
+  return cols;
+}
+
+/* 題名・名前の 行を つくる */
+function gyHeadColumns(title, name, cfg){
+  const N = cfg.charsPerColumn;
+  const blank = () => ({ cells: new Array(N).fill(null) });
+  const cols = [];
+
+  if(cfg.title.enabled){
+    const col = blank();
+    const norm = gyNormalize(title || '', cfg).paragraphs[0];
+    const chars = norm ? norm.units.map(u => u.c) : [];
+    const start = (cfg.title.align === 'center')
+      ? Math.max(0, Math.floor((N - chars.length) / 2))
+      : Math.min(cfg.title.indent, Math.max(0, N - chars.length));
+    for(let i = 0; i < chars.length && start + i < N; i++){
+      col.cells[start + i] = { text: chars[i], cls: gyCls(chars[i]), role:'title', fix:'', note:'' };
+    }
+    col.role = 'title';
+    cols.push(col);
+  }
+
+  if(cfg.name.enabled){
+    const col = blank();
+    const parts = String(name || '').split(/[\s　]+/).filter(Boolean);
+    const seq = [];
+    parts.forEach((part, pi) => {
+      if(pi > 0) for(let k = 0; k < cfg.name.gapBetween; k++) seq.push(null);
+      const norm = gyNormalize(part, cfg).paragraphs[0];
+      const chars = norm ? norm.units.map(u => u.c) : [];
+      for(const ch of chars) seq.push(ch);
+    });
+    let start = N - cfg.name.bottomGap - seq.length;
+    if(start < 0) start = 0;
+    for(let i = 0; i < seq.length && start + i < N; i++){
+      if(seq[i] !== null) col.cells[start + i] = { text: seq[i], cls: gyCls(seq[i]), role:'name', fix:'', note:'' };
+    }
+    col.role = 'name';
+    cols.push(col);
+  }
+
+  while(cols.length < cfg.bodyStartColumn - 1) cols.push(blank());
+  return cols;
+}
+
+/* --- 本体 ---
+   input : { title, name, body }
+   cfg   : きまり
+   もどり値 : { pages, columns, chars, over, fixes } */
+function gyCompose(input, cfg){
+  cfg = cfg || GY_DEFAULTS;
+  const norm  = gyNormalize(input.body || '', cfg);
+  const items = gyBuildItems(norm.paragraphs, cfg);
+  const body  = gyPlace(items, cfg);
+  const head  = gyHeadColumns(input.title, input.name, cfg);
+  const all   = head.concat(body);
+
+  const per   = cfg.columnsPerPage;
+  const nPage = Math.max(cfg.pages, Math.ceil(all.length / per) || 1);
+  const pages = [];
+  for(let i = 0; i < nPage; i++){
+    const columns = all.slice(i * per, (i + 1) * per);
+    while(columns.length < per) columns.push({ cells: new Array(cfg.charsPerColumn).fill(null) });
+    pages.push({ columns, over: i >= cfg.pages });
+  }
+
+  let chars = 0;
+  for(const col of body) for(const cell of col.cells) if(cell) chars += Array.from(cell.text).length;
+
+  return {
+    pages,
+    columns : all.length,
+    chars,
+    capacity: cfg.charsPerColumn * cfg.columnsPerPage * cfg.pages,
+    over    : Math.max(0, all.length - per * cfg.pages),
+    fixes   : norm.fixes
+  };
+}
+
+</script>
+<script>
+/* 原稿用紙ツール ― 保存のしくみ
+   ・ファイルを そのまま ひらいた とき   … 端末の 中（localStorage）に 保存します
+   ・Apps Script の ウェブアプリの とき   … Google スプレッドシートに 保存し、
+     端末の 中にも 下書きを のこします（通信が 切れても 消えないように）。
+     つながった ときに 自動で 送りなおします。 */
+
+var gyStore = (function(){
+'use strict';
+
+const K_KADAI = 'genkou-youshi/kadai';
+const K_DOC   = 'genkou-youshi/doc/';
+const K_PEND  = 'genkou-youshi/pending';
+
+function lsGet(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
+function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
+
+const hasGas = (typeof google !== 'undefined' && google.script && google.script.run);
+
+const S = {
+  mode    : hasGas ? 'gas' : 'local',
+  user    : '',
+  isTeacher: !hasGas,      /* ファイルを そのまま ひらいた ときは だれでも 設定できる。
+                              Apps Script の ときは サーバーが 先生かどうかを かえす */
+  status  : '',
+  onStatus: null,
+  _kadai  : null,
+  _docs   : {},
+  _pend   : {},
+  _timer  : null,
+  _sending: false
+};
+
+function say(t){ S.status = t; if(S.onStatus) S.onStatus(t); }
+
+/* ---------- かだい ---------- */
+S.getKadai = function(){
+  if(!S._kadai) S._kadai = lsGet(K_KADAI, null) || gyDefaultKadai();
+  return S._kadai;
+};
+S.setKadai = function(list){
+  S._kadai = list;
+  lsSet(K_KADAI, list);
+  if(S.mode === 'gas'){
+    try{
+      google.script.run
+        .withSuccessHandler(() => say('かだいを ほぞんしました'))
+        .withFailureHandler(() => say('かだいを 送れませんでした'))
+        .gySaveKadai(list);
+    }catch(e){ say('かだいを 送れませんでした'); }
+  }
+};
+S.resetKadai = function(){ S.setKadai(gyDefaultKadai()); return S._kadai; };
+
+/* ---------- 書いた もの ---------- */
+S.getDoc = function(id){
+  if(S._docs[id]) return S._docs[id];
+  const d = lsGet(K_DOC + id, null) || { title:'', name:'', body:'', at:'' };
+  S._docs[id] = d;
+  return d;
+};
+S.setDoc = function(id, doc){
+  doc.at = new Date().toISOString();
+  S._docs[id] = doc;
+  const okLocal = lsSet(K_DOC + id, doc);
+  if(S.mode === 'local'){
+    say(okLocal ? 'この たんまつに ほぞん' : 'ほぞんできません');
+    return;
+  }
+  S._pend[id] = doc;
+  lsSet(K_PEND, S._pend);
+  say('ほぞん中…');
+  flushSoon();
+};
+
+/* ---------- Apps Script へ 送る ---------- */
+function flushSoon(){
+  clearTimeout(S._timer);
+  S._timer = setTimeout(flush, 800);
+}
+function flush(){
+  if(S.mode !== 'gas' || S._sending) return;
+  const ids = Object.keys(S._pend);
+  if(!ids.length){ return; }
+  const id = ids[0], doc = S._pend[id];
+  S._sending = true;
+  try{
+    google.script.run
+      .withSuccessHandler(() => {
+        S._sending = false;
+        if(S._pend[id] === doc){ delete S._pend[id]; lsSet(K_PEND, S._pend); }
+        if(Object.keys(S._pend).length){ flushSoon(); }
+        else say('ほぞんしました');
+      })
+      .withFailureHandler(() => {
+        S._sending = false;
+        say('ほぞんまち（つながったら 送ります）');
+        setTimeout(flush, 15000);
+      })
+      .gySaveDoc(id, doc);
+  }catch(e){
+    S._sending = false;
+    say('ほぞんまち（つながったら 送ります）');
+    setTimeout(flush, 15000);
+  }
+}
+
+/* ---------- はじめに 1回 ---------- */
+S.init = function(done){
+  S._pend = lsGet(K_PEND, {}) || {};
+  S.getKadai();
+  if(S.mode !== 'gas'){ say(''); done(); return; }
+
+  say('よみこみ中…');
+  try{
+    google.script.run
+      .withSuccessHandler(function(res){
+        if(res){
+          S.user = res.user || '';
+          S.isTeacher = !!res.isTeacher;
+          if(res.kadai && res.kadai.length){ S._kadai = res.kadai; lsSet(K_KADAI, res.kadai); }
+          if(res.docs) for(const id in res.docs){
+            /* 端末に 新しい 下書きが あれば そちらを のこす */
+            const mine = lsGet(K_DOC + id, null);
+            const theirs = res.docs[id];
+            const use = (mine && theirs && mine.at > theirs.at) ? mine : theirs;
+            S._docs[id] = use; lsSet(K_DOC + id, use);
+          }
+        }
+        say('');
+        flush();
+        done();
+      })
+      .withFailureHandler(function(){
+        say('つながりません（この たんまつに ほぞんします）');
+        done();
+      })
+      .gyLoad();
+  }catch(e){
+    say('つながりません（この たんまつに ほぞんします）');
+    done();
+  }
+};
+
+return S;
+})();
+
+</script>
+<script>
+/* 原稿用紙ツール ― 画面の うごき */
+
+(function(){
+'use strict';
+
+const $ = id => document.getElementById(id);
+const el = {
+  title:$('inTitle'), name:$('inName'), body:$('inBody'),
+  sheets:$('sheets'), count:$('count'), fixes:$('fixes'),
+  note:$('note'), save:$('save'), preset:$('preset'),
+  rowTitle:$('rowTitle'), rowName:$('rowName'),
+  btnPrint:$('btnPrint'), btnFix:$('btnFix'), btnSet:$('btnSet'),
+  printSize:$('printSize'),
+
+  panel:$('settings'), btnCloseSet:$('btnCloseSet'),
+  setPreset:$('setPreset'),
+  btnNewPreset:$('btnNewPreset'), btnRenamePreset:$('btnRenamePreset'), btnDelPreset:$('btnDelPreset'),
+  setChars:$('setChars'), setCols:$('setCols'), setPages:$('setPages'),
+  setTitleOn:$('setTitleOn'), setTitleAlign:$('setTitleAlign'), setTitleIndent:$('setTitleIndent'),
+  setNameOn:$('setNameOn'), setNameBottom:$('setNameBottom'), setNameGap:$('setNameGap'),
+  setBodyStart:$('setBodyStart'), setParaIndent:$('setParaIndent'),
+  setNumbers:$('setNumbers'), setHang:$('setHang'), setKuten:$('setKuten'),
+  setDialogue:$('setDialogue'), setSmallKana:$('setSmallKana'),
+  setBangSpace:$('setBangSpace'), setEllipsis:$('setEllipsis'), setPushOpen:$('setPushOpen'),
+  setCode:$('setCode'), btnCodeOut:$('btnCodeOut'), btnCodeIn:$('btnCodeIn'),
+  btnReset:$('btnReset'), setMsg:$('setMsg')
+};
+
+let kadai   = [];      // かだいの 一覧（1つ1つが きまり まるごと）
+let current = null;    // いま えらんでいる かだい
+let raf     = null;
+let chars   = 0;       // いまの 字数（先生の シートにも のせる）
+
+/* ================= かだい ================= */
+function kadaiById(id){ return kadai.find(k => k.id === id) || kadai[0]; }
+
+function fillSelect(sel, keep){
+  sel.innerHTML = '';
+  for(const k of kadai){
+    const o = document.createElement('option');
+    o.value = k.id;
+    o.textContent = k.label + '（' + (k.charsPerColumn * k.columnsPerPage) + '字' +
+                    (k.pages > 1 ? '×' + k.pages + 'まい' : '') + '）';
+    sel.appendChild(o);
+  }
+  if(keep) sel.value = keep;
+}
+function refreshSelects(){
+  fillSelect(el.preset, current.id);
+  fillSelect(el.setPreset, current.id);
+}
+
+function selectKadai(id, keepText){
+  if(!keepText && current) saveDoc();
+  current = kadaiById(id);
+  el.rowTitle.style.display = current.title.enabled ? '' : 'none';
+  el.rowName .style.display = current.name.enabled  ? '' : 'none';
+  const d = gyStore.getDoc(current.id);
+  el.title.value = d.title || '';
+  el.name .value = d.name  || (gyStore.user ? '' : '');
+  el.body .value = d.body  || '';
+  try{ localStorage.setItem('genkou-youshi/last', current.id); }catch(e){}
+  refreshSelects();
+  loadSettingsForm();
+  render();
+}
+
+/* ================= ほぞん ================= */
+let saveTimer = null;
+function saveDoc(){
+  if(!current) return;
+  gyStore.setDoc(current.id, {
+    title:el.title.value, name:el.name.value, body:el.body.value, chars:chars
+  });
+}
+function saveSoon(){
+  clearTimeout(saveTimer);
+  el.save.textContent = 'ほぞん中…';
+  saveTimer = setTimeout(saveDoc, 600);
+}
+
+/* ================= 原稿用紙を 出す ================= */
+
+/* マスの 大きさを きめる。
+   行の わく線（左右 1.5px ずつ）と マスの しきり線（1px）も 数に 入れないと
+   A4 から はみ出して しまうので、そのぶんを ひいてから わりつけます。 */
+function fitCell(w, h, M, N, bCol, bCell){
+  const byW = (w - M * bCol * 2)               / (M * 1.18 - 0.18 + 1.4);
+  const byH = (h - (N - 1) * bCell - bCol * 2) / (N + 1.4);
+  return Math.min(byW, byH);
+}
+
+function sizeCells(){
+  const N = current.charsPerColumn, M = current.columnsPerPage;
+  const box  = el.sheets.getBoundingClientRect();
+  const w    = Math.max(240, box.width  - 40);
+  const h    = Math.max(240, box.height - 40);
+  const cell = Math.max(11, Math.min(fitCell(w, h, M, N, 1.5, 1), 34));
+  /* いんさつ：A4（よゆうを みて 182mm × 252mm）／ 1.5px=0.397mm、1px=0.265mm */
+  const mm = fitCell(182, 252, M, N, 0.397, 0.265);
+  el.printSize.textContent =
+    ':root{ --cell:' + cell.toFixed(2) + 'px; }\n' +
+    '@media print{ :root{ --cell:' + mm.toFixed(3) + 'mm; } }';
+}
+
+/* 1つの マスに 字を 入れる。
+   ・ふつうの マス            … 1字を まんなかに
+   ・詰めた マス（「た。」）   … もとの 字は そのままの 大きさ、句読点だけ 小さく 右下に
+   ・句読点だけの マス（「。」」）… 2つとも 小さく たてに ならべる   */
+function fillCell(d, text){
+  const chars = Array.from(text);
+  const mkSpan = ch => {
+    const s = document.createElement('span');
+    s.textContent = ch;
+    const k = gyCharClass(ch);
+    if(k) s.className = k;
+    return s;
+  };
+  if(chars.length === 1){ d.appendChild(mkSpan(chars[0])); return; }
+
+  if(GY_NO_LINE_START.indexOf(chars[0]) >= 0){   // 「。」」のような 句読点だけの マス
+    d.classList.add('stack');
+    for(const ch of chars) d.appendChild(mkSpan(ch));
+    return;
+  }
+  d.classList.add('hang');                        // 「た。」のような 詰めた マス
+  const main = mkSpan(chars[0]);
+  main.classList.add('main');
+  d.appendChild(main);
+  const tail = document.createElement('div');
+  tail.className = 'tail';
+  for(let i = 1; i < chars.length; i++) tail.appendChild(mkSpan(chars[i]));
+  d.appendChild(tail);
+}
+
+function render(){
+  const res = gyCompose({ title:el.title.value, name:el.name.value, body:el.body.value }, current);
+  sizeCells();
+
+  const frag = document.createDocumentFragment();
+  for(const pg of res.pages){
+    const sheet = document.createElement('div');
+    sheet.className = 'sheet' + (pg.over ? ' over' : '');
+    for(const col of pg.columns){
+      const c = document.createElement('div');
+      c.className = 'col';
+      for(const cell of col.cells){
+        const d = document.createElement('div');
+        d.className = 'cell'
+          + (cell && cell.fix  ? ' fix'  : '')
+          + (cell && cell.note ? ' note' : '');
+        if(cell){
+          fillCell(d, cell.text);
+          const why = [];
+          if(cell.note) why.push(cell.note);
+          if(cell.fix && GY_FIX_LABEL[cell.fix]) why.push(GY_FIX_LABEL[cell.fix]);
+          if(why.length) d.title = why.join(' / ');
+        }
+        c.appendChild(d);
+      }
+      sheet.appendChild(c);
+    }
+    frag.appendChild(sheet);
+  }
+  el.sheets.innerHTML = '';
+  el.sheets.appendChild(frag);
+
+  chars = res.chars;
+  const cap = current.charsPerColumn * current.columnsPerPage * current.pages;
+  el.count.textContent = res.chars + '字／' + cap + '字';
+  el.count.className = 'count' + (res.over > 0 ? ' over' : '');
+  el.note.textContent = res.over > 0
+    ? 'あと ' + res.over + '行 ぶん はみ出しています'
+    : (current.pages > 1 ? current.pages + 'まいまで 書けます' : '');
+
+  el.fixes.innerHTML = '';
+  for(const k in res.fixes){
+    if(!GY_FIX_LABEL[k]) continue;
+    const d = document.createElement('div');
+    d.className = 'fix-item';
+    d.textContent = GY_FIX_LABEL[k] + '（' + res.fixes[k] + 'か所）';
+    el.fixes.appendChild(d);
+  }
+}
+
+function renderSoon(){
+  if(raf) cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(render);
+}
+
+/* ================= 先生用の せってい ================= */
+function loadSettingsForm(){
+  const c = current;
+  el.setChars.value       = c.charsPerColumn;
+  el.setCols.value        = c.columnsPerPage;
+  el.setPages.value       = c.pages;
+  el.setTitleOn.checked   = !!c.title.enabled;
+  el.setTitleAlign.value  = c.title.align;
+  el.setTitleIndent.value = c.title.indent;
+  el.setNameOn.checked    = !!c.name.enabled;
+  el.setNameBottom.value  = c.name.bottomGap;
+  el.setNameGap.value     = c.name.gapBetween;
+  el.setBodyStart.value   = c.bodyStartColumn;
+  el.setParaIndent.value  = c.paragraphIndent;
+  el.setNumbers.value     = c.numbers;
+  el.setHang.checked      = !!c.hangPunctuation;
+  el.setKuten.checked     = !!c.combineKutenBracket;
+  el.setDialogue.checked  = !!c.dialogueNewline;
+  el.setSmallKana.checked = !!c.smallKanaAtLineStart;
+  el.setBangSpace.checked = !!c.spaceAfterBangQuestion;
+  el.setEllipsis.checked  = !!c.ellipsisTwoCells;
+  el.setPushOpen.checked  = !!c.pushOpenBracket;
+}
+
+function num(input, min, max, now){
+  const v = parseInt(input.value, 10);
+  if(!isFinite(v)) return now;
+  return Math.min(max, Math.max(min, v));
+}
+
+function applySettingsForm(){
+  const c = current;
+  c.charsPerColumn = num(el.setChars, 4, 40, c.charsPerColumn);
+  c.columnsPerPage = num(el.setCols,  2, 40, c.columnsPerPage);
+  c.pages          = num(el.setPages, 1, 10, c.pages);
+  c.title.enabled  = el.setTitleOn.checked;
+  c.title.align    = el.setTitleAlign.value;
+  c.title.indent   = num(el.setTitleIndent, 0, c.charsPerColumn, c.title.indent);
+  c.name.enabled   = el.setNameOn.checked;
+  c.name.bottomGap = num(el.setNameBottom, 0, c.charsPerColumn, c.name.bottomGap);
+  c.name.gapBetween= num(el.setNameGap, 0, 5, c.name.gapBetween);
+  c.paragraphIndent= num(el.setParaIndent, 0, 3, c.paragraphIndent);
+
+  /* 本文の はじまりは 題名・名前を 使うぶんより 前には できない */
+  const least = (c.title.enabled ? 1 : 0) + (c.name.enabled ? 1 : 0) + 1;
+  c.bodyStartColumn = Math.max(least, num(el.setBodyStart, 1, 10, c.bodyStartColumn));
+  el.setBodyStart.value = c.bodyStartColumn;
+
+  c.numbers               = el.setNumbers.value;
+  c.hangPunctuation       = el.setHang.checked;
+  c.combineKutenBracket   = el.setKuten.checked;
+  c.dialogueNewline       = el.setDialogue.checked;
+  c.smallKanaAtLineStart  = el.setSmallKana.checked;
+  c.spaceAfterBangQuestion= el.setBangSpace.checked;
+  c.ellipsisTwoCells      = el.setEllipsis.checked;
+  c.pushOpenBracket       = el.setPushOpen.checked;
+
+  el.rowTitle.style.display = c.title.enabled ? '' : 'none';
+  el.rowName .style.display = c.name.enabled  ? '' : 'none';
+
+  gyStore.setKadai(kadai);
+  refreshSelects();
+  renderSoon();
+}
+
+function newId(){ return 'k' + Date.now().toString(36); }
+
+function msg(t){ el.setMsg.textContent = t; }
+
+/* ---- せっていコード（ほかの 端末に くばる）---- */
+function b64enc(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for(const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+function b64dec(b64){
+  const bin = atob(b64.replace(/\s+/g, ''));
+  const bytes = Uint8Array.from(bin, ch => ch.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+/* ================= できごと ================= */
+['input','change'].forEach(ev => {
+  el.title.addEventListener(ev, () => { renderSoon(); saveSoon(); });
+  el.name .addEventListener(ev, () => { renderSoon(); saveSoon(); });
+  el.body .addEventListener(ev, () => { renderSoon(); saveSoon(); });
+});
+el.preset.addEventListener('change', () => selectKadai(el.preset.value));
+el.setPreset.addEventListener('change', () => selectKadai(el.setPreset.value));
+
+el.btnPrint.addEventListener('click', () => window.print());
+el.btnFix.addEventListener('click', () => {
+  const on = el.btnFix.getAttribute('aria-pressed') === 'true';
+  el.btnFix.setAttribute('aria-pressed', on ? 'false' : 'true');
+  document.body.classList.toggle('nofix', on);
+});
+el.btnSet.addEventListener('click', () => { el.panel.hidden = false; loadSettingsForm(); renderSoon(); });
+el.btnCloseSet.addEventListener('click', () => { el.panel.hidden = true; renderSoon(); });
+
+[ el.setChars, el.setCols, el.setPages, el.setTitleOn, el.setTitleAlign, el.setTitleIndent,
+  el.setNameOn, el.setNameBottom, el.setNameGap, el.setBodyStart, el.setParaIndent,
+  el.setNumbers, el.setHang, el.setKuten, el.setDialogue, el.setSmallKana,
+  el.setBangSpace, el.setEllipsis, el.setPushOpen
+].forEach(x => x.addEventListener('change', applySettingsForm));
+
+el.btnNewPreset.addEventListener('click', () => {
+  const label = prompt('あたらしい かだいの なまえ', 'あたらしい かだい');
+  if(!label) return;
+  const k = JSON.parse(JSON.stringify(current));
+  k.id = newId(); k.label = label;
+  kadai.push(k);
+  gyStore.setKadai(kadai);
+  selectKadai(k.id);
+  msg('「' + label + '」を つくりました');
+});
+el.btnRenamePreset.addEventListener('click', () => {
+  const label = prompt('かだいの なまえ', current.label);
+  if(!label) return;
+  current.label = label;
+  gyStore.setKadai(kadai);
+  refreshSelects();
+  msg('なまえを かえました');
+});
+el.btnDelPreset.addEventListener('click', () => {
+  if(kadai.length <= 1){ msg('かだいが 1つだけの ときは けせません'); return; }
+  if(!confirm('「' + current.label + '」を けしますか。書いた 文章は のこります。')) return;
+  kadai = kadai.filter(k => k.id !== current.id);
+  gyStore.setKadai(kadai);
+  selectKadai(kadai[0].id);
+  msg('けしました');
+});
+
+el.btnCodeOut.addEventListener('click', () => {
+  try{
+    el.setCode.value = b64enc(JSON.stringify(kadai));
+    el.setCode.select();
+    msg('このコードを 児童の 端末で 貼りつけて「読みこむ」を おします');
+  }catch(e){ msg('コードを 作れませんでした'); }
+});
+el.btnCodeIn.addEventListener('click', () => {
+  try{
+    const list = JSON.parse(b64dec(el.setCode.value));
+    if(!Array.isArray(list) || !list.length || !list[0].charsPerColumn) throw new Error('形が ちがいます');
+    kadai = list;
+    gyStore.setKadai(kadai);
+    selectKadai(kadai[0].id);
+    msg('読みこみました（かだい ' + kadai.length + 'つ）');
+  }catch(e){ msg('コードが ちがうようです'); }
+});
+el.btnReset.addEventListener('click', () => {
+  if(!confirm('かだいと きまりを はじめの ものに もどしますか。')) return;
+  kadai = gyStore.resetKadai();
+  selectKadai(kadai[0].id);
+  msg('もどしました');
+});
+
+window.addEventListener('resize', renderSoon);
+window.addEventListener('beforeunload', saveDoc);
+
+/* ================= はじまり ================= */
+gyStore.onStatus = t => { el.save.textContent = t || '　'; };
+gyStore.init(function(){
+  kadai = gyStore.getKadai();
+  /* Apps Script 版では、かだいを かえられるのは 先生だけ */
+  if(!gyStore.isTeacher){ el.btnSet.hidden = true; el.panel.hidden = true; }
+  let last = null;
+  try{ last = localStorage.getItem('genkou-youshi/last'); }catch(e){}
+  selectKadai((last && kadai.some(k => k.id === last)) ? last : kadai[0].id, true);
+});
+
+})();
+
+</script>
+</body>
+</html>
