@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c0392b">
+<title>れんしゅう｜おつよん</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="bar">
+  <a class="back" href="index.html">← もどる</a>
+  <h1 class="logo">れんしゅう</h1>
+  <div class="spacer"></div>
+</header>
+
+<div class="wrap">
+
+  <section id="pick">
+    <div class="card">
+      <h2>何を 解く？</h2>
+      <div class="muted" style="margin-bottom:10px">
+        1問ごとに 答えあわせと 解説が 出ます。<br>
+        テーマを <b>わざと 混ぜて</b> 出します（交互練習）。同じ種類を 続けて解くより 身につきます。
+      </div>
+      <button class="btn wide" id="btnToday">きょうの分（<span id="nToday">10</span>問）</button>
+      <div class="row" style="margin-top:8px" id="subjects"></div>
+    </div>
+
+    <div class="card">
+      <h2>テーマ別</h2>
+      <div class="muted" style="margin-bottom:8px">★が多いほど よく出ます。（済＝これまでに解いた数／にがて＝要復習の数）</div>
+      <div id="themes"></div>
+    </div>
+  </section>
+
+  <section id="quiz" style="display:none"></section>
+
+  <section id="done" style="display:none">
+    <div class="card center">
+      <h2>おわり</h2>
+      <div id="doneMsg"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="btnMore">もう10問</button>
+        <a class="btn ghost" href="nigate.html">にがてノートへ</a>
+        <a class="btn ghost" href="index.html">ホームへ</a>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script src="data/themes.js"></script>
+<script src="data/questions-official.js"></script>
+<script src="data/questions-extra.js"></script>
+<script src="data/knowledge.js"></script>
+<script src="store.js"></script>
+<script src="srs.js"></script>
+<script src="engine.js"></script>
+<script src="quiz.js"></script>
+<script src="app-renshuu.js"></script>
+</body>
+</html>

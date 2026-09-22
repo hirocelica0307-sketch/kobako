@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c0392b">
+<title>おぼえる｜おつよん</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="bar">
+  <a class="back" href="index.html">← もどる</a>
+  <h1 class="logo">おぼえる</h1>
+  <div class="spacer"></div>
+  <div class="muted" style="color:#fff;opacity:.85" id="count"></div>
+</header>
+
+<div class="wrap">
+
+  <!-- えらぶ画面 -->
+  <section id="pick">
+    <div class="card">
+      <h2>どこを おぼえる？</h2>
+      <div class="muted" style="margin-bottom:10px">
+        カードは「おもてを見て 思い出す → めくって たしかめる → 自己評価」の順で すすみます。<br>
+        読み返すより <b>思い出すほうが 記憶に のこる</b>（想起練習）ので、めくる前に かならず 1回 考えてください。
+      </div>
+      <button class="btn wide" id="btnAll">きょうの分を ぜんぶ（<span id="dueAll">0</span>枚）</button>
+      <div id="subjects"></div>
+    </div>
+    <div class="card">
+      <h2>テーマ別</h2>
+      <div class="muted" style="margin-bottom:8px">★が多いテーマほど 試験に よく出ます。覚えたカードは 表示から 消えていきます。</div>
+      <div id="themes"></div>
+    </div>
+  </section>
+
+  <!-- 学習画面 -->
+  <section id="study" style="display:none">
+    <div class="progress" id="prog"></div>
+    <div class="card">
+      <div id="tags"></div>
+      <div class="face" id="front"></div>
+      <div id="backArea" style="display:none">
+        <hr style="border:none;border-top:1px solid var(--line)">
+        <div class="face back-face" id="back"></div>
+        <div class="hint" id="hint"></div>
+        <div class="note" id="note"></div>
+      </div>
+    </div>
+
+    <div id="beforeFlip">
+      <div class="muted center" style="margin-bottom:8px">答えを 思いうかべてから めくります</div>
+      <button class="btn wide" id="btnFlip">めくる</button>
+    </div>
+
+    <div id="afterFlip" style="display:none">
+      <div class="muted center" style="margin-bottom:8px">どのくらい 思い出せた？</div>
+      <div class="row">
+        <button class="btn ghost sm" data-g="again">わからない</button>
+        <button class="btn ghost sm" data-g="hard">あやしい</button>
+        <button class="btn ghost sm" data-g="good">まあまあ</button>
+        <button class="btn sm" data-g="easy">ばっちり</button>
+      </div>
+      <div class="muted center" style="margin-top:8px" id="nextInfo"></div>
+    </div>
+  </section>
+
+  <!-- おわり画面 -->
+  <section id="done" style="display:none">
+    <div class="card center">
+      <h2>おつかれさま！</h2>
+      <div id="doneMsg"></div>
+      <div class="row" style="margin-top:12px">
+        <a class="btn" id="btnTest">おぼえたか ためす（問題へ）</a>
+        <a class="btn ghost" href="index.html">ホームへ</a>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script src="data/themes.js"></script>
+<script src="data/questions-official.js"></script>
+<script src="data/questions-extra.js"></script>
+<script src="data/knowledge.js"></script>
+<script src="store.js"></script>
+<script src="srs.js"></script>
+<script src="engine.js"></script>
+<script src="app-oboeru.js"></script>
+</body>
+</html>

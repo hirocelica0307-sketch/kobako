@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c0392b">
+<title>にがてノート｜おつよん</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="bar">
+  <a class="back" href="index.html">← もどる</a>
+  <h1 class="logo">にがてノート</h1>
+  <div class="spacer"></div>
+</header>
+
+<div class="wrap">
+
+  <section id="pick">
+    <div class="card">
+      <h2>あつまっている にがて</h2>
+      <div class="muted" style="margin-bottom:10px">
+        ここに 入るのは 2種類です。<br>
+        ① <b>まちがえた問題</b>　② <b>正解したけれど 自信が なかった問題</b><br>
+        同じテーマの <b>類似問題</b> も まぜて 出すので、まぐれ正解が つぶれていきます。<br>
+        <b>自信あり で 2回続けて 正解</b> すると 卒業し、ここから 消えます。
+      </div>
+      <div id="summary"></div>
+      <button class="btn wide" id="btnStart">にがて＋類似問題を 10問 解く</button>
+      <button class="btn ghost wide" id="btnOnlyWeak">にがてだけを 解く</button>
+    </div>
+
+    <div class="card">
+      <h2>にがてな テーマ</h2>
+      <div class="muted" style="margin-bottom:8px">多い順。テーマごとに 集中して つぶせます。知識カードに もどるのも 有効です。</div>
+      <div id="themes"></div>
+    </div>
+
+    <div class="card">
+      <h2>にがて 一覧</h2>
+      <div id="list"></div>
+    </div>
+  </section>
+
+  <section id="quiz" style="display:none"></section>
+
+  <section id="done" style="display:none">
+    <div class="card center">
+      <h2>おつかれさま</h2>
+      <div id="doneMsg"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="btnMore">もう10問</button>
+        <a class="btn ghost" href="index.html">ホームへ</a>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script src="data/themes.js"></script>
+<script src="data/questions-official.js"></script>
+<script src="data/questions-extra.js"></script>
+<script src="data/knowledge.js"></script>
+<script src="store.js"></script>
+<script src="srs.js"></script>
+<script src="engine.js"></script>
+<script src="quiz.js"></script>
+<script src="app-nigate.js"></script>
+</body>
+</html>

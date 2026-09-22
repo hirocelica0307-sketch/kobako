@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c0392b">
+<meta name="description" content="危険物取扱者 乙種第4類（乙4）の 試験対策アプリ。知識カードと 練習問題・本番形式、にがてノートで 合格まで みちびきます。">
+<title>おつよん｜危険物乙4 試験対策</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="bar">
+  <h1 class="logo">おつよん</h1>
+  <div class="spacer"></div>
+  <div class="muted" style="color:#fff;opacity:.85" id="dayInfo"></div>
+</header>
+
+<div class="wrap">
+
+  <div class="card">
+    <h2>きょう やること</h2>
+    <div id="today"></div>
+  </div>
+
+  <nav class="menu">
+    <a href="oboeru.html">
+      <span class="ico">📖</span>
+      <span><span class="t">おぼえる</span><br><span class="d">知識カードで 覚える（思い出す→めくる）</span></span>
+    </a>
+    <a href="renshuu.html">
+      <span class="ico">✏️</span>
+      <span><span class="t">れんしゅう</span><br><span class="d">練習問題を 少しずつ 解く</span></span>
+    </a>
+    <a href="honban.html">
+      <span class="ico">⏱️</span>
+      <span><span class="t">ほんばん</span><br><span class="d">35問2時間の 本番形式／公式の過去問</span></span>
+    </a>
+    <a href="nigate.html">
+      <span class="ico">🔥</span>
+      <span><span class="t">にがてノート</span><br><span class="d">まちがい＋自信なしを 類似問題で つぶす</span></span>
+    </a>
+  </nav>
+
+  <div class="card">
+    <h2>おぼえ具合</h2>
+    <div id="meters"></div>
+    <div class="muted">箱（0〜5）が いっぱいに なると 卒業。卒業した カードは 出てこなくなります。</div>
+  </div>
+
+  <div class="card">
+    <h2>模試のきろく</h2>
+    <div id="exams"></div>
+  </div>
+
+  <div class="card">
+    <h2>せってい</h2>
+    <div class="row" style="margin-bottom:10px">
+      <label class="muted">1日のカード枚数<br><input type="number" id="setCards" min="5" max="100" step="5" style="width:80px"></label>
+      <label class="muted">1日の問題数<br><input type="number" id="setQs" min="3" max="50" step="1" style="width:80px"></label>
+    </div>
+    <label class="muted"><input type="checkbox" id="setShuf"> 練習で 選択肢の ならびを まぜる（まる暗記ふせぎ）</label>
+    <div class="muted">まぜたときは、解説と つき合わせられるよう 答えあわせのときに「もとの番号」を 出します。本番形式は つねに もとの ならびです。</div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn ghost sm" id="btnExport">学習データを 書き出す</button>
+      <button class="btn ghost sm" id="btnImport">読みこむ</button>
+      <button class="btn ghost sm" id="btnReset">ぜんぶ消す</button>
+    </div>
+    <textarea id="ioBox" style="display:none;width:100%;height:120px;margin-top:10px;font-size:12px"></textarea>
+  </div>
+
+  <div class="card muted">
+    <b>この アプリ について</b><br>
+    公式の過去問は 一般財団法人 消防試験研究センター「過去に出題された問題（乙種第4類）」を もとにしています。
+    それ以外の 問題・解説・カードは このアプリで 作成した ものです。<br>
+    学習データは この端末の中だけに 保存されます（通信しません）。
+  </div>
+
+</div>
+
+<script src="data/themes.js"></script>
+<script src="data/questions-official.js"></script>
+<script src="data/questions-extra.js"></script>
+<script src="data/knowledge.js"></script>
+<script src="store.js"></script>
+<script src="srs.js"></script>
+<script src="engine.js"></script>
+<script src="app-home.js"></script>
+</body>
+</html>

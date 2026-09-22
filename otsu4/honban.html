@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c0392b">
+<title>ほんばん｜おつよん</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="bar">
+  <a class="back" href="index.html" id="back">← もどる</a>
+  <h1 class="logo">ほんばん</h1>
+  <div class="spacer"></div>
+  <div class="timer" id="timer"></div>
+</header>
+
+<div class="wrap">
+
+  <section id="pick">
+    <div class="card">
+      <h2>本番と同じ形で 解く</h2>
+      <div class="muted" style="margin-bottom:12px">
+        35問・2時間・五肢択一。<b>科目ごとに6割（法令9／物理化学6／性質消火6）</b>で合格です。<br>
+        本番と同じで、1問ずつの 答えあわせは しません。最後に まとめて 採点します。
+      </div>
+      <button class="btn wide" id="btnOfficial">① 公式の過去問35問</button>
+      <div class="muted" style="margin-bottom:12px">消防試験研究センターが 公開している「過去に出題された問題」そのままの 35問です。</div>
+      <button class="btn wide" id="btnRandom">② ランダム模試35問</button>
+      <div class="muted">出題数の配分（15／10／10）を 本番に そろえ、★の多い テーマが 出やすくなっています。</div>
+    </div>
+    <div class="card">
+      <h2>設定</h2>
+      <label><input type="checkbox" id="useTimer" checked> 2時間の タイマーを 使う</label>
+      <div class="muted">タイマーを 切ると、時間を 気にせず 解けます。</div>
+    </div>
+  </section>
+
+  <section id="exam" style="display:none">
+    <div class="card" style="padding:10px">
+      <div class="grid5" id="nav"></div>
+    </div>
+    <div id="quiz"></div>
+    <div class="row">
+      <button class="btn ghost" id="btnPrev">← まえ</button>
+      <button class="btn ghost" id="btnNext">つぎ →</button>
+    </div>
+    <button class="btn wide" id="btnFinish" style="margin-top:12px">解答を おわる（採点）</button>
+  </section>
+
+  <section id="result" style="display:none">
+    <div class="card">
+      <div class="result" id="resultBig"></div>
+      <table class="sc" id="scTable"></table>
+      <div id="advice" style="margin-top:12px"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="btnReview">まちがえた問題を 見なおす</button>
+        <a class="btn ghost" href="index.html">ホームへ</a>
+      </div>
+    </div>
+    <div id="review"></div>
+  </section>
+
+</div>
+
+<script src="data/themes.js"></script>
+<script src="data/questions-official.js"></script>
+<script src="data/questions-extra.js"></script>
+<script src="data/knowledge.js"></script>
+<script src="store.js"></script>
+<script src="srs.js"></script>
+<script src="engine.js"></script>
+<script src="app-honban.js"></script>
+</body>
+</html>
