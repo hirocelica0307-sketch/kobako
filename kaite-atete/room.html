@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>あつまる｜かいて あてて</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="card">
+    <div class="roomcode">
+        <span class="sub">へやの ばんごう</span>
+        <b id="code">----</b>
+    </div>
+</div>
+
+<div class="card">
+    <p class="sub" style="text-align:center;margin-bottom:10px">あつまった ひと</p>
+    <div class="members" id="members"></div>
+    <p class="count" id="count">まだ だれも いません</p>
+</div>
+
+<div class="notice wait" id="notice">つないでいます…</div>
+
+<div class="row">
+    <button class="btn sub-btn" id="leave">へやを でる</button>
+</div>
+
+<script type="module" src="room.js"></script>
+</body>
+</html>

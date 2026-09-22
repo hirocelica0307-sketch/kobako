@@ -1,0 +1,143 @@
+/* かいて あてて ── 共通の 見ため
+   Chromebook の よこ長画面を 基準に、タブレットの たて画面でも くずれません。
+   物理キーボードは つかわないので、押す ところは すべて 大きくしています。 */
+
+:root{
+    --bg:        #fdf8f0;
+    --panel:     #ffffff;
+    --ink:       #33291f;
+    --ink-thin:  #8a7a68;
+    --line:      #e6d9c6;
+    --accent:    #f08a2c;
+    --accent-dk: #d4701a;
+    --go:        #46a83c;
+    --go-dk:     #3a8c32;
+    --tap:       #fff6e8;
+    --radius:    14px;
+}
+
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+html,body{ height:100%; margin:0; }
+
+body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Zen Maru Gothic",
+                "Yu Gothic",sans-serif;
+    font-weight:700;
+    /* 画面タッチで 入力するので、うっかり 拡大しないように */
+    touch-action:manipulation;
+    -webkit-user-select:none; user-select:none;
+    display:flex; flex-direction:column; align-items:center;
+    padding:10px; gap:8px;
+}
+
+h1{ margin:0; font-size:clamp(20px,3.4vw,30px); letter-spacing:.06em; }
+.sub{ margin:0; color:var(--ink-thin); font-size:clamp(12px,1.8vw,16px); }
+
+.card{
+    background:var(--panel); border:3px solid var(--line);
+    border-radius:var(--radius); padding:14px;
+    width:100%; max-width:920px;
+}
+
+/* ── おおきな ボタン ───────────────────────────── */
+.btn{
+    font:inherit; font-size:clamp(17px,2.6vw,24px);
+    border:none; border-radius:var(--radius);
+    padding:12px 26px; min-height:54px; min-width:120px;
+    background:var(--accent); color:#fff; cursor:pointer;
+    box-shadow:0 4px 0 var(--accent-dk);
+    transition:transform .05s, box-shadow .05s;
+}
+.btn.go{ background:var(--go); box-shadow:0 4px 0 var(--go-dk); }
+.btn.sub-btn{
+    background:var(--panel); color:var(--ink);
+    border:3px solid var(--line); box-shadow:none; min-height:50px;
+    font-size:clamp(14px,2vw,18px); padding:10px 18px;
+}
+.btn:active{ transform:translateY(4px); box-shadow:none; }
+.btn:disabled{ opacity:.4; cursor:default; transform:none; box-shadow:none; }
+
+.row{ display:flex; gap:12px; flex-wrap:wrap; justify-content:center; align-items:center; }
+
+/* ── 入力した ものを 見せる ところ ──────────────── */
+.readout{
+    display:flex; align-items:center; justify-content:center;
+    min-height:54px; margin:0 0 8px;
+    border-bottom:4px dashed var(--line);
+    font-size:clamp(26px,5vw,44px); letter-spacing:.14em;
+}
+.readout .placeholder{ color:var(--line); letter-spacing:.06em; font-size:.55em; }
+
+/* 4けたの 数字は マスで 見せる */
+.digits{ display:flex; gap:10px; justify-content:center; margin:0 0 10px; }
+.digit{
+    width:clamp(46px,9vw,70px); height:clamp(60px,12vw,92px);
+    border:3px solid var(--line); border-radius:12px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:clamp(30px,6vw,52px); background:var(--tap);
+}
+.digit.filled{ border-color:var(--accent); background:#fff; }
+
+/* ── キーボード（ひらがな・すうじ）──────────────── */
+.keypad{ display:grid; gap:6px; justify-content:center; }
+.keypad.hira{ grid-template-columns:repeat(10,1fr); max-width:660px; margin:0 auto; }
+.keypad.num { grid-template-columns:repeat(3,1fr);  max-width:300px; margin:0 auto; }
+
+.key{
+    font:inherit; border:2px solid var(--line); border-radius:10px;
+    background:var(--panel); color:var(--ink); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    padding:0; aspect-ratio:1/1;
+    font-size:clamp(16px,3vw,26px);
+}
+.keypad.num .key{ font-size:clamp(24px,5vw,38px); }
+.key:active{ background:var(--tap); transform:translateY(2px); }
+.key.blank{ visibility:hidden; }
+.key.wide{
+    aspect-ratio:auto; min-height:56px; min-width:78px; padding:0 16px;
+    font-size:clamp(15px,2.2vw,22px);
+}
+.key.mark{ background:var(--tap); }
+
+.keyrow{ display:flex; gap:6px; justify-content:center; margin-top:8px; flex-wrap:wrap; }
+
+/* ── あつまる画面 ───────────────────────────── */
+.roomcode{
+    display:flex; align-items:baseline; gap:14px; justify-content:center;
+}
+.roomcode b{ font-size:clamp(40px,9vw,80px); letter-spacing:.16em; color:var(--accent-dk); }
+
+.members{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:4px; }
+.member{
+    display:flex; align-items:center; gap:8px;
+    border:3px solid var(--line); border-radius:999px;
+    padding:8px 16px; background:var(--panel);
+    font-size:clamp(15px,2.4vw,22px);
+    animation:pop .25s ease-out;
+}
+.member .dot{ width:18px; height:18px; border-radius:50%; flex:none; }
+.member.me{ border-color:var(--accent); background:var(--tap); }
+.member.off{ opacity:.45; }
+.member .tag{ font-size:.7em; color:var(--ink-thin); }
+@keyframes pop{ from{ transform:scale(.7); opacity:0; } to{ transform:scale(1); opacity:1; } }
+
+.count{ text-align:center; color:var(--ink-thin); font-size:clamp(13px,2vw,17px); }
+
+/* ── しらせ（つうしんの じょうたい など）────────── */
+.notice{
+    border-radius:var(--radius); padding:12px 16px; text-align:center;
+    font-size:clamp(14px,2.2vw,18px);
+}
+.notice.wait{ background:#fff4e0; color:var(--accent-dk); }
+.notice.bad { background:#ffe8e4; color:#b3402f; }
+.hidden{ display:none !important; }
+
+/* せまい たて画面のとき */
+@media (max-width:560px){
+    body{ padding:8px; gap:8px; }
+    .card{ padding:10px; }
+    .keypad.hira{ gap:4px; }
+}
