@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>タイピング つなひき</title>
+<meta name="description" content="ローマ字で 打って つなを 引っぱる、2人たいせんの タイピングゲームです。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h1>タイピング つなひき</h1>
+
+<!-- ① なまえを いれる -->
+<section class="card" id="stepName">
+    <div class="readout" id="nameOut"><span class="placeholder">なまえを いれてね</span></div>
+    <div class="slot" id="hiraSlot"></div>
+    <div class="row">
+        <button class="btn go" id="nameNext" disabled>つぎへ</button>
+    </div>
+</section>
+
+<!-- ② つくる か はいる か -->
+<section class="card hidden" id="stepPick">
+    <div class="memberzone" style="align-items:center;justify-content:center">
+        <p class="sub" style="text-align:center"><b id="pickName"></b> さん、どちらに しますか？</p>
+        <div class="row">
+            <button class="btn" id="btnCreate">へやを つくる</button>
+            <button class="btn" id="btnJoin">へやに はいる</button>
+        </div>
+    </div>
+    <div class="row">
+        <button class="btn sub-btn" id="backToName">なまえを なおす</button>
+    </div>
+</section>
+
+<!-- ③ 4けたの へやばんごうを いれる -->
+<section class="card hidden" id="stepCode">
+    <p class="sub" style="text-align:center">へやの ばんごう（4けた）</p>
+    <div class="digits" id="digits"></div>
+    <div class="slot" id="numSlot"></div>
+    <div class="row">
+        <button class="btn go" id="codeGo" disabled>はいる</button>
+        <button class="btn sub-btn" id="backToPick">もどる</button>
+    </div>
+</section>
+
+<div class="notice wait hidden" id="notice"></div>
+
+<script type="module" src="home.js"></script>
+</body>
+</html>

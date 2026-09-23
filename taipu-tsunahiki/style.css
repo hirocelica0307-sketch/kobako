@@ -1,0 +1,390 @@
+/* タイピング つなひき ── 見ため
+   ------------------------------------------------------------------
+   だいじな きまり： **どの 画面でも スクロールしない**
+   画面の 高さを いっぱいに つかい、あまった ところに 合わせて
+   キーボードや 絵の 大きさが かわります。
+   ------------------------------------------------------------------ */
+
+:root{
+    --bg:        #fdf8f0;
+    --panel:     #ffffff;
+    --ink:       #33291f;
+    --ink-thin:  #8a7a68;
+    --line:      #e6d9c6;
+    --accent:    #f08a2c;
+    --accent-dk: #d4701a;
+    --go:        #46a83c;
+    --go-dk:     #3a8c32;
+    --tap:       #fff6e8;
+    --radius:    14px;
+    --gap:       8px;
+}
+
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+html{ height:100%; }
+
+body{
+    margin:0; height:100dvh; overflow:hidden;      /* ← ページは ぜったいに スクロールしません */
+    background:var(--bg); color:var(--ink);
+    font-family:"Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Zen Maru Gothic",
+                "Yu Gothic",sans-serif;
+    font-weight:700;
+    touch-action:manipulation;
+    -webkit-user-select:none; user-select:none;
+    display:flex; flex-direction:column; align-items:center;
+    padding:8px; gap:var(--gap);
+}
+
+h1{ margin:0; font-size:clamp(18px,3vw,28px); letter-spacing:.06em; flex:none; }
+.sub{ margin:0; color:var(--ink-thin); font-size:clamp(11px,1.6vw,15px); }
+.hidden{ display:none !important; }
+
+/* 画面の まんなかの 大きな はこ。ここが のびちぢみします */
+.card{
+    background:var(--panel); border:3px solid var(--line);
+    border-radius:var(--radius); padding:10px;
+    width:100%; max-width:1000px;
+    flex:1 1 auto; min-height:0;
+    display:flex; flex-direction:column; gap:6px;
+}
+
+/* ── ボタン ──────────────────────────────── */
+.btn{
+    font:inherit; font-size:clamp(15px,2.2vw,21px);
+    border:none; border-radius:var(--radius);
+    padding:10px 24px; min-height:48px; min-width:110px;
+    background:var(--accent); color:#fff; cursor:pointer;
+    box-shadow:0 4px 0 var(--accent-dk);
+    transition:transform .05s, box-shadow .05s;
+    flex:none;
+}
+.btn.go{ background:var(--go); box-shadow:0 4px 0 var(--go-dk); }
+.btn.sub-btn{
+    background:var(--panel); color:var(--ink);
+    border:3px solid var(--line); box-shadow:none;
+    min-height:42px; min-width:0; font-size:clamp(13px,1.8vw,17px); padding:8px 16px;
+}
+.btn:active{ transform:translateY(4px); box-shadow:none; }
+.btn:disabled{ opacity:.4; cursor:default; transform:none; box-shadow:none; }
+
+.row{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; align-items:center; flex:none; }
+
+/* ── 入れた ものを 見せる ところ ───────────────── */
+/* 高さを「min-height」ではなく「height」で 固定します。
+   こうしないと、1文字目を 入れた とたんに 高さが かわり、
+   下の キーボードが すこし ずれて しまいます。 */
+.readout{
+    display:flex; align-items:center; justify-content:center;
+    height:56px; line-height:1; overflow:hidden; flex:none;
+    border-bottom:4px dashed var(--line);
+    font-size:clamp(22px,4.4vw,40px); letter-spacing:.14em;
+}
+.readout .placeholder{ color:var(--line); letter-spacing:.06em; font-size:.5em; }
+
+.digits{ display:flex; gap:8px; justify-content:center; flex:none; }
+.digit{
+    width:clamp(40px,8vw,64px); height:clamp(52px,10vw,82px);
+    border:3px solid var(--line); border-radius:12px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:clamp(26px,5vw,46px); background:var(--tap);
+}
+.digit.filled{ border-color:var(--accent); background:#fff; }
+
+/* ── キーボード ───────────────────────────────
+   あまった たての 場所に あわせて キーの 大きさが かわります。
+   だから どんな 画面でも はみ出しません。 */
+/* min-width:0 が ないと、中の キーボードより 小さく なれず、
+   一度 はみ出すと 元に もどれません（flex の きまり）。 */
+.padbox{ flex:1 1 auto; min-height:0; min-width:0; display:flex; flex-direction:column; gap:6px; }
+
+.keypad{ display:grid; gap:5px; }
+/* ます目の 数だけ きめます。大きさは keypad.js が はかって つけます。 */
+.keypad.hira{
+    grid-template-columns:repeat(10,minmax(0,1fr));
+    grid-template-rows:repeat(5,minmax(0,1fr));
+    margin:0 auto; align-self:center; flex:0 0 auto;
+}
+.keypad.num{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-template-rows:repeat(4,minmax(0,1fr));
+    margin:0 auto; align-self:center; flex:0 0 auto;
+}
+.padbox{ align-items:center; justify-content:center; }
+
+.key{
+    font:inherit; border:2px solid var(--line); border-radius:10px;
+    background:var(--panel); color:var(--ink); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:0;
+    font-size:clamp(15px,2.6vw,24px); min-width:0; min-height:0;
+}
+.keypad.num .key{ font-size:clamp(20px,4vw,34px); }
+.key:active{ background:var(--tap); transform:translateY(2px); }
+.key.blank{ visibility:hidden; }
+.key.mark{ background:var(--tap); }
+.key.wide{ min-height:54px; min-width:70px; padding:0 14px; font-size:clamp(13px,1.9vw,19px); }
+
+/* 下の ボタンは 5つで はばを 分けあいます（折りかえさない ため）*/
+.keyrow{ display:flex; gap:5px; justify-content:center; flex-wrap:nowrap; flex:none; margin:0 auto; }
+.keyrow .key.wide{ flex:1 1 0; min-width:0; padding:0 2px; font-size:clamp(10px,1.35vw,15px); white-space:nowrap; }
+
+/* ── しらせ ───────────────────────────────── */
+.notice{
+    border-radius:var(--radius); padding:8px 14px; text-align:center; flex:none;
+    font-size:clamp(12px,1.9vw,16px);
+}
+.notice.wait{ background:#fff4e0; color:var(--accent-dk); }
+.notice.bad { background:#ffe8e4; color:#b3402f; }
+
+/* ── 上の 帯 ─────────────────────────────── */
+.topbar{
+    width:100%; max-width:1300px; flex:none;
+    display:flex; align-items:center; gap:10px;
+    background:var(--panel); border:3px solid var(--line);
+    border-radius:var(--radius); padding:6px 10px;
+}
+.roomcode{ display:flex; align-items:baseline; gap:8px; flex:none; }
+.roomcode b{ font-size:clamp(22px,3.6vw,34px); letter-spacing:.14em; color:var(--accent-dk); }
+
+.members{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+.topbar .members{ flex:1 1 200px; justify-content:flex-start; overflow:hidden; }
+.member{
+    display:flex; align-items:center; gap:6px;
+    border:2px solid var(--line); border-radius:999px;
+    padding:4px 12px; background:var(--panel);
+    font-size:clamp(12px,1.8vw,17px); white-space:nowrap;
+}
+.member .dot{ width:13px; height:13px; border-radius:50%; flex:none; }
+.member.me{ border-color:var(--accent); background:var(--tap); }
+.member.off{ opacity:.45; }
+.member .tag{ font-size:.72em; color:var(--ink-thin); }
+.members.big{ gap:8px; }
+.members.big .member{ padding:6px 14px; font-size:clamp(14px,2.2vw,20px); border-width:3px; }
+.members.big .member .dot{ width:16px; height:16px; }
+.count{ text-align:center; color:var(--ink-thin); font-size:clamp(11px,1.7vw,15px); margin:0; flex:none; }
+
+/* ── あつまる画面 ─────────────────────────── */
+.memberzone{ flex:1 1 auto; min-height:0; overflow:auto; display:flex; flex-direction:column; gap:6px; }
+.settings{ flex:none; display:flex; flex-direction:column; gap:6px; }
+.setrow{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:center;
+    border-top:2px dashed var(--line); padding-top:6px;
+}
+.setlabel{ color:var(--ink-thin); font-size:clamp(11px,1.7vw,15px); min-width:7em; text-align:right; }
+
+.levels{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+.level{
+    font:inherit; cursor:pointer; padding:6px 14px; min-height:46px;
+    border:3px solid var(--line); border-radius:var(--radius);
+    background:var(--panel); color:var(--ink);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+}
+.level b{ font-size:clamp(13px,2vw,18px); }
+.level span{ font-size:clamp(10px,1.4vw,13px); color:var(--ink-thin); }
+.level.on{ border-color:var(--accent); background:var(--tap); }
+
+/* ── 数を えらぶ ボタン ────────────────────── */
+.stepper{ display:flex; align-items:center; gap:6px; }
+.stepbtn{
+    font:inherit; font-size:clamp(12px,1.8vw,16px);
+    min-width:54px; min-height:46px; padding:0 8px;
+    border:3px solid var(--line); border-radius:12px;
+    background:var(--panel); color:var(--ink); cursor:pointer;
+}
+.stepbtn:active{ background:var(--tap); transform:translateY(2px); }
+.stepbtn:disabled{ opacity:.35; cursor:default; transform:none; }
+.stepval{
+    min-width:5.2em; text-align:center; background:var(--tap);
+    border-radius:12px; padding:4px 8px;
+}
+.stepval b{ font-size:clamp(22px,3.4vw,32px); color:var(--accent-dk); }
+.stepval span{ font-size:clamp(11px,1.6vw,15px); color:var(--ink-thin); margin-left:2px; }
+
+/* キーボードを 入れる ところ（あまった 場所を ぜんぶ つかいます）*/
+.slot{ flex:1 1 auto; min-height:0; min-width:0; display:flex; overflow:hidden; }
+.slot > .padbox{ flex:1 1 auto; min-height:0; min-width:0; }
+.topbar .members{ flex-wrap:nowrap; }
+
+/* ── ひらがなキーボードの 色わけ ───────────────────
+   よこの ならび（あ行・か行・さ行 …）ごとに うすく 色を かえます。
+   ぜんぶ 同じ色だと 目が すべって 文字を さがしにくく なるためです。
+   文字の 色は 変えず、うしろだけ うすく 染めるので 読みやすさは そのままです。 */
+.key.g0{ background:#fff1f0; border-color:#f3d3cf; }   /* あ行 */
+.key.g1{ background:#fff4e6; border-color:#f2d9bb; }   /* か行 */
+.key.g2{ background:#fffce2; border-color:#eee4b4; }   /* さ行 */
+.key.g3{ background:#f1faea; border-color:#cfe6c2; }   /* た行 */
+.key.g4{ background:#e8f7f3; border-color:#bfe0d8; }   /* な行 */
+.key.g5{ background:#eaf3fd; border-color:#c4d9f0; }   /* は行 */
+.key.g6{ background:#f1eefc; border-color:#d4cdee; }   /* ま行 */
+.key.g7{ background:#fdeef7; border-color:#eecde0; }   /* や行 */
+.key.g8{ background:#f8f2e6; border-color:#e3d7bf; }   /* ら行 */
+.key.g9{ background:#eef1f4; border-color:#d2d9df; }   /* わ行 */
+.key[class*="g"]:active{ filter:brightness(.93); }
+
+/* しるしを 上に、ことばを 下に */
+.key.wide{ flex-direction:column; gap:1px; line-height:1.05; padding:4px 2px; }
+.key.wide .glyph{ width:1.7em; height:1.7em; flex:none; display:block; }
+.key.wide .label{ font-size:.82em; }
+.key.mark .glyph{ color:var(--accent-dk); }
+
+/* 上の帯で 名まえが 入りきらない ときは、右はしを うすく して
+   「まだ つづきが ある」ことが わかるように します */
+.topbar .members{
+    position:relative;
+    -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent 100%);
+    mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent 100%);
+}
+
+
+/* ══ ここから タイピング つなひき だけの 見ため ══════════════ */
+
+/* ── あつまる画面 ─────────────────────────── */
+.lobbymsg{
+    flex:none; display:flex; flex-direction:column; align-items:center; gap:2px;
+    padding:10px; border-radius:var(--radius); background:var(--tap); text-align:center;
+}
+.lobbymsg b{ font-size:clamp(18px,3vw,28px); color:var(--accent-dk); }
+/* あいてを さがしている あいだは、ゆっくり ひかって「うごいている」ことを しめします */
+.lobbymsg.searching b{ animation:breathe 1.6s ease-in-out infinite; }
+@keyframes breathe{ 50%{ opacity:.45; } }
+.rulebox{ margin:0; text-align:center; font-size:clamp(12px,1.8vw,16px); color:var(--ink); flex:none; }
+.member.busy{ border-style:dashed; }
+
+/* ぬしが 見る たいせんの ようす */
+.watchbox{ flex:0 1 auto; min-height:0; display:flex; flex-direction:column; gap:4px; overflow:hidden; }
+.matchgrid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:6px;
+    overflow:auto; min-height:0;
+}
+.matchcard{
+    border:2px solid var(--line); border-radius:10px; padding:6px 10px;
+    display:flex; flex-direction:column; gap:4px; font-size:clamp(12px,1.6vw,15px);
+}
+.matchcard.done{ background:#f6f1e8; }
+.mc-names{ display:flex; justify-content:space-between; gap:6px; white-space:nowrap; }
+.mc-names span{ display:flex; align-items:center; gap:4px; overflow:hidden; }
+.mc-names i{ width:11px; height:11px; border-radius:50%; flex:none; display:inline-block; }
+.mc-bar{ position:relative; height:10px; border-radius:5px; background:#eadfca; }
+.mc-bar::after{ content:''; position:absolute; left:50%; top:-3px; bottom:-3px; width:2px; background:#b8a27e; }
+.mc-bar b{
+    position:absolute; top:-2px; width:14px; height:14px; margin-left:-7px;
+    border-radius:50%; background:#e8503a; transition:left .3s;
+}
+.mc-st{ text-align:center; color:var(--ink-thin); font-size:.9em; }
+
+/* ── たいせん画面 ─────────────────────────── */
+.game{
+    position:relative; width:100%; max-width:1300px;
+    flex:1 1 auto; min-height:0;
+    display:flex; flex-direction:column; gap:var(--gap);
+}
+.field{
+    flex:0 1 34%; min-height:120px;
+    display:flex; align-items:center; gap:6px;
+    background:var(--panel); border:3px solid var(--line); border-radius:var(--radius);
+    padding:4px 10px; overflow:hidden;
+}
+.field svg{ flex:1 1 0; width:0; min-width:0; height:100%; display:block; }
+#ropeG{ transition:transform .18s ease-out; }
+.side-name{
+    flex:0 0 7.5em; display:flex; flex-direction:column; align-items:center; gap:2px; text-align:center;
+    font-size:clamp(13px,1.9vw,18px); overflow:hidden;
+}
+.side-name b{ max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.side-name .dot{ width:18px; height:18px; border-radius:50%; }
+.side-name .kana{ font-size:clamp(18px,2.8vw,26px); color:var(--accent-dk); }
+
+.gamerow{ flex:1 1 auto; min-height:0; display:flex; gap:var(--gap); }
+.mine,.foe{
+    background:var(--panel); border:3px solid var(--line); border-radius:var(--radius);
+    padding:10px; min-width:0; min-height:0; display:flex; flex-direction:column; gap:6px;
+}
+.mine{ flex:2.2 1 0; }
+.foe { flex:1 1 0; text-align:center; background:#fbfaf7; }
+
+.statusbar{
+    display:flex; justify-content:space-between; align-items:center; gap:8px; flex:none;
+    border-bottom:3px solid var(--line); padding-bottom:6px;
+    font-size:clamp(13px,2vw,19px); white-space:nowrap; overflow:hidden;
+}
+#leadLabel.ahead { color:var(--go-dk); }
+#leadLabel.behind{ color:#b3402f; }
+.timer{ font-size:clamp(14px,2.2vw,21px); color:var(--ink); }
+.timer.hurry{ color:#b3402f; }
+
+/* 打つ ことば。打ちおわった ところは うすく、のこりは こく 出します */
+.wordbox{
+    flex:1 1 auto; min-height:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:4px; overflow:hidden;
+}
+.word{ white-space:nowrap; line-height:1.15; letter-spacing:.06em; font-size:64px; }
+.word .done{ color:#cbbfae; }
+.word .rest{ color:var(--ink); }
+.roma{
+    white-space:nowrap; font-family:ui-monospace,"Menlo","Consolas",monospace; font-size:34px;
+    letter-spacing:.04em; line-height:1.2;
+}
+.roma .typed{ color:var(--go); }
+.roma .guide{ color:#b7aa97; }
+.roma.noguide .guide{ visibility:hidden; }
+.next{ margin:0; flex:none; text-align:center; color:var(--ink-thin); font-size:clamp(13px,1.9vw,18px); }
+
+/* まちがえた とき、ことばが すこし ゆれます */
+.word.shake{ animation:shake .22s; }
+@keyframes shake{
+    20%{ transform:translateX(-6px); color:#b3402f; }
+    60%{ transform:translateX(5px); }
+}
+
+/* あいての ようす */
+.foeword{ white-space:nowrap; font-size:34px; letter-spacing:.05em; flex:none; }
+.foeword .done{ color:var(--go); }
+.foeword .rest{ color:#b7aa97; }
+.foebuf{
+    flex:none; font-family:ui-monospace,"Menlo","Consolas",monospace; font-size:clamp(16px,2.4vw,24px);
+    color:var(--accent-dk); min-height:1.3em;
+}
+.foe .sub{ flex:none; }
+.foe .count{ margin-top:auto; }
+
+/* 3・2・1 と けっかは 画面の まんなかに かさねます */
+.countdown,.resultbox{
+    position:absolute; inset:0; z-index:5;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+    background:rgba(253,248,240,.9); border-radius:var(--radius);
+}
+.countdown b{ font-size:clamp(70px,16vw,150px); color:var(--accent-dk); line-height:1; }
+.countdown .sub{ font-size:clamp(14px,2.2vw,20px); }
+.resultbox h2{ margin:0; font-size:clamp(40px,8vw,76px); color:var(--accent-dk); }
+.resultbox h2.win{ color:var(--go-dk); }
+.resultbox h2.lose{ color:#6b7c8f; }
+.resultbox .sub{ font-size:clamp(14px,2.2vw,20px); }
+.stats{ border-collapse:collapse; font-size:clamp(14px,2.2vw,20px); }
+.stats th,.stats td{ padding:5px 16px; border-bottom:2px solid var(--line); text-align:center; }
+.stats thead th{ color:var(--ink-thin); font-size:.85em; }
+.stats tbody th{ text-align:right; color:var(--ink-thin); font-size:.85em; }
+.stats td{ font-size:1.15em; }
+
+.btn.muted{ opacity:.5; text-decoration:line-through; }
+
+/* 日本語入力が オンの ときの しらせは、上に 出しっぱなしに します */
+#imeWarn{ position:fixed; top:8px; left:50%; transform:translateX(-50%); z-index:10; max-width:92vw; }
+
+/* たいせん中は 上の帯を うすく して、ことばに 目が いくように */
+body.ingame .topbar{ opacity:.75; }
+
+/* ── せの ひくい 画面 ───────────────────────── */
+@media (max-height:720px){
+    .field{ flex-basis:30%; }
+    .mine,.foe{ padding:8px; }
+    .statusbar{ padding-bottom:4px; }
+}
+@media (max-width:760px){
+    .gamerow{ flex-direction:column; }
+    .foe{ flex:0 0 auto; }
+    .side-name{ flex-basis:5em; }
+}
+
+/* ぬしの たいせん中の 画面：人の ならびは 上に 小さく、たいせんの ようすを 大きく */
+#lobby.hostopen .memberzone{ flex:0 1 auto; max-height:34%; }
+#lobby.hostopen .watchbox{ flex:1 1 auto; }

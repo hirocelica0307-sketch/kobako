@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>たいせん｜タイピング つなひき</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="play">
+
+<div class="topbar">
+    <div class="roomcode"><span class="sub">へや</span><b id="code">----</b></div>
+    <div class="members" id="members"></div>
+    <button class="btn sub-btn" id="soundBtn" title="おとを 入れる／切る">おと</button>
+    <button class="btn sub-btn" id="leave">でる</button>
+</div>
+
+<!-- ① あつまる・あいてを まつ -->
+<section class="card" id="lobby">
+    <div class="lobbymsg" id="lobbyMsg">
+        <b id="lobbyTitle">つないでいます…</b>
+        <span class="sub" id="lobbySub"></span>
+    </div>
+
+    <div class="memberzone">
+        <div class="members big" id="membersBig"></div>
+        <p class="count" id="count"></p>
+        <p class="rulebox" id="ruleLine"></p>
+    </div>
+
+    <!-- ぬし（先生）だけに 出す -->
+    <div class="settings hidden" id="settings">
+        <div class="setrow">
+            <span class="setlabel">むずかしさ</span>
+            <div class="levels" id="levels"></div>
+        </div>
+        <div class="setrow">
+            <span class="setlabel">1かいの じかん</span>
+            <div id="secSlot"></div>
+        </div>
+        <div class="setrow">
+            <span class="setlabel">かつための さ</span>
+            <div id="goalSlot"></div>
+        </div>
+        <div class="setrow">
+            <span class="setlabel">ローマ字の おてほん</span>
+            <div class="levels" id="guides"></div>
+        </div>
+        <div class="setrow">
+            <span class="setlabel">あなた（ぬし）は</span>
+            <div class="levels" id="hostRoles"></div>
+        </div>
+    </div>
+
+    <!-- ぬしが 見る「みんなの たいせん」 -->
+    <div class="watchbox hidden" id="watchBox">
+        <p class="sub">たいせんの ようす</p>
+        <div class="matchgrid" id="matchGrid"></div>
+    </div>
+
+    <div class="row">
+        <button class="btn go hidden" id="start">はじめる</button>
+        <button class="btn sub-btn hidden" id="stop">あたらしい 組を とめる</button>
+        <button class="btn sub-btn hidden" id="rest">やすむ</button>
+        <button class="btn go hidden" id="join">たいせんに でる</button>
+    </div>
+</section>
+
+<!-- ② たいせん -->
+<div class="game hidden" id="game">
+    <div class="field">
+        <div class="side-name"><span class="dot" id="meDot"></span><b id="meName">あなた</b><span class="kana" id="meCount">0もじ</span></div>
+        <svg id="rope" viewBox="0 0 1000 200" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <rect x="0" y="160" width="1000" height="40" fill="#e9dcc3"/>
+            <line id="winMe"  x1="330" y1="30" x2="330" y2="190" stroke-width="6" stroke-dasharray="10 8"/>
+            <line id="winFoe" x1="670" y1="30" x2="670" y2="190" stroke-width="6" stroke-dasharray="10 8"/>
+            <text id="winMeText"  x="330" y="24" text-anchor="middle" font-size="22" font-weight="700">かち</text>
+            <text id="winFoeText" x="670" y="24" text-anchor="middle" font-size="22" font-weight="700">かち</text>
+            <line x1="500" y1="120" x2="500" y2="200" stroke="#b8a27e" stroke-width="4"/>
+            <g id="ropeG">
+                <line x1="180" y1="110" x2="820" y2="110" stroke="#a2743f" stroke-width="12" stroke-linecap="round"/>
+                <line x1="180" y1="110" x2="820" y2="110" stroke="#c99a5b" stroke-width="4" stroke-dasharray="14 10"/>
+                <path d="M500 110 L486 150 L514 150 Z" fill="#e8503a"/>
+                <rect x="494" y="96" width="12" height="28" rx="3" fill="#e8503a"/>
+                <!-- ひだりの 人（じぶん）-->
+                <g transform="translate(200 0) rotate(-12 0 150)">
+                    <circle id="meHead" cx="0" cy="62" r="20"/>
+                    <line id="meBody" x1="0" y1="82" x2="0" y2="140" stroke-width="12" stroke-linecap="round"/>
+                    <line x1="0" y1="100" x2="34" y2="110" stroke="#33291f" stroke-width="7" stroke-linecap="round"/>
+                    <line x1="0" y1="140" x2="-18" y2="175" stroke="#33291f" stroke-width="8" stroke-linecap="round"/>
+                    <line x1="0" y1="140" x2="16" y2="175" stroke="#33291f" stroke-width="8" stroke-linecap="round"/>
+                </g>
+                <!-- みぎの 人（あいて）-->
+                <g transform="translate(800 0) rotate(12 0 150)">
+                    <circle id="foeHead" cx="0" cy="62" r="20"/>
+                    <line id="foeBody" x1="0" y1="82" x2="0" y2="140" stroke-width="12" stroke-linecap="round"/>
+                    <line x1="0" y1="100" x2="-34" y2="110" stroke="#33291f" stroke-width="7" stroke-linecap="round"/>
+                    <line x1="0" y1="140" x2="-16" y2="175" stroke="#33291f" stroke-width="8" stroke-linecap="round"/>
+                    <line x1="0" y1="140" x2="18" y2="175" stroke="#33291f" stroke-width="8" stroke-linecap="round"/>
+                </g>
+            </g>
+        </svg>
+        <div class="side-name"><span class="dot" id="foeDot"></span><b id="foeName">あいて</b><span class="kana" id="foeCount">0もじ</span></div>
+    </div>
+
+    <div class="gamerow">
+        <div class="mine" id="mine">
+            <div class="statusbar">
+                <span id="leadLabel">－</span>
+                <span class="timer" id="timer">－</span>
+            </div>
+            <div class="wordbox">
+                <div class="word" id="word"><span class="done" id="wordDone"></span><span class="rest" id="wordRest"></span></div>
+                <div class="roma" id="roma"><span class="typed" id="romaTyped"></span><span class="guide" id="romaGuide"></span></div>
+            </div>
+            <p class="next" id="nextWord"></p>
+        </div>
+
+        <div class="foe" id="foePanel">
+            <p class="sub">あいての ようす</p>
+            <div class="foeword" id="foeWord"><span class="done" id="foeDone"></span><span class="rest" id="foeRest"></span></div>
+            <div class="foebuf" id="foeBuf">&nbsp;</div>
+            <p class="count" id="foeMiss"></p>
+        </div>
+    </div>
+
+    <div class="countdown hidden" id="countdown">
+        <span class="sub" id="cdVs"></span>
+        <b id="cdNum">3</b>
+        <span class="sub">キーボードに ゆびを おいてね</span>
+    </div>
+
+    <div class="resultbox hidden" id="resultBox">
+        <h2 id="resTitle">－</h2>
+        <p class="sub" id="resWhy"></p>
+        <table class="stats">
+            <thead><tr><th></th><th id="resMe">あなた</th><th id="resFoe">あいて</th></tr></thead>
+            <tbody>
+                <tr><th>打った もじ</th><td id="resN1"></td><td id="resN2"></td></tr>
+                <tr><th>1ぷんで</th><td id="resS1"></td><td id="resS2"></td></tr>
+                <tr><th>まちがい</th><td id="resM1"></td><td id="resM2"></td></tr>
+            </tbody>
+        </table>
+        <div class="row">
+            <button class="btn go" id="nextBtn">つぎの たいせんへ</button>
+            <button class="btn sub-btn" id="restBtn">やすむ</button>
+        </div>
+    </div>
+</div>
+
+<div class="notice bad hidden" id="imeWarn">
+    日本語入力が オンに なっています。キーボードの「英数」キーを おしてから 打ってね
+</div>
+<div class="notice wait" id="notice">つないでいます…</div>
+
+<script type="module" src="room.js"></script>
+</body>
+</html>
