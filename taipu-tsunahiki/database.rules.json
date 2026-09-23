@@ -1,0 +1,29 @@
+{
+  "rules": {
+    "rooms": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "$code.matches(/^[0-9]{4}$/)"
+      }
+    },
+    "tsunahiki": {
+      "lobby": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      },
+      "matches": {
+        "$mid": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      },
+      "prog": {
+        "$mid": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    }
+  }
+}
