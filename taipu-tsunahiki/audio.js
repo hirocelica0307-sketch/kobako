@@ -9,6 +9,8 @@
      切っても、子どもの 端末には ひびきません）。
    ・30台が いっせいに 鳴るので、キーを おすたびの 音は 出しません。
      ことばを 1つ 打ちおわった とき・まちがえた とき だけ、小さく 鳴らします。
+   ・「じゃんけん ぽん」の 声は、ブラウザの 読みあげ（speechSynthesis）で 出します。
+     日本語の 声が ない 端末では、声の かわりに 「ポン」の 音だけ 鳴ります。
    ------------------------------------------------------------------ */
 
 const KEY = 'tt_sound';
@@ -16,6 +18,9 @@ let ctx = null;
 let on = true;
 
 try { on = localStorage.getItem(KEY) !== '0'; } catch (e) {}
+
+/* 読みあげの 声の リストは あとから とどくので、さきに よびだして おきます */
+try { if (window.speechSynthesis) window.speechSynthesis.getVoices(); } catch (e) {}
 
 function wake() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return ctx; }
@@ -89,6 +94,26 @@ export const sound = {
 
     /** まけ（しずみすぎない 音）*/
     lose() { play(() => { note(659, 0, 0.16); note(587, 0.14, 0.16); note(523, 0.28, 0.3); }); },
+
+    /** じゃんけんの 手を 出した しゅんかん */
+    pon() { play(() => { note(784, 0, 0.08, 'square', 0.08); note(1175, 0.06, 0.18, 'triangle', 0.14); }); },
+
+    /** 声で 言います（じゃんけん ぽん・かち など）*/
+    speak(text) {
+        if (!on) return;
+        try {
+            const ss = window.speechSynthesis;
+            if (!ss) return;
+            ss.cancel();
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'ja-JP';
+            u.rate = 1.15;
+            u.pitch = 1.2;
+            const v = ss.getVoices().find(x => /^ja/i.test(x.lang));
+            if (v) u.voice = v;
+            ss.speak(u);
+        } catch (e) {}
+    },
 
     /** ひきわけ */
     draw() { play(() => { note(659, 0, 0.16); note(659, 0.16, 0.26); }); }

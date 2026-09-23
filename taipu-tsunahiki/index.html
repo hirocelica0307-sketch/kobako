@@ -4,49 +4,240 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>タイピング つなひき</title>
-<meta name="description" content="ローマ字で 打って つなを 引っぱる、2人たいせんの タイピングゲームです。">
+<meta name="description" content="ローマ字で 打って つなを 引っぱる、うんどうかいの タイピングゲームです。">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<h1>タイピング つなひき</h1>
+<!-- 万国旗（app.js が 作ります）-->
+<svg class="bunting" id="bunting" viewBox="0 0 1000 60" preserveAspectRatio="none" aria-hidden="true"></svg>
 
-<!-- ① なまえを いれる -->
-<section class="card" id="stepName">
-    <div class="readout" id="nameOut"><span class="placeholder">なまえを いれてね</span></div>
+<button class="soundbtn" id="soundBtn" title="おとを 入れる／切る">🔊</button>
+
+<main id="app">
+
+<!-- ① タイトル -->
+<section class="screen" id="sTitle">
+    <div class="banner"><span>タイピング うんどうかい</span></div>
+    <h1 class="logo">
+        <span class="logo-sub">あかぐみ・しろぐみ たいこうせん！</span>
+        <span class="logo-main">タイピング<b>つなひき</b></span>
+    </h1>
+    <svg class="title-art" viewBox="0 0 600 150" aria-hidden="true">
+        <rect x="0" y="120" width="600" height="30" rx="6" fill="#e2b877"/>
+        <line x1="300" y1="100" x2="300" y2="150" stroke="#fff" stroke-width="5"/>
+        <line x1="95" y1="84" x2="505" y2="84" stroke="#a2743f" stroke-width="9" stroke-linecap="round"/>
+        <path d="M300 84 L290 112 L310 112 Z" fill="#e53935"/>
+        <g transform="translate(110 0) rotate(-14 0 120)">
+            <circle cx="0" cy="40" r="15" fill="#ffd8b0"/><rect x="-16" y="30" width="32" height="7" rx="3" fill="#e53935"/>
+            <line x1="0" y1="55" x2="0" y2="98" stroke="#e53935" stroke-width="13" stroke-linecap="round"/>
+            <line x1="0" y1="70" x2="26" y2="82" stroke="#ffd8b0" stroke-width="7" stroke-linecap="round"/>
+            <line x1="0" y1="98" x2="-14" y2="124" stroke="#33415c" stroke-width="8" stroke-linecap="round"/>
+            <line x1="0" y1="98" x2="13" y2="124" stroke="#33415c" stroke-width="8" stroke-linecap="round"/>
+        </g>
+        <g transform="translate(170 0) rotate(-14 0 120)">
+            <circle cx="0" cy="40" r="15" fill="#ffd8b0"/><rect x="-16" y="30" width="32" height="7" rx="3" fill="#e53935"/>
+            <line x1="0" y1="55" x2="0" y2="98" stroke="#e53935" stroke-width="13" stroke-linecap="round"/>
+            <line x1="0" y1="70" x2="26" y2="82" stroke="#ffd8b0" stroke-width="7" stroke-linecap="round"/>
+            <line x1="0" y1="98" x2="-14" y2="124" stroke="#33415c" stroke-width="8" stroke-linecap="round"/>
+            <line x1="0" y1="98" x2="13" y2="124" stroke="#33415c" stroke-width="8" stroke-linecap="round"/>
+        </g>
+        <g transform="translate(430 0) rotate(14 0 120)">
+            <circle cx="0" cy="40" r="15" fill="#ffd8b0"/><rect x="-16" y="30" width="32" height="7" rx="3" fill="#fff" stroke="#33415c" stroke-width="1.5"/>
+            <line x1="0" y1="55" x2="0" y2="98" stroke="#33415c" stroke-width="15" stroke-linecap="round"/>
+            <line x1="0" y1="55" x2="0" y2="98" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+            <line x1="0" y1="70" x2="-26" y2="82" stroke="#ffd8b0" stroke-width="7" stroke-linecap="round"/>
+            <line x1="0" y1="98" x2="-13" y2="124" stroke="#33415c" stroke-width="8" stroke-linecap="round"/>
+            <line x1="0" y1="98" x2="14" y2="124" stroke="#33415c" stroke-width="8" stroke-linecap="round"/>
+        </g>
+        <g transform="translate(490 0) rotate(14 0 120)">
+            <circle cx="0" cy="40" r="15" fill="#ffd8b0"/><rect x="-16" y="30" width="32" height="7" rx="3" fill="#fff" stroke="#33415c" stroke-width="1.5"/>
+            <line x1="0" y1="55" x2="0" y2="98" stroke="#33415c" stroke-width="15" stroke-linecap="round"/>
+            <line x1="0" y1="55" x2="0" y2="98" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+            <line x1="0" y1="70" x2="-26" y2="82" stroke="#ffd8b0" stroke-width="7" stroke-linecap="round"/>
+            <line x1="0" y1="98" x2="-13" y2="124" stroke="#33415c" stroke-width="8" stroke-linecap="round"/>
+            <line x1="0" y1="98" x2="14" y2="124" stroke="#33415c" stroke-width="8" stroke-linecap="round"/>
+        </g>
+    </svg>
+    <div class="namebar">
+        <span>なまえ</span><b id="tName">－</b>
+        <button class="btn small" id="tNameEdit">かえる</button>
+    </div>
+    <div class="bigbtns">
+        <button class="bigbtn red" id="btnFind">
+            <b>たいせん あいてを さがす</b><small>だれかと 2人で しょうぶ</small>
+        </button>
+        <button class="bigbtn white" id="btnCpu">
+            <b>コンピューターと たいせん</b><small>ひとりで れんしゅう</small>
+        </button>
+    </div>
+    <p class="record" id="tRecord"></p>
+</section>
+
+<!-- ② なまえ -->
+<section class="screen hidden" id="sName">
+    <h2 class="head">なまえを いれてね</h2>
+    <div class="readout" id="nameOut"><span class="placeholder">なまえ</span></div>
     <div class="slot" id="hiraSlot"></div>
     <div class="row">
-        <button class="btn go" id="nameNext" disabled>つぎへ</button>
+        <button class="btn go" id="nameOk" disabled>けってい</button>
+        <button class="btn" id="nameBack">もどる</button>
     </div>
 </section>
 
-<!-- ② つくる か はいる か -->
-<section class="card hidden" id="stepPick">
-    <div class="memberzone" style="align-items:center;justify-content:center">
-        <p class="sub" style="text-align:center"><b id="pickName"></b> さん、どちらに しますか？</p>
-        <div class="row">
-            <button class="btn" id="btnCreate">へやを つくる</button>
-            <button class="btn" id="btnJoin">へやに はいる</button>
+<!-- ③ あいてを さがす -->
+<section class="screen hidden" id="sSearch">
+    <h2 class="head searching" id="searchTitle">あいてを さがしています…</h2>
+    <div class="track"><div class="runner">🏃</div></div>
+    <p class="sub" id="searchSub">だれかが「たいせん あいてを さがす」を おすと はじまるよ</p>
+    <div class="row">
+        <button class="btn white" id="searchCpu">コンピューターと たいせん</button>
+        <button class="btn" id="searchCancel">やめる</button>
+    </div>
+</section>
+
+<!-- ④ むずかしさを えらぶ（あいて・コンピューター どちらも）-->
+<section class="screen hidden" id="sLevel">
+    <div class="vs" id="lvVs">
+        <span class="team red"><i></i><b id="lvMe">－</b></span>
+        <span class="vsmark">VS</span>
+        <span class="team white"><i></i><b id="lvFoe">－</b></span>
+    </div>
+    <h2 class="head" id="lvTitle">どの むずかしさで たいせん したい？</h2>
+    <p class="sub" id="lvHint">2人が えらんだら じゃんけん！ かった 人の むずかしさで たいせん するよ</p>
+    <div class="levels5" id="levels5"></div>
+    <p class="status" id="lvStatus"></p>
+    <div class="row">
+        <button class="btn" id="lvBack">やめる</button>
+    </div>
+</section>
+
+<!-- ⑤ じゃんけん -->
+<section class="screen hidden" id="sJanken">
+    <h2 class="jk-call" id="jkCall">じゃんけん…</h2>
+    <div class="jk-row">
+        <div class="jk-side red">
+            <div class="jk-hand" id="jkMe">✊</div>
+            <b id="jkMeName">－</b><span id="jkMeLv"></span>
+        </div>
+        <div class="vsmark">VS</div>
+        <div class="jk-side white">
+            <div class="jk-hand" id="jkFoe">✊</div>
+            <b id="jkFoeName">－</b><span id="jkFoeLv"></span>
         </div>
     </div>
-    <div class="row">
-        <button class="btn sub-btn" id="backToName">なまえを なおす</button>
+    <p class="jk-result" id="jkResult">&nbsp;</p>
+</section>
+
+<!-- ⑥ たいせん -->
+<section class="screen hidden" id="sGame">
+    <header class="gbar">
+        <div class="team red"><i></i><b id="gMe">－</b><span class="kana" id="gMeN">0もじ</span></div>
+        <div class="gmid"><span id="gLevel">－</span><b class="timer" id="gTimer">－</b></div>
+        <div class="team white"><span class="kana" id="gFoeN">0もじ</span><b id="gFoe">－</b><i></i></div>
+    </header>
+
+    <div class="field">
+        <svg id="rope" viewBox="0 0 1000 200" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <rect x="0" y="150" width="1000" height="50" fill="#e2b877"/>
+            <rect x="0" y="150" width="1000" height="4" fill="#fff" opacity=".7"/>
+            <line x1="330" y1="46" x2="330" y2="176" stroke="#e53935" stroke-width="6" stroke-dasharray="10 8"/>
+            <line x1="670" y1="46" x2="670" y2="176" stroke="#33415c" stroke-width="6" stroke-dasharray="10 8"/>
+            <text x="330" y="195" text-anchor="middle" font-size="18" font-weight="700" fill="#e53935">ゴール</text>
+            <text x="670" y="195" text-anchor="middle" font-size="18" font-weight="700" fill="#33415c">ゴール</text>
+            <line x1="500" y1="118" x2="500" y2="200" stroke="#fff" stroke-width="6"/>
+            <g id="ropeG">
+                <line x1="160" y1="100" x2="840" y2="100" stroke="#a2743f" stroke-width="13" stroke-linecap="round"/>
+                <line x1="160" y1="100" x2="840" y2="100" stroke="#c99a5b" stroke-width="4" stroke-dasharray="14 10"/>
+                <path d="M500 100 L487 140 L513 140 Z" fill="#e53935"/>
+                <rect x="494" y="86" width="12" height="28" rx="3" fill="#e53935"/>
+                <g id="redTeam">
+                    <g transform="translate(250 0) rotate(-14 0 150)" class="puller">
+                        <circle cx="0" cy="52" r="18" fill="#ffd8b0"/><rect x="-19" y="41" width="38" height="8" rx="3" fill="#e53935"/>
+                        <line x1="0" y1="70" x2="0" y2="125" stroke="#e53935" stroke-width="15" stroke-linecap="round"/>
+                        <line x1="0" y1="86" x2="34" y2="99" stroke="#ffd8b0" stroke-width="8" stroke-linecap="round"/>
+                        <line x1="0" y1="125" x2="-17" y2="158" stroke="#33415c" stroke-width="9" stroke-linecap="round"/>
+                        <line x1="0" y1="125" x2="15" y2="158" stroke="#33415c" stroke-width="9" stroke-linecap="round"/>
+                    </g>
+                    <g transform="translate(190 0) rotate(-14 0 150)" class="puller">
+                        <circle cx="0" cy="52" r="18" fill="#ffd8b0"/><rect x="-19" y="41" width="38" height="8" rx="3" fill="#e53935"/>
+                        <line x1="0" y1="70" x2="0" y2="125" stroke="#e53935" stroke-width="15" stroke-linecap="round"/>
+                        <line x1="0" y1="86" x2="34" y2="99" stroke="#ffd8b0" stroke-width="8" stroke-linecap="round"/>
+                        <line x1="0" y1="125" x2="-17" y2="158" stroke="#33415c" stroke-width="9" stroke-linecap="round"/>
+                        <line x1="0" y1="125" x2="15" y2="158" stroke="#33415c" stroke-width="9" stroke-linecap="round"/>
+                    </g>
+                </g>
+                <g id="whiteTeam">
+                    <g transform="translate(750 0) rotate(14 0 150)" class="puller">
+                        <circle cx="0" cy="52" r="18" fill="#ffd8b0"/><rect x="-19" y="41" width="38" height="8" rx="3" fill="#fff" stroke="#33415c" stroke-width="2"/>
+                        <line x1="0" y1="70" x2="0" y2="125" stroke="#33415c" stroke-width="17" stroke-linecap="round"/>
+                        <line x1="0" y1="70" x2="0" y2="125" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
+                        <line x1="0" y1="86" x2="-34" y2="99" stroke="#ffd8b0" stroke-width="8" stroke-linecap="round"/>
+                        <line x1="0" y1="125" x2="-15" y2="158" stroke="#33415c" stroke-width="9" stroke-linecap="round"/>
+                        <line x1="0" y1="125" x2="17" y2="158" stroke="#33415c" stroke-width="9" stroke-linecap="round"/>
+                    </g>
+                    <g transform="translate(810 0) rotate(14 0 150)" class="puller">
+                        <circle cx="0" cy="52" r="18" fill="#ffd8b0"/><rect x="-19" y="41" width="38" height="8" rx="3" fill="#fff" stroke="#33415c" stroke-width="2"/>
+                        <line x1="0" y1="70" x2="0" y2="125" stroke="#33415c" stroke-width="17" stroke-linecap="round"/>
+                        <line x1="0" y1="70" x2="0" y2="125" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
+                        <line x1="0" y1="86" x2="-34" y2="99" stroke="#ffd8b0" stroke-width="8" stroke-linecap="round"/>
+                        <line x1="0" y1="125" x2="-15" y2="158" stroke="#33415c" stroke-width="9" stroke-linecap="round"/>
+                        <line x1="0" y1="125" x2="17" y2="158" stroke="#33415c" stroke-width="9" stroke-linecap="round"/>
+                    </g>
+                </g>
+            </g>
+        </svg>
+        <div class="cheer" id="cheer"></div>
+    </div>
+
+    <div class="gmain">
+        <div class="mine">
+            <div class="word" id="word"><span class="done" id="wordDone"></span><span class="rest" id="wordRest"></span></div>
+            <div class="roma" id="roma"><span class="typed" id="romaTyped"></span><span class="nextch" id="romaNext"></span><span class="guide" id="romaGuide"></span></div>
+            <p class="next" id="nextWord"></p>
+        </div>
+        <div class="foe">
+            <p class="foe-title"><i></i>あいての ようす</p>
+            <div class="foeword" id="foeWord"><span class="done" id="foeDone"></span><span class="rest" id="foeRest"></span></div>
+            <div class="foebuf" id="foeBuf">&nbsp;</div>
+            <p class="foe-miss" id="foeMiss"></p>
+        </div>
+    </div>
+
+    <div class="kbdarea">
+        <div class="kbdbox" id="kbdBox"></div>
+        <p class="fingerhint" id="fingerHint">&nbsp;</p>
+    </div>
+
+    <div class="overlay hidden" id="countdown">
+        <span class="cd-vs" id="cdVs"></span>
+        <b id="cdNum">3</b>
+        <span class="cd-sub">ホームポジションに ゆびを おいてね（F と J に ぽっち）</span>
+    </div>
+
+    <div class="overlay hidden" id="resultBox">
+        <div class="medal" id="resMedal">🏅</div>
+        <h2 id="resTitle">－</h2>
+        <p class="sub" id="resWhy"></p>
+        <table class="stats">
+            <thead><tr><th></th><th class="red" id="resMe">あなた</th><th class="white" id="resFoe">あいて</th></tr></thead>
+            <tbody>
+                <tr><th>打った もじ</th><td id="resN1"></td><td id="resN2"></td></tr>
+                <tr><th>1ぷんで</th><td id="resS1"></td><td id="resS2"></td></tr>
+                <tr><th>まちがい</th><td id="resM1"></td><td id="resM2"></td></tr>
+            </tbody>
+        </table>
+        <div class="row" id="resButtons"></div>
     </div>
 </section>
 
-<!-- ③ 4けたの へやばんごうを いれる -->
-<section class="card hidden" id="stepCode">
-    <p class="sub" style="text-align:center">へやの ばんごう（4けた）</p>
-    <div class="digits" id="digits"></div>
-    <div class="slot" id="numSlot"></div>
-    <div class="row">
-        <button class="btn go" id="codeGo" disabled>はいる</button>
-        <button class="btn sub-btn" id="backToPick">もどる</button>
-    </div>
-</section>
+</main>
 
-<div class="notice wait hidden" id="notice"></div>
+<div class="imewarn hidden" id="imeWarn">
+    日本語入力が オンに なっています。キーボードの「英数」キーを おしてから 打ってね
+</div>
+<div class="notice hidden" id="notice"></div>
 
-<script type="module" src="home.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>

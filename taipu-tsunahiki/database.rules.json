@@ -7,11 +7,22 @@
         ".validate": "$code.matches(/^[0-9]{4}$/)"
       }
     },
-    "tsuna": {
-      "$code": {
+    "tsunahiki": {
+      "lobby": {
         ".read": "auth != null",
-        ".write": "auth != null",
-        ".validate": "$code.matches(/^[0-9]{4}$/)"
+        ".write": "auth != null"
+      },
+      "matches": {
+        "$mid": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      },
+      "prog": {
+        "$mid": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
       }
     }
   }
