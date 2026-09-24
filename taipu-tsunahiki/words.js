@@ -14,14 +14,26 @@
    ・同じ ことばを 2回 入れない
    ------------------------------------------------------------------ */
 
-/* cpu … コンピューターが 1ぷんに 打つ かなの 数（その レベルの めやす）*/
 export const LEVELS = [
-    { n: 1, label: 'はじめて',   note: '2〜3もじ',         who: 'ローマ字 はじめたて', cpu: 12 },
-    { n: 2, label: 'やさしい',   note: '3〜4もじ',         who: '1・2年生くらい',      cpu: 20 },
-    { n: 3, label: 'ふつう',     note: 'ちいさい じ あり', who: '3・4年生くらい',      cpu: 30 },
-    { n: 4, label: 'むずかしい', note: '6〜9もじ',         who: '5年生くらい',         cpu: 42 },
-    { n: 5, label: 'そつぎょう', note: 'ことわざ・ぶん',   who: '6年生・そつぎょう',   cpu: 58 }
+    { n: 1, label: 'はじめて',   note: '2〜3もじ',         who: 'ローマ字 はじめたて' },
+    { n: 2, label: 'やさしい',   note: '3〜4もじ',         who: '1・2年生くらい' },
+    { n: 3, label: 'ふつう',     note: 'ちいさい じ あり', who: '3・4年生くらい' },
+    { n: 4, label: 'むずかしい', note: '6〜9もじ',         who: '5年生くらい' },
+    { n: 5, label: 'そつぎょう', note: 'ことわざ・ぶん',   who: '6年生・そつぎょう' }
 ];
+
+/* コンピューターの つよさ（10だんかい）
+   perMin … 1ぷんに 打つ かなの 数。12 から 5もじずつ はやく なります（12・17・22 … 57）
+   words  … つかう ことばの むずかしさ（2レベルごとに 1つ 上がります）
+   miss   … まちがえる わりあい（つよいほど すくない）*/
+export const CPU_LEVELS = Array.from({ length: 10 }, (_, i) => ({
+    n: i + 1,
+    perMin: 12 + 5 * i,
+    words: Math.floor(i / 2) + 1,
+    miss: +(0.09 - 0.006 * i).toFixed(3),
+    icon: ['🐢', '🐢', '🐤', '🐤', '🐕', '🐕', '🐎', '🐎', '🚀', '🚀'][i]
+}));
+export const cpuLevelOf = n => CPU_LEVELS.find(l => l.n === Number(n)) || CPU_LEVELS[0];
 
 export const levelOf = n => LEVELS.find(l => l.n === Number(n)) || LEVELS[0];
 

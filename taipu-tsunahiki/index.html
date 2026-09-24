@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>タイピング つなひき</title>
 <meta name="description" content="ローマ字で 打って つなを 引っぱる、うんどうかいの タイピングゲームです。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=M+PLUS+Rounded+1c:wght@500;800&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,7 +15,10 @@
 <!-- 万国旗（app.js が 作ります）-->
 <svg class="bunting" id="bunting" viewBox="0 0 1000 60" preserveAspectRatio="none" aria-hidden="true"></svg>
 
-<button class="soundbtn" id="soundBtn" title="おとを 入れる／切る">🔊</button>
+<div class="topbtns">
+    <button class="soundbtn" id="musicBtn" title="おんがくを 入れる／切る">🎵</button>
+    <button class="soundbtn" id="soundBtn" title="こうかおんを 入れる／切る">🔊</button>
+</div>
 
 <main id="app">
 
@@ -137,58 +143,7 @@
         <div class="team white"><span class="kana" id="gFoeN">0もじ</span><b id="gFoe">－</b><i></i></div>
     </header>
 
-    <div class="field">
-        <svg id="rope" viewBox="0 0 1000 200" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-            <rect x="0" y="150" width="1000" height="50" fill="#e2b877"/>
-            <rect x="0" y="150" width="1000" height="4" fill="#fff" opacity=".7"/>
-            <line x1="330" y1="46" x2="330" y2="176" stroke="#e53935" stroke-width="6" stroke-dasharray="10 8"/>
-            <line x1="670" y1="46" x2="670" y2="176" stroke="#33415c" stroke-width="6" stroke-dasharray="10 8"/>
-            <text x="330" y="195" text-anchor="middle" font-size="18" font-weight="700" fill="#e53935">ゴール</text>
-            <text x="670" y="195" text-anchor="middle" font-size="18" font-weight="700" fill="#33415c">ゴール</text>
-            <line x1="500" y1="118" x2="500" y2="200" stroke="#fff" stroke-width="6"/>
-            <g id="ropeG">
-                <line x1="160" y1="100" x2="840" y2="100" stroke="#a2743f" stroke-width="13" stroke-linecap="round"/>
-                <line x1="160" y1="100" x2="840" y2="100" stroke="#c99a5b" stroke-width="4" stroke-dasharray="14 10"/>
-                <path d="M500 100 L487 140 L513 140 Z" fill="#e53935"/>
-                <rect x="494" y="86" width="12" height="28" rx="3" fill="#e53935"/>
-                <g id="redTeam">
-                    <g transform="translate(250 0) rotate(-14 0 150)" class="puller">
-                        <circle cx="0" cy="52" r="18" fill="#ffd8b0"/><rect x="-19" y="41" width="38" height="8" rx="3" fill="#e53935"/>
-                        <line x1="0" y1="70" x2="0" y2="125" stroke="#e53935" stroke-width="15" stroke-linecap="round"/>
-                        <line x1="0" y1="86" x2="34" y2="99" stroke="#ffd8b0" stroke-width="8" stroke-linecap="round"/>
-                        <line x1="0" y1="125" x2="-17" y2="158" stroke="#33415c" stroke-width="9" stroke-linecap="round"/>
-                        <line x1="0" y1="125" x2="15" y2="158" stroke="#33415c" stroke-width="9" stroke-linecap="round"/>
-                    </g>
-                    <g transform="translate(190 0) rotate(-14 0 150)" class="puller">
-                        <circle cx="0" cy="52" r="18" fill="#ffd8b0"/><rect x="-19" y="41" width="38" height="8" rx="3" fill="#e53935"/>
-                        <line x1="0" y1="70" x2="0" y2="125" stroke="#e53935" stroke-width="15" stroke-linecap="round"/>
-                        <line x1="0" y1="86" x2="34" y2="99" stroke="#ffd8b0" stroke-width="8" stroke-linecap="round"/>
-                        <line x1="0" y1="125" x2="-17" y2="158" stroke="#33415c" stroke-width="9" stroke-linecap="round"/>
-                        <line x1="0" y1="125" x2="15" y2="158" stroke="#33415c" stroke-width="9" stroke-linecap="round"/>
-                    </g>
-                </g>
-                <g id="whiteTeam">
-                    <g transform="translate(750 0) rotate(14 0 150)" class="puller">
-                        <circle cx="0" cy="52" r="18" fill="#ffd8b0"/><rect x="-19" y="41" width="38" height="8" rx="3" fill="#fff" stroke="#33415c" stroke-width="2"/>
-                        <line x1="0" y1="70" x2="0" y2="125" stroke="#33415c" stroke-width="17" stroke-linecap="round"/>
-                        <line x1="0" y1="70" x2="0" y2="125" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
-                        <line x1="0" y1="86" x2="-34" y2="99" stroke="#ffd8b0" stroke-width="8" stroke-linecap="round"/>
-                        <line x1="0" y1="125" x2="-15" y2="158" stroke="#33415c" stroke-width="9" stroke-linecap="round"/>
-                        <line x1="0" y1="125" x2="17" y2="158" stroke="#33415c" stroke-width="9" stroke-linecap="round"/>
-                    </g>
-                    <g transform="translate(810 0) rotate(14 0 150)" class="puller">
-                        <circle cx="0" cy="52" r="18" fill="#ffd8b0"/><rect x="-19" y="41" width="38" height="8" rx="3" fill="#fff" stroke="#33415c" stroke-width="2"/>
-                        <line x1="0" y1="70" x2="0" y2="125" stroke="#33415c" stroke-width="17" stroke-linecap="round"/>
-                        <line x1="0" y1="70" x2="0" y2="125" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
-                        <line x1="0" y1="86" x2="-34" y2="99" stroke="#ffd8b0" stroke-width="8" stroke-linecap="round"/>
-                        <line x1="0" y1="125" x2="-15" y2="158" stroke="#33415c" stroke-width="9" stroke-linecap="round"/>
-                        <line x1="0" y1="125" x2="17" y2="158" stroke="#33415c" stroke-width="9" stroke-linecap="round"/>
-                    </g>
-                </g>
-            </g>
-        </svg>
-        <div class="cheer" id="cheer"></div>
-    </div>
+    <div class="field" id="field"></div>
 
     <div class="gmain">
         <div class="mine">
@@ -196,10 +151,11 @@
             <div class="roma" id="roma"><span class="typed" id="romaTyped"></span><span class="nextch" id="romaNext"></span><span class="guide" id="romaGuide"></span></div>
             <p class="next" id="nextWord"></p>
         </div>
-        <div class="foe">
-            <p class="foe-title"><i></i>あいての ようす</p>
-            <div class="foeword" id="foeWord"><span class="done" id="foeDone"></span><span class="rest" id="foeRest"></span></div>
-            <div class="foebuf" id="foeBuf">&nbsp;</div>
+        <div class="foe" id="foePanel">
+            <p class="foe-title"><i></i><b id="foeName2">あいて</b> が 打っている ことば</p>
+            <div class="foeword" id="foeWord"></div>
+            <div class="foeroma" id="foeRoma"><span class="ft" id="foeTyped"></span><span class="fn" id="foeNext"></span><span class="fg" id="foeGuide"></span></div>
+            <div class="foebar"><i id="foeBar"></i></div>
             <p class="foe-miss" id="foeMiss"></p>
         </div>
     </div>

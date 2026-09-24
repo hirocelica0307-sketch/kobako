@@ -118,3 +118,116 @@ export const sound = {
     /** ひきわけ */
     draw() { play(() => { note(659, 0, 0.16); note(659, 0.16, 0.26); }); }
 };
+
+/* ── 音楽（うんどうかいの 定番「天国と地獄」）─────────────────
+   オッフェンバック（1880年に なくなった 人）の 曲なので、作曲の 著作権は きれています。
+   ろくおんした 音は つかわず、ここに 書いた 音ぷを その場で 鳴らします。
+   ・たいせんが はじまったら 流し、のこり 10びょうで はやく します
+   ・🎵 ボタンで その 端末だけ 止められます（こうかおんの 🔊 とは べつ）
+   ------------------------------------------------------------------ */
+const MUSIC_KEY = 'tt_music';
+let musicOn = true;
+try { musicOn = localStorage.getItem(MUSIC_KEY) !== '0'; } catch (e) {}
+
+/* 8ぶん音ぷ 1つずつ。「.」は まえの 音を のばす */
+const PHRASE_A = 'C4 . C4 D4 F4 E4 D4 G4 . G4 . G4 A4 E4 F4 D4 . D4 . D4 F4 E4 D4 C4 C5 B4 A4 G4 F4 E4 D4 .';
+const PHRASE_B = 'C4 . C4 D4 F4 E4 D4 G4 . G4 . G4 A4 E4 F4 D4 . D4 . D4 F4 E4 D4 C4 G4 D4 E4 C4 . . .';
+/* 4つ（2はく）ごとの ベースの 音（ド＝C、ソ＝G）*/
+const BASS_A = ['C', 'C', 'C', 'C', 'G', 'G', 'C', 'G'];
+const BASS_B = ['C', 'C', 'C', 'C', 'G', 'G', 'C', 'C'];
+const SEMI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const freq = name => {
+    const m = /^([A-G])(\d)$/.exec(name);
+    return 440 * Math.pow(2, (SEMI[m[1]] + (Number(m[2]) + 1) * 12 - 69) / 12);
+};
+const SONG = [];
+for (const [ph, bass] of [[PHRASE_A, BASS_A], [PHRASE_B, BASS_B]]) {
+    ph.split(/\s+/).forEach((tok, i) => {
+        const root = bass[Math.floor(i / 4)];
+        SONG.push({ note: tok === '.' ? null : tok, bass: (i % 2 === 0 ? root + '2' : (root === 'C' ? 'G2' : 'D3')) });
+    });
+}
+const EIGHTH = 0.2;          // 8ぶん音ぷの ながさ（びょう）
+
+let mGain = null, mTimer = null, mStep = 0, mNext = 0, mSpeed = 1, noiseBuf = null;
+
+function voice(c, f, t, dur, type, vol, dest) {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type;
+    o.frequency.value = f;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(dest);
+    o.start(t);
+    o.stop(t + dur + 0.03);
+}
+function hat(c, t, vol, dest) {
+    if (!noiseBuf) {
+        noiseBuf = c.createBuffer(1, c.sampleRate * 0.05, c.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const s = c.createBufferSource(), g = c.createGain(), hp = c.createBiquadFilter();
+    s.buffer = noiseBuf;
+    hp.type = 'highpass'; hp.frequency.value = 6000;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+    s.connect(hp).connect(g).connect(dest);
+    s.start(t);
+}
+
+/* すこし さきまで 音を よやくして おく（ずれない ように）*/
+function schedule() {
+    const c = ctx;
+    if (!c || !mGain) return;
+    const step = EIGHTH / mSpeed;
+    while (mNext < c.currentTime + 0.15) {
+        const s = SONG[mStep % SONG.length];
+        /* メロディは のばす 音も ふくめた 長さで 鳴らします */
+        if (s.note) {
+            let len = 1;
+            while (!SONG[(mStep + len) % SONG.length].note && len < 4) len++;
+            voice(c, freq(s.note), mNext, step * len * 0.95, 'square', 0.05, mGain);
+            voice(c, freq(s.note) * 2, mNext, step * 0.6, 'triangle', 0.025, mGain);
+        }
+        voice(c, freq(s.bass), mNext, step * 0.8, 'triangle', 0.11, mGain);
+        hat(c, mNext, mStep % 2 ? 0.05 : 0.02, mGain);
+        mNext += step;
+        mStep++;
+    }
+}
+
+export const music = {
+    isOn: () => musicOn,
+    toggle() {
+        musicOn = !musicOn;
+        try { localStorage.setItem(MUSIC_KEY, musicOn ? '1' : '0'); } catch (e) {}
+        if (!musicOn) music.stop();
+        return musicOn;
+    },
+    /** 流します（speed … 1 が ふつう。1.25 で はやく）。もう 流れていれば はやさだけ かえます */
+    play(speed = 1) {
+        mSpeed = speed;
+        if (!musicOn || mTimer) return;
+        const c = wake();
+        if (!c) return;
+        mGain = c.createGain();
+        mGain.gain.value = 0.7;
+        mGain.connect(c.destination);
+        mStep = 0;
+        mNext = c.currentTime + 0.05;
+        schedule();
+        mTimer = setInterval(schedule, 40);
+    },
+    stop() {
+        clearInterval(mTimer);
+        mTimer = null;
+        if (mGain && ctx) {
+            const g = mGain;
+            try { g.gain.setTargetAtTime(0, ctx.currentTime, 0.08); } catch (e) {}
+            setTimeout(() => { try { g.disconnect(); } catch (e) {} }, 500);
+        }
+        mGain = null;
+    }
+};
