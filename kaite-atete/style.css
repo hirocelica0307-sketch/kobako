@@ -18,7 +18,11 @@
     --tap:       #fff6e8;
     --radius:    14px;
     --gap:       8px;
+    /* ポップな 文字（Google Fonts）。よみこめない ときは まるい 文字に なります */
+    --pop:  "Mochiy Pop One","M PLUS Rounded 1c","Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN",sans-serif;
+    --round:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Zen Maru Gothic","Yu Gothic",sans-serif;
 }
+
 
 *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
@@ -27,9 +31,8 @@ html{ height:100%; }
 body{
     margin:0; height:100dvh; overflow:hidden;      /* ← ページは ぜったいに スクロールしません */
     background:var(--bg); color:var(--ink);
-    font-family:"Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Zen Maru Gothic",
-                "Yu Gothic",sans-serif;
-    font-weight:700;
+    font-family:var(--round);
+    font-weight:800;
     touch-action:manipulation;
     -webkit-user-select:none; user-select:none;
     display:flex; flex-direction:column; align-items:center;
@@ -37,6 +40,27 @@ body{
 }
 
 h1{ margin:0; font-size:clamp(18px,3vw,28px); letter-spacing:.06em; flex:none; }
+
+/* はじめの 画面の 大きな なまえ。1文字ずつ 色を かえて、白い ふちどりを つけます */
+h1.logo{
+    display:flex; align-items:center; gap:.04em;
+    font-size:clamp(30px,6.4vh,58px); letter-spacing:0; line-height:1.1;
+}
+h1.logo i{ width:.4em; }
+h1.logo span{
+    display:inline-block; color:#fff;
+    -webkit-text-stroke:.09em var(--c); paint-order:stroke fill;
+    text-shadow:0 .08em 0 var(--c);
+    animation:bob 2.4s ease-in-out infinite;
+}
+h1.logo span:nth-of-type(1){ --c:#f0624d; transform:rotate(-6deg); animation-delay:0s;  }
+h1.logo span:nth-of-type(2){ --c:#f5a524; transform:rotate(4deg);  animation-delay:.15s; }
+h1.logo span:nth-of-type(3){ --c:#46a83c; transform:rotate(-3deg); animation-delay:.3s;  }
+h1.logo span:nth-of-type(4){ --c:#2f9bd6; transform:rotate(5deg);  animation-delay:.45s; }
+h1.logo span:nth-of-type(5){ --c:#8a63d2; transform:rotate(-5deg); animation-delay:.6s;  }
+h1.logo span:nth-of-type(6){ --c:#e0569b; transform:rotate(3deg);  animation-delay:.75s; }
+@keyframes bob{ 0%,100%{ translate:0 0; } 50%{ translate:0 -.08em; } }
+@media (prefers-reduced-motion:reduce){ h1.logo span{ animation:none; } }
 .sub{ margin:0; color:var(--ink-thin); font-size:clamp(11px,1.6vw,15px); }
 .hidden{ display:none !important; }
 
@@ -394,4 +418,14 @@ body.paused .board-wrap::after{
     display:flex; align-items:center; justify-content:center;
     background:rgba(253,248,240,.82); color:var(--accent-dk);
     font-size:clamp(20px,4vw,38px); letter-spacing:.1em;
+}
+
+/* ── ポップな 文字 ─────────────────────────────
+   見出し・ボタン・キー・こたえ などに つかいます。
+   .btn や .key の「font:inherit」に 上書き されないよう、いちばん 下に 書きます。
+   （Mochiy Pop One は ふとさが 1つだけ なので 400 に します）*/
+h1,.btn,.key,.readout,.digit,.roomcode b,.member,.level b,.stepval b,
+.timer,#turnLabel,.odaiword,.judge,.resulttitle,.rankrow,.watchrow .nm,
+body.paused .board-wrap::after{
+    font-family:var(--pop); font-weight:400;
 }
