@@ -264,7 +264,8 @@ export function armRound(conn, code, hash, seconds, near, hint) {
     const now = Date.now();
     return fb.update(fb.ref(db, `rooms/${code}/round`), {
         hash, startedAt: now, endsAt: now + seconds * 1000,
-        near: near || null, hint: hint || null, reacts: null, misses: null
+        near: near || null, hint: hint || null, reacts: null, misses: null,
+        answered: null        /* おだいを かえた ときは、まえの ことばの せいかいを のこしません */
     });
 }
 
@@ -413,10 +414,6 @@ export async function loadGallery(conn, code) {
     const { db, fb } = conn;
     const snap = await fb.get(fb.ref(db, `rooms/${code}/gallery`));
     return snap.val() || {};
-}
-export async function hasGallery(conn, code, key) {
-    const { db, fb } = conn;
-    return (await fb.get(fb.ref(db, `rooms/${code}/gallery/${key}`))).exists();
 }
 
 /* ── おえかき でんごん ─────────────────────────

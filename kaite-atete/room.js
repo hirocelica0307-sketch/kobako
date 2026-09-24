@@ -8,7 +8,7 @@ import { connect, watchMembers, enterRoom, leaveRoom, myMemberId, readStore, wri
          startGame, watchGame, setTurn, watchScores, addScores,
          updateRound, updateGame, bumpMiss,
          addTeamScore, watchTeamScores,
-         sendReact, saveGallery, loadGallery, hasGallery,
+         sendReact, saveGallery, loadGallery,
          setTelWords, getTel, submitTel, watchTelDone, loadTel } from './firebase.js';
 import { createBoard, ERASER, RAINBOW } from './board.js';
 import { createHiraganaKeypad } from './keypad.js';
@@ -287,7 +287,7 @@ function render() {
     $('again').classList.toggle('hidden', !result || !isHost);
     $('againMsg').classList.toggle('hidden', !result || isHost);
 
-    if (playing && isTel()) { renderTel(); if (result) renderResult(); return; }
+    if (playing && isTel()) { renderTel(); return; }
     $('telImg').classList.add('hidden');
     $('telDoneRow').classList.add('hidden');
     $('drawerHead').textContent = 'あなたが かく ばんです';
@@ -297,7 +297,7 @@ function render() {
     const drawer = playing && amDrawer();
     const answerer = playing && !drawer && !admin && canAnswer();
     /* チームせんで あいての チームの ばん／あとから 来た 人は 見て おうえん */
-    const watcher = playing && !drawer && !admin && !answerer;
+    const watcher = playing && !!round && !drawer && !admin && !answerer;
     const done = !!(round && round.done);
 
     $('drawerPanel').classList.toggle('hidden', !drawer);
@@ -801,8 +801,10 @@ function telTick() {
 
     /* ぬし：ぜんいん できたか、時間が すぎたら つぎの だんへ */
     if (isHost && !advancing) {
+        /* はなれて いる 人は まちません（その 人の ぶんは telAdvance が うめます）*/
         const doneNow = telDone[s] || {};
-        const all = game.order.every(id => doneNow[id]);
+        const here = game.order.filter(id => onlineIds().includes(id));
+        const all = here.length > 0 && here.every(id => doneNow[id]);
         const late = Date.now() > (game.stepEndsAt || 0) + STUCK_END_MS;
         if (all || late) telAdvance();
     }
@@ -1156,12 +1158,21 @@ function onRound(r) {
                 resultTab = 'rank'; galleryData = null; telData = null;
                 loadResultData();
             }
-            if (phase !== 'result') resultPlayed = false;
-            if (phase !== 'playing') tel.step = -1;
+            if (phase !== 'result') { resultPlayed = false; $('viewer').classList.add('hidden'); }
+            if (phase !== 'playing') {
+                /* でんごんの とちゅうで おわった ときの じぶんだけの 絵を のこさない */
+                if (tel.step >= 0) { board.clearAll(); myStrokes.length = 0; }
+                tel.step = -1;
+            }
             render();
             if (phase === 'playing') requestAnimationFrame(() => board.refit());
         });
-        watchGame(c, code, g => { game = g; render(); armIfMine(); });
+        watchGame(c, code, g => {
+            game = g;
+            /* けっかの 画面で 読みこみ なおした とき、game が あとから とどく ことが あります */
+            if (phase === 'result' && (isTel() ? !telData : !galleryData)) loadResultData();
+            render(); armIfMine();
+        });
         watchTelDone(c, code, d => { telDone = d; render(); drawMembers(); });
         watchRound(c, code, onRound);
         watchScores(c, code, s => { scores = s; drawMembers(); render(); });
@@ -1176,13 +1187,17 @@ function onRound(r) {
 })();
 
 /* けっかで 見せる 絵を とりに いきます（大きいので、けっかに なった ときだけ）*/
+let resultLoading = false;
 async function loadResultData() {
-    if (!conn) return;
+    if (!conn || !game || resultLoading) return;      /* game が まだなら、とどいた ときに もう一度 よばれます */
+    resultLoading = true;
     try {
         if (isTel()) telData = await loadTel(conn, code);
         else galleryData = await loadGallery(conn, code);
     } catch (e) {
         galleryData = galleryData || {}; telData = telData || {};
+    } finally {
+        resultLoading = false;
     }
     render();
 }
