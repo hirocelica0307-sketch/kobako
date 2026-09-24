@@ -256,12 +256,15 @@ export function setupRound(conn, code, drawer, level) {
     });
 }
 
-/** かく人の タブが、えらんだ ことばの hash と 時間を 入れます。 */
-export function armRound(conn, code, hash, seconds) {
+/** かく人の タブが、えらんだ ことばの hash と 時間を 入れます。
+    near は「おしい」ことばの hash です（odai.js の nearHashes）。
+    ヒントは はじめ「○○○」（文字の 数）だけ 出します。 */
+export function armRound(conn, code, hash, seconds, near, hint) {
     const { db, fb } = conn;
     const now = Date.now();
     return fb.update(fb.ref(db, `rooms/${code}/round`), {
-        hash, startedAt: now, endsAt: now + seconds * 1000
+        hash, startedAt: now, endsAt: now + seconds * 1000,
+        near: near || null, hint: hint || null, reacts: null, misses: null
     });
 }
 
@@ -299,6 +302,11 @@ export async function startGame(conn, code, game) {
     await fb.set(fb.ref(db, `rooms/${code}/game`), {
         mode: game.mode,
         order: game.order,
+        admin: game.admin || null,        /* かんりする ぬし（あそぶ ときは なし）*/
+        teams: game.teams || null,        /* チームせん … { メンバーID: 'red'／'blue' } */
+        steps: game.steps || null,        /* でんごん … 何だん あそぶか */
+        step: game.mode === 'tel' ? 0 : null,
+        stepEndsAt: game.stepEndsAt || null,
         laps: game.laps || null,
         seconds: game.seconds,
         endsAt: game.endsAt || null,
@@ -306,6 +314,11 @@ export async function startGame(conn, code, game) {
         startedAt: Date.now()
     });
     await fb.remove(fb.ref(db, `rooms/${code}/scores`));
+    await fb.remove(fb.ref(db, `rooms/${code}/round`));      /* まえの ゲームの のこり */
+    await fb.remove(fb.ref(db, `rooms/${code}/teamScores`));
+    await fb.remove(fb.ref(db, `rooms/${code}/gallery`));
+    await fb.remove(fb.ref(db, `rooms/${code}/tel`));
+    await fb.remove(fb.ref(db, `rooms/${code}/telDone`));
 }
 
 /** ランダムの ときは、つぎの かく人を そのつど 入れかえます。 */
@@ -343,6 +356,16 @@ export async function addScores(conn, code, deltas) {
     return fb.set(ref, next);
 }
 
+/* チームせんの てんすう（teamScores/red・blue）*/
+export function addTeamScore(conn, code, team, add) {
+    const { db, fb } = conn;
+    return fb.runTransaction(fb.ref(db, `rooms/${code}/teamScores/${team}`), n => (n || 0) + add);
+}
+export function watchTeamScores(conn, code, cb) {
+    const { db, fb } = conn;
+    return fb.onValue(fb.ref(db, `rooms/${code}/teamScores`), snap => cb(snap.val() || {}));
+}
+
 /* ── ぬし（先生）の そうさ ──────────────────────
    ボタンは ぜんぶ ぬしが おします。ぬしは おだいの ことばを
    知らないので、「かえて」と たのむ しるしだけ おいて、
@@ -368,4 +391,59 @@ export function bumpMiss(conn, code, memberId) {
         fb.ref(db, `rooms/${code}/round/misses/${memberId}`),
         n => (n || 0) + 1
     );
+}
+
+/* ── リアクション ───────────────────────────────
+   絵を 見ている 人が 👍 などを おくります。みんなの 絵の 上に うかびます。
+   その かいの 中に ためるので、つぎの かいに なると 消えます。 */
+export function sendReact(conn, code, memberId, emoji) {
+    const { db, fb } = conn;
+    return Promise.resolve(fb.push(fb.ref(db, `rooms/${code}/round/reacts`), { by: memberId, e: emoji, at: Date.now() }));
+}
+
+/* ── ギャラリー ────────────────────────────────
+   1かい おわるごとに、ぬしの タブが 絵を 小さな 画像に して のこします。
+   けっか はっぴょうで みんなの 絵を ならべて 見せます。
+   gallery/{なんかいめ} … drawer（かいた人）／word（おだい）／img（画像）／reacts（{👍:3}）／team */
+export function saveGallery(conn, code, key, entry) {
+    const { db, fb } = conn;
+    return fb.set(fb.ref(db, `rooms/${code}/gallery/${key}`), entry);
+}
+export async function loadGallery(conn, code) {
+    const { db, fb } = conn;
+    const snap = await fb.get(fb.ref(db, `rooms/${code}/gallery`));
+    return snap.val() || {};
+}
+export async function hasGallery(conn, code, key) {
+    const { db, fb } = conn;
+    return (await fb.get(fb.ref(db, `rooms/${code}/gallery/${key}`))).exists();
+}
+
+/* ── おえかき でんごん ─────────────────────────
+   tel/{すじ}/word          … はじめの おだい
+   tel/{すじ}/steps/{だん}   … { by: かいた人, img: 絵 } か { by, text: ことば }
+   telDone/{だん}/{メンバーID} … できた しるし（小さいので、ぬしが これだけ 見はります）
+   画像は 大きいので、ひつような ものだけ get で とりに いきます。 */
+export function setTelWords(conn, code, words) {
+    const { db, fb } = conn;
+    const tel = {};
+    for (const [c, word] of Object.entries(words)) tel[c] = { word };
+    return fb.set(fb.ref(db, `rooms/${code}/tel`), tel);
+}
+export async function getTel(conn, code, path) {
+    const { db, fb } = conn;
+    return (await fb.get(fb.ref(db, `rooms/${code}/tel/${path}`))).val();
+}
+export async function submitTel(conn, code, chain, step, memberId, entry) {
+    const { db, fb } = conn;
+    await fb.set(fb.ref(db, `rooms/${code}/tel/${chain}/steps/${step}`), { by: memberId, ...entry });
+    await fb.set(fb.ref(db, `rooms/${code}/telDone/${step}/${memberId}`), true);
+}
+export function watchTelDone(conn, code, cb) {
+    const { db, fb } = conn;
+    return fb.onValue(fb.ref(db, `rooms/${code}/telDone`), snap => cb(snap.val() || {}));
+}
+export async function loadTel(conn, code) {
+    const { db, fb } = conn;
+    return (await fb.get(fb.ref(db, `rooms/${code}/tel`))).val() || {};
 }

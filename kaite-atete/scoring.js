@@ -28,3 +28,19 @@ export function scoreRound(answered, drawerId) {
     }
     return deltas;
 }
+
+/* ── チームせん ─────────────────────────────────
+   チームの 人数が ちがっても 不公平に ならない ように、
+   チームの てんすうは「あてた 人の わりあい」で つけます。
+     かいた人の チームの ぜんいんが あてた → 10てん、半分なら 5てん
+   （一人ひとりの てんすうは これまでと 同じ つけかたです）*/
+export const TEAMS = [
+    { key: 'red',  label: 'あかぐみ', color: '#e8503a' },
+    { key: 'blue', label: 'あおぐみ', color: '#3b86d4' }
+];
+export const TEAM_FULL = 10;
+
+/** この かいの チームの てんすう。answered 人 あてた ／ total 人 あてる はず */
+export function teamRoundPoints(answered, total) {
+    return total > 0 ? Math.round(TEAM_FULL * Math.min(answered, total) / total) : 0;
+}

@@ -6,11 +6,31 @@
 
    点は 0〜1000 の 整数で もちます。画面の 大きさが ちがっても
    同じ かたちに なります（たて よこの 比は 4:3 に そろえています）。
+
+   線の ほかに、こんな ものも「1本の 線」と 同じように やりとりします。
+     ・にじいろ … color が 'rainbow'。すすむ ほど 色が かわります
+     ・スタンプ … kind:'stamp'、shape は 'star'（ほし）か 'heart'（ハート）
+     ・バケツ   … kind:'fill'。おした ところと つながった 同じ色の ところを ぬります
    ------------------------------------------------------------------ */
 
 const UNIT = 1000;            // 点の めもり
 const MIN_GAP = 4;            // これより 近い点は 記録しない（むだな データを へらす）
 export const ERASER = '#ffffff';
+export const RAINBOW = 'rainbow';
+
+/** 色あい（0〜360）から「#rrggbb」を 作ります（にじいろの スタンプ・バケツ用）*/
+export function hueHex(h) {
+    const f = n => {
+        const k = (n + h / 30) % 12;
+        const c = 0.5 - 0.38 * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+        return Math.round(c * 255).toString(16).padStart(2, '0');
+    };
+    return '#' + f(0) + f(8) + f(4);
+}
+const hexRGB = hex => {
+    const n = parseInt(String(hex).slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
 
 /**
  * @param {object} opt
@@ -36,6 +56,7 @@ export function createBoard(opt) {
     let canDraw = true;
     let color = '#33291f';
     let width = 16;
+    let tool = 'pen';            // 'pen'（ペン）／'fill'（バケツ）／'star'・'heart'（スタンプ）
     let lastSent = 0;
     let redrawWanted = false;
 
@@ -91,6 +112,9 @@ export function createBoard(opt) {
     function paint(ctx, stroke) {
         const pts = stroke && stroke.pts;
         if (!pts || pts.length < 2) return;
+        if (stroke.kind === 'fill') { if (ctx === bctx) floodFill(stroke); return; }
+        if (stroke.kind === 'stamp') { paintStamp(ctx, stroke); return; }
+        if (stroke.color === RAINBOW) { paintRainbow(ctx, stroke); return; }
         const { w, h } = size();
         const lw = Math.max(1, (stroke.w || width) / UNIT * w);
         const X = i => pts[i] / UNIT * w;
@@ -112,6 +136,102 @@ export function createBoard(opt) {
         ctx.moveTo(X(0), Y(1));
         for (let i = 2; i < pts.length; i += 2) ctx.lineTo(X(i), Y(i + 1));
         ctx.stroke();
+    }
+
+    /* にじいろの 線。すこしずつ 色を かえながら つないで いきます */
+    function paintRainbow(ctx, stroke) {
+        const pts = stroke.pts;
+        const { w, h } = size();
+        const lw = Math.max(1, (stroke.w || width) / UNIT * w);
+        const X = i => pts[i] / UNIT * w;
+        const Y = i => pts[i] / UNIT * h;
+        ctx.lineWidth = lw;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        if (pts.length === 2) {
+            ctx.fillStyle = hueHex(0);
+            ctx.beginPath(); ctx.arc(X(0), Y(1), lw / 2, 0, Math.PI * 2); ctx.fill();
+            return;
+        }
+        for (let i = 2; i < pts.length; i += 2) {
+            ctx.strokeStyle = hueHex((i * 6) % 360);
+            ctx.beginPath();
+            ctx.moveTo(X(i - 2), Y(i - 1));
+            ctx.lineTo(X(i), Y(i + 1));
+            ctx.stroke();
+        }
+    }
+
+    /* スタンプ（ほし・ハート）。大きさは ペンの ふとさで かわります */
+    function paintStamp(ctx, stroke) {
+        const { w, h } = size();
+        const cx = stroke.pts[0] / UNIT * w, cy = stroke.pts[1] / UNIT * h;
+        const r = Math.max(6, (stroke.w || width) * 1.8 / UNIT * w);
+        ctx.fillStyle = stroke.color || '#000';
+        ctx.beginPath();
+        if (stroke.shape === 'heart') {
+            ctx.moveTo(cx, cy + r * 0.9);
+            ctx.bezierCurveTo(cx - r * 1.3, cy + r * 0.05, cx - r * 0.95, cy - r * 1.05, cx, cy - r * 0.45);
+            ctx.bezierCurveTo(cx + r * 0.95, cy - r * 1.05, cx + r * 1.3, cy + r * 0.05, cx, cy + r * 0.9);
+        } else {
+            for (let i = 0; i < 10; i++) {
+                const a = -Math.PI / 2 + i * Math.PI / 5;
+                const rr = i % 2 === 0 ? r : r * 0.45;
+                const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+        }
+        ctx.fill();
+    }
+
+    /* バケツ。おした ところと つながった「だいたい 同じ色」の ところを ぬります。
+       線の ふちは 色が うすく まざって いるので、ぬった あと 1ドット ひろげて
+       すきまが 白く のこらない ように します。
+       （画面の こまかさは 人ごとに ちがうので、ぬれる はんいは ほぼ 同じ に なります）*/
+    function floodFill(stroke) {
+        const W = base.width, H = base.height;
+        if (!W || !H) return;
+        const px = Math.min(W - 1, Math.max(0, Math.floor(stroke.pts[0] / UNIT * W)));
+        const py = Math.min(H - 1, Math.max(0, Math.floor(stroke.pts[1] / UNIT * H)));
+        const img = bctx.getImageData(0, 0, W, H);
+        const d = img.data;
+        /* すきとおった ところは 白（ばんの 地の 色）として あつかいます */
+        const rgb = i => {
+            const a = d[i + 3] / 255;
+            return [d[i] * a + 255 * (1 - a), d[i + 1] * a + 255 * (1 - a), d[i + 2] * a + 255 * (1 - a)];
+        };
+        const [tr, tg, tb] = rgb((py * W + px) * 4);
+        const [fr, fg, fb] = hexRGB(stroke.color || '#000');
+        if (Math.abs(tr - fr) + Math.abs(tg - fg) + Math.abs(tb - fb) < 12) return;   // もう その色
+        const TOL = 90;
+        const same = p => {
+            const [r, g, b] = rgb(p * 4);
+            return Math.abs(r - tr) + Math.abs(g - tg) + Math.abs(b - tb) <= TOL;
+        };
+        const mask = new Uint8Array(W * H);
+        const stack = [py * W + px];
+        mask[py * W + px] = 1;
+        while (stack.length) {
+            const p = stack.pop();
+            const x = p % W;
+            if (x > 0 && !mask[p - 1] && same(p - 1)) { mask[p - 1] = 1; stack.push(p - 1); }
+            if (x < W - 1 && !mask[p + 1] && same(p + 1)) { mask[p + 1] = 1; stack.push(p + 1); }
+            if (p >= W && !mask[p - W] && same(p - W)) { mask[p - W] = 1; stack.push(p - W); }
+            if (p < W * (H - 1) && !mask[p + W] && same(p + W)) { mask[p + W] = 1; stack.push(p + W); }
+        }
+        const paintAt = p => { const i = p * 4; d[i] = fr; d[i + 1] = fg; d[i + 2] = fb; d[i + 3] = 255; };
+        for (let p = 0; p < W * H; p++) {
+            if (mask[p] === 1) {
+                paintAt(p);
+                const x = p % W;
+                if (x > 0 && !mask[p - 1]) { mask[p - 1] = 2; paintAt(p - 1); }
+                if (x < W - 1 && !mask[p + 1]) { mask[p + 1] = 2; paintAt(p + 1); }
+                if (p >= W && !mask[p - W]) { mask[p - W] = 2; paintAt(p - W); }
+                if (p < W * (H - 1) && !mask[p + W]) { mask[p + W] = 2; paintAt(p + W); }
+            }
+        }
+        bctx.putImageData(img, 0, 0);
     }
 
     function clearCtx(ctx, canvas) {
@@ -166,6 +286,14 @@ export function createBoard(opt) {
         /* 端末に よっては 捕そくに 失敗します。できなくても かけるので 止めません */
         try { overlay.setPointerCapture(e.pointerId); } catch (err) {}
         const [x, y] = posOf(e);
+        /* バケツ・スタンプは おした しゅんかんに できあがり */
+        if (tool !== 'pen') {
+            const c = color === RAINBOW ? hueHex(Math.floor(Math.random() * 360)) : color;
+            onFinish(tool === 'fill'
+                ? { kind: 'fill', color: c, pts: [x, y] }
+                : { kind: 'stamp', shape: tool, color: c, w: width, pts: [x, y] });
+            return;
+        }
         drawing = { color, w: width, pts: [x, y] };
         lastSent = 0;
         paintOverlay();
@@ -205,6 +333,8 @@ export function createBoard(opt) {
     return {
         setColor(c) { color = c; },
         setWidth(w) { width = w; },
+        /** 'pen'／'fill'／'star'／'heart' */
+        setTool(t) { tool = t; },
         getColor: () => color,
         setEnabled(v) { canDraw = !!v; overlay.style.cursor = v ? 'crosshair' : 'default'; },
         /** よこに ならぶ はこ（どうぐ／キーボード）に のこす 最低の はば */
@@ -227,6 +357,24 @@ export function createBoard(opt) {
                 if (who !== exceptId) liveOthers[who] = s;
             }
             paintOverlay();
+        },
+        /** かき おわった線を ぜんぶ わすれます（でんごんで、じぶんだけの 絵を かく とき）*/
+        clearAll() { strokes.clear(); liveOthers = {}; drawing = null; redrawAll(); },
+        /** いま 何本 あるか */
+        count: () => strokes.size,
+        /**
+         * いまの 絵を 小さな 画像（JPEG の data URL）に します。
+         * ギャラリーや でんごんで つかいます。白い 地を しいてから うつします。
+         */
+        snapshot(w = 360, quality = 0.72) {
+            const h = Math.round(w * 3 / 4);
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            const x = c.getContext('2d');
+            x.fillStyle = '#fff';
+            x.fillRect(0, 0, w, h);
+            if (base.width && base.height) x.drawImage(base, 0, 0, w, h);
+            return c.toDataURL('image/jpeg', quality);
         },
         refit: fit
     };

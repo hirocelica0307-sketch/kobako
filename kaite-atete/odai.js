@@ -13,6 +13,25 @@ export const LEVELS = [
     { key: 'high', label: 'こうがくねん', note: '5・6年' }
 ];
 
+/* テーマで えらぶ ときの リスト。「きせつ」は いまの 月で 中身が かわります */
+const SEASONS = {
+    spring: 'はる', summer: 'なつ', autumn: 'あき', winter: 'ふゆ'
+};
+/** いまの きせつ（3〜5月 はる／6〜8月 なつ／9〜11月 あき／12〜2月 ふゆ）*/
+export function seasonKey(date = new Date()) {
+    const m = date.getMonth() + 1;
+    return m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 9 && m <= 11 ? 'autumn' : 'winter';
+}
+export const THEMES = [
+    { key: 'animal',  label: 'どうぶつ', note: 'テーマ' },
+    { key: 'food',    label: 'たべもの', note: 'テーマ' },
+    { key: 'vehicle', label: 'のりもの', note: 'テーマ' },
+    { key: 'school',  label: 'がっこう', note: 'テーマ' },
+    { key: 'season',  label: SEASONS[seasonKey()], note: 'いまの きせつ' }
+];
+/** ぬしが えらべる「おだい」の ぜんぶ（むずかしさ ＋ テーマ）*/
+export const TOPICS = [...LEVELS, ...THEMES];
+
 export const ODAI = {
     /* ていがくねん … 身の まわりの もの。だれでも すぐ 絵に できる */
     low: [
@@ -58,6 +77,50 @@ export const ODAI = {
         'わらじ','ちょうちん','からかさ','せんす','つづら','みの','かご','ひうちいし','すみび','ますがた',
         'おーろら','しんきろう','たつまき','つなみ','たいふう','ひょうざん','ひょうが','おんせん','けっしょう','ようがん',
         'めいろ','ぱずる','ちょうこく','もざいく','かんらんしゃ','ふんすい','ぎんが','ほうきぼし','いんせき','かいてい'
+    ],
+
+    /* ── テーマ ─────────────────────────────────
+       むずかしさの かわりに「どうぶつ だけ」「たべもの だけ」で あそべます。
+       ほかの リストと かぶっても かまいません（同じ リストの 中で かぶらなければ よい）。 */
+    animal: [
+        'いぬ','ねこ','うさぎ','くま','ぞう','きりん','らいおん','とら','さる','ぱんだ',
+        'うま','うし','ぶた','ひつじ','ねずみ','きつね','たぬき','こあら','ぺんぎん','ふくろう',
+        'かめ','かえる','へび','わに','いるか','くじら','さめ','たこ','かに','かたつむり',
+        'かぶとむし','ちょうちょ','はりねずみ','かば','しまうま','ごりら','らくだ','かんがるー','あざらし','らっこ'
+    ],
+    food: [
+        'りんご','みかん','ばなな','いちご','ぶどう','すいか','もも','めろん','さくらんぼ','とうもろこし',
+        'おにぎり','たまご','ぱん','けーき','どーなつ','あいす','ぷりん','かれー','らーめん','うどん',
+        'すし','ぴざ','たいやき','だんご','おでん','ぎょうざ','はんばーぐ','えびふらい','おむらいす','やきそば',
+        'たこやき','ほっとけーき','ぽっぷこーん','ぱふぇ','くっきー','ちょこ','にんじん','とまと','だいこん','きのこ'
+    ],
+    vehicle: [
+        'でんしゃ','ばす','たくしー','とらっく','ぱとかー','じてんしゃ','ばいく','ふね','ひこうき','へりこぷたー',
+        'ろけっと','しんかんせん','きかんしゃ','ぼーと','よっと','せんすいかん','くれーん','ゆーふぉー','ききゅう','そり',
+        'いかだ','ろーぷうぇい','ぶるどーざー','すけぼー','いちりんしゃ','ごーかーと','かぬー','ばぎー','かいぞくせん','ゆうびんしゃ'
+    ],
+    school: [
+        'えんぴつ','けしごむ','のーと','じょうぎ','はさみ','のり','らんどせる','こくばん','つくえ','いす',
+        'ちょーく','とけい','ぴあの','たいこ','りこーだー','ぷーる','てつぼう','すべりだい','ぶらんこ','たいいくかん',
+        'きゅうしょく','ちきゅうぎ','ぼーる','なわとび','ばけつ','ぞうきん','ほうき','うわばき','きょうかしょ','ぼうし'
+    ],
+
+    /* ── きせつ（いまの 月で かわります）── */
+    spring: [
+        'さくら','ちゅーりっぷ','たんぽぽ','ちょうちょ','つくし','おはなみ','こいのぼり','かぶと','らんどせる','いちご',
+        'つばめ','ひなまつり','かしわもち','たけのこ','めだか','かえる','ひよこ','はなたば','てんとうむし','しゃぼんだま'
+    ],
+    summer: [
+        'すいか','かきごおり','はなび','ひまわり','あさがお','うちわ','せんぷうき','ぷーる','うきわ','かぶとむし',
+        'せみ','ほたる','たなばた','ささのは','ふうりん','むぎわら','すなはま','かいがら','あいす','おばけやしき'
+    ],
+    autumn: [
+        'もみじ','いちょう','どんぐり','くり','さつまいも','やきいも','かき','きのこ','おつきみ','すすき',
+        'とんぼ','こおろぎ','かかし','いねかり','うんどうかい','はろうぃん','おばけ','かぼちゃ','こうもり','まじょ'
+    ],
+    winter: [
+        'ゆきだるま','そり','てぶくろ','まふらー','こたつ','みかん','さんた','となかい','くりすます','ぷれぜんと',
+        'おしょうがつ','かどまつ','たこあげ','こま','もち','かがみもち','ゆき','すけーと','ゆきがっせん','おでん'
     ]
 };
 
@@ -66,7 +129,8 @@ export const ODAI = {
 
 /** ランダムに お題を 1つ えらびます。さっき 出た ものは できるだけ よけます。 */
 export function pickWord(levelKey, recent = []) {
-    const list = ODAI[levelKey] || ODAI.low;
+    const key = levelKey === 'season' ? seasonKey() : levelKey;
+    const list = ODAI[key] || ODAI.low;
     const fresh = list.filter(w => !recent.includes(w));
     const from = fresh.length ? fresh : list;
     return from[Math.floor(Math.random() * from.length)];
@@ -90,4 +154,67 @@ export function hashWord(text) {
         h = Math.imul(h, 0x01000193) >>> 0;
     }
     return h.toString(16);
+}
+
+/* ── ヒント ───────────────────────────────────
+   はじめは 文字の 数だけ「○」を 出し、時間が たつと 1文字ずつ 見せます。
+   ぜんぶは 見せません（さいごの 1文字は かならず かくします）。
+   どの 文字から 見せるかは ことばで きまるので、画面を 読みこみ なおしても かわりません。 */
+export const HINT_MARK = '○';
+
+/** 時間の すすみぐあい（0〜1）で、いくつ 見せるか */
+export function hintCount(len, fraction) {
+    if (len <= 2) return fraction >= 2 / 3 ? 1 : 0;
+    if (len === 3) return fraction >= 1 / 2 ? 1 : 0;
+    return fraction >= 2 / 3 ? 2 : fraction >= 1 / 3 ? 1 : 0;
+}
+
+/** ヒントの 文字列（例：「り○○」）を 作ります */
+export function hintFor(word, fraction) {
+    const chars = [...normalize(word)];
+    const n = Math.min(hintCount(chars.length, fraction), chars.length - 1);
+    /* ことばから きまる じゅんばん。「ー」は 見せても あまり 役に 立たないので あとまわし */
+    let seed = parseInt(hashWord(word), 16) || 1;
+    const rand = () => { seed = (Math.imul(seed, 1103515245) + 12345) >>> 0; return seed / 4294967296; };
+    const idx = chars.map((_, i) => i);
+    for (let i = idx.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        [idx[i], idx[j]] = [idx[j], idx[i]];
+    }
+    idx.sort((a, b) => (chars[a] === 'ー') - (chars[b] === 'ー'));
+    const show = new Set(idx.slice(0, Math.max(0, n)));
+    return chars.map((c, i) => show.has(i) ? c : HINT_MARK).join('');
+}
+
+/* ── おしい！ ─────────────────────────────────
+   こたえる人は ことばを 知りません（数字に かえた ものしか ありません）。
+   そこで「1文字だけ ちがう」「1文字 たりない」ことばも 数字に かえて
+   いっしょに くばっておき、こたえと くらべます。
+     ・1文字 ちがう … その 文字を ＊ に した ものどうしを くらべる
+     ・1文字 たりない … おだいから 1文字 ぬいた ものと くらべる
+     ・1文字 おおい … こたえから 1文字 ぬいて、おだいと くらべる */
+const WILD = '＊';
+
+/** おだいから「おしい」ことばの 数字を 作ります（かく人の タブだけ）*/
+export function nearHashes(word) {
+    const w = [...normalize(word)];
+    const out = new Set();
+    for (let i = 0; i < w.length; i++) {
+        out.add(hashWord([...w.slice(0, i), WILD, ...w.slice(i + 1)].join('')));
+        if (w.length > 2) out.add(hashWord([...w.slice(0, i), ...w.slice(i + 1)].join('')));
+    }
+    return [...out];
+}
+
+/** こたえが「おしい」か しらべます（あたりの ときは false）*/
+export function isNear(guess, hash, near) {
+    const g = [...normalize(guess)];
+    if (g.length < 2 || !near || !near.length || hashWord(g.join('')) === hash) return false;
+    const set = new Set(near);
+    if (set.has(hashWord(g.join('')))) return true;
+    for (let i = 0; i < g.length; i++) {
+        if (set.has(hashWord([...g.slice(0, i), WILD, ...g.slice(i + 1)].join('')))) return true;
+        if (hashWord([...g.slice(0, i), ...g.slice(i + 1)].join('')) === hash) return true;
+    }
+    return false;
 }
