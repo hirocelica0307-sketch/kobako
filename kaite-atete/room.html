@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>おえかき｜かいて あてて</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body class="play">
@@ -25,7 +28,7 @@
 
     <div class="settings hidden" id="settings">
         <div class="setrow">
-            <span class="setlabel">むずかしさ</span>
+            <span class="setlabel">おだい</span>
             <div class="levels" id="levels"></div>
         </div>
         <div class="setrow">
@@ -61,6 +64,12 @@
     <div class="board-wrap">
         <canvas id="base"></canvas>
         <canvas id="overlay" class="overlay"></canvas>
+        <!-- でんごんで「この 絵は なに？」の ときに 出す 絵 -->
+        <img id="telImg" class="telimg hidden" alt="">
+        <!-- ヒント（文字の 数と、時間が たつと 見える 文字）-->
+        <div class="hint hidden" id="hint"></div>
+        <!-- 見ている 人の リアクション -->
+        <div class="reactbar hidden" id="reactBar"></div>
     </div>
 
     <div class="side">
@@ -70,13 +79,25 @@
             <span class="timer" id="timer">－</span>
         </div>
 
+        <!-- チームせんの てんすう -->
+        <div class="teambar hidden" id="teamBar"></div>
+
         <div id="drawerPanel" class="hidden">
-            <p class="sub">あなたが かく ばんです</p>
+            <p class="sub" id="drawerHead">あなたが かく ばんです</p>
             <p class="count" id="answeredCount">まだ だれも あてていません</p>
+            <div class="row hidden" id="telDoneRow">
+                <button class="btn go" id="telDone">できた！</button>
+            </div>
+        </div>
+
+        <!-- チームせんで、あいての チームが かいている とき ／ でんごんで まっている とき -->
+        <div id="watchPanel" class="hidden">
+            <p class="bigmsg" id="watchMsg"></p>
+            <p class="count" id="watchSub"></p>
         </div>
 
         <div id="answerPanel" class="hidden">
-            <p class="sub">なにを かいて いるのかな？</p>
+            <p class="sub" id="ansHead">なにを かいて いるのかな？</p>
             <div class="readout" id="ansOut"><span class="placeholder">こたえを いれてね</span></div>
             <div class="slot" id="ansSlot"></div>
             <div class="row">
@@ -108,6 +129,7 @@
         <span class="odaihidden hidden" id="odaiMask">● ● ● ●</span>
         <button class="btn sub-btn tiny" id="hideOdai">かくす</button>
     </div>
+    <div class="kinds" id="kinds"></div>
     <div class="swatches" id="swatches"></div>
     <div class="pens" id="pens"></div>
     <button class="btn sub-btn" id="undo">もどす</button>
@@ -116,8 +138,15 @@
 
 <!-- ③ けっか -->
 <section class="card hidden" id="result">
-    <h2 class="resulttitle">けっか はっぴょう</h2>
+    <h2 class="resulttitle" id="resultTitle">けっか はっぴょう</h2>
+    <div class="restabs" id="resTabs">
+        <button class="level on" id="tabRank" type="button"><b>じゅんい</b></button>
+        <button class="level" id="tabGallery" type="button"><b>みんなの え</b></button>
+    </div>
+    <div class="teamresult hidden" id="teamResult"></div>
     <div class="ranking" id="ranking"></div>
+    <div class="gallery hidden" id="gallery"></div>
+    <div class="chains hidden" id="chains"></div>
     <div class="row">
         <button class="btn go hidden" id="again">もういちど</button>
         <p class="sub hidden" id="againMsg">へやの ぬしを まっています…</p>
@@ -125,6 +154,19 @@
 </section>
 
 <div class="notice wait" id="notice">つないでいます…</div>
+
+<!-- ギャラリーの 絵を 大きく 見る -->
+<div class="viewer hidden" id="viewer">
+    <div class="viewerbox">
+        <img id="viewerImg" alt="">
+        <p class="viewercap" id="viewerCap"></p>
+        <div class="row">
+            <button class="btn sub-btn" id="viewerPrev">まえ</button>
+            <button class="btn" id="viewerClose">とじる</button>
+            <button class="btn sub-btn" id="viewerNext">つぎ</button>
+        </div>
+    </div>
+</div>
 
 <script type="module" src="room.js"></script>
 </body>

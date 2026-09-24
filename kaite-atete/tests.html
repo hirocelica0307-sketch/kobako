@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>かいて あてて ― きまりの たしかめ</title>
+<style>
+ body{ font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif; margin:0; background:#fdf8f0; color:#33291f; }
+ header{ background:#f08a2c; color:#fff; padding:12px 18px; }
+ h1{ margin:0; font-size:18px; }
+ .sum{ font-size:15px; padding:12px 18px; }
+ .sum b{ font-size:20px; }
+ table{ border-collapse:collapse; width:100%; background:#fff; }
+ th,td{ border-bottom:1px solid #eee2d0; padding:8px 12px; font-size:13px; text-align:left; }
+ th{ background:#fff6e8; }
+ .ok{ color:#1b7f4b; font-weight:bold; }
+ .ng{ color:#c62828; font-weight:bold; }
+ tr.bad{ background:#fff4f4; }
+</style>
+</head>
+<body>
+<header><h1>かいて あてて ― きまりの たしかめ</h1></header>
+<div class="sum" id="sum">しらべています…</div>
+<table>
+  <thead><tr><th style="width:3em"></th><th>きまり</th><th>くわしく</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+<script type="module">
+import { runTests } from './tests.js';
+const r = runTests();
+const ng = r.filter(x => !x.ok).length;
+document.getElementById('sum').innerHTML = ng
+    ? `<b class="ng">${ng}こ まちがい</b>（ぜんぶで ${r.length}こ）`
+    : `<b class="ok">ぜんぶ OK</b>（${r.length}こ）`;
+const tb = document.getElementById('rows');
+for (const x of r) {
+    const tr = document.createElement('tr');
+    if (!x.ok) tr.className = 'bad';
+    tr.innerHTML = `<td class="${x.ok ? 'ok' : 'ng'}">${x.ok ? 'OK' : 'NG'}</td><td></td><td></td>`;
+    tr.children[1].textContent = x.name;
+    tr.children[2].textContent = x.detail;
+    tb.appendChild(tr);
+}
+</script>
+</body>
+</html>

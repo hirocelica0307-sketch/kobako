@@ -18,7 +18,11 @@
     --tap:       #fff6e8;
     --radius:    14px;
     --gap:       8px;
+    /* ポップな 文字（Google Fonts）。よみこめない ときは まるい 文字に なります */
+    --pop:  "Mochiy Pop One","M PLUS Rounded 1c","Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN",sans-serif;
+    --round:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Zen Maru Gothic","Yu Gothic",sans-serif;
 }
+
 
 *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
@@ -27,9 +31,8 @@ html{ height:100%; }
 body{
     margin:0; height:100dvh; overflow:hidden;      /* ← ページは ぜったいに スクロールしません */
     background:var(--bg); color:var(--ink);
-    font-family:"Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Zen Maru Gothic",
-                "Yu Gothic",sans-serif;
-    font-weight:700;
+    font-family:var(--round);
+    font-weight:800;
     touch-action:manipulation;
     -webkit-user-select:none; user-select:none;
     display:flex; flex-direction:column; align-items:center;
@@ -37,6 +40,27 @@ body{
 }
 
 h1{ margin:0; font-size:clamp(18px,3vw,28px); letter-spacing:.06em; flex:none; }
+
+/* はじめの 画面の 大きな なまえ。1文字ずつ 色を かえて、白い ふちどりを つけます */
+h1.logo{
+    display:flex; align-items:center; gap:.04em;
+    font-size:clamp(30px,6.4vh,58px); letter-spacing:0; line-height:1.1;
+}
+h1.logo i{ width:.4em; }
+h1.logo span{
+    display:inline-block; color:#fff;
+    -webkit-text-stroke:.09em var(--c); paint-order:stroke fill;
+    text-shadow:0 .08em 0 var(--c);
+    animation:bob 2.4s ease-in-out infinite;
+}
+h1.logo span:nth-of-type(1){ --c:#f0624d; transform:rotate(-6deg); animation-delay:0s;  }
+h1.logo span:nth-of-type(2){ --c:#f5a524; transform:rotate(4deg);  animation-delay:.15s; }
+h1.logo span:nth-of-type(3){ --c:#46a83c; transform:rotate(-3deg); animation-delay:.3s;  }
+h1.logo span:nth-of-type(4){ --c:#2f9bd6; transform:rotate(5deg);  animation-delay:.45s; }
+h1.logo span:nth-of-type(5){ --c:#8a63d2; transform:rotate(-5deg); animation-delay:.6s;  }
+h1.logo span:nth-of-type(6){ --c:#e0569b; transform:rotate(3deg);  animation-delay:.75s; }
+@keyframes bob{ 0%,100%{ translate:0 0; } 50%{ translate:0 -.08em; } }
+@media (prefers-reduced-motion:reduce){ h1.logo span{ animation:none; } }
 .sub{ margin:0; color:var(--ink-thin); font-size:clamp(11px,1.6vw,15px); }
 .hidden{ display:none !important; }
 
@@ -319,6 +343,7 @@ h1{ margin:0; font-size:clamp(18px,3vw,28px); letter-spacing:.06em; flex:none; }
 .topbar .members{ flex-wrap:nowrap; }
 .statusbar{ white-space:nowrap; overflow:hidden; }
 .statusbar > span{ overflow:hidden; text-overflow:ellipsis; }
+.statusbar > .timer{ flex:none; }      /* のこり時間は 切らずに、名まえの ほうを みじかく します */
 
 /* ── せの ひくい 画面（Chromebook の 小さめの かいぞうどなど）──
    かざりを へらして、キーボードに たての ばしょを まわします。 */
@@ -394,4 +419,192 @@ body.paused .board-wrap::after{
     display:flex; align-items:center; justify-content:center;
     background:rgba(253,248,240,.82); color:var(--accent-dk);
     font-size:clamp(20px,4vw,38px); letter-spacing:.1em;
+}
+
+/* おだいは むずかしさ 3つ ＋ テーマ 5つ あるので、ボタンを 小さめに します。
+   せの ひくい 画面では 下の 小さい 字（「1・2年」など）を はぶいて 1だんに おさめます */
+#levels{ gap:6px; }
+#levels .level{ padding:4px 10px; }
+@media (max-height:720px){
+    #levels .level{ min-height:38px; }
+    #levels .level span{ display:none; }
+}
+/* せの ひくい 画面で こたえる 人は、チームの てんすうを はぶいて キーを 大きく たもちます
+   （てんすうは 見ている 人の 画面と、けっかで 見られます）*/
+@media (max-height:720px){
+    body.answering .teambar{ display:none; }
+}
+
+/* ── もりあげ（かみふぶき・ふきだし・リアクション）──────────
+   どれも 上に かさねるだけ なので、ならびかたは かわりません。 */
+.fx-confetti{ position:fixed; inset:0; width:100vw; height:100vh; pointer-events:none; z-index:50; }
+.fx-toast{
+    position:absolute; left:50%; transform:translateX(-50%); z-index:6;
+    background:#fff; color:var(--ink); border:3px solid var(--c,var(--accent));
+    border-radius:999px; padding:6px 16px; white-space:nowrap; pointer-events:none;
+    font-size:clamp(13px,1.9vw,19px); box-shadow:0 4px 0 rgba(0,0,0,.08);
+    animation:toastIn 2.6s ease both;
+}
+@keyframes toastIn{
+    0%{ opacity:0; transform:translate(-50%,-10px) scale(.8); }
+    10%{ opacity:1; transform:translate(-50%,0) scale(1.06); }
+    16%{ transform:translate(-50%,0) scale(1); }
+    85%{ opacity:1; }
+    100%{ opacity:0; transform:translate(-50%,-8px); }
+}
+.fx-float{
+    position:absolute; bottom:48px; z-index:5; pointer-events:none;
+    font-size:clamp(28px,4vw,42px); line-height:1;
+    animation:floatUp 2.2s ease-out both;
+}
+@keyframes floatUp{
+    0%{ opacity:0; transform:translate(0,10px) scale(.6); }
+    15%{ opacity:1; transform:translate(0,0) scale(1.15); }
+    100%{ opacity:0; transform:translate(var(--drift),-180px) scale(1); }
+}
+@media (prefers-reduced-motion:reduce){
+    .fx-toast,.fx-float{ animation-duration:.01s; animation-delay:0s; }
+    .fx-float{ display:none; }
+}
+
+/* ── ヒント（絵の 上の まんなか）───────────── */
+.hint{
+    position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:4;
+    display:flex; align-items:center; gap:8px; pointer-events:none;
+    background:rgba(255,255,255,.9); border:3px solid var(--accent);
+    border-radius:999px; padding:3px 14px; white-space:nowrap;
+    font-size:clamp(12px,1.6vw,16px); color:var(--ink-thin);
+}
+.hint b{ font-size:clamp(18px,2.6vw,28px); color:var(--accent-dk); letter-spacing:.08em; }
+.hint .hintlab{ color:var(--accent-dk); }
+.hint .hintlen{ font-size:.85em; }
+
+/* ── リアクションの ボタン（絵の 右下）─────── */
+.reactbar{
+    position:absolute; right:6px; bottom:6px; z-index:4;
+    display:flex; gap:4px; background:rgba(255,255,255,.85);
+    border:2px solid var(--line); border-radius:999px; padding:3px 6px;
+}
+.react{
+    font:inherit; font-size:clamp(18px,2.2vw,24px); line-height:1;
+    width:clamp(34px,4vw,42px); height:clamp(34px,4vw,42px);
+    border:none; border-radius:50%; background:transparent; cursor:pointer; padding:0;
+    transition:transform .08s;
+}
+.react:active{ transform:scale(1.35); background:var(--tap); }
+
+/* でんごん：まわってきた 絵 */
+.telimg{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#fff; z-index:3; }
+
+/* ── チームせん ─────────────────────────── */
+.teambar{ display:flex; align-items:center; justify-content:center; gap:10px; flex:none; }
+.teamscore{
+    display:flex; align-items:baseline; gap:6px; padding:3px 14px;
+    border:3px solid var(--c); border-radius:999px; color:var(--c);
+    font-size:clamp(12px,1.7vw,16px); background:#fff;
+}
+.teamscore b{ font-size:clamp(18px,2.6vw,26px); }
+.teamscore.now{ background:color-mix(in srgb, var(--c) 12%, white); }
+.teamvs{ color:var(--ink-thin); font-size:clamp(11px,1.5vw,14px); }
+.teamresult{ flex:none; display:flex; flex-direction:column; gap:4px; align-items:center; }
+.teamwin{ margin:0; font-size:clamp(20px,3.4vw,32px); }
+
+/* チームせんで あいての ばん ／ でんごんで まっている とき */
+#watchPanel{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; justify-content:center; gap:8px; }
+.bigmsg{ margin:0; font-size:clamp(18px,3vw,30px); color:var(--accent-dk); }
+
+.judge.near{ background:#fff4d6; color:#b7791f; }
+
+/* ── どうぐの しゅるい・にじいろ ────────────── */
+.kinds{ display:flex; gap:4px; align-items:center; }
+.kind{
+    font:inherit; cursor:pointer; padding:0 4px; min-width:44px; height:42px;
+    border:3px solid var(--line); border-radius:10px; background:var(--panel); color:var(--ink);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1;
+}
+.kind b{ font-size:17px; }
+.kind span{ font-size:10px; color:var(--ink-thin); margin-top:2px; }
+.kind.on{ border-color:var(--ink); background:var(--tap); }
+.swatch.rainbow{ background:conic-gradient(#e01f1f,#e0a01f,#e0e01f,#1fe01f,#1fe0e0,#1f1fe0,#a01fe0,#e01f1f); }
+.tools{ gap:8px; }
+.swatches,.pens{ gap:5px; }
+.swatch{ width:34px; height:34px; }
+.pen{ width:40px; height:36px; }
+
+/* よこはばが せまい 画面では、どうぐを 1れつに おさめる ために 小さく します
+   （2れつに なると、そのぶん 絵が 小さく なってしまうため）*/
+@media (max-width:1300px){
+    .tools{ gap:6px; padding:5px 8px; }
+    .swatches,.pens,.kinds{ gap:4px; }
+    .swatch{ width:30px; height:30px; }
+    .kind{ min-width:38px; height:38px; }
+    .kind span{ display:none; }
+    .pen{ width:34px; height:34px; }
+    .tools .btn.sub-btn{ padding:6px 10px; font-size:14px; }
+    .odaibox{ gap:5px; padding:3px 8px; }
+}
+@media (max-width:1100px){
+    .odailabel{ display:none; }
+    .odaiword{ font-size:16px; }
+    .swatch{ width:28px; height:28px; }
+}
+
+/* ── けっか：タブ・ギャラリー・でんごん ─────────── */
+.restabs{ display:flex; gap:8px; justify-content:center; flex:none; }
+.restabs .level{ min-height:40px; }
+.gallery{
+    flex:1 1 auto; min-height:0; overflow:auto; width:100%;
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; align-content:start;
+}
+.gcard{
+    font:inherit; cursor:pointer; text-align:center; color:var(--ink);
+    border:3px solid var(--line); border-radius:var(--radius); background:#fff; padding:6px;
+    display:flex; flex-direction:column; gap:3px; align-items:center;
+}
+.gcard img{ width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:8px; background:#fff; border:1px solid var(--line); }
+.gcard b{ font-size:clamp(15px,2vw,19px); color:var(--accent-dk); }
+.gwho{ display:flex; align-items:center; gap:5px; font-size:clamp(11px,1.5vw,14px); color:var(--ink-thin); }
+.gwho .dot{ width:11px; height:11px; border-radius:50%; }
+.greact{ font-size:13px; }
+
+.viewer{
+    position:fixed; inset:0; z-index:40; background:rgba(51,41,31,.55);
+    display:flex; align-items:center; justify-content:center; padding:12px;
+}
+.viewerbox{
+    background:#fff; border-radius:var(--radius); padding:10px; max-width:min(96vw,900px);
+    display:flex; flex-direction:column; gap:8px; align-items:center;
+}
+.viewerbox img{ max-width:100%; max-height:calc(100dvh - 170px); aspect-ratio:4/3; object-fit:contain; border:2px solid var(--line); border-radius:10px; }
+.viewercap{ margin:0; font-size:clamp(15px,2.2vw,22px); text-align:center; }
+
+.chains{ flex:1 1 auto; min-height:0; overflow:auto; width:100%; display:flex; flex-direction:column; gap:10px; }
+.chainsum{ margin:0; text-align:center; color:var(--ink-thin); font-size:clamp(12px,1.7vw,16px); }
+.chain{ border:3px solid var(--line); border-radius:var(--radius); padding:6px 10px; flex:none; }
+.chainhead{ display:flex; align-items:center; gap:8px; font-size:clamp(13px,1.9vw,17px); }
+.chainhead .dot{ width:13px; height:13px; border-radius:50%; }
+.cresult{ margin-left:auto; color:var(--ink-thin); }
+.cresult.ok{ color:var(--go-dk); }
+.chainline{ display:flex; align-items:center; gap:6px; overflow-x:auto; padding:6px 2px; }
+.carrow{ color:var(--ink-thin); flex:none; }
+.cword,.cimg{
+    flex:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    border:2px solid var(--line); border-radius:12px; background:var(--tap);
+}
+.cword{ padding:6px 12px; min-width:84px; min-height:100px; font-size:clamp(15px,2vw,20px); }
+.cword.start{ background:#fff4e0; border-color:var(--accent); color:var(--accent-dk); }
+.cimg{ width:140px; min-height:100px; padding:3px; background:#fff; font-size:11px; color:var(--ink-thin); }
+.cimg img{ width:100%; aspect-ratio:4/3; object-fit:contain; }
+.cword small,.cimg small{ font-size:10px; color:var(--ink-thin); }
+
+/* ── ポップな 文字 ─────────────────────────────
+   見出し・ボタン・キー・こたえ などに つかいます。
+   .btn や .key の「font:inherit」に 上書き されないよう、いちばん 下に 書きます。
+   （Mochiy Pop One は ふとさが 1つだけ なので 400 に します）*/
+h1,.btn,.key,.readout,.digit,.roomcode b,.member,.level b,.stepval b,
+.timer,#turnLabel,.odaiword,.judge,.resulttitle,.rankrow,.watchrow .nm,
+.fx-toast,.hint b,.hintlab,.teamscore,.teamwin,.bigmsg,.kind b,.gcard b,.viewercap,
+.cword,.chainhead,.cresult,
+body.paused .board-wrap::after{
+    font-family:var(--pop); font-weight:400;
 }
