@@ -11,11 +11,11 @@ import { connect, serverNow, myMemberId, readStore, writeStore, readLocal, write
          findOrQueue, heartbeat, watchAssign, leaveQueue,
          createMatch, watchMatch, markHere, chooseLevel, changeMatchOnce,
          sendProg, watchProg, leaveMatch } from './firebase.js';
-import { LEVELS, levelOf, wordList, WORDS } from './words.js';
+import { LEVELS, levelOf, CPU_LEVELS, cpuLevelOf, wordList } from './words.js';
 import { createHiraganaKeypad } from './keypad.js';
 import { startGame, stopGame, setupGameScreen } from './game.js';
 import { createCpu } from './cpu.js';
-import { sound } from './audio.js';
+import { sound, music } from './audio.js';
 
 const $ = id => document.getElementById(id);
 
@@ -76,6 +76,9 @@ function say(text, bad) {
 function paintSound() { $('soundBtn').textContent = sound.isOn() ? '🔊' : '🔇'; }
 $('soundBtn').addEventListener('click', () => { sound.toggle(); paintSound(); });
 paintSound();
+function paintMusic() { $('musicBtn').classList.toggle('off', !music.isOn()); }
+$('musicBtn').addEventListener('click', () => { music.toggle(); paintMusic(); });
+paintMusic();
 
 /* ── せいせき（この 端末に のこします）────────────── */
 function record() {
@@ -133,25 +136,46 @@ $('nameOk').addEventListener('click', () => {
 $('btnFind').addEventListener('click', () => needName(goSearch));
 $('btnCpu').addEventListener('click', () => needName(goCpuLevel));
 
-/* ── むずかしさの カード ────────────────────────── */
-const EXAMPLE = { 1: 'いぬ', 2: 'うさぎ', 3: 'きゅうしょく', 4: 'しんかんせん', 5: 'はやおきは…' };
+/* ── むずかしさの カード ──────────────────────────
+   人との たいせん … ことばの むずかしさ 5つ
+   コンピューター … つよさ 10（2だんに ならべます）*/
+function card(n, chosen, parts, onPick) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'lvcard l' + n + (n === chosen ? ' on' : '');
+    for (const [cls, text] of parts) {
+        const el = document.createElement(cls === 'big' ? 'b' : 'span');
+        if (cls !== 'big') el.className = cls;
+        el.textContent = text;
+        b.appendChild(el);
+    }
+    b.addEventListener('click', () => onPick(n));
+    return b;
+}
 
 function buildLevelCards(mode, chosen, onPick) {
     const box = $('levels5');
     box.textContent = '';
+    box.classList.toggle('ten', mode === 'cpu');
+    if (mode === 'cpu') {
+        for (const lv of CPU_LEVELS) {
+            box.appendChild(card(lv.n, chosen, [
+                ['lv-n', 'レベル' + lv.n],
+                ['lv-icon', lv.icon],
+                ['big', `${lv.perMin}もじ`],
+                ['lv-note', '1ぷんに 打つ はやさ'],
+                ['lv-who', 'ことば：' + levelOf(lv.words).label]
+            ], onPick));
+        }
+        return;
+    }
     for (const lv of LEVELS) {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'lvcard l' + lv.n + (lv.n === chosen ? ' on' : '');
-        const badge = document.createElement('span'); badge.className = 'lv-n'; badge.textContent = 'レベル' + lv.n;
-        const name = document.createElement('b'); name.textContent = lv.label;
-        const ex = document.createElement('span'); ex.className = 'lv-ex'; ex.textContent = EXAMPLE[lv.n];
-        const note = document.createElement('span'); note.className = 'lv-note'; note.textContent = lv.note;
-        const who = document.createElement('span'); who.className = 'lv-who';
-        who.textContent = mode === 'cpu' ? `コンピューター 1ぷんに ${lv.cpu}もじ` : lv.who;
-        b.append(badge, name, ex, note, who);
-        b.addEventListener('click', () => onPick(lv.n));
-        box.appendChild(b);
+        box.appendChild(card(lv.n, chosen, [
+            ['lv-n', 'レベル' + lv.n],
+            ['big', lv.label],
+            ['lv-note', lv.note],
+            ['lv-who', lv.who]
+        ], onPick));
     }
 }
 
@@ -163,7 +187,7 @@ function goCpuLevel() {
     $('lvMe').textContent = myName;
     $('lvFoe').textContent = 'コンピューター';
     $('lvTitle').textContent = 'コンピューターの つよさを えらんでね';
-    $('lvHint').textContent = 'えらんだ レベルの ことばで たいせん するよ';
+    $('lvHint').textContent = 'レベルが 1つ 上がるごとに 1ぷんに 5もじ はやく なるよ';
     $('lvStatus').textContent = '';
     $('lvBack').textContent = 'もどる';
     $('lvBack').onclick = goTitle;
@@ -174,8 +198,8 @@ function goCpuLevel() {
 
 function startCpu(n) {
     stopCpu();
-    const lv = levelOf(n);
-    const words = wordList(n, Math.floor(Math.random() * 2147483647));
+    const lv = cpuLevelOf(n);
+    const words = wordList(lv.words, Math.floor(Math.random() * 2147483647));
     const startsAt = Date.now() + 4000;
     const run = { ended: false };
     cpuRun = run;
@@ -198,7 +222,7 @@ function startCpu(n) {
     show('sGame');
     run.game = startGame({
         words, goal: GOAL, startsAt, endsAt: startsAt + GAME_MS, now: () => Date.now(),
-        meName: myName, foeName: 'コンピューター', levelText: `レベル${n} ${lv.label}`,
+        meName: myName, foeName: 'コンピューター', levelText: `コンピューター レベル${n}（1ぷんに ${lv.perMin}もじ）`,
         onProg() {},
         onGoal: () => end(true, false, 'goal'),
         onTimeUp: () => {
@@ -207,7 +231,7 @@ function startCpu(n) {
         }
     });
     run.cpu = createCpu({
-        words, level: n, perMin: lv.cpu,
+        words, perMin: lv.perMin, miss: lv.miss,
         onProg(p) {
             if (run.ended) return;
             run.game.setFoe(p);

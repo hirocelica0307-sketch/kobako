@@ -3,18 +3,17 @@
    人と おなじ ことばを、おなじ ローマ字の はんていで 1キーずつ 打ちます。
    ・はやさは「1ぷんに 打つ かなの 数」（words.js の LEVELS の cpu）
    ・キーの 間かくは ばらつかせ、ことばの はじめで すこし 考えます
-   ・ときどき まちがえます（レベルが ひくいほど 多め）
+   ・ときどき まちがえます（o.miss の わりあい。レベルが ひくいほど 多め）
    あいての ようすの らんに、人と おなじ ように 打ちかけの キーが 出ます。
    ------------------------------------------------------------------ */
 import { createTyper } from './romaji.js';
 
-const MISS_RATE = { 1: 0.09, 2: 0.07, 3: 0.05, 4: 0.04, 5: 0.03 };
 
 /**
  * @param {object} o
  *   o.words   ことばの ならび（人と 同じ もの）
- *   o.level   1〜5
  *   o.perMin  1ぷんに 打つ かなの 数
+ *   o.miss    まちがえる わりあい（0.03 なら 100キーに 3かい）
  *   o.onProg  すすんだら よばれる（{n, w, k, buf, miss}）
  */
 export function createCpu(o) {
@@ -22,7 +21,7 @@ export function createCpu(o) {
     let wi = 0, n = 0, miss = 0;
     let typer = createTyper(o.words[0], prefs);
     let timer = null, running = false;
-    const missRate = MISS_RATE[o.level] || 0.05;
+    const missRate = o.miss != null ? o.miss : 0.05;
 
     const msPerKana = 60000 / o.perMin;
     /* まちがえた ぶんの 時間（1回 まちがえると ふつうの 1.8ばい かかる）*/

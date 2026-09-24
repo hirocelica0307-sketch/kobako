@@ -3,17 +3,19 @@
    ・3・2・1 → 打つ → じかん ぎれ／引ききり → けっか
    ・つぎに おす キーを 画面の キーボードで 光らせ、どの ゆびで おすかも 出します
    ・つなの ようすに あわせて「がんばれ」「あぶない」などの おうえんを 出します
+   ・つなひきの 場面（棒人間・おうえん席）は field.js、音楽は audio.js です
    かちまけを きめるのは よびだした がわ（app.js）です。
    ここは「引ききった」「じかんに なった」を しらせるだけ です。
    ------------------------------------------------------------------ */
 import { createTyper } from './romaji.js';
 import { createKeyboard, fingerOf, FINGER_NAMES } from './keyboard.js';
-import { sound } from './audio.js';
+import { sound, music } from './audio.js';
+import { createField } from './field.js';
 
 const $ = id => document.getElementById(id);
-const ROPE_RANGE = 170;          // つなが うごく はば（ゴールの 線まで）
+const HURRY_SEC = 10;            // のこり これだけに なったら 音楽を はやく します
 
-let kbd = null;
+let kbd = null, field = null;
 let cur = null;                  // いまの たいせん
 let prefs = {};
 try { prefs = JSON.parse(localStorage.getItem('tt_prefs') || '{}') || {}; } catch (e) { prefs = {}; }
@@ -22,6 +24,7 @@ const savePrefs = () => { try { localStorage.setItem('tt_prefs', JSON.stringify(
 /** 画面の キーボードを 1回だけ 作ります */
 export function setupGameScreen() {
     if (!kbd) kbd = createKeyboard($('kbdBox'));
+    if (!field) field = createField($('field'));
 }
 
 /* ことばを 入れものの はばに おさまる 大きさに します */
@@ -58,7 +61,7 @@ export function startGame(o) {
         o, wi: 0, n: 0, miss: 0, keys: 0, typer: null,
         foe: {}, live: false, timeUp: false, goalSent: false, ended: false,
         lastCd: null, lastTick: null, cheer: '', lastSign: 0, flipUntil: 0,
-        timer: null
+        timer: null, hurry: false
     };
     if (o.restore) {
         g.wi = o.restore.w || 0;
@@ -71,6 +74,8 @@ export function startGame(o) {
 
     $('gMe').textContent = o.meName;
     $('gFoe').textContent = o.foeName;
+    $('foeName2').textContent = o.foeName;
+    field.reset();
     $('gLevel').textContent = o.levelText || '';
     $('cdVs').textContent = `${o.meName}（あか） たい ${o.foeName}（しろ）`;
     $('resultBox').classList.add('hidden');
@@ -83,7 +88,7 @@ export function startGame(o) {
     tick();
     if (o.restore) o.onProg(progOf(g));
     return {
-        setFoe(p) { if (cur === g) { g.foe = p || {}; paintFoe(); paintRope(); checkGoal(); } },
+        setFoe(p) { if (cur === g) { foeMoved(g, p || {}); paintFoe(); paintRope(); checkGoal(); } },
         showResult: r => { if (cur === g) showResult(g, r); },
         myStats: () => ({ n: g.n, miss: g.miss, keys: g.keys }),
         myN: () => g.n,
@@ -96,6 +101,8 @@ export function stopGame() {
     clearInterval(cur.timer);
     cur.live = false;
     cur = null;
+    music.stop();
+    if (field) field.stop();
     if (kbd) kbd.light(null);
     $('imeWarn').classList.add('hidden');
 }
@@ -133,17 +140,53 @@ function paintMine(newWord) {
 }
 
 /* ── あいての ようす ───────────────────────── */
+/* あいてが 1もじ 打った・ことばを おえた・まちがえた を 見つけて、絵と らんを うごかします */
+function foeMoved(g, p) {
+    const old = g.foe;
+    g.foe = p;
+    if (!g.live) return;
+    if ((p.n || 0) > (old.n || 0) || (p.buf || '') !== (old.buf || '')) field.tugFoe();
+    if ((p.w || 0) > (old.w || 0)) field.wordFoe();
+    const panel = $('foePanel');
+    const flash = cls => { panel.classList.remove(cls); void panel.offsetWidth; panel.classList.add(cls); };
+    if ((p.miss || 0) > (old.miss || 0)) flash('oops');
+    else flash('ping');
+}
+
+/* あいての ことばを「打った ところ／いま 打っている 字／まだ」に わけて 出します。
+   ローマ字は、あいての 打ちかけの キー（buf）から 組みたてます */
 function paintFoe() {
     const g = cur;
     const p = g.foe;
     const w = g.o.words[(p.w || 0) % g.o.words.length] || '';
     const k = Math.min(p.k || 0, w.length);
-    $('foeDone').textContent = w.slice(0, k);
-    $('foeRest').textContent = w.slice(k);
-    $('foeBuf').textContent = p.buf || ' ';
-    $('foeMiss').textContent = 'まちがい ' + (p.miss || 0);
+
+    /* ローマ字：打ちおわった ぶんを おてほんで 打ったことにして、そのあと buf を 入れます */
+    const t = createTyper(w, {});
+    let guard = 0;
+    while (t.kanaDone() < k && !t.done() && guard++ < 80) t.input(t.view().rest[0]);
+    for (const ch of p.buf || '') t.input(ch);
+    const v = t.view();
+
+    /* いま 打っている 字（小さい 字も いっしょに）*/
+    let curLen = k < w.length ? 1 : 0;
+    if (curLen && /[ゃゅょぁぃぅぇぉ]/.test(w[k + 1] || '')) curLen = 2;
+    if (curLen && w[k] === 'っ' && w[k + 1]) curLen = 2;
+    const box = $('foeWord');
+    box.textContent = '';
+    const part = (text, cls) => { if (!text) return; const s = document.createElement('span'); s.className = cls; s.textContent = text; box.appendChild(s); };
+    part(w.slice(0, k), 'd');
+    part(w.slice(k, k + curLen), 'c');
+    part(w.slice(k + curLen), 'r');
+
+    $('foeTyped').textContent = v.typed;
+    $('foeNext').textContent = v.rest.slice(0, 1);
+    $('foeGuide').textContent = v.rest.slice(1);
+    $('foeBar').style.width = (w.length ? Math.round(100 * k / w.length) : 0) + '%';
+    $('foeMiss').textContent = `${(p.w || 0) + 1}こめの ことば ・ まちがい ${p.miss || 0}`;
     $('gFoeN').textContent = (p.n || 0) + 'もじ';
-    fitText($('foeWord'), 34, 14);
+    fitText(box, Math.round(wordMax() * 0.8), 16);
+    fitText($('foeRoma'), Math.round(wordMax() * 0.45), 11);
 }
 
 /* ── つなと おうえん ───────────────────────── */
@@ -152,13 +195,13 @@ function paintRope() {
     const goal = g.o.goal;
     const diff = g.n - (g.foe.n || 0);
     const r = Math.max(-1, Math.min(1, diff / goal));
-    $('ropeG').style.transform = `translateX(${-r * ROPE_RANGE}px)`;
+    field.setBalance(diff, goal, g.live);
     if (!g.live) return;
 
     const t = Date.now();
     const sign = Math.sign(diff);
     /* まけていたのに ぬいた */
-    if (g.lastSign < 0 && sign > 0) g.flipUntil = t + 1800;
+    if (g.lastSign < 0 && sign > 0) { g.flipUntil = t + 1800; field.bump(); }
     if (sign !== 0) g.lastSign = sign;
 
     let msg, mood;
@@ -206,6 +249,7 @@ window.addEventListener('keydown', e => {
     const before = g.wi;
     const ok = typeKey(g, key);
     kbd.press(key, ok);
+    if (ok) field.tugMe();
     paintMine(g.wi !== before);
     paintRope();
     g.o.onProg(progOf(g));
@@ -230,6 +274,7 @@ function typeKey(g, key) {
         g.wi++;
         g.typer = createTyper(g.o.words[g.wi % g.o.words.length], prefs);
         sound.word();
+        field.wordMe();
         if (r.carry) typeKey(g, r.carry);
     }
     return true;
@@ -261,6 +306,7 @@ function tick() {
         cd.classList.add('hidden');
         if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
         sound.go();
+        music.play(1);
         setCheer('よーい どん！', 'even');
         setTimeout(() => { if (cur === g) paintRope(); }, 1200);
     }
@@ -269,11 +315,14 @@ function tick() {
     $('gTimer').textContent = left;
     $('gTimer').classList.toggle('hurry', left <= 10);
     if (g.live && left <= 5 && left > 0 && left !== g.lastTick) { g.lastTick = left; sound.tick(); }
+    /* のこり すこしで 音楽を はやく（ラストスパート）*/
+    if (g.live && !g.hurry && left <= HURRY_SEC) { g.hurry = true; music.play(1.25); }
 
     if (t >= o.endsAt && !g.timeUp) {
         g.timeUp = true;
         g.live = false;
         setCheer('そこまで！', 'even');
+        music.stop();
         o.onProg(progOf(g));            // さいごの すすみを 送ってから
         o.onTimeUp();
     }
@@ -289,6 +338,8 @@ function showResult(g, r) {
     g.live = false;
     clearInterval(g.timer);
     kbd.light(null);
+    music.stop();
+    field.finish(r.draw ? 'draw' : r.won ? 'win' : 'lose');
     $('countdown').classList.add('hidden');
 
     $('resMedal').textContent = r.draw ? '🤝' : r.won ? '🥇' : '💪';
