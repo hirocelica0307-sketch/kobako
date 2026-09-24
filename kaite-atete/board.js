@@ -90,13 +90,18 @@ export function createBoard(opt) {
     }
 
     /* ── 大きさを そろえる ───────────────────── */
+    /* canvas の 大きさを かえると 中身が 消えて、ぜんぶ かきなおしに なります
+       （バケツが 多いと 重い）。大きさが かわらない ときは なにも しません。 */
     function fit() {
         layout();
         const rect = base.getBoundingClientRect();
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const W = Math.max(1, Math.round(rect.width * dpr));
+        const H = Math.max(1, Math.round(rect.height * dpr));
+        if (base.width === W && base.height === H && overlay.width === W && overlay.height === H) return;
         for (const c of [base, overlay]) {
-            c.width = Math.max(1, Math.round(rect.width * dpr));
-            c.height = Math.max(1, Math.round(rect.height * dpr));
+            c.width = W;
+            c.height = H;
         }
         bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         octx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -196,18 +201,17 @@ export function createBoard(opt) {
         const py = Math.min(H - 1, Math.max(0, Math.floor(stroke.pts[1] / UNIT * H)));
         const img = bctx.getImageData(0, 0, W, H);
         const d = img.data;
-        /* すきとおった ところは 白（ばんの 地の 色）として あつかいます */
-        const rgb = i => {
-            const a = d[i + 3] / 255;
-            return [d[i] * a + 255 * (1 - a), d[i + 1] * a + 255 * (1 - a), d[i + 2] * a + 255 * (1 - a)];
-        };
-        const [tr, tg, tb] = rgb((py * W + px) * 4);
+        /* すきとおった ところは 白（ばんの 地の 色）として あつかいます。
+           1ドットごとに よばれるので、配列を 作らずに 計算します（はやさの ため）*/
+        const ch = (i, k) => { const a = d[i + 3]; return (d[i + k] * a + 255 * (255 - a)) / 255; };
+        const s0 = (py * W + px) * 4;
+        const tr = ch(s0, 0), tg = ch(s0, 1), tb = ch(s0, 2);
         const [fr, fg, fb] = hexRGB(stroke.color || '#000');
         if (Math.abs(tr - fr) + Math.abs(tg - fg) + Math.abs(tb - fb) < 12) return;   // もう その色
         const TOL = 90;
         const same = p => {
-            const [r, g, b] = rgb(p * 4);
-            return Math.abs(r - tr) + Math.abs(g - tg) + Math.abs(b - tb) <= TOL;
+            const i = p * 4;
+            return Math.abs(ch(i, 0) - tr) + Math.abs(ch(i, 1) - tg) + Math.abs(ch(i, 2) - tb) <= TOL;
         };
         const mask = new Uint8Array(W * H);
         const stack = [py * W + px];
@@ -338,7 +342,7 @@ export function createBoard(opt) {
         getColor: () => color,
         setEnabled(v) { canDraw = !!v; overlay.style.cursor = v ? 'crosshair' : 'default'; },
         /** よこに ならぶ はこ（どうぐ／キーボード）に のこす 最低の はば */
-        setSideMin(px) { sideMin = px; fit(); },
+        setSideMin(px) { if (px !== sideMin) { sideMin = px; fit(); } },
 
         /** かき おわった線が 1本 ふえた */
         addStroke(id, stroke) {
