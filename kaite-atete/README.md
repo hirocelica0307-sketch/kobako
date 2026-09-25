@@ -248,16 +248,16 @@ Firebase の **Realtime Database →「データ」**タブを 見ると、
 Realtime Database の **「ルール」**タブに、`database.rules.json` の 中身を はって
 **「公開」**を おしてください。
 
+おなじ Firebase を「タイピング つなひき」（`tsunahiki`）と「ブロック おはじき」（`ohajiki`）も
+つかうので、`database.rules.json` には 3つ ぶんの ルールが 入っています（3つの フォルダーで おなじ 中身）。
+「かいて あてて」の ぶんは つぎの ところです。
+
 ```json
-{
-  "rules": {
-    "rooms": {
-      "$code": {
-        ".read": "auth != null",
-        ".write": "auth != null",
-        ".validate": "$code.matches(/^[0-9]{4}$/)"
-      }
-    }
+"rooms": {
+  "$code": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+    ".validate": "$code.matches(/^[0-9]{4}$/)"
   }
 }
 ```
