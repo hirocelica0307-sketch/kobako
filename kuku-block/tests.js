@@ -119,6 +119,46 @@
         t('右が ふさがって いたら ほかの ばしょ（かさならない）', moved && !L.boxesOverlap(moved, wall) && !L.boxesOverlap(moved, box), String(sp2));
         t('どこにも はいらない ときは null', L.findSpot(box, [{ x0: 0, y0: 0, x1: 600, y1: 400 }], { x0: 0, y0: 0, x1: 600, y1: 400 }, 40, 4) === null);
 
+        /* じゆうに まわす */
+        const ra = L.rotateAround(10, 0, 0, 0, Math.PI / 2);
+        t('rotateAround 90° は rotate90 と おなじ', Math.abs(ra[0]) < 1e-9 && Math.abs(ra[1] - 10) < 1e-9, String(ra));
+        const r45 = L.rotateAround(10, 0, 0, 0, Math.PI / 4);
+        t('45° まわすと ななめ', Math.abs(r45[0] - r45[1]) < 1e-9 && r45[0] > 0);
+        const tol = 12 * Math.PI / 180;
+        t('85° は 90° に ぴたっ', L.snapAngle(85 * Math.PI / 180, tol) === Math.PI / 2);
+        t('-178° は -180° に ぴたっ', L.snapAngle(-178 * Math.PI / 180, tol) === -Math.PI);
+        t('45° は そのまま', Math.abs(L.snapAngle(Math.PI / 4, tol) - Math.PI / 4) < 1e-12);
+        t('90°・180°・0° は まっすぐ、30° は ちがう', L.isRightAngle(Math.PI / 2) && L.isRightAngle(-Math.PI) && L.isRightAngle(0) && !L.isRightAngle(Math.PI / 6));
+
+        /* おはじき */
+        t('うらがえす：あお ⇔ あか、さくら あお ⇔ さくら あか', L.flipColor('b') === 'r' && L.flipColor('r') === 'b' && L.flipColor('sb') === 'sr' && L.flipColor('sr') === 'sb');
+        t('さくら は おはじき', L.isOhajiki('sb') && L.isOhajiki('sr') && !L.isOhajiki('b'));
+        t('こうたい：ブロックは あお→あか、さくらは さくらあお→さくらあか',
+            L.danColor('x', 0) === 'b' && L.danColor('x', 1) === 'r' && L.danColor('sx', 0) === 'sb' && L.danColor('sx', 3) === 'sr' && L.danColor('sb', 5) === 'sb');
+
+        /* ズーム：だんの 9だん ぶんが 見える ところに はいる */
+        const tall = { x0: 40, y0: 40, x1: 40 + 9 * 48, y1: 40 + 8 * 62 + 48 };
+        const inset = { l: 8, r: 8, t: 8, b: 120 };
+        const fv = L.fitView(tall, 1270, 460, inset, 0.3, 1);
+        const top = tall.y0 * fv.z + fv.oy, bottom = tall.y1 * fv.z + fv.oy;
+        t('9だん ぶんが がめんに はいる ように 小さく する', fv.z < 1 && top >= 8 - 1e-6 && bottom <= 460 - 120 + 1e-6, `z=${fv.z.toFixed(2)} ${top.toFixed(0)}〜${bottom.toFixed(0)}`);
+        const fv2 = L.fitView({ x0: 0, y0: 0, x1: 100, y1: 100 }, 1270, 700, inset, 0.3, 1);
+        t('はいる ときは 大きく しない（1ばい まで）', fv2.z === 1);
+
+        /* よみこんだ データを たしかめる */
+        const empty = { size: 48, blocks: [], loops: [], strokes: [], bg: null, loopColor: 0, dan: null, card: null };
+        const junk = {
+            size: 'x', blocks: [{ id: 'a', x: 1, y: 2, c: 'b' }, { id: 'b', x: 'NaN', y: 0, c: 'b' }, { id: 'c', x: 0, y: 0, c: 'zzz' }, null],
+            loops: [{ id: 'l', pts: [[0, 0], [1, 0], [1, 1]], color: '#ff0000' }, { id: 'm', pts: 'no', color: '#fff' }],
+            strokes: [{ id: 's', pts: [[0, 0]], color: 'red', w: 3 }],
+            bg: { id: 'p1', x: 0, y: 0, s: 1, rot: 5, alpha: 1 }, card: { text: 'おだい' },
+        };
+        const sn = L.sanitizeState(junk, empty);
+        t('おかしな データは すてる（ブロック・かこみ・線・はいけい）',
+            sn && sn.size === 48 && sn.blocks.length === 1 && sn.loops.length === 1 && sn.strokes.length === 0 && sn.bg === null && sn.card.text === 'おだい',
+            sn && `b${sn.blocks.length} l${sn.loops.length} s${sn.strokes.length}`);
+        t('ページで ない ものは null', L.sanitizeState(null, empty) === null && L.sanitizeState({ blocks: 3 }, empty) === null);
+
         return rows;
     }
 

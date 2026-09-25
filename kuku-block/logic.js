@@ -1,4 +1,4 @@
-/* くく ブロック ── 計算の きまり（画面を つかわない ところ）
+/* ブロック おはじき ── 計算の きまり（画面を つかわない ところ）
    ------------------------------------------------------------------
    かこみの 中に ある ブロックを しらべる・マス目に そろえる・
    あいている ばしょを さがす・しきを つくる、など。
@@ -240,6 +240,77 @@
         return [px - (y - py), py + (x - px)];
     }
 
+    /** (px, py) を 中心に a ラジアン まわす（画面は y が 下むきなので、+ は 時計まわり） */
+    function rotateAround(x, y, px, py, a) {
+        const c = Math.cos(a), s = Math.sin(a), dx = x - px, dy = y - py;
+        return [px + dx * c - dy * s, py + dx * s + dy * c];
+    }
+
+    /** 90° の ばいすうに ちかければ（tol ラジアン いない）その かどに、ちがえば そのまま */
+    function snapAngle(a, tol) {
+        const q = Math.PI / 2, k = Math.round(a / q);
+        return Math.abs(a - k * q) <= tol ? k * q : a;
+    }
+
+    /** 90° の ばいすう か（ブロックの むきが もとに もどったか） */
+    function isRightAngle(a) {
+        const q = Math.PI / 2, r = ((a % q) + q) % q;
+        return r < 1e-6 || q - r < 1e-6;
+    }
+
+    /* ---------- ブロックと おはじき ---------- */
+
+    const PIECES = ['b', 'r', 'sb', 'sr'];   /* あおブロック・あかブロック・さくら（あお）・さくら（あか） */
+    const FLIP = { b: 'r', r: 'b', sb: 'sr', sr: 'sb' };
+    const isOhajiki = (c) => c === 'sb' || c === 'sr';
+    const flipColor = (c) => FLIP[c] || 'b';
+
+    /** 「こうたい」の いろ（x／sx）を k だんめ の いろに */
+    function danColor(c, k) {
+        if (c === 'x') return k % 2 ? 'r' : 'b';
+        if (c === 'sx') return k % 2 ? 'sr' : 'sb';
+        return PIECES.includes(c) ? c : 'b';
+    }
+
+    /* ---------- 見る ところ（ズーム） ---------- */
+
+    /** box が 見える ところ（inset を のぞいた がめん）に おさまる 見かた {ox, oy, z}。
+        いまより 大きくは しない（maxZ）。 */
+    function fitView(box, W, H, inset, minZ, maxZ) {
+        const aw = Math.max(40, W - inset.l - inset.r), ah = Math.max(40, H - inset.t - inset.b);
+        const bw = Math.max(1, box.x1 - box.x0), bh = Math.max(1, box.y1 - box.y0);
+        const z = Math.max(minZ, Math.min(maxZ, aw / bw, ah / bh));
+        const cx = (box.x0 + box.x1) / 2, cy = (box.y0 + box.y1) / 2;
+        return { z, ox: inset.l + aw / 2 - cx * z, oy: inset.t + ah / 2 - cy * z };
+    }
+
+    /* ---------- よみこんだ データを たしかめる ---------- */
+
+    const num = (v) => typeof v === 'number' && isFinite(v);
+    const pts2 = (p) => Array.isArray(p) && p.length >= 1 && p.length <= 20000 && p.every(q => Array.isArray(q) && num(q[0]) && num(q[1]));
+    const str = (v, n) => typeof v === 'string' && v.length <= n;
+
+    /** ほかの 人から きた ページを、つかえる かたちに なおす（おかしな ものは すてる）。だめなら null */
+    function sanitizeState(s, empty) {
+        if (!s || typeof s !== 'object' || !Array.isArray(s.blocks)) return null;
+        const out = Object.assign({}, empty);
+        out.size = num(s.size) ? Math.max(16, Math.min(128, s.size)) : empty.size;
+        out.blocks = s.blocks.filter(b => b && str(b.id, 40) && num(b.x) && num(b.y) && PIECES.includes(b.c))
+            .slice(0, 3000).map(b => (num(b.a) && b.a ? { id: b.id, x: b.x, y: b.y, c: b.c, a: b.a } : { id: b.id, x: b.x, y: b.y, c: b.c }));
+        out.loops = (Array.isArray(s.loops) ? s.loops : []).filter(l => l && str(l.id, 40) && pts2(l.pts) && l.pts.length >= 3 && str(l.color, 30) && /^#[0-9a-f]{6}$/i.test(l.color))
+            .slice(0, 500).map(l => ({ id: l.id, pts: l.pts, color: l.color }));
+        out.strokes = (Array.isArray(s.strokes) ? s.strokes : []).filter(t => t && str(t.id, 40) && pts2(t.pts) && str(t.color, 30) && /^#[0-9a-f]{6}$/i.test(t.color) && num(t.w))
+            .slice(0, 2000).map(t => ({ id: t.id, pts: t.pts, color: t.color, w: Math.max(1, Math.min(40, t.w)) }));
+        const b = s.bg;
+        out.bg = b && str(b.id, 60) && num(b.x) && num(b.y) && num(b.s) && b.s > 0 && [0, 1, 2, 3].includes(b.rot) && num(b.alpha)
+            ? { id: b.id, x: b.x, y: b.y, s: b.s, rot: b.rot, alpha: Math.max(0.1, Math.min(1, b.alpha)), label: str(b.label, 40) ? b.label : 'しゃしん' }
+            : null;
+        out.loopColor = num(s.loopColor) ? Math.abs(Math.round(s.loopColor)) % 6 : 0;
+        out.card = s.card && str(s.card.text, 200) ? { text: s.card.text } : null;
+        out.dan = null;   /* だんの とちゅうは ひきつがない（ブロックは のこる） */
+        return out;
+    }
+
     function boxesOverlap(a, b) {
         return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
     }
@@ -269,6 +340,8 @@
         simplify, chaikin, makeLoop, blockCenter, blocksInLoop, loopsInLoop,
         snap, cellKey, findFreeCell, findFreeRect, clusterOf, describe,
         kukuReading, rotate90, boxesOverlap, findSpot,
+        rotateAround, snapAngle, isRightAngle, PIECES, isOhajiki, flipColor, danColor,
+        fitView, sanitizeState,
     };
     root.KukuLogic = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;

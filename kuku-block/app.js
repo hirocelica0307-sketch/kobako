@@ -1,10 +1,13 @@
-/* くく ブロック ── アプリ本体
+/* ブロック おはじき ── アプリ本体
    ------------------------------------------------------------------
-   ・つくえ（キャンバス）に ブロック・かこみ・かいた 線・はいけいの しゃしん を かきます
+   ・つくえ（キャンバス）に ブロック・おはじき・かこみ・かいた 線・はいけいの しゃしん を かきます
+   ・つくえは「ページ」ごとに べつ。いちばん うえの タブで きりかえます
+   ・つくえは ひろく、2本ゆびの ピンチで 大きく・小さく できます（view）。
+     ブロックの ばしょは ぜんぶ「つくえの ざひょう」で もち、がめんへは view で うつします
    ・ドラッグ ちゅうの ものは いちばん うえの キャンバス（dragLayer）に かくので、
      ブロックばこ や ごみばこ の うえでも 見えます
-   ・かわった ときは ぜんぶ JSON に して「もどす」の れきしに つみます
-   ・つくえの ようすは localStorage、しゃしんは IndexedDB（photos.js）に のこります
+   ・かわった ときは ぜんぶ JSON に して「もどす」の れきしに つみます（ページごと）
+   ・ページは localStorage、しゃしんは IndexedDB（photos.js）に のこります
    ------------------------------------------------------------------ */
 (function () {
     'use strict';
@@ -16,28 +19,63 @@
     const $$ = (s) => [...document.querySelectorAll(s)];
 
     const BLOCK_COLORS = { b: '#2f6fdc', r: '#e5413a' };
+    const OHAJIKI = {
+        sb: ['#a9c8ff', '#2f6fdc', '#1d4a9e'],
+        sr: ['#ffb8b0', '#e5413a', '#a8261f'],
+    };
     const LOOP_COLORS = ['#f08a2c', '#2fa84f', '#8a5cd6', '#e0529c', '#1f9fb5', '#c9a100'];
     const PEN_COLORS = { k: '#2b2b2b', r: '#e5413a', b: '#2f6fdc', g: '#2fa84f' };
-    const STATE_KEY = 'kuku-block/v1/state';
+    const PAGES_KEY = 'kuku-block/v2/pages';
+    const OLD_STATE_KEY = 'kuku-block/v1/state';   /* まえの はん（1ページだけ）の ほぞん */
     const SET_KEY = 'kuku-block/v1/settings';
+    const MAX_PAGES = 20;
+    const ZMIN = 0.3, ZMAX = 3;
+
+    let seq = 0;
+    const uid = (p) => p + Date.now().toString(36) + (seq++).toString(36);
 
     /* ================================================================
-       じょうたい・ほぞん・もどす
+       ページ・ほぞん・もどす
        ================================================================ */
 
-    const emptyState = () => ({ size: 48, blocks: [], loops: [], strokes: [], bg: null, loopColor: 0, dan: null, card: null });
+    const emptyState = (size) => ({ size: size || 48, blocks: [], loops: [], strokes: [], bg: null, loopColor: 0, dan: null, card: null });
 
     function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-    function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* のこせなくても うごく */ } }
+    function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
 
-    function loadState() {
+    function normalize(s) {
+        if (s && Array.isArray(s.blocks) && Array.isArray(s.loops) && Array.isArray(s.strokes)) {
+            return Object.assign(emptyState(), s);
+        }
+        return null;
+    }
+
+    function newPage(st, view) {
+        return {
+            id: uid('g'),
+            saved: JSON.stringify(st || emptyState()),
+            undo: [], redo: [],
+            view: view && [view.ox, view.oy, view.z].every(Number.isFinite) ? { ox: view.ox, oy: view.oy, z: Math.max(ZMIN, Math.min(ZMAX, view.z)) } : { ox: 0, oy: 0, z: 1 },
+        };
+    }
+
+    function loadPages() {
         try {
-            const s = JSON.parse(lsGet(STATE_KEY));
-            if (s && Array.isArray(s.blocks) && Array.isArray(s.loops) && Array.isArray(s.strokes)) {
-                return Object.assign(emptyState(), s);
+            const d = JSON.parse(lsGet(PAGES_KEY));
+            if (d && Array.isArray(d.pages)) {
+                const ps = d.pages.map(p => {
+                    const st = normalize(p && p.s);
+                    if (!st) return null;
+                    const pg = newPage(st, p.v);
+                    if (typeof p.id === 'string') pg.id = p.id;
+                    return pg;
+                }).filter(Boolean);
+                if (ps.length) return { list: ps, cur: Math.min(ps.length - 1, Math.max(0, d.cur | 0)) };
             }
         } catch (e) { /* こわれていたら あたらしく */ }
-        return emptyState();
+        let old = null;
+        try { old = normalize(JSON.parse(lsGet(OLD_STATE_KEY))); } catch (e) { /* なければ よい */ }
+        return { list: [newPage(old || emptyState())], cur: 0 };
     }
 
     const settings = Object.assign(
@@ -51,36 +89,50 @@
     const saveSettings = () => lsSet(SET_KEY, JSON.stringify(settings));
     SND.setEnabled(settings.sound);
 
-    let state = loadState();
-    let saved = JSON.stringify(state);
-    const undoStack = [];
-    const redoStack = [];
+    const loaded = loadPages();
+    const pages = loaded.list;
+    let curIdx = loaded.cur;
+    let page = pages[curIdx];
+    let state = JSON.parse(page.saved);
     let persistTimer = 0;
 
+    function persistNow() {
+        clearTimeout(persistTimer);
+        const body = pages.map(p => '{"id":' + JSON.stringify(p.id) + ',"v":' + JSON.stringify(p.view) + ',"s":' + p.saved + '}').join(',');
+        if (!lsSet(PAGES_KEY, '{"cur":' + curIdx + ',"pages":[' + body + ']}')) {
+            toast('ブラウザに のこせません でした（ページが おおすぎるかも）');
+        }
+    }
     function persist() {
         clearTimeout(persistTimer);
-        persistTimer = setTimeout(() => lsSet(STATE_KEY, saved), 250);
+        persistTimer = setTimeout(persistNow, 250);
     }
-    window.addEventListener('pagehide', () => lsSet(STATE_KEY, saved));
+    window.addEventListener('pagehide', persistNow);
 
     /** いまの じょうたいを れきしに のこす（かわっていなければ なにも しない） */
     function commit() {
         const now = JSON.stringify(state);
-        if (now === saved) return;
-        undoStack.push(saved);
-        if (undoStack.length > 120) undoStack.shift();
-        redoStack.length = 0;
-        saved = now;
+        if (now === page.saved) return;
+        page.undo.push(page.saved);
+        if (page.undo.length > 120) page.undo.shift();
+        page.redo.length = 0;
+        page.saved = now;
         persist();
         updateUndoButtons();
+        renderTabs();
     }
 
     function restore(json) {
-        drags.clear();
-        bgPointers.clear();
+        cancelDrags();
         state = JSON.parse(json);
-        saved = json;
+        page.saved = json;
         persist();
+        afterPageChange();
+    }
+
+    /** ページの なかみが がらっと かわった あとの かたづけ */
+    function afterPageChange() {
+        bgPointers.clear();
         syncBg();
         updateUndoButtons();
         updateSizeUI();
@@ -88,34 +140,148 @@
         resetCount();
         hideBubble();
         updateCard();
+        updateZoomUI();
+        renderTabs();
         requestRender();
     }
 
     function undo() {
-        if (!undoStack.length || drags.size) return;
-        redoStack.push(saved);
-        restore(undoStack.pop());
+        if (!page.undo.length || drags.size) return;
+        page.redo.push(page.saved);
+        restore(page.undo.pop());
     }
 
     function redo() {
-        if (!redoStack.length || drags.size) return;
-        undoStack.push(saved);
-        restore(redoStack.pop());
+        if (!page.redo.length || drags.size) return;
+        page.undo.push(page.saved);
+        restore(page.redo.pop());
     }
 
     function updateUndoButtons() {
-        $('#btnUndo').disabled = !undoStack.length;
-        $('#btnRedo').disabled = !redoStack.length;
+        $('#btnUndo').disabled = !page.undo.length;
+        $('#btnRedo').disabled = !page.redo.length;
     }
 
-    let seq = 0;
-    const uid = (p) => p + Date.now().toString(36) + (seq++).toString(36);
+    /* ---------- ページ（タブ） ---------- */
+
+    function switchPage(i) {
+        if (i === curIdx || !pages[i]) return;
+        commit();
+        cancelDrags();
+        curIdx = i;
+        page = pages[i];
+        state = JSON.parse(page.saved);
+        persist();
+        afterPageChange();
+        scrollTabIntoView();
+    }
+
+    /** あたらしい ページを いまの ページの つぎに つくって ひらく */
+    function addPage(st, view) {
+        if (pages.length >= MAX_PAGES) { toast(`ページは ${MAX_PAGES}まい までです`); return false; }
+        commit();
+        pages.splice(curIdx + 1, 0, newPage(st || emptyState(state.size), view));
+        curIdx = curIdx + 1;
+        page = pages[curIdx];
+        state = JSON.parse(page.saved);
+        persist();
+        afterPageChange();
+        scrollTabIntoView();
+        return true;
+    }
+
+    function closePage(i) {
+        if (!pages[i]) return;
+        cancelDrags();
+        if (pages.length === 1) {
+            pages[0] = newPage(emptyState(state.size));
+            curIdx = 0;
+        } else {
+            pages.splice(i, 1);
+            if (i < curIdx) curIdx--;
+            curIdx = Math.min(curIdx, pages.length - 1);
+        }
+        page = pages[curIdx];
+        state = JSON.parse(page.saved);
+        persistNow();
+        afterPageChange();
+    }
+
+    const isEmptyState = (s) => !s.bg && !s.blocks.length && !s.loops.length && !s.strokes.length && !s.card;
+
+    const photoThumbs = new Map();   /* しゃしんの id → 小さな がぞう（タブに 出す） */
+    async function refreshThumbs() {
+        for (const p of await P.list()) photoThumbs.set(p.id, p.thumb);
+        renderTabs();
+    }
+
+    function pageLabel(s) {
+        if (s.bg) return s.bg.label || 'しゃしん';
+        if (s.card) return 'おだい';
+        return s.blocks.length || s.loops.length || s.strokes.length ? 'つくえ' : 'まっしろ';
+    }
+
+    /* タブの なまえ・しゃしんは ほぞんした 中身が かわった ときだけ しらべなおす */
+    const tabInfo = new Map();
+    function pageInfo(p, i) {
+        if (i === curIdx) return { label: pageLabel(state), bgId: state.bg && state.bg.id, empty: isEmptyState(state) };
+        const c = tabInfo.get(p.id);
+        if (c && c.saved === p.saved) return c;
+        const s = JSON.parse(p.saved);
+        const info = { saved: p.saved, label: pageLabel(s), bgId: s.bg && s.bg.id, empty: isEmptyState(s) };
+        tabInfo.set(p.id, info);
+        return info;
+    }
+
+    const tabsEl = $('#tabs');
+    let closingTab = -1;
+    function renderTabs() {
+        tabsEl.innerHTML = '';
+        pages.forEach((p, i) => {
+            const info = pageInfo(p, i);
+            const tab = document.createElement('div');
+            tab.className = 'tab' + (i === curIdx ? ' on' : '');
+            tab.setAttribute('role', 'tab');
+            tab.setAttribute('aria-selected', i === curIdx ? 'true' : 'false');
+            tab.tabIndex = 0;
+            const thumb = info.bgId && photoThumbs.get(info.bgId);
+            const img = document.createElement(thumb ? 'img' : 'span');
+            img.className = 'tab-thumb';
+            if (thumb) { img.src = thumb; img.alt = ''; }
+            const name = document.createElement('span');
+            name.className = 'tab-name';
+            name.textContent = `${i + 1}  ${info.label}`;
+            const x = document.createElement('button');
+            x.className = 'tab-x';
+            x.setAttribute('aria-label', `${i + 1}ページを とじる`);
+            x.textContent = '✕';
+            x.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (pageInfo(pages[i], i).empty) { closePage(i); return; }
+                closingTab = i;
+                openSheet('tabCloseSheet');
+            });
+            tab.append(img, name, x);
+            tab.addEventListener('click', () => switchPage(i));
+            tab.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); switchPage(i); } });
+            tabsEl.appendChild(tab);
+        });
+        $('#tabAdd').disabled = pages.length >= MAX_PAGES;
+        const n = $('#sharePages');
+        if (n) n.textContent = pages.length;
+    }
+    function scrollTabIntoView() {
+        const t = tabsEl.children[curIdx];
+        if (t && t.scrollIntoView) t.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+    $('#tabAdd').addEventListener('click', () => { if (addPage()) toast('あたらしい ページ'); });
+    $('#tabCloseYes').addEventListener('click', () => { closeSheets(); closePage(closingTab); });
 
     const blockById = (id) => state.blocks.find(b => b.id === id);
     const loopById = (id) => state.loops.find(l => l.id === id);
 
     /* ================================================================
-       キャンバス
+       キャンバス・見る ところ（ズーム）
        ================================================================ */
 
     const wrap = $('#boardWrap');
@@ -140,7 +306,93 @@
     new ResizeObserver(resize).observe(wrap);
     window.addEventListener('resize', resize);
 
-    const toBoard = (e) => [e.clientX - rect.left, e.clientY - rect.top];
+    /** がめん（つくえの 左上から）→ つくえの ざひょう */
+    function toWorld(sx, sy) {
+        const v = page.view;
+        return [(sx - v.ox) / v.z, (sy - v.oy) / v.z];
+    }
+    const toScreen = (x, y) => [x * page.view.z + page.view.ox, y * page.view.z + page.view.oy];
+    const toBoard = (e) => toWorld(e.clientX - rect.left, e.clientY - rect.top);
+    const screenPt = (e) => [e.clientX - rect.left, e.clientY - rect.top];
+
+    /** いま 見えている ところ（つくえの ざひょう）。inset で したの バーなどを のぞく */
+    function viewRect(inset) {
+        const i = inset || { l: 0, r: 0, t: 0, b: 0 };
+        const [x0, y0] = toWorld(i.l, i.t), [x1, y1] = toWorld(W - i.r, H - i.b);
+        return { x0, y0, x1, y1 };
+    }
+    /** ブロックを おく ときに つかう ところ（したの バーの ぶん あける） */
+    const placeRect = () => viewRect({ l: 0, r: 0, t: state.card ? 90 : 0, b: state.dan ? 120 : 64 });
+
+    let viewTimer = 0;
+    function viewChanged() {
+        updateZoomUI();
+        hideBubble();
+        requestRender();
+        clearTimeout(viewTimer);
+        viewTimer = setTimeout(persistNow, 400);
+    }
+
+    /** がめんの (sx, sy) を 中心に f ばい */
+    function zoomView(f, sx, sy) {
+        const v = page.view;
+        const nz = Math.max(ZMIN, Math.min(ZMAX, v.z * f));
+        f = nz / v.z;
+        v.ox = sx - (sx - v.ox) * f;
+        v.oy = sy - (sy - v.oy) * f;
+        v.z = nz;
+        viewChanged();
+    }
+
+    function setView(nv) {
+        Object.assign(page.view, nv);
+        page.view.z = Math.max(ZMIN, Math.min(ZMAX, page.view.z));
+        viewChanged();
+    }
+
+    /** box（つくえの ざひょう）が 見える ように する。はいって いれば なにも しない。
+        いまの 大きさで はいる ときは すこし ずらすだけ、はいらない ときは 小さく する */
+    function ensureVisible(box, inset) {
+        const i = inset || { l: 8, r: 8, t: 8, b: 8 };
+        const v = page.view;
+        const [sx0, sy0] = toScreen(box.x0, box.y0), [sx1, sy1] = toScreen(box.x1, box.y1);
+        if (sx0 >= i.l - 1 && sy0 >= i.t - 1 && sx1 <= W - i.r + 1 && sy1 <= H - i.b + 1) return false;
+        if (sx1 - sx0 <= W - i.l - i.r && sy1 - sy0 <= H - i.t - i.b) {
+            let dx = 0, dy = 0;
+            if (sx0 < i.l) dx = i.l - sx0; else if (sx1 > W - i.r) dx = W - i.r - sx1;
+            if (sy0 < i.t) dy = i.t - sy0; else if (sy1 > H - i.b) dy = H - i.b - sy1;
+            setView({ ox: v.ox + dx, oy: v.oy + dy, z: v.z });
+            return true;
+        }
+        setView(L.fitView(box, W, H, i, ZMIN, v.z));
+        return true;
+    }
+
+    function contentBox() {
+        const S = state.size, pts = [];
+        for (const b of state.blocks) pts.push([b.x, b.y], [b.x + S, b.y + S]);
+        for (const l of state.loops) pts.push(...l.pts);
+        for (const t of state.strokes) pts.push(...t.pts);
+        if (state.bg && bgImage) {
+            const [iw, ih] = imgSize(bgImage);
+            const [w, h] = state.bg.rot % 2 ? [ih, iw] : [iw, ih];
+            pts.push([state.bg.x - w * state.bg.s / 2, state.bg.y - h * state.bg.s / 2], [state.bg.x + w * state.bg.s / 2, state.bg.y + h * state.bg.s / 2]);
+        }
+        return pts.length ? L.bbox(pts) : null;
+    }
+
+    function updateZoomUI() {
+        $('#zoomPct').textContent = Math.round(page.view.z * 100) + '%';
+    }
+    $('#zoomIn').addEventListener('click', () => zoomView(1.25, W / 2, H / 2));
+    $('#zoomOut').addEventListener('click', () => zoomView(1 / 1.25, W / 2, H / 2));
+    $('#zoomPct').addEventListener('click', () => setView({ ox: 0, oy: 0, z: 1 }));
+    $('#zoomFit').addEventListener('click', () => {
+        const box = contentBox();
+        if (!box) { setView({ ox: 0, oy: 0, z: 1 }); return; }
+        const pad = state.size;
+        setView(L.fitView({ x0: box.x0 - pad, y0: box.y0 - pad, x1: box.x1 + pad, y1: box.y1 + pad }, W, H, { l: 8, r: 8, t: 8, b: 70 }, ZMIN, ZMAX));
+    });
 
     let dirty = false;
     function requestRender() {
@@ -152,8 +404,9 @@
     function render() {
         dirty = false;
         const hide = hiddenIds();
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        drawScene(ctx, W, H, { grid: true, hide, live: true });
+        const v = page.view;
+        ctx.setTransform(dpr * v.z, 0, 0, dpr * v.z, dpr * v.ox, dpr * v.oy);
+        drawScene(ctx, viewRect(), { grid: true, hide, live: true, z: v.z });
         drawLayer(hide);
         updateExpr();
     }
@@ -167,10 +420,11 @@
         return [img.naturalWidth || img.width, img.naturalHeight || img.height];
     }
 
-    function drawScene(g, w, h, opts) {
-        const S = state.size;
+    /** vr … かく ところ（つくえの ざひょう）。g には もう view の へんかんが かかっている */
+    function drawScene(g, vr, opts) {
+        const S = state.size, z = opts.z || 1;
         g.fillStyle = '#fffdf8';
-        g.fillRect(0, 0, w, h);
+        g.fillRect(vr.x0 - 2, vr.y0 - 2, vr.x1 - vr.x0 + 4, vr.y1 - vr.y0 + 4);
 
         if (state.bg && bgImage && bgImageId === state.bg.id) {
             const b = state.bg;
@@ -187,15 +441,16 @@
 
         if (opts.grid && settings.snap) {
             g.beginPath();
-            for (let x = S; x < w; x += S) { g.moveTo(Math.round(x) + 0.5, 0); g.lineTo(Math.round(x) + 0.5, h); }
-            for (let y = S; y < h; y += S) { g.moveTo(0, Math.round(y) + 0.5); g.lineTo(w, Math.round(y) + 0.5); }
+            const off = 0.5 / z;
+            for (let x = Math.floor(vr.x0 / S) * S; x < vr.x1; x += S) { g.moveTo(x + off, vr.y0); g.lineTo(x + off, vr.y1); }
+            for (let y = Math.floor(vr.y0 / S) * S; y < vr.y1; y += S) { g.moveTo(vr.x0, y + off); g.lineTo(vr.x1, y + off); }
             g.strokeStyle = state.bg ? 'rgba(0,0,0,.07)' : 'rgba(47,111,220,.09)';
-            g.lineWidth = 1;
+            g.lineWidth = 1 / z;
             g.stroke();
         }
 
         for (const l of state.loops) if (!opts.hide.has(l.id)) drawLoopFill(g, l);
-        for (const b of state.blocks) if (!opts.hide.has(b.id)) drawBlock(g, b.x, b.y, S, b.c, false);
+        for (const b of state.blocks) if (!opts.hide.has(b.id)) drawPiece(g, b, S, false);
         for (const l of state.loops) if (!opts.hide.has(l.id)) drawLoopLine(g, l);
         drawCountMarks(g, opts.hide);
         for (const s of state.strokes) if (!opts.hide.has(s.id)) drawStroke(g, s);
@@ -204,6 +459,9 @@
         }
 
         if (opts.live) {
+            if (tool === 'move') {
+                for (const l of state.loops) if (!opts.hide.has(l.id) || rotating(l.id)) drawHandle(g, l, rotating(l.id));
+            }
             for (const d of drags.values()) {
                 if (d.type === 'lasso') drawLasso(g, d.pts);
                 if (d.type === 'erase' && d.cur) drawEraser(g, d.cur);
@@ -215,10 +473,11 @@
         lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         lctx.clearRect(0, 0, layer.width, layer.height);
         if (!hide.size) return;
-        lctx.translate(rect.left, rect.top);
+        const v = page.view;
+        lctx.setTransform(dpr * v.z, 0, 0, dpr * v.z, dpr * (rect.left + v.ox), dpr * (rect.top + v.oy));
         const S = state.size;
         for (const l of state.loops) if (hide.has(l.id)) drawLoopFill(lctx, l);
-        for (const b of state.blocks) if (hide.has(b.id)) drawBlock(lctx, b.x, b.y, S, b.c, true);
+        for (const b of state.blocks) if (hide.has(b.id)) drawPiece(lctx, b, S, true);
         for (const l of state.loops) if (hide.has(l.id)) drawLoopLine(lctx, l);
         if (settings.count) for (const l of state.loops) if (hide.has(l.id)) drawBadge(lctx, l);
     }
@@ -233,12 +492,22 @@
         g.closePath();
     }
 
-    function drawBlock(g, x, y, S, c, lift) {
+    /** ブロック か おはじき を 1こ かく（b.a が あれば かたむける） */
+    function drawPiece(g, b, S, lift) {
+        const cx = b.x + S / 2, cy = b.y + S / 2;
+        g.save();
+        g.translate(cx, cy);
+        if (b.a) g.rotate(b.a);
+        if (L.isOhajiki(b.c)) drawOhajiki(g, S, b.c, lift);
+        else drawBlock(g, S, b.c, lift);
+        g.restore();
+    }
+
+    /** まん中が (0, 0) の ブロック */
+    function drawBlock(g, S, c, lift) {
         const inset = Math.max(1, S * 0.03);
         const s = S - inset * 2;
-        x += inset; y += inset;
-        g.save();
-        roundRectPath(g, x, y, s, s, S * 0.12);
+        roundRectPath(g, -s / 2, -s / 2, s, s, S * 0.12);
         if (lift) {
             g.shadowColor = 'rgba(0,0,0,.28)';
             g.shadowBlur = 12;
@@ -250,16 +519,67 @@
         g.lineWidth = Math.max(1.2, S * 0.035);
         g.strokeStyle = '#9aa3b5';
         g.stroke();
-        const cx = x + s / 2, cy = y + s / 2, r = s * 0.36;
+        const r = s * 0.36;
         g.beginPath();
-        g.arc(cx, cy, r, 0, Math.PI * 2);
+        g.arc(0, 0, r, 0, Math.PI * 2);
         g.fillStyle = BLOCK_COLORS[c] || BLOCK_COLORS.b;
         g.fill();
         g.beginPath();
-        g.ellipse(cx - r * 0.35, cy - r * 0.4, r * 0.28, r * 0.18, -0.5, 0, Math.PI * 2);
+        g.ellipse(-r * 0.35, -r * 0.4, r * 0.28, r * 0.18, -0.5, 0, Math.PI * 2);
         g.fillStyle = 'rgba(255,255,255,.45)';
         g.fill();
-        g.restore();
+    }
+
+    /** まん中が (0, 0) の さくらの おはじき */
+    function drawOhajiki(g, S, c, lift) {
+        const [light, base, dark] = OHAJIKI[c] || OHAJIKI.sb;
+        const R = S * 0.45;
+        g.beginPath();
+        g.arc(0, 0, R, 0, Math.PI * 2);
+        if (lift) {
+            g.shadowColor = 'rgba(0,0,0,.3)';
+            g.shadowBlur = 12;
+            g.shadowOffsetY = 5;
+        } else {
+            g.shadowColor = 'rgba(0,0,0,.18)';
+            g.shadowBlur = S * 0.06;
+            g.shadowOffsetY = S * 0.03;
+        }
+        const grad = g.createRadialGradient(-R * 0.3, -R * 0.35, R * 0.08, 0, 0, R);
+        grad.addColorStop(0, light);
+        grad.addColorStop(0.55, base);
+        grad.addColorStop(1, dark);
+        g.fillStyle = grad;
+        g.fill();
+        g.shadowColor = 'transparent';
+        g.lineWidth = Math.max(1, S * 0.03);
+        g.strokeStyle = 'rgba(255,255,255,.5)';
+        g.beginPath();
+        g.arc(0, 0, R * 0.9, 0, Math.PI * 2);
+        g.stroke();
+        /* さくらの はな（5まいの はなびら・さきが へこんでいる） */
+        const pr = R * 0.62;
+        g.fillStyle = 'rgba(255,255,255,.9)';
+        for (let i = 0; i < 5; i++) {
+            g.save();
+            g.rotate(i * Math.PI * 2 / 5);
+            g.beginPath();
+            g.moveTo(0, 0);
+            g.bezierCurveTo(-pr * 0.55, -pr * 0.35, -pr * 0.5, -pr * 0.95, -pr * 0.15, -pr);
+            g.lineTo(0, -pr * 0.83);
+            g.lineTo(pr * 0.15, -pr);
+            g.bezierCurveTo(pr * 0.5, -pr * 0.95, pr * 0.55, -pr * 0.35, 0, 0);
+            g.fill();
+            g.restore();
+        }
+        g.beginPath();
+        g.arc(0, 0, pr * 0.2, 0, Math.PI * 2);
+        g.fillStyle = '#ffe08a';
+        g.fill();
+        g.beginPath();
+        g.ellipse(-R * 0.45, -R * 0.5, R * 0.22, R * 0.12, -0.6, 0, Math.PI * 2);
+        g.fillStyle = 'rgba(255,255,255,.45)';
+        g.fill();
     }
 
     function loopPath(g, pts) {
@@ -310,6 +630,44 @@
         g.fillText(String(n), x, y + 1);
     }
 
+    /* くるくる まわす ための つまみ（かこみの 数字の よこ） */
+    const handleR = () => 14 / Math.min(1, page.view.z);
+    function handlePos(l) {
+        const b = L.bbox(l.pts);
+        return [b.x1 + 12 + handleR(), b.y0 + 8];   /* 数字（badgePos）の すぐ 右 */
+    }
+    function drawHandle(g, l, active) {
+        const [x, y] = handlePos(l);
+        const r = handleR();
+        g.save();
+        g.beginPath();
+        g.arc(x, y, r, 0, Math.PI * 2);
+        g.fillStyle = l.color;
+        g.shadowColor = 'rgba(0,0,0,.25)';
+        g.shadowBlur = active ? 10 : 4;
+        g.fill();
+        g.shadowColor = 'transparent';
+        g.lineWidth = r * 0.16;
+        g.strokeStyle = '#fff';
+        g.stroke();
+        /* ↻ の しるし */
+        const a = r * 0.5;
+        g.beginPath();
+        g.arc(x, y, a, -Math.PI * 0.9, Math.PI * 0.45);
+        g.lineWidth = r * 0.18;
+        g.lineCap = 'round';
+        g.stroke();
+        const ex = x + a * Math.cos(Math.PI * 0.45), ey = y + a * Math.sin(Math.PI * 0.45);
+        g.beginPath();
+        g.moveTo(ex + r * 0.28, ey - r * 0.05);
+        g.lineTo(ex - r * 0.05, ey + r * 0.02);
+        g.lineTo(ex + r * 0.12, ey - r * 0.32);
+        g.closePath();
+        g.fillStyle = '#fff';
+        g.fill();
+        g.restore();
+    }
+
     function drawStroke(g, s) {
         const p = s.pts;
         g.lineCap = 'round';
@@ -353,7 +711,9 @@
         count.order.forEach((id, i) => {
             const b = blockById(id);
             if (!b || hide.has(id)) return;
-            roundRectPath(g, b.x + 2, b.y + 2, S - 4, S - 4, S * 0.12);
+            const cx = b.x + S / 2, cy = b.y + S / 2;
+            g.beginPath();
+            g.arc(cx, cy, S * 0.47, 0, Math.PI * 2);
             g.lineWidth = 4;
             g.strokeStyle = '#f5b800';
             g.stroke();
@@ -361,10 +721,11 @@
             g.font = `800 ${Math.round(S * (t.length > 2 ? 0.34 : 0.44))}px "M PLUS Rounded 1c", sans-serif`;
             g.lineWidth = Math.max(3, S * 0.08);
             g.strokeStyle = 'rgba(0,0,0,.55)';
-            g.strokeText(t, b.x + S / 2, b.y + S / 2 + 1);
+            g.strokeText(t, cx, cy + 1);
             g.fillStyle = '#fff';
-            g.fillText(t, b.x + S / 2, b.y + S / 2 + 1);
+            g.fillText(t, cx, cy + 1);
         });
+        const vr = viewRect();
         for (const gr of count.groups) {
             const l = loopById(gr.loopId);
             if (!l || hide.has(l.id)) continue;
@@ -374,7 +735,7 @@
             const w = Math.max(44, g.measureText(t).width + 24), h = 38;
             /* かこみの ひだり（はいらない ときは 右）に 出す */
             let x = bb.x0 - w - 6;
-            if (x < 2) x = Math.min(W - w - 2, bb.x1 + 26);
+            if (x < vr.x0 + 2) x = bb.x1 + 26;
             const y = (bb.y0 + bb.y1) / 2 - h / 2;
             roundRectPath(g, x, y, w, h, 12);
             g.fillStyle = '#2fa84f';
@@ -427,6 +788,8 @@
 
     const drags = new Map();      /* pointerId → いま うごかしている もの */
     const bgPointers = new Map(); /* しゃしんを うごかしている ゆび */
+    const touches = new Map();    /* つくえに ふれている ゆび（がめんの ざひょう） */
+    let pinch = null;             /* 2本ゆびで つくえを 大きく・小さく している とき */
     let tool = 'move';
     let count = { order: [], groups: [] };  /* かぞえる（れきしには のこさない） */
 
@@ -434,16 +797,44 @@
         const s = new Set();
         for (const d of drags.values()) {
             if (d.type === 'blocks') d.ids.forEach(i => s.add(i));
-            else if (d.type === 'loop') [d.loopId, ...d.blockIds, ...d.loopIds].forEach(i => s.add(i));
+            else if (d.type === 'loop' || d.type === 'rot') [d.loopId, ...d.blockIds, ...d.loopIds].forEach(i => s.add(i));
         }
         return s;
+    }
+    const rotating = (id) => [...drags.values()].some(d => d.type === 'rot' && d.loopId === id);
+
+    /** やりかけの ドラッグを ぜんぶ やめて、さいごに のこした ところに もどす */
+    function cancelDrags() {
+        if (!drags.size) return;
+        for (const d of drags.values()) clearTimeout(d.timer);
+        drags.clear();
+        state = JSON.parse(page.saved);
+        trashEl.classList.remove('hot');
+        requestRender();
+    }
+
+    function inPiece(b, x, y, S) {
+        let dx = x - (b.x + S / 2), dy = y - (b.y + S / 2);
+        if (b.a) [dx, dy] = L.rotateAround(dx, dy, 0, 0, -b.a);
+        return Math.abs(dx) <= S / 2 && Math.abs(dy) <= S / 2;
     }
 
     function hitBlock(x, y) {
         const S = state.size, hide = hiddenIds();
         for (let i = state.blocks.length - 1; i >= 0; i--) {
             const b = state.blocks[i];
-            if (!hide.has(b.id) && x >= b.x && x <= b.x + S && y >= b.y && y <= b.y + S) return b;
+            if (!hide.has(b.id) && inPiece(b, x, y, S)) return b;
+        }
+        return null;
+    }
+
+    function hitHandle(x, y) {
+        const hide = hiddenIds(), r = handleR() + 8;
+        for (let i = state.loops.length - 1; i >= 0; i--) {
+            const l = state.loops[i];
+            if (hide.has(l.id)) continue;
+            const [hx, hy] = handlePos(l);
+            if (Math.hypot(x - hx, y - hy) <= r) return l;
         }
         return null;
     }
@@ -504,18 +895,27 @@
         requestRender();
     }
 
-    function startLoopDrag(e, l, x, y) {
+    function startLoopDrag(e, l, x, y, type) {
         const busy = hiddenIds();
         const blocks = L.blocksInLoop(state.blocks.filter(b => !busy.has(b.id)), l.pts, state.size);
         const inner = L.loopsInLoop(state.loops.filter(o => !busy.has(o.id)), l);
         const loops = [l, ...inner];
         toFront(blocks.map(b => b.id));
-        drags.set(e.pointerId, {
-            type: 'loop', loopId: l.id, blockIds: blocks.map(b => b.id), loopIds: inner.map(o => o.id),
+        const d = {
+            type, loopId: l.id, blockIds: blocks.map(b => b.id), loopIds: inner.map(o => o.id),
             start: [x, y], moved: false,
-            origBlocks: new Map(blocks.map(b => [b.id, [b.x, b.y]])),
+            origBlocks: new Map(blocks.map(b => [b.id, { x: b.x, y: b.y, a: b.a || 0 }])),
             origLoops: new Map(loops.map(o => [o.id, o.pts.map(p => p.slice())])),
-        });
+        };
+        if (type === 'rot') {
+            const S = state.size;
+            const pb = blocks.length ? groupBox(blocks) : L.bbox(l.pts);
+            d.pivot = [(pb.x0 + pb.x1) / 2, (pb.y0 + pb.y1) / 2];
+            d.a0 = Math.atan2(y - d.pivot[1], x - d.pivot[0]);
+            d.delta = 0;
+            void S;
+        }
+        drags.set(e.pointerId, d);
         requestRender();
     }
 
@@ -526,11 +926,24 @@
         try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* なくても よい */ }
         hideBubble();
 
+        /* 2本め の ゆび → つくえを 大きく・小さく（しゃしんを うごかす とき いがい） */
+        if (e.pointerType === 'touch') touches.set(e.pointerId, screenPt(e));
+        if (tool !== 'photo' && e.pointerType === 'touch' && touches.size >= 2) {
+            if (!pinch) {
+                cancelDrags();
+                pinch = { ids: [...touches.keys()].slice(-2) };
+            }
+            return;
+        }
+        if (pinch) return;
+
         if (tool === 'move') {
+            const h = hitHandle(x, y);
+            if (h) { startLoopDrag(e, h, x, y, 'rot'); return; }
             const b = hitBlock(x, y);
             if (b) { startBlockDrag(e, [b.id], x, y, { tapFlip: true, allowCluster: true }); return; }
             const l = hitLoop(x, y);
-            if (l) startLoopDrag(e, l, x, y);
+            if (l) startLoopDrag(e, l, x, y, 'loop');
         } else if (tool === 'loop') {
             drags.set(e.pointerId, { type: 'lasso', pts: [[x, y]] });
         } else if (tool === 'pen') {
@@ -558,16 +971,37 @@
         return (list.length ? list : [e]).map(toBoard);
     }
 
+    function movePinch(e) {
+        const prev = new Map(touches);
+        touches.set(e.pointerId, screenPt(e));
+        const [a, b] = pinch.ids;
+        const a0 = prev.get(a), b0 = prev.get(b), a1 = touches.get(a), b1 = touches.get(b);
+        if (!a0 || !b0 || !a1 || !b1) return;
+        const d0 = Math.hypot(a0[0] - b0[0], a0[1] - b0[1]) || 1;
+        const d1 = Math.hypot(a1[0] - b1[0], a1[1] - b1[1]) || 1;
+        const c0 = [(a0[0] + b0[0]) / 2, (a0[1] + b0[1]) / 2];
+        const c1 = [(a1[0] + b1[0]) / 2, (a1[1] + b1[1]) / 2];
+        const v = page.view;
+        const nz = Math.max(ZMIN, Math.min(ZMAX, v.z * d1 / d0));
+        const f = nz / v.z;
+        v.ox = c1[0] - (c0[0] - v.ox) * f;
+        v.oy = c1[1] - (c0[1] - v.oy) * f;
+        v.z = nz;
+        viewChanged();
+    }
+
     window.addEventListener('pointermove', (e) => {
+        if (pinch && pinch.ids.includes(e.pointerId)) { movePinch(e); return; }
+        if (touches.has(e.pointerId)) touches.set(e.pointerId, screenPt(e));
         if (bgPointers.has(e.pointerId)) { moveBg(e); return; }
         const d = drags.get(e.pointerId);
         if (!d) return;
         const [x, y] = toBoard(e);
 
-        if (d.type === 'blocks' || d.type === 'loop') {
+        if (d.type === 'blocks' || d.type === 'loop' || d.type === 'rot') {
             const dx = x - d.start[0], dy = y - d.start[1];
             if (!d.moved) {
-                if (Math.hypot(dx, dy) < (e.pointerType === 'mouse' ? 3 : 8)) return;
+                if (Math.hypot(dx, dy) * page.view.z < (e.pointerType === 'mouse' ? 3 : 8)) return;
                 d.moved = true;
                 clearTimeout(d.timer);
             }
@@ -576,10 +1010,17 @@
                     const b = blockById(id), o = d.orig.get(id);
                     if (b) { b.x = o[0] + dx; b.y = o[1] + dy; }
                 }
-            } else {
+            } else if (d.type === 'loop') {
                 moveLoopGroup(d, dx, dy);
+            } else {
+                let delta = Math.atan2(y - d.pivot[1], x - d.pivot[0]) - d.a0;
+                /* -180°〜180° を こえても つづけて まわせる ように */
+                while (delta - d.delta > Math.PI) delta -= Math.PI * 2;
+                while (delta - d.delta < -Math.PI) delta += Math.PI * 2;
+                d.delta = delta;
+                rotateGroup(d, L.snapAngle(delta, 5 * Math.PI / 180));
             }
-            trashEl.classList.toggle('hot', overTrash(e));
+            if (d.type !== 'rot') trashEl.classList.toggle('hot', overTrash(e));
         } else if (d.type === 'lasso') {
             for (const p of pointsOf(e)) d.pts.push(p);
         } else if (d.type === 'pen') {
@@ -606,7 +1047,7 @@
     function moveLoopGroup(d, dx, dy) {
         for (const [id, o] of d.origBlocks) {
             const b = blockById(id);
-            if (b) { b.x = o[0] + dx; b.y = o[1] + dy; }
+            if (b) { b.x = o.x + dx; b.y = o.y + dy; }
         }
         for (const [id, pts] of d.origLoops) {
             const l = loopById(id);
@@ -614,7 +1055,31 @@
         }
     }
 
+    /** もとの いち から ang だけ まわした ところに おく */
+    function rotateGroup(d, ang) {
+        const S = state.size, [px, py] = d.pivot;
+        for (const [id, o] of d.origBlocks) {
+            const b = blockById(id);
+            if (!b) continue;
+            const [cx, cy] = L.rotateAround(o.x + S / 2, o.y + S / 2, px, py, ang);
+            b.x = cx - S / 2;
+            b.y = cy - S / 2;
+            const a = o.a + ang;
+            if (L.isRightAngle(a)) delete b.a; else b.a = Math.round(a * 1e4) / 1e4;
+        }
+        for (const [id, pts] of d.origLoops) {
+            const l = loopById(id);
+            if (l) l.pts = pts.map(([x, y]) => L.rotateAround(x, y, px, py, ang).map(r1));
+        }
+    }
+
     function endPointer(e, cancelled) {
+        touches.delete(e.pointerId);
+        if (pinch) {
+            /* ゆびが ぜんぶ はなれるまで、のこった ゆびでは なにも しない */
+            if (!touches.size) pinch = null;
+            return;
+        }
         if (bgPointers.has(e.pointerId)) {
             bgPointers.delete(e.pointerId);
             if (!bgPointers.size) commit();
@@ -628,6 +1093,7 @@
 
         if (d.type === 'blocks') endBlockDrag(e, d, cancelled);
         else if (d.type === 'loop') endLoopDrag(e, d, cancelled);
+        else if (d.type === 'rot') endRotate(d);
         else if (d.type === 'lasso') endLasso(d);
         commit();
         requestRender();
@@ -645,18 +1111,19 @@
         if (!d.moved) {
             if (cancelled && d.fromPalette) { removeBlocks(d.ids); return; }
             if (d.fromPalette) {
-                /* ブロックばこを タップ → ひだり うえから じゅんに ならべる */
+                /* ブロックばこを タップ → 見えている ところの ひだり うえから じゅんに ならべる */
                 const b = blockById(d.ids[0]);
                 const occ = occupiedCells(d.ids);
-                const x1 = Math.min(W, 11 * S + S / 2);
-                const pos = L.findFreeRect(1, 1, S, occ, { x0: 0, y0: 0, x1, y1: H }, 0)
-                         || L.findFreeRect(1, 1, S, occ, { x0: 0, y0: 0, x1: W, y1: H }, 0)
-                         || [S, S];
+                const pr = placeRect();
+                const x1 = Math.min(pr.x1, L.snap(pr.x0, S) + 11 * S + S / 2);
+                const pos = L.findFreeRect(1, 1, S, occ, { x0: pr.x0, y0: pr.y0, x1, y1: pr.y1 }, 0)
+                         || L.findFreeRect(1, 1, S, occ, pr, 0)
+                         || [L.snap(pr.x0, S) + S, L.snap(pr.y0, S) + S];
                 b.x = pos[0]; b.y = pos[1];
                 SND.pop();
             } else if (d.tapFlip && !cancelled) {
                 const b = blockById(d.ids[0]);
-                if (b) { b.c = b.c === 'b' ? 'r' : 'b'; SND.flip(); }  /* タップで うらがえす */
+                if (b) { b.c = L.flipColor(b.c); SND.flip(); }  /* タップで うらがえす */
             }
             return;
         }
@@ -679,15 +1146,18 @@
 
     function shiftBlocks(blocks, dx, dy) { for (const b of blocks) { b.x += dx; b.y += dy; } }
 
-    /** つくえの 中に おさめる ための ずらし */
-    function clampShift(box) {
+    /** 見えている ところ（bounds）に おさめる ための ずらし */
+    function clampShift(box, bounds) {
+        const v = bounds || viewRect();
+        const W2 = v.x1 - v.x0, H2 = v.y1 - v.y0;
         let dx = 0, dy = 0;
-        if (box.x1 - box.x0 <= W) { if (box.x0 < 0) dx = -box.x0; else if (box.x1 > W) dx = W - box.x1; } else dx = -box.x0;
-        if (box.y1 - box.y0 <= H) { if (box.y0 < 0) dy = -box.y0; else if (box.y1 > H) dy = H - box.y1; } else dy = -box.y0;
+        if (box.x1 - box.x0 <= W2) { if (box.x0 < v.x0) dx = v.x0 - box.x0; else if (box.x1 > v.x1) dx = v.x1 - box.x1; } else dx = v.x0 - box.x0;
+        if (box.y1 - box.y0 <= H2) { if (box.y0 < v.y0) dy = v.y0 - box.y0; else if (box.y1 > v.y1) dy = v.y1 - box.y1; } else dy = v.y0 - box.y0;
         return [dx, dy];
     }
+    const snapUp = (v, S) => Math.sign(v) * Math.ceil(Math.abs(v) / S - 1e-6) * S;
 
-    /** はなした ブロックを おちつかせる：つくえの 中へ・マス目に・かさならない ように */
+    /** はなした ブロックを おちつかせる：見えている ところへ・マス目に・かさならない ように */
     function settle(blocks) {
         if (!blocks.length) return;
         const S = state.size;
@@ -695,18 +1165,20 @@
         if (!settings.snap) return;
         const f = blocks[0];
         shiftBlocks(blocks, L.snap(f.x, S) - f.x, L.snap(f.y, S) - f.y);
-        const box = groupBox(blocks);
-        const [cx, cy] = clampShift(box);
-        shiftBlocks(blocks, Math.sign(cx) * Math.ceil(Math.abs(cx) / S - 1e-6) * S, Math.sign(cy) * Math.ceil(Math.abs(cy) / S - 1e-6) * S);
+        const [cx, cy] = clampShift(groupBox(blocks));
+        shiftBlocks(blocks, snapUp(cx, S), snapUp(cy, S));
         resolveOverlaps(blocks);
     }
 
     function resolveOverlaps(blocks) {
         const S = state.size;
         const occ = occupiedCells(blocks.map(b => b.id));
+        const vr = viewRect();
+        const bounds = { x0: Math.min(vr.x0, ...blocks.map(b => b.x)), y0: Math.min(vr.y0, ...blocks.map(b => b.y)),
+                         x1: Math.max(vr.x1, ...blocks.map(b => b.x + S)), y1: Math.max(vr.y1, ...blocks.map(b => b.y + S)) };
         for (const b of blocks) {
             if (occ.has(L.cellKey(b.x, b.y, S))) {
-                [b.x, b.y] = L.findFreeCell(b.x, b.y, S, occ, { x0: 0, y0: 0, x1: W, y1: H });
+                [b.x, b.y] = L.findFreeCell(b.x, b.y, S, occ, bounds);
             } else {
                 b.x = L.snap(b.x, S); b.y = L.snap(b.y, S);
             }
@@ -730,16 +1202,26 @@
         const S = state.size;
         const [x, y] = toBoard(e);
         let dx = x - d.start[0], dy = y - d.start[1];
-        /* つくえから はみださない ように */
+        /* 見えている ところから はみださない ように */
         const pts = [];
         for (const o of d.origLoops.values()) for (const p of o) pts.push(p);
-        for (const o of d.origBlocks.values()) pts.push(o, [o[0] + S, o[1] + S]);
+        for (const o of d.origBlocks.values()) pts.push([o.x, o.y], [o.x + S, o.y + S]);
         const b0 = L.bbox(pts);
         const [cx, cy] = clampShift({ x0: b0.x0 + dx, y0: b0.y0 + dy, x1: b0.x1 + dx, y1: b0.y1 + dy });
         dx += cx; dy += cy;
         if (settings.snap && d.origBlocks.size) { dx = L.snap(dx, S); dy = L.snap(dy, S); }
         moveLoopGroup(d, dx, dy);
-        if (settings.snap) resolveOverlaps(d.blockIds.map(blockById).filter(Boolean));
+        if (settings.snap) resolveOverlaps(d.blockIds.map(blockById).filter(Boolean).filter(b => !b.a));
+    }
+
+    /** つまみを はなした：90° ちかくなら ぴたっと とめて マス目に そろえる */
+    function endRotate(d) {
+        if (!d.moved) { toast('つまんで ぐるっと まわしてね'); return; }
+        const ang = L.snapAngle(d.delta, 12 * Math.PI / 180);
+        rotateGroup(d, ang);
+        const grp = { blocks: d.blockIds.map(blockById).filter(Boolean), loops: [d.loopId, ...d.loopIds].map(loopById).filter(Boolean) };
+        if (grp.blocks.every(b => !b.a)) settleGroup(grp);
+        SND.flip();
     }
 
     function endLasso(d) {
@@ -836,10 +1318,11 @@
         bubbleLoop = id;
         bubble.hidden = false;
         const bb = L.bbox(l.pts);
+        const [sx0, sy0] = toScreen(bb.x0, bb.y0), [sx1, sy1] = toScreen(bb.x1, bb.y1);
         const bw = bubble.offsetWidth, bh = bubble.offsetHeight;
-        const left = Math.max(6, Math.min(W - bw - 6, (bb.x0 + bb.x1) / 2 - bw / 2));
-        let top = bb.y0 - bh - 12;
-        if (top < 6) top = Math.min(H - bh - 6, bb.y1 + 12);
+        const left = Math.max(6, Math.min(W - bw - 6, (sx0 + sx1) / 2 - bw / 2));
+        let top = sy0 - bh - 16;
+        if (top < 6) top = Math.min(H - bh - 6, sy1 + 12);
         bubble.style.left = left + 'px';
         bubble.style.top = top + 'px';
     }
@@ -881,36 +1364,41 @@
         for (const o of grp.loops) o.pts = o.pts.map(([x, y]) => [r1(x + dx), r1(y + dy)]);
     }
 
-    /** 90° まわす（3 × 4 ⇔ 4 × 3） */
-    function rotateLoop(id) {
-        const l = loopById(id);
-        if (!l) return;
+    /** まっすぐに もどった まとまりを マス目に そろえ、ほかと かさなる ときは あいている ところへ */
+    function settleGroup(grp) {
         const S = state.size;
-        const grp = loopGroup(l);
-        const pb = grp.blocks.length ? groupBox(grp.blocks) : L.bbox(l.pts);
-        const px = (pb.x0 + pb.x1) / 2, py = (pb.y0 + pb.y1) / 2;
-        for (const b of grp.blocks) {
-            const [cx, cy] = L.rotate90(b.x + S / 2, b.y + S / 2, px, py);
-            b.x = cx - S / 2;
-            b.y = cy - S / 2;
-        }
-        for (const o of grp.loops) o.pts = o.pts.map(([x, y]) => L.rotate90(x, y, px, py).map(r1));
         if (settings.snap && grp.blocks.length) {
             const f = grp.blocks[0];
             shiftGroup(grp, L.snap(f.x, S) - f.x, L.snap(f.y, S) - f.y);
         }
         let [dx, dy] = clampShift(groupBoxOf(grp));
-        if (settings.snap) { dx = Math.sign(dx) * Math.ceil(Math.abs(dx) / S - 1e-6) * S; dy = Math.sign(dy) * Math.ceil(Math.abs(dy) / S - 1e-6) * S; }
+        if (settings.snap) { dx = snapUp(dx, S); dy = snapUp(dy, S); }
         shiftGroup(grp, dx, dy);
-        /* まわした ら ほかの ものに かさなる ときは、まとまりごと あいている ところへ */
         const box = groupBoxOf(grp);
         const obstacles = othersBoxes(grp);
         const inner = { x0: box.x0 + 2, y0: box.y0 + 2, x1: box.x1 - 2, y1: box.y1 - 2 };
         if (obstacles.some(o => L.boxesOverlap(inner, o))) {
-            const off = L.findSpot(box, obstacles, { x0: 0, y0: 0, x1: W, y1: H }, S, 2);
+            const off = L.findSpot(box, obstacles, viewRect(), S, 2);
             if (off) shiftGroup(grp, off[0], off[1]);
         }
         if (settings.snap) resolveOverlaps(grp.blocks);
+    }
+
+    /** 90° まわす（3 × 4 ⇔ 4 × 3） */
+    function rotateLoop(id) {
+        const l = loopById(id);
+        if (!l) return;
+        const grp = loopGroup(l);
+        const S = state.size;
+        const pb = grp.blocks.length ? groupBox(grp.blocks) : L.bbox(l.pts);
+        const d = {
+            pivot: [(pb.x0 + pb.x1) / 2, (pb.y0 + pb.y1) / 2],
+            origBlocks: new Map(grp.blocks.map(b => [b.id, { x: b.x, y: b.y, a: b.a || 0 }])),
+            origLoops: new Map(grp.loops.map(o => [o.id, o.pts.map(p => p.slice())])),
+        };
+        rotateGroup(d, Math.PI / 2);
+        if (grp.blocks.every(b => !b.a)) settleGroup(grp);
+        void S;
         SND.flip();
         commit();
         requestRender();
@@ -924,7 +1412,8 @@
         const S = state.size;
         const grp = loopGroup(l);
         const obstacles = [grp.box, ...othersBoxes(grp)];
-        const off = L.findSpot(grp.box, obstacles, { x0: 0, y0: 0, x1: W, y1: H }, S, 4);
+        const off = L.findSpot(grp.box, obstacles, viewRect(), S, 4)
+                 || L.findSpot(grp.box, obstacles, { x0: grp.box.x0 - 4 * S, y0: grp.box.y0, x1: grp.box.x1 + 40 * S, y1: grp.box.y1 + 40 * S }, S, 4);
         if (!off) { toast('あいている ばしょが ないよ'); return; }
         const [dx, dy] = off;
         for (const o of grp.loops) {
@@ -932,7 +1421,13 @@
             state.loopColor = (state.loopColor + 1) % LOOP_COLORS.length;
             state.loops.push({ id: uid('l'), pts: o.pts.map(([x, y]) => [r1(x + dx), r1(y + dy)]), color });
         }
-        for (const b of grp.blocks) state.blocks.push({ id: uid('b'), x: b.x + dx, y: b.y + dy, c: b.c });
+        for (const b of grp.blocks) {
+            const nb = { id: uid('b'), x: b.x + dx, y: b.y + dy, c: b.c };
+            if (b.a) nb.a = b.a;
+            state.blocks.push(nb);
+        }
+        const nbox = { x0: grp.box.x0 + dx, y0: grp.box.y0 + dy, x1: grp.box.x1 + dx, y1: grp.box.y1 + dy };
+        ensureVisible(nbox, { l: 8, r: 8, t: 8, b: 70 });
         SND.pop();
         commit();
         requestRender();
@@ -1039,41 +1534,61 @@
         requestRender();
     }
 
+    /** 見えている ところに ぴったり はいる 大きさ */
     function fitScale(img, rot) {
         const [iw, ih] = imgSize(img);
         const [w, h] = rot % 2 ? [ih, iw] : [iw, ih];
-        return Math.min(W / w, H / h);
+        const v = viewRect();
+        return Math.min((v.x1 - v.x0) / w, (v.y1 - v.y0) / h);
+    }
+    function viewCenter() {
+        const v = viewRect();
+        return [(v.x0 + v.x1) / 2, (v.y0 + v.y1) / 2];
     }
 
-    function setBackground(id, image) {
-        bgImageId = id;
-        bgImage = image;
-        state.bg = { id, x: W / 2, y: H / 2, s: fitScale(image, 0), rot: 0, alpha: 1 };
-        commit();
-        requestRender();
-        const keep = new Set([id]);
-        for (const s of [...undoStack, ...redoStack]) {
-            for (const m of s.matchAll(/"bg":\{"id":"([^"]+)"/g)) keep.add(m[1]);
-        }
+    /** つかっている しゃしん（どの ページ・もどす の れきし も）は のこして、ふるい ものを けす */
+    function pruneBg() {
+        const keep = new Set();
+        const strs = [JSON.stringify(state)];
+        for (const p of pages) strs.push(p.saved, ...p.undo, ...p.redo);
+        for (const t of strs) for (const m of t.matchAll(/"bg":\{"id":"([^"]+)"/g)) keep.add(m[1]);
         P.prune([...keep]);
     }
 
+    /** はいけいを きめる。この ページに もう はいけいが あれば、あたらしい タブに する */
+    function useBackground(id, image, label, inPlace) {
+        let newTab = false;
+        if (!inPlace && state.bg) newTab = addPage();
+        bgImageId = id;
+        bgImage = image;
+        const [cx, cy] = viewCenter();
+        state.bg = { id, x: cx, y: cy, s: fitScale(image, 0), rot: 0, alpha: 1, label: label || 'しゃしん' };
+        commit();
+        requestRender();
+        pruneBg();
+        refreshThumbs();
+        return newTab;
+    }
+
     let importing = false;
-    async function importAndUse(src) {
+    /** がぞうを とりこんで はいけいに する。opts.label … タブの なまえ、opts.inPlace … いまの ページに */
+    async function importAndUse(src, opts) {
+        const o = opts || {};
         if (importing) return;
         importing = true;
         toast('よみこみちゅう…', 20000);
         try {
             const { id, image } = await P.importSource(src);
             closeSheets();
-            setBackground(id, image);
-            toast('はいけいに しました');
+            const newTab = useBackground(id, image, o.label, o.inPlace);
+            toast(newTab ? 'あたらしい ページ（タブ）に しました' : 'はいけいに しました');
         } catch (err) {
             toast('がぞうを よみこめませんでした');
         } finally {
             importing = false;
         }
     }
+    const fileLabel = (f) => (f && f.name ? f.name.replace(/\.[^.]+$/, '').slice(0, 16) : '') || 'しゃしん';
 
     /* 2本ゆびで 大きく・小さく、1本ゆびで うごかす */
     function moveBg(e) {
@@ -1112,22 +1627,33 @@
 
     let wheelTimer = 0;
     canvas.addEventListener('wheel', (e) => {
-        if (tool !== 'photo' || !state.bg) return;
         e.preventDefault();
-        const p = toBoard(e);
-        zoomBg(Math.exp(-e.deltaY * 0.0015), p, p);
-        requestRender();
-        clearTimeout(wheelTimer);
-        wheelTimer = setTimeout(commit, 400);
+        if (tool === 'photo' && state.bg) {
+            const p = toBoard(e);
+            zoomBg(Math.exp(-e.deltaY * 0.0015), p, p);
+            requestRender();
+            clearTimeout(wheelTimer);
+            wheelTimer = setTimeout(commit, 400);
+            return;
+        }
+        /* Ctrl＋ホイール・タッチパッドの ピンチ → 大きさ、ふつうの ホイール → うごかす */
+        if (e.ctrlKey || e.metaKey) {
+            const f = Math.max(0.8, Math.min(1.25, Math.exp(-e.deltaY * 0.01)));
+            zoomView(f, e.clientX - rect.left, e.clientY - rect.top);
+        } else {
+            page.view.ox -= e.deltaX;
+            page.view.oy -= e.deltaY;
+            viewChanged();
+        }
     }, { passive: false });
 
-    $('#bgPlus').addEventListener('click', () => { zoomBg(1.15, [W / 2, H / 2], [W / 2, H / 2]); commit(); requestRender(); });
-    $('#bgMinus').addEventListener('click', () => { zoomBg(1 / 1.15, [W / 2, H / 2], [W / 2, H / 2]); commit(); requestRender(); });
+    $('#bgPlus').addEventListener('click', () => { const c = viewCenter(); zoomBg(1.15, c, c); commit(); requestRender(); });
+    $('#bgMinus').addEventListener('click', () => { const c = viewCenter(); zoomBg(1 / 1.15, c, c); commit(); requestRender(); });
     $('#bgRot').addEventListener('click', () => {
         const b = state.bg;
         if (!b) return;
         b.rot = (b.rot + 1) % 4;
-        if (bgImage) { b.s = fitScale(bgImage, b.rot); b.x = W / 2; b.y = H / 2; }
+        if (bgImage) { b.s = fitScale(bgImage, b.rot); [b.x, b.y] = viewCenter(); }
         commit();
         requestRender();
     });
@@ -1135,8 +1661,7 @@
         const b = state.bg;
         if (!b || !bgImage) return;
         b.s = fitScale(bgImage, b.rot);
-        b.x = W / 2;
-        b.y = H / 2;
+        [b.x, b.y] = viewCenter();
         commit();
         requestRender();
     });
@@ -1175,7 +1700,7 @@
                 const img = await P.load(p.id);
                 if (!img) { toast('しゃしんが みつかりませんでした'); return; }
                 closeSheets();
-                setBackground(p.id, img);
+                if (useBackground(p.id, img, 'しゃしん')) toast('あたらしい ページ（タブ）に しました');
             });
             box.appendChild(btn);
         }
@@ -1186,7 +1711,7 @@
     fileInput.addEventListener('change', () => {
         const f = fileInput.files && fileInput.files[0];
         fileInput.value = '';
-        if (f) importAndUse(f);
+        if (f) importAndUse(f, { label: fileLabel(f) });
     });
 
     $('#btnPaste').addEventListener('click', async () => {
@@ -1194,7 +1719,7 @@
             const items = await navigator.clipboard.read();
             for (const it of items) {
                 const type = it.types.find(t => t.startsWith('image/'));
-                if (type) { importAndUse(await it.getType(type)); return; }
+                if (type) { importAndUse(await it.getType(type), { label: 'はりつけ' }); return; }
             }
             toast('コピーした がぞうが ありません');
         } catch (err) {
@@ -1207,7 +1732,7 @@
         const it = items.find(i => i.kind === 'file' && i.type.startsWith('image/'));
         if (!it) return;
         e.preventDefault();
-        importAndUse(it.getAsFile());
+        importAndUse(it.getAsFile(), { label: 'はりつけ' });
     });
 
     $('#btnBgMove').addEventListener('click', () => { closeSheets(); setTool('photo'); });
@@ -1231,8 +1756,11 @@
         e.preventDefault();
         dragDepth = 0;
         dropHint.hidden = true;
-        const f = [...e.dataTransfer.files].find(x => x.type.startsWith('image/'));
-        if (f) importAndUse(f);
+        const files = [...e.dataTransfer.files];
+        const f = files.find(x => x.type.startsWith('image/'));
+        const j = files.find(x => /\.json$/i.test(x.name) || x.type === 'application/json');
+        if (f) importAndUse(f, { label: fileLabel(f) });
+        else if (j) loadShareFile(j);
         else toast('がぞうの ファイルを いれてね');
     });
 
@@ -1281,7 +1809,7 @@
         void flash.offsetWidth;
         flash.classList.add('go-flash');
         const shot = P.camera.grab(video);
-        setTimeout(() => { closeCamera(); importAndUse(shot); }, 150);
+        setTimeout(() => { closeCamera(); importAndUse(shot, { label: 'カメラ' }); }, 150);
     });
 
     /* ================================================================
@@ -1291,14 +1819,14 @@
     function renderArrayPreview() {
         $('#arrRows').textContent = settings.rows;
         $('#arrCols').textContent = settings.cols;
-        for (const b of $$('.arr-c')) b.classList.toggle('on', b.dataset.c === settings.arrC);
+        for (const b of $$('.arr-pick')) b.classList.toggle('on', b.dataset.c === settings.arrC);
         const n = Math.max(settings.rows, settings.cols);
         const ps = Math.min(36, Math.floor(200 / n));
         const box = document.createElement('div');
         box.className = 'arr-grid';
         box.style.gridTemplateColumns = `repeat(${settings.cols}, ${ps}px)`;
         box.style.setProperty('--ps', ps + 'px');
-        const cls = 'blk blk-' + settings.arrC;
+        const cls = L.isOhajiki(settings.arrC) ? 'ohj ohj-' + settings.arrC.slice(1) : 'blk blk-' + settings.arrC;
         box.innerHTML = `<span class="${cls}"></span>`.repeat(settings.rows * settings.cols);
         const pv = $('#arrPreview');
         pv.innerHTML = '';
@@ -1314,16 +1842,19 @@
             renderArrayPreview();
         });
     }
-    for (const b of $$('.arr-c')) b.addEventListener('click', () => { settings.arrC = b.dataset.c; saveSettings(); renderArrayPreview(); });
+    for (const b of $$('.arr-pick')) b.addEventListener('click', () => { settings.arrC = b.dataset.c; saveSettings(); renderArrayPreview(); });
 
     $('#arrGo').addEventListener('click', () => {
         const S = state.size, { rows, cols } = settings;
         const occ = occupiedCells([]);
-        let pos = L.findFreeRect(rows, cols, S, occ, { x0: 0, y0: 0, x1: W, y1: H });
+        const pr = placeRect();
+        let pos = L.findFreeRect(rows, cols, S, occ, pr);
         if (!pos) {
-            pos = [S, S];
-            toast('ばしょが たりないので かさねて おいたよ');
+            /* 見えている ところに はいらない ときは、もの の 右に おいて 見える ように する */
+            const cb = contentBox() || pr;
+            pos = [L.snap(cb.x1, S) + S, L.snap(pr.y0, S) + S];
         }
+        ensureVisible({ x0: pos[0] - 8, y0: pos[1] - 8, x1: pos[0] + cols * S + 8, y1: pos[1] + rows * S + 8 }, { l: 8, r: 8, t: 8, b: 70 });
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
                 state.blocks.push({ id: uid('b'), x: pos[0] + c * S, y: pos[1] + r * S, c: settings.arrC });
@@ -1371,22 +1902,34 @@
         if (tool !== 'move') setTool('move');
         const S = state.size;
         const pitch = settings.danLoops ? Math.round(S * 1.3) : S;
+        const rowsNeeded = Math.ceil((8 * pitch + S) / S);
         const occ = occupiedCells([]);
-        const b = { x0: 0, y0: state.card ? 2 * S : 0, x1: W, y1: H };
-        const pos = L.findFreeRect(Math.ceil(9 * pitch / S), n, S, occ, b)
-                 || L.findFreeRect(Math.ceil(9 * pitch / S), n, S, occ, { x0: 0, y0: 0, x1: W, y1: H })
-                 || L.findFreeRect(Math.ceil(5 * pitch / S), n, S, occ, { x0: 0, y0: 0, x1: W, y1: H })
-                 || [S, S];
-        state.dan = { n, c: settings.danC, loops: settings.danLoops, pitch, x: pos[0], y: pos[1], rows: [] };
+        state.dan = { n, c: settings.danC, loops: settings.danLoops, pitch, x: 0, y: 0, rows: [] };
+        const pr = placeRect();
+        /* 9だん ぶん（× 9 まで）の ばしょを さきに とって おく。見えている ところに なければ、もの の 右に */
+        let pos = L.findFreeRect(rowsNeeded, n, S, occ, { x0: pr.x0, y0: pr.y0, x1: pr.x1, y1: Math.max(pr.y1, pr.y0 + (rowsNeeded + 2) * S) });
+        if (!pos) {
+            const cb = contentBox() || pr;
+            pos = [L.snap(cb.x1, S) + S, L.snap(pr.y0, S) + S];
+        }
+        state.dan.x = pos[0];
+        state.dan.y = pos[1];
+        const full = danBox(state.dan, 9);
+        if (ensureVisible(full, danInset())) toast('9だん ぶん 見える ように 小さく したよ');
         danAdd();
+    }
+    const danInset = () => ({ l: 8, r: 8, t: state.card ? 90 : 8, b: 118 });
+    /** だんの 1〜k だんめ（かこみ・つまみ・かず も ふくめた）はこ */
+    function danBox(d, k) {
+        const S = state.size;
+        return { x0: d.x - 24, y0: d.y - 32, x1: d.x + d.n * S + 44, y1: d.y + (k - 1) * d.pitch + S + 24 };
     }
 
     function danAdd() {
         const d = state.dan;
         if (!d || d.rows.length >= 9) return;
         const S = state.size, k = d.rows.length, y = d.y + k * d.pitch;
-        if (y + S > H + 2) { toast('つくえが いっぱいだよ'); return; }
-        const color = d.c === 'x' ? (k % 2 ? 'r' : 'b') : d.c;
+        const color = L.danColor(d.c, k);
         const ids = [];
         for (let c = 0; c < d.n; c++) {
             const id = uid('b');
@@ -1400,8 +1943,10 @@
             state.loops.push({ id: loopId, pts: stadium(d.x - pad, y - pad, d.x + d.n * S + pad, y + S + pad), color: LOOP_COLORS[k % LOOP_COLORS.length] });
         }
         d.rows.push({ ids, loopId });
+        ensureVisible(danBox(d, d.rows.length), danInset());
         commit();
         sayDan();
+        updateDanBar();
         requestRender();
     }
 
@@ -1413,6 +1958,7 @@
         if (row.loopId) state.loops = state.loops.filter(l => l.id !== row.loopId);
         commit();
         sayDan();
+        updateDanBar();
         requestRender();
     }
 
@@ -1492,10 +2038,11 @@
             state.loops = [];
             state.strokes = [];
             state.dan = null;
+            setView({ ox: 0, oy: 0, z: 1 });
             const S = state.size;
             const top = Math.max(2 * S, L.snap(110, S));
             if (su.loose) {
-                const per = Math.min(10, Math.floor(W / S) - 2);
+                const per = Math.max(3, Math.min(10, Math.floor(W / S) - 2));
                 for (let i = 0; i < su.loose; i++) {
                     state.blocks.push({ id: uid('b'), x: S + (i % per) * S, y: top + Math.floor(i / per) * S, c: 'b' });
                 }
@@ -1505,12 +2052,14 @@
                     state.blocks.push({ id: uid('b'), x: S + q * S, y: top + r * S, c: 'b' });
                 }
             }
+            const cb = contentBox();
+            if (cb) ensureVisible({ x0: cb.x0 - 8, y0: cb.y0 - 8, x1: cb.x1 + 8, y1: cb.y1 + 8 }, { l: 8, r: 8, t: 90, b: 70 });
         }
         commit();
         updateCard();
         requestRender();
         if (su && su.scene) {
-            importAndUse(window.KukuScenes.make(su.scene[0], su.scene[1], W / H));
+            importAndUse(window.KukuScenes.make(su.scene[0], su.scene[1], W / H), { label: sceneLabel(su.scene[0], su.scene[1]), inPlace: true });
         } else if (su) {
             toast('「もどす」で まえの つくえに もどせるよ');
         }
@@ -1561,7 +2110,11 @@
     }
     $('#sceneMinus').addEventListener('click', () => { settings.sceneN = Math.max(1, settings.sceneN - 1); saveSettings(); renderScenes(); });
     $('#scenePlus').addEventListener('click', () => { settings.sceneN = Math.min(9, settings.sceneN + 1); saveSettings(); renderScenes(); });
-    $('#sceneGo').addEventListener('click', () => importAndUse(SC.make(settings.sceneKind, settings.sceneN, W / H)));
+    function sceneLabel(kind, n) {
+        const k = SC.KINDS.find(x => x.key === kind) || SC.KINDS[0];
+        return `${k.name} ${n}${k.unit}`;
+    }
+    $('#sceneGo').addEventListener('click', () => importAndUse(SC.make(settings.sceneKind, settings.sceneN, W / H), { label: sceneLabel(settings.sceneKind, settings.sceneN) }));
 
     /* ================================================================
        せってい
@@ -1631,8 +2184,10 @@
         c.width = Math.round(W * k);
         c.height = Math.round(H * k);
         const g = c.getContext('2d');
-        g.scale(k, k);
-        drawScene(g, W, H, { grid: false, hide: new Set(), live: false });
+        const v = page.view;
+        g.setTransform(k * v.z, 0, 0, k * v.z, k * v.ox, k * v.oy);
+        drawScene(g, viewRect(), { grid: false, hide: new Set(), live: false, z: v.z });
+        g.setTransform(k, 0, 0, k, 0, 0);
         if (!exprEl.hidden) {
             const t = exprEl.querySelector('b').textContent;
             g.font = '400 30px "Mochiy Pop One", "M PLUS Rounded 1c", sans-serif';
@@ -1653,7 +2208,7 @@
             const d = new Date(), p = (n) => String(n).padStart(2, '0');
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `くくブロック-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.png`;
+            a.download = `block-ohajiki-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.png`;
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -1662,6 +2217,178 @@
             toast('「ダウンロード」に ほぞんしました');
         }, 'image/png');
     });
+
+    /* ================================================================
+       きょうゆう（せんせい → こども）
+       ================================================================ */
+
+    const SH = window.KukuShare;
+
+    function imageToDataURL(img, max, q) {
+        const [w0, h0] = imgSize(img);
+        const k = Math.min(1, max / Math.max(w0, h0));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(w0 * k));
+        c.height = Math.max(1, Math.round(h0 * k));
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        return c.toDataURL('image/jpeg', q);
+    }
+
+    /** くばる データ：ページ（つくえ・見かた）と、はいけいの しゃしん（小さく した もの） */
+    async function buildPayload(all) {
+        commit();
+        const out = { app: 'block-ohajiki', v: 1, t: Date.now(), pages: [], images: {} };
+        for (const p of (all ? pages : [page])) {
+            const st = JSON.parse(p.saved);
+            st.dan = null;
+            if (st.bg && !out.images[st.bg.id]) {
+                const img = await P.load(st.bg.id);
+                if (img) out.images[st.bg.id] = imageToDataURL(img, 1600, 0.82);
+            }
+            if (st.bg && !out.images[st.bg.id]) st.bg = null;
+            out.pages.push({ s: st, v: p.view });
+        }
+        return out;
+    }
+
+    /** くばられた データを あたらしい タブに する。いくつ よみこんだか を かえす */
+    async function applyPayload(pl) {
+        if (!pl || pl.app !== 'block-ohajiki' || !Array.isArray(pl.pages)) throw new Error('ブロック おはじき の データでは ありません');
+        const idMap = new Map();
+        for (const [oid, url] of Object.entries(pl.images || {})) {
+            if (typeof url !== 'string' || !/^data:image\/(jpeg|png|webp);base64,/.test(url)) continue;
+            try {
+                const blob = await (await fetch(url)).blob();
+                const { id } = await P.importSource(blob);
+                idMap.set(oid, id);
+            } catch (e) { /* この しゃしんは とばす */ }
+        }
+        commit();
+        cancelDrags();
+        const replaceBlank = pages.length === 1 && isEmptyState(state);
+        const first = replaceBlank ? 0 : pages.length;
+        let added = 0;
+        for (const item of pl.pages) {
+            const st = L.sanitizeState(item && item.s, emptyState());
+            if (!st) continue;
+            if (st.bg) {
+                const nid = idMap.get(st.bg.id);
+                if (nid) st.bg.id = nid; else st.bg = null;
+            }
+            const pg = newPage(st, item.v);
+            if (replaceBlank && added === 0) pages[0] = pg;
+            else if (pages.length < MAX_PAGES) pages.push(pg);
+            else { toast(`ページは ${MAX_PAGES}まい までなので、のこりは よみこめませんでした`, 4000); break; }
+            added++;
+        }
+        if (!added) throw new Error('よみこめる ページが ありませんでした');
+        curIdx = first;
+        page = pages[curIdx];
+        state = JSON.parse(page.saved);
+        persistNow();
+        afterPageChange();
+        await refreshThumbs();
+        scrollTabIntoView();
+        return added;
+    }
+
+    $('#btnShare').addEventListener('click', () => {
+        $('#shareOut').hidden = true;
+        $('#sharePages').textContent = pages.length;
+        openSheet('shareSheet');
+    });
+
+    let sharing = false;
+    async function doShare(all) {
+        if (sharing) return;
+        sharing = true;
+        toast('くばる じゅんびを しています…', 60000);
+        try {
+            const pl = await buildPayload(all);
+            const json = JSON.stringify(pl);
+            if (json.length > 8500000) {
+                throw new Error('しゃしんが おおくて おくれません。「いまの ページだけ」か「ファイルに ほぞん」を つかってください');
+            }
+            const code = await SH.upload(json);
+            $('#shareCode').textContent = code.slice(0, 3) + ' ' + code.slice(3);
+            const link = location.href.split('#')[0].split('?')[0] + '?code=' + code;
+            $('#shareLink').value = link;
+            $('#shareLinkRow').hidden = location.protocol === 'file:';
+            $('#shareOut').hidden = false;
+            toast(`コード ${code} が できました`);
+        } catch (e) {
+            toast((e && e.message) || 'くばれませんでした', 6000);
+        } finally {
+            sharing = false;
+        }
+    }
+    $('#shareAll').addEventListener('click', () => doShare(true));
+    $('#shareOne').addEventListener('click', () => doShare(false));
+    $('#shareCopy').addEventListener('click', async () => {
+        const inp = $('#shareLink');
+        try { await navigator.clipboard.writeText(inp.value); toast('リンクを コピーしました'); }
+        catch (e) { inp.select(); document.execCommand('copy'); toast('リンクを コピーしました'); }
+    });
+
+    async function loadCode(raw) {
+        const code = String(raw || '').replace(/\D/g, '');
+        if (!SH.isCode(code)) { toast('6けたの コードを いれてね'); return; }
+        toast('よみこみちゅう…', 60000);
+        try {
+            const data = await SH.download(code);
+            if (!data) { toast('その コードは みつかりません'); return; }
+            const n = await applyPayload(JSON.parse(data));
+            closeSheets();
+            toast(`せんせいの ページを ${n}まい よみこみました`);
+        } catch (e) {
+            toast((e && e.message) || 'よみこめませんでした', 6000);
+        }
+    }
+    $('#codeGo').addEventListener('click', () => loadCode($('#codeIn').value));
+    $('#codeIn').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) loadCode($('#codeIn').value); });
+
+    /* ファイルで やりとり */
+    $('#fileSave').addEventListener('click', async () => {
+        const pl = await buildPayload(true);
+        const blob = new Blob([JSON.stringify(pl)], { type: 'application/json' });
+        const d = new Date(), p2 = (n) => String(n).padStart(2, '0');
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `block-ohajiki-${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        toast('「ダウンロード」に ほぞんしました（Google ドライブ などで くばれます）', 4000);
+    });
+    const shareFile = $('#shareFile');
+    $('#fileLoad').addEventListener('click', () => shareFile.click());
+    shareFile.addEventListener('change', () => {
+        const f = shareFile.files && shareFile.files[0];
+        shareFile.value = '';
+        if (f) loadShareFile(f);
+    });
+    async function loadShareFile(f) {
+        toast('よみこみちゅう…', 60000);
+        try {
+            const n = await applyPayload(JSON.parse(await f.text()));
+            closeSheets();
+            toast(`${n}ページ よみこみました`);
+        } catch (e) {
+            toast((e && e.message && !/JSON/.test(e.message)) ? e.message : 'この ファイルは よみこめません', 5000);
+        }
+    }
+
+    /* ?code=123456 つきの リンクで ひらいた とき */
+    function checkCodeInUrl() {
+        let code = null;
+        try { code = new URLSearchParams(location.search).get('code'); } catch (e) { /* なし */ }
+        if (!code || !SH.isCode(code)) return;
+        try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* のこっても よい */ }
+        $('#codeSheetCode').textContent = `コード ${code}`;
+        openSheet('codeSheet');
+        $('#codeYes').onclick = () => { closeSheets(); loadCode(code); };
+    }
 
     /* ================================================================
        まど・おしらせ・キーボード
@@ -1712,14 +2439,22 @@
     syncPenBar();
     updateUndoButtons();
     updateSizeUI();
+    updateZoomUI();
     setTool('move');
     updateCard();
     syncBg();
+    renderTabs();
+    refreshThumbs();
+    scrollTabIntoView();
+    checkCodeInUrl();
     if (document.fonts) document.fonts.ready.then(requestRender);
 
     /* たしかめ用（テストから よぶ） */
     window.KukuApp = {
         get state() { return state; },
-        settings, commit, undo, redo, setTool, importAndUse,
+        get view() { return page.view; },
+        get pages() { return pages; },
+        get cur() { return curIdx; },
+        settings, commit, undo, redo, setTool, importAndUse, switchPage, addPage,
     };
 })();

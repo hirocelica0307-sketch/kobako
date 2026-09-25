@@ -24,6 +24,19 @@
           ".write": "auth != null"
         }
       }
+    },
+    "ohajiki": {
+      "shares": {
+        "$code": {
+          ".read": "auth != null",
+          ".write": "auth != null && (!data.exists() || data.child('owner').val() === auth.uid)",
+          ".validate": "$code.matches(/^[0-9]{6}$/) && newData.hasChildren(['owner', 't', 'data'])",
+          "owner": { ".validate": "newData.val() === auth.uid" },
+          "t": { ".validate": "newData.isNumber()" },
+          "data": { ".validate": "newData.isString() && newData.val().length < 9000000" },
+          "$other": { ".validate": false }
+        }
+      }
     }
   }
 }

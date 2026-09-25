@@ -1,4 +1,4 @@
-/* くく ブロック ── 見ため
+/* ブロック おはじき ── 見ため
    ------------------------------------------------------------------
    Chromebook の よこ長 画面（1366×768 など）を きじゅんに しています。
    ページは スクロールしません。つくえ（ボード）が のこりを ぜんぶ つかいます。
@@ -54,7 +54,9 @@ button{ font:inherit; color:inherit; cursor:pointer; }
 .logo span:nth-of-type(3){ --c:#f0a020;     transform:rotate(-4deg); }
 .logo span:nth-of-type(4){ --c:var(--go);   transform:rotate(4deg); }
 .logo span:nth-of-type(5){ --c:#8a5cd6;     transform:rotate(-3deg); }
-.logo span:nth-of-type(6){ --c:var(--blue); transform:rotate(5deg); }
+.logo span:nth-of-type(6){ --c:#e0529c;     transform:rotate(5deg); }
+.logo span:nth-of-type(7){ --c:var(--blue); transform:rotate(-4deg); }
+.logo span:nth-of-type(8){ --c:var(--red);  transform:rotate(4deg); }
 
 .tools{ display:flex; gap:6px; margin:0 auto; }
 .top-right{ display:flex; gap:6px; }
@@ -70,6 +72,7 @@ button{ font:inherit; color:inherit; cursor:pointer; }
 .tool.on{ background:var(--tap); border-color:var(--accent); box-shadow:0 0 0 2px var(--accent) inset; }
 .btn:disabled{ opacity:.35; cursor:default; }
 .btn-photo{ background:#fff4df; border-color:#f0c070; }
+.btn-share{ background:#eef8ef; border-color:#9fd3a8; }
 .ico{ font-size:24px; line-height:1; display:block; }
 .lbl{ font-size:12px; line-height:1.2; margin-top:3px; white-space:nowrap; }
 
@@ -93,29 +96,69 @@ button{ font:inherit; color:inherit; cursor:pointer; }
     vertical-align:middle;
 }
 
+/* ---------- ページの タブ（Chromebook の ブラウザふう） ---------- */
+.tabbar{
+    flex:none; display:flex; align-items:flex-end; gap:4px;
+    height:42px; padding:6px 8px 0; background:#dde3ea;
+}
+.tabs{ display:flex; align-items:flex-end; min-width:0; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; }
+.tabs::-webkit-scrollbar{ display:none; }
+.tab{
+    position:relative; flex:0 1 190px; min-width:92px; height:36px;
+    display:flex; align-items:center; gap:6px; padding:0 6px 0 10px;
+    border:none; border-radius:10px 10px 0 0; background:transparent;
+    font-size:13px; color:#4a4f57; cursor:pointer;
+}
+.tab + .tab::before{
+    content:""; position:absolute; left:-1px; top:9px; bottom:9px; width:1px; background:#aab3bf;
+}
+.tab:hover{ background:rgba(255,255,255,.5); }
+.tab.on{ background:var(--panel); color:var(--ink); box-shadow:0 -1px 0 var(--line); }
+.tab.on::before, .tab.on + .tab::before{ display:none; }
+.tab-thumb{
+    flex:none; width:26px; height:20px; border-radius:4px; object-fit:cover;
+    background:#fffdf8; border:1px solid #c9d0da;
+}
+.tab-name{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
+.tab-x{
+    flex:none; width:24px; height:24px; border-radius:50%; border:none; background:transparent;
+    font-size:12px; color:#6b7280; display:flex; align-items:center; justify-content:center;
+}
+.tab-x:hover{ background:#d4d9e0; }
+.tab-add{
+    flex:none; width:34px; height:34px; margin:0 0 2px 2px; border-radius:50%; border:none;
+    background:transparent; font-size:22px; color:#4a4f57; line-height:1;
+}
+.tab-add:hover, .tab-add:active{ background:#c9d0da; }
+
 /* ---------- まんなか ---------- */
 .main{ flex:1; min-height:0; display:flex; }
 
 .side{
-    flex:none; width:96px; padding:10px 8px;
+    flex:none; width:112px; padding:8px 8px;
     display:flex; flex-direction:column; align-items:center; gap:8px; overflow-y:auto;
     background:var(--panel); border-right:2px solid var(--line);
 }
+.src-grid{
+    flex:none; display:grid; grid-template-columns:1fr 1fr; gap:5px; width:96px;
+    padding:4px; border:2px dashed var(--line); border-radius:var(--radius); background:#fbfaf6;
+}
+.src-h{ font-size:10px; text-align:center; color:var(--ink-thin); white-space:nowrap; }
 .src{
-    flex:none; width:78px; padding:8px 0 4px; border-radius:var(--radius);
-    display:flex; flex-direction:column; align-items:center;
-    border:2px dashed var(--line); background:#fbfaf6;
+    height:48px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
     cursor:grab; touch-action:none;
 }
+.src .blk, .src .ohj{ --s:38px; }
 .src:active{ cursor:grabbing; background:var(--tap); }
 .side-btn, .trash{
-    flex:none; width:78px; height:64px; border-radius:var(--radius);
+    flex:none; width:96px; height:58px; border-radius:var(--radius);
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     border:2px solid var(--line); background:var(--panel);
 }
 .side-btn:active, .trash:active{ transform:scale(.95); }
 .side-gap{ flex:1; }
-.trash{ height:78px; background:#fff3f1; border-color:#f3c3bd; transition:transform .12s, background .12s; }
+.trash{ height:70px; background:#fff3f1; border-color:#f3c3bd; transition:transform .12s, background .12s; }
 .trash .ico{ font-size:30px; }
 .trash.hot{ background:#ffd9d4; border-color:var(--warn); transform:scale(1.12); }
 
@@ -132,6 +175,20 @@ button{ font:inherit; color:inherit; cursor:pointer; }
 }
 .blk-b{ --dot:var(--blue); }
 .blk-r{ --dot:var(--red); }
+
+/* さくらの おはじき（まるい ガラス に さくらの もよう） */
+.ohj{
+    --s:46px; --c1:#9cc0ff; --c2:#2f6fdc; --c3:#1f4fa8;
+    display:inline-block; position:relative; width:var(--s); height:var(--s); border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--c1) 0 12%, var(--c2) 55%, var(--c3) 100%);
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.45), 0 2px 3px rgba(0,0,0,.25);
+}
+.ohj::after{
+    content:""; position:absolute; inset:16%;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-11 -11 22 22'%3E%3Cg fill='white' fill-opacity='.9'%3E%3Cpath id='p' d='M0 0C-5.5-3.5-5-9.5-1.5-10L0-8.3 1.5-10C5-9.5 5.5-3.5 0 0Z'/%3E%3Cuse href='%23p' transform='rotate(72)'/%3E%3Cuse href='%23p' transform='rotate(144)'/%3E%3Cuse href='%23p' transform='rotate(216)'/%3E%3Cuse href='%23p' transform='rotate(288)'/%3E%3C/g%3E%3Ccircle r='1.9' fill='%23ffe08a'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.ohj-r{ --c1:#ffb0a8; --c2:#e5413a; --c3:#b52a24; }
+.ohj-half{ background:linear-gradient(90deg, #2f6fdc 50%, #e5413a 50%); }
 
 /* ---------- つくえ ---------- */
 .board-wrap{ flex:1; min-width:0; position:relative; background:var(--desk); overflow:hidden; }
@@ -174,6 +231,17 @@ button{ font:inherit; color:inherit; cursor:pointer; }
 .chip-go{ background:var(--go); border-color:var(--go); color:#fff; }
 .chip-warn{ color:var(--warn); border-color:#f3c3bd; }
 .chip-range input{ width:110px; accent-color:#f0a020; }
+
+.zoom-bar{
+    position:absolute; right:12px; bottom:12px; z-index:4;
+    display:flex; align-items:center; gap:2px; padding:4px;
+    background:rgba(255,255,255,.95); border:2px solid var(--line); border-radius:14px;
+    box-shadow:0 3px 10px rgba(60,40,10,.12);
+}
+.zb{ min-width:40px; height:40px; border:none; border-radius:10px; background:transparent; font-size:22px; line-height:1; }
+.zb:active{ background:var(--tap); }
+.zb-pct{ font-size:13px; min-width:52px; }
+.zb-fit{ font-size:20px; }
 
 .expr{
     position:absolute; left:50%; bottom:14px; transform:translateX(-50%);
@@ -410,6 +478,18 @@ kbd{ font-family:inherit; border:1px solid var(--line); border-bottom-width:3px;
 .stepper-sm .st{ width:42px; height:42px; font-size:22px; }
 .stepper-sm b{ font-size:26px; }
 
+/* ---------- きょうゆう ---------- */
+.share-out{ margin-top:12px; padding:14px; border-radius:16px; background:#eef8ef; text-align:center; }
+.code-lbl{ font-size:13px; color:var(--ink-thin); }
+.code-big{ font-family:var(--pop); font-weight:400; font-size:54px; letter-spacing:.12em; color:#23823c; line-height:1.2; }
+.share-link{ display:flex; gap:8px; margin-top:8px; }
+.share-link input, .code-in input{
+    flex:1; min-width:0; height:44px; border-radius:12px; border:2px solid var(--line); padding:0 12px;
+    font:inherit; font-size:15px; -webkit-user-select:text; user-select:text;
+}
+.code-in{ display:flex; gap:8px; }
+.code-in input{ font-family:var(--pop); font-weight:400; font-size:26px; letter-spacing:.2em; max-width:260px; }
+
 /* ---------- つかいかた ---------- */
 .help{ width:100%; border-collapse:collapse; font-size:14px; }
 .help th{ text-align:left; white-space:nowrap; padding:8px 12px 8px 4px; vertical-align:top; color:var(--accent); }
@@ -427,9 +507,11 @@ kbd{ font-family:inherit; border:1px solid var(--line); border-bottom-width:3px;
 @media (max-width:640px){
     .lbl{ display:none; }
     .tool, .btn{ min-width:44px; height:48px; }
-    .side{ width:76px; }
-    .src, .side-btn, .trash{ width:60px; }
-    .src .blk{ --s:38px; }
+    .side{ width:84px; padding:6px 4px; }
+    .src-grid{ width:76px; }
+    .src .blk, .src .ohj{ --s:30px; }
+    .side-btn, .trash{ width:74px; }
+    .tab{ min-width:70px; }
     .arr-body{ flex-direction:column; }
     .bg-hint{ display:none; }
     .dan-mid{ min-width:0; }

@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2f6fdc">
-<meta name="description" content="2年生の 九九の がくしゅうで、すうずブロックを ならべたり、まるで かこんだり、教科書の しゃしんに かさねたり できる アプリ。">
-<title>くく ブロック</title>
+<meta name="description" content="2年生の 九九の がくしゅうで、すうずブロックや おはじきを ならべたり、まるで かこんだり、教科書の しゃしんに かさねたり できる アプリ。">
+<title>ブロック おはじき</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap">
@@ -13,9 +13,15 @@
 </head>
 <body>
 
+<!-- ========== ページの タブ（Chromebook の ブラウザと おなじ かたち） ========== -->
+<div class="tabbar" id="tabbar">
+  <div class="tabs" id="tabs" role="tablist" aria-label="ページ"></div>
+  <button class="tab-add" id="tabAdd" aria-label="あたらしい ページ" title="あたらしい ページ">＋</button>
+</div>
+
 <!-- ========== うえの バー ========== -->
 <header class="top">
-  <h1 class="logo"><span>く</span><span>く</span><i></i><span>ブ</span><span>ロ</span><span>ッ</span><span>ク</span></h1>
+  <h1 class="logo"><span>ブ</span><span>ロ</span><span>ッ</span><span>ク</span><i></i><span>お</span><span>は</span><span>じ</span><span>き</span></h1>
 
   <nav class="tools" id="tools" aria-label="どうぐ">
     <button class="tool on" data-tool="move"><span class="ico">✋</span><span class="lbl">うごかす</span></button>
@@ -29,6 +35,7 @@
     <button class="btn" id="btnUndo" aria-label="もどす"><span class="ico">↩️</span><span class="lbl">もどす</span></button>
     <button class="btn" id="btnRedo" aria-label="やりなおす"><span class="ico">↪️</span><span class="lbl">すすむ</span></button>
     <button class="btn btn-photo" id="btnPhoto"><span class="ico">📷</span><span class="lbl">しゃしん</span></button>
+    <button class="btn btn-share" id="btnShare"><span class="ico">🔗</span><span class="lbl">きょうゆう</span></button>
     <button class="btn" id="btnMenu" aria-label="せってい"><span class="ico">⚙️</span><span class="lbl">せってい</span></button>
   </div>
 </header>
@@ -36,8 +43,13 @@
 <main class="main">
   <!-- ========== ひだりの ブロックばこ ========== -->
   <aside class="side" aria-label="ブロックばこ">
-    <div class="src" data-c="b" title="あおい ブロック"><span class="blk blk-b"></span><span class="lbl">あお</span></div>
-    <div class="src" data-c="r" title="あかい ブロック"><span class="blk blk-r"></span><span class="lbl">あか</span></div>
+    <div class="src-grid">
+      <span class="src-h">ブロック</span><span class="src-h">おはじき</span>
+      <div class="src" data-c="b" title="あおい ブロック"><span class="blk blk-b"></span></div>
+      <div class="src" data-c="sb" title="さくらの おはじき（あお）"><span class="ohj ohj-b"></span></div>
+      <div class="src" data-c="r" title="あかい ブロック"><span class="blk blk-r"></span></div>
+      <div class="src" data-c="sr" title="さくらの おはじき（あか）"><span class="ohj ohj-r"></span></div>
+    </div>
     <button class="side-btn" id="btnArray"><span class="ico ico-array"></span><span class="lbl">ならべる</span></button>
     <button class="side-btn" id="btnDan"><span class="ico ico-dan">×</span><span class="lbl">くくの だん</span></button>
     <button class="side-btn" id="btnCards"><span class="ico">📝</span><span class="lbl">おだい</span></button>
@@ -108,6 +120,14 @@
     </div>
 
     <div class="expr" id="expr" hidden></div>
+
+    <!-- つくえの 大きさ（ピンチ でも かわる） -->
+    <div class="zoom-bar" id="zoomBar">
+      <button class="zb" id="zoomOut" aria-label="ひく（ちいさく）">−</button>
+      <button class="zb zb-pct" id="zoomPct" title="100% に もどす">100%</button>
+      <button class="zb" id="zoomIn" aria-label="よる（おおきく）">＋</button>
+      <button class="zb zb-fit" id="zoomFit" title="ぜんぶ 見える ように">⤢</button>
+    </div>
     <div class="toast" id="toast" hidden></div>
     <div class="drop-hint" id="dropHint" hidden>ここに はなすと はいけいに なります</div>
   </section>
@@ -190,8 +210,10 @@
           <span class="st-lbl">だん</span>
         </div>
         <div class="arr-color">
-          <button class="arr-c on" data-c="b"><span class="blk blk-b"></span></button>
-          <button class="arr-c" data-c="r"><span class="blk blk-r"></span></button>
+          <button class="arr-c arr-pick on" data-c="b"><span class="blk blk-b"></span></button>
+          <button class="arr-c arr-pick" data-c="r"><span class="blk blk-r"></span></button>
+          <button class="arr-c arr-pick" data-c="sb"><span class="ohj ohj-b"></span></button>
+          <button class="arr-c arr-pick" data-c="sr"><span class="ohj ohj-r"></span></button>
         </div>
       </div>
       <div class="arr-preview" id="arrPreview"></div>
@@ -216,6 +238,9 @@
           <button class="dan-c arr-c" data-c="b"><span class="blk blk-b"></span></button>
           <button class="dan-c arr-c" data-c="r"><span class="blk blk-r"></span></button>
           <button class="dan-c arr-c" data-c="x" title="1つぶんごとに かわる"><span class="blk blk-b blk-half"></span></button>
+          <button class="dan-c arr-c" data-c="sb"><span class="ohj ohj-b"></span></button>
+          <button class="dan-c arr-c" data-c="sr"><span class="ohj ohj-r"></span></button>
+          <button class="dan-c arr-c" data-c="sx" title="1つぶんごとに かわる"><span class="ohj ohj-half"></span></button>
         </div>
       </div>
     </div>
@@ -239,6 +264,70 @@
   </div>
 </div>
 
+<!-- ========== きょうゆう ========== -->
+<div class="sheet-back" id="shareSheet" hidden>
+  <div class="sheet sheet-wide">
+    <div class="sheet-head">
+      <h2>🔗 きょうゆう</h2>
+      <button class="x" data-close aria-label="とじる">✕</button>
+    </div>
+
+    <h3>せんせい：ページを くばる</h3>
+    <p class="note note-top">しゃしん・ブロック・かこみ・おだいを そのまま くばれます。子どもは コードを 入れるか、リンクを ひらくだけです。</p>
+    <div class="big-row">
+      <button class="big" id="shareAll"><span class="ico">📚</span><span>ぜんぶの ページ（<b id="sharePages">1</b>まい）</span></button>
+      <button class="big" id="shareOne"><span class="ico">📄</span>いまの ページだけ</button>
+    </div>
+    <div class="share-out" id="shareOut" hidden>
+      <div class="code-lbl">コード</div>
+      <div class="code-big" id="shareCode"></div>
+      <div class="share-link" id="shareLinkRow">
+        <input type="text" id="shareLink" readonly>
+        <button class="chip chip-go" id="shareCopy">📋 リンクを コピー</button>
+      </div>
+      <p class="note">リンクを Google Classroom などに はると、子どもは おすだけで よみこめます。</p>
+    </div>
+
+    <h3>こども：コードで よみこむ</h3>
+    <div class="code-in">
+      <input type="text" id="codeIn" inputmode="numeric" autocomplete="off" maxlength="7" placeholder="123456">
+      <button class="chip chip-go" id="codeGo">よみこむ</button>
+    </div>
+
+    <h3>ファイルで やりとり（ネットが なくても）</h3>
+    <div class="big-row">
+      <button class="big" id="fileSave"><span class="ico">💾</span>ファイルに ほぞん</button>
+      <button class="big" id="fileLoad"><span class="ico">📂</span>ファイルから よみこむ</button>
+    </div>
+    <input type="file" id="shareFile" accept=".json,application/json" hidden>
+    <p class="note">よみこんだ ページは あたらしい タブに なります（いまの ページは きえません）。</p>
+  </div>
+</div>
+
+<!-- コード つきの リンクで ひらいた とき -->
+<div class="sheet-back" id="codeSheet" hidden>
+  <div class="sheet sheet-small">
+    <p class="ask">せんせいの ページを<br>よみこみますか？</p>
+    <p class="note" id="codeSheetCode"></p>
+    <div class="big-row">
+      <button class="big" id="codeYes">よみこむ</button>
+      <button class="big" data-close>やめる</button>
+    </div>
+  </div>
+</div>
+
+<!-- タブを とじる とき -->
+<div class="sheet-back" id="tabCloseSheet" hidden>
+  <div class="sheet sheet-small">
+    <p class="ask">この ページを とじますか？</p>
+    <p class="note">とじた ページは もどせません。</p>
+    <div class="big-row">
+      <button class="big big-warn" id="tabCloseYes">とじる</button>
+      <button class="big" data-close>やめる</button>
+    </div>
+  </div>
+</div>
+
 <!-- ========== つかいかた ========== -->
 <div class="sheet-back" id="helpSheet" hidden>
   <div class="sheet sheet-wide">
@@ -247,15 +336,19 @@
       <button class="x" data-close aria-label="とじる">✕</button>
     </div>
     <table class="help">
-      <tr><th>ブロックを おく</th><td>ひだりの あお・あか を つくえへ ドラッグ（タップすると ひだりうえから ならぶ）</td></tr>
+      <tr><th>ブロックを おく</th><td>ひだりの ブロック・さくらの おはじき を つくえへ ドラッグ（タップすると ひだりうえから ならぶ）</td></tr>
+      <tr><th>つくえを 大きく</th><td>2本ゆびで ピンチ（ひろげる・つまむ）。右下の −・＋、⤢ で ぜんぶ 見える ように</td></tr>
+      <tr><th>ページ（タブ）</th><td>いちばん うえの タブで ページを きりかえ。＋ で あたらしい ページ、✕ で とじる</td></tr>
       <tr><th>うらがえす</th><td>✋ うごかす で ブロックを タップ</td></tr>
       <tr><th>まとめて うごかす</th><td>ブロックを ながおし（くっついている ブロックが ぜんぶ ついてくる）</td></tr>
       <tr><th>すてる</th><td>ごみばこへ もっていく／ごみばこを おすと ぜんぶ けす</td></tr>
       <tr><th>かこむ</th><td>⭕ かこむ で ぐるっと かく。かこみを ドラッグすると 中の ブロックも うごく</td></tr>
+      <tr><th>くるくる まわす</th><td>かこみの 数字の よこの ● を つまんで まわす。まっすぐ ちかくで ぴたっと とまる</td></tr>
       <tr><th>まわす・ふやす</th><td>✋ うごかす で かこみを タップ →「まわす」（3×4 ⇔ 4×3）・「ふやす」（おなじ まとまりを もう1つ）</td></tr>
       <tr><th>かぞえる</th><td>123 かぞえる で ブロックを じゅんに タップ（なぞっても よい）。「まとまりで」なら かこみごとに 3、6、9 …</td></tr>
       <tr><th>くくの だん</th><td>だんを えらんで「＋」。しきと となえかたが 出る</td></tr>
       <tr><th>しゃしん</th><td>📷 から カメラ・ファイル・はりつけ。<kbd>Ctrl</kbd>+<kbd>V</kbd> や ドラッグでも すぐ はいる</td></tr>
+      <tr><th>きょうゆう</th><td>🔗 で せんせいの ページを コード・リンク・ファイルで くばる／よみこむ</td></tr>
       <tr><th>もどす</th><td>↩️（<kbd>Ctrl</kbd>+<kbd>Z</kbd>）。なんでも もとに もどせる</td></tr>
     </table>
   </div>
@@ -305,6 +398,7 @@
 <script src="sound.js"></script>
 <script src="scenes.js"></script>
 <script src="cards.js"></script>
+<script src="share.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
