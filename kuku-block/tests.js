@@ -90,6 +90,35 @@
         t('からの かこみは かぞえない・のこりも 出す', d3 && d3.expr === '4 × 2 = 8' && d3.words.includes('のこり 2こ'), d3 && d3.words);
         t('かこみが ない ときは しき なし', L.describe([], 5) === null && L.describe([0, 0], 5) === null);
 
+        /* 九九の となえかた */
+        let allRead = true;
+        for (let n = 1; n <= 9; n++) for (let k = 1; k <= 9; k++) if (!L.kukuReading(n, k)) allRead = false;
+        t('九九 81こ ぜんぶに となえかたが ある', allRead);
+        t('3 × 3 は「さざんが く」', L.kukuReading(3, 3) === 'さざんが く');
+        t('8 × 8 は「はっぱ ろくじゅうし」', L.kukuReading(8, 8) === 'はっぱ ろくじゅうし');
+        t('9 × 9 は「くく はちじゅういち」', L.kukuReading(9, 9) === 'くく はちじゅういち');
+        t('かけ算が こえたら から', L.kukuReading(3, 10) === '' && L.kukuReading(10, 1) === '');
+
+        /* まわす */
+        const r90 = L.rotate90(10, 0, 0, 0);
+        t('時計まわりに 90°（右 → 下）', Math.abs(r90[0]) < 1e-9 && r90[1] === 10, String(r90));
+        /* 3こ × 4だん（まん中 (60,80)）を まわすと 4こ × 3だん */
+        const arr34 = [];
+        for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) arr34.push([c * 40 + 20, r * 40 + 20]);
+        const rot = arr34.map(([x, y]) => L.rotate90(x, y, 60, 80));
+        const xs = new Set(rot.map(p => Math.round(p[0]))), ys = new Set(rot.map(p => Math.round(p[1])));
+        t('3 × 4 の ならびを まわすと よこ 4・たて 3', xs.size === 4 && ys.size === 3, `よこ${xs.size} たて${ys.size}`);
+
+        /* ふやす ばしょ */
+        const box = { x0: 40, y0: 40, x1: 160, y1: 80 };
+        const sp = L.findSpot(box, [box], { x0: 0, y0: 0, x1: 600, y1: 400 }, 40, 4);
+        t('ふやすと おなじ だんの 右に おく', sp && sp[1] === 0 && sp[0] > 0, String(sp));
+        const wall = { x0: 160, y0: 0, x1: 600, y1: 100 };
+        const sp2 = L.findSpot(box, [box, wall], { x0: 0, y0: 0, x1: 600, y1: 400 }, 40, 4);
+        const moved = sp2 && { x0: box.x0 + sp2[0], y0: box.y0 + sp2[1], x1: box.x1 + sp2[0], y1: box.y1 + sp2[1] };
+        t('右が ふさがって いたら ほかの ばしょ（かさならない）', moved && !L.boxesOverlap(moved, wall) && !L.boxesOverlap(moved, box), String(sp2));
+        t('どこにも はいらない ときは null', L.findSpot(box, [{ x0: 0, y0: 0, x1: 600, y1: 400 }], { x0: 0, y0: 0, x1: 600, y1: 400 }, 40, 4) === null);
+
         return rows;
     }
 

@@ -98,18 +98,18 @@ button{ font:inherit; color:inherit; cursor:pointer; }
 
 .side{
     flex:none; width:96px; padding:10px 8px;
-    display:flex; flex-direction:column; align-items:center; gap:10px;
+    display:flex; flex-direction:column; align-items:center; gap:8px; overflow-y:auto;
     background:var(--panel); border-right:2px solid var(--line);
 }
 .src{
-    width:78px; padding:8px 0 4px; border-radius:var(--radius);
+    flex:none; width:78px; padding:8px 0 4px; border-radius:var(--radius);
     display:flex; flex-direction:column; align-items:center;
     border:2px dashed var(--line); background:#fbfaf6;
     cursor:grab; touch-action:none;
 }
 .src:active{ cursor:grabbing; background:var(--tap); }
 .side-btn, .trash{
-    width:78px; height:64px; border-radius:var(--radius);
+    flex:none; width:78px; height:64px; border-radius:var(--radius);
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     border:2px solid var(--line); background:var(--panel);
 }
@@ -306,6 +306,116 @@ kbd{ font-family:inherit; border:1px solid var(--line); border-bottom-width:3px;
 .flash.go-flash{ animation:flash .35s ease-out; }
 @keyframes flash{ from{ opacity:.9; } to{ opacity:0; } }
 
+/* ---------- かぞえる ---------- */
+.ico-count{
+    font-family:var(--pop); font-weight:400; font-size:17px; letter-spacing:-.02em;
+    color:#fff; background:var(--go); border-radius:7px; padding:3px 4px 2px;
+}
+.seg{ display:flex; border:2px solid var(--line); border-radius:999px; overflow:hidden; }
+.seg-b{ height:38px; padding:0 14px; border:none; background:#fff; font-size:14px; }
+.seg-b.on{ background:var(--go); color:#fff; }
+.count-now{ min-width:3.2em; text-align:center; }
+.count-now b{ font-family:var(--pop); font-weight:400; font-size:28px; color:var(--go); }
+.chip.off{ opacity:.45; }
+
+/* ---------- かこみの メニュー ---------- */
+.bubble{
+    position:absolute; z-index:6; display:flex; gap:4px; padding:6px;
+    background:#fff; border:2px solid var(--line); border-radius:16px;
+    box-shadow:0 6px 18px rgba(60,40,10,.18);
+    animation:pop .15s ease-out;
+}
+.bubble button{
+    min-width:74px; height:60px; border:none; border-radius:12px; background:#fbfaf6;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:12px;
+}
+.bubble button:active{ background:var(--tap); transform:scale(.95); }
+.bubble .ico{ font-size:22px; }
+.bubble .ico-loop{ width:24px; height:18px; margin:2px 0; }
+
+/* ---------- おだい ---------- */
+.card-banner{
+    position:absolute; left:12px; top:12px; z-index:4; max-width:min(52%, 560px);
+    display:flex; align-items:flex-start; gap:8px; padding:10px 10px 10px 14px;
+    background:#fffbe8; border:3px solid #f0c040; border-radius:16px;
+    box-shadow:0 4px 12px rgba(60,40,10,.12); font-size:18px; line-height:1.5;
+}
+.card-ico{ font-size:22px; line-height:1.3; }
+.card-text{ flex:1; }
+.card-x{ flex:none; width:34px; height:34px; border-radius:50%; border:2px solid #f0d88a; background:#fff; font-size:14px; }
+.board-wrap.t-pen .card-banner{ top:64px; }
+
+.sheet-wide{ width:min(760px,100%); }
+.card-group h3{ margin:14px 0 8px; }
+.card-group:first-child h3{ margin-top:0; }
+.cards{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:8px; }
+.card{
+    text-align:left; padding:10px 12px; min-height:64px; border-radius:14px;
+    border:2px solid #f0d88a; background:#fffbe8; font-size:14px; line-height:1.5;
+}
+.card:active{ transform:scale(.97); }
+.card small{ display:block; color:var(--ink-thin); font-size:11px; margin-top:2px; }
+.own-card{ display:flex; gap:8px; }
+.own-card input{
+    flex:1; height:44px; border-radius:12px; border:2px solid var(--line); padding:0 12px;
+    font:inherit; font-size:16px; -webkit-user-select:text; user-select:text;
+}
+
+/* ---------- くくの だん ---------- */
+.ico-dan{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:28px; height:28px; border-radius:8px; background:#8a5cd6; color:#fff;
+    font-family:var(--pop); font-weight:400; font-size:22px; line-height:1;
+}
+.note-top{ margin:0 0 12px; }
+.dan-grid{ display:grid; grid-template-columns:repeat(9,1fr); gap:6px; margin-bottom:12px; }
+.dan-grid button{
+    aspect-ratio:1; border-radius:14px; border:2px solid #d9c9f0; background:#f7f2ff;
+    font-family:var(--pop); font-weight:400; font-size:28px; color:#6a3fc0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1;
+}
+.dan-grid button small{ font-family:var(--round); font-weight:800; font-size:11px; margin-top:4px; color:var(--ink-thin); }
+.dan-grid button:active{ transform:scale(.94); background:#ebe0ff; }
+.blk-half{ --dot:linear-gradient(90deg, var(--blue) 50%, var(--red) 50%); }
+
+.dan-bar{
+    position:absolute; left:50%; bottom:12px; transform:translateX(-50%); z-index:5;
+    display:flex; align-items:center; gap:10px; padding:8px 10px;
+    background:rgba(255,255,255,.97); border:3px solid #8a5cd6; border-radius:22px;
+    box-shadow:0 6px 18px rgba(60,40,10,.18); max-width:calc(100% - 24px);
+}
+.dan-b{
+    flex:none; width:64px; height:64px; border-radius:18px; border:2px solid #d9c9f0; background:#f7f2ff;
+    font-size:34px; color:#6a3fc0; line-height:1;
+}
+.dan-b:active{ transform:scale(.93); }
+.dan-b:disabled{ opacity:.35; }
+.dan-plus{ background:#8a5cd6; border-color:#8a5cd6; color:#fff; }
+.dan-mid{ min-width:220px; text-align:center; display:flex; flex-direction:column; align-items:center; }
+.dan-mid b{ font-family:var(--pop); font-weight:400; font-size:34px; letter-spacing:.04em; line-height:1.15; }
+.dan-read{ font-size:15px; color:#6a3fc0; }
+.dan-seq{ font-size:13px; color:var(--ink-thin); max-width:420px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dan-seq em{ font-style:normal; color:#6a3fc0; }
+.dan-x{ flex:none; width:40px; height:40px; border-radius:50%; border:2px solid var(--line); background:#fff; font-size:16px; align-self:flex-start; }
+
+/* ---------- イラスト ---------- */
+.scene-row{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.scene-kinds{ display:flex; gap:6px; }
+.scene-k{
+    width:74px; height:60px; border-radius:12px; border:2px solid var(--line); background:#fff; padding:2px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:11px;
+}
+.scene-k canvas{ width:60px; height:36px; }
+.scene-k.on{ border-color:var(--accent); background:var(--tap); }
+.stepper-sm .st{ width:42px; height:42px; font-size:22px; }
+.stepper-sm b{ font-size:26px; }
+
+/* ---------- つかいかた ---------- */
+.help{ width:100%; border-collapse:collapse; font-size:14px; }
+.help th{ text-align:left; white-space:nowrap; padding:8px 12px 8px 4px; vertical-align:top; color:var(--accent); }
+.help td{ padding:8px 4px; font-weight:700; line-height:1.6; }
+.help tr{ border-bottom:1px solid #f0e8da; }
+
 /* たて画面や せまい 画面 */
 @media (max-width:900px){
     .logo{ display:none; }
@@ -322,4 +432,9 @@ kbd{ font-family:inherit; border:1px solid var(--line); border-bottom-width:3px;
     .src .blk{ --s:38px; }
     .arr-body{ flex-direction:column; }
     .bg-hint{ display:none; }
+    .dan-mid{ min-width:0; }
+    .dan-mid b{ font-size:26px; }
+    .dan-read{ font-size:12px; }
+    .dan-grid{ grid-template-columns:repeat(5,1fr); }
+    .card-banner{ max-width:calc(100% - 24px); font-size:15px; }
 }

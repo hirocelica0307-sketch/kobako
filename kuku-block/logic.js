@@ -213,10 +213,62 @@
         return { kind: 'add', expr: `${used.join(' + ')} = ${sum}`, words: `ぜんぶで ${sum}こ${rest}` };
     }
 
+    /* ---------- 九九の となえかた ---------- */
+
+    const KUKU = [
+        null,
+        ['いんいちが いち', 'いんにが に', 'いんさんが さん', 'いんしが し', 'いんごが ご', 'いんろくが ろく', 'いんしちが しち', 'いんはちが はち', 'いんくが く'],
+        ['にいちが に', 'ににんが し', 'にさんが ろく', 'にしが はち', 'にご じゅう', 'にろく じゅうに', 'にしち じゅうし', 'にはち じゅうろく', 'にく じゅうはち'],
+        ['さんいちが さん', 'さんにが ろく', 'さざんが く', 'さんし じゅうに', 'さんご じゅうご', 'さぶろく じゅうはち', 'さんしち にじゅういち', 'さんぱ にじゅうし', 'さんく にじゅうしち'],
+        ['しいちが し', 'しにが はち', 'しさん じゅうに', 'しし じゅうろく', 'しご にじゅう', 'しろく にじゅうし', 'ししち にじゅうはち', 'しは さんじゅうに', 'しく さんじゅうろく'],
+        ['ごいちが ご', 'ごに じゅう', 'ごさん じゅうご', 'ごし にじゅう', 'ごご にじゅうご', 'ごろく さんじゅう', 'ごしち さんじゅうご', 'ごは しじゅう', 'ごっく しじゅうご'],
+        ['ろくいちが ろく', 'ろくに じゅうに', 'ろくさん じゅうはち', 'ろくし にじゅうし', 'ろくご さんじゅう', 'ろくろく さんじゅうろく', 'ろくしち しじゅうに', 'ろくは しじゅうはち', 'ろっく ごじゅうし'],
+        ['しちいちが しち', 'しちに じゅうし', 'しちさん にじゅういち', 'しちし にじゅうはち', 'しちご さんじゅうご', 'しちろく しじゅうに', 'しちしち しじゅうく', 'しちは ごじゅうろく', 'しちく ろくじゅうさん'],
+        ['はちいちが はち', 'はちに じゅうろく', 'はちさん にじゅうし', 'はちし さんじゅうに', 'はちご しじゅう', 'はちろく しじゅうはち', 'はちしち ごじゅうろく', 'はっぱ ろくじゅうし', 'はっく しちじゅうに'],
+        ['くいちが く', 'くに じゅうはち', 'くさん にじゅうしち', 'くし さんじゅうろく', 'くご しじゅうご', 'くろく ごじゅうし', 'くしち ろくじゅうさん', 'くは しちじゅうに', 'くく はちじゅういち'],
+    ];
+
+    /** n × k の となえかた（1〜9 の とき だけ） */
+    function kukuReading(n, k) {
+        return (KUKU[n] && KUKU[n][k - 1]) || '';
+    }
+
+    /* ---------- まわす・ふやす ---------- */
+
+    /** (px, py) を 中心に 時計まわりに 90° まわす（画面は y が 下むき） */
+    function rotate90(x, y, px, py) {
+        return [px - (y - py), py + (x - px)];
+    }
+
+    function boxesOverlap(a, b) {
+        return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+    }
+
+    /** box（x0,y0,x1,y1）を step ずつ ずらして、obstacles と かさならない ばしょを さがす。
+        もとの だんの 右 → 下の だん … の じゅんに ちかい ところ。ずらす りょう [dx, dy] か null */
+    function findSpot(box, obstacles, bounds, step, gap) {
+        const w = box.x1 - box.x0, h = box.y1 - box.y0;
+        const iMin = Math.ceil((bounds.x0 - box.x0) / step), iMax = Math.floor((bounds.x1 - box.x1) / step);
+        const jMin = Math.ceil((bounds.y0 - box.y0) / step), jMax = Math.floor((bounds.y1 - box.y1) / step);
+        let best = null, bestScore = Infinity;
+        for (let j = jMin; j <= jMax; j++) {
+            for (let i = iMin; i <= iMax; i++) {
+                if (i === 0 && j === 0) continue;
+                const x0 = box.x0 + i * step, y0 = box.y0 + j * step;
+                const cand = { x0: x0 - gap, y0: y0 - gap, x1: x0 + w + gap, y1: y0 + h + gap };
+                if (obstacles.some(o => boxesOverlap(cand, o))) continue;
+                const score = Math.abs(j) * 10000 + (i < 0 ? 5000 : 0) + Math.abs(i);
+                if (score < bestScore) { bestScore = score; best = [i * step, j * step]; }
+            }
+        }
+        return best;
+    }
+
     const api = {
         pointInPolygon, polygonArea, bbox, centroid, distToSeg, distToPolyline,
         simplify, chaikin, makeLoop, blockCenter, blocksInLoop, loopsInLoop,
         snap, cellKey, findFreeCell, findFreeRect, clusterOf, describe,
+        kukuReading, rotate90, boxesOverlap, findSpot,
     };
     root.KukuLogic = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;

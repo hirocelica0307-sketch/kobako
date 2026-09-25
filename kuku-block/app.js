@@ -11,6 +11,7 @@
 
     const L = window.KukuLogic;
     const P = window.KukuPhotos;
+    const SND = window.KukuSound;
     const $ = (s) => document.querySelector(s);
     const $$ = (s) => [...document.querySelectorAll(s)];
 
@@ -24,7 +25,7 @@
        じょうたい・ほぞん・もどす
        ================================================================ */
 
-    const emptyState = () => ({ size: 48, blocks: [], loops: [], strokes: [], bg: null, loopColor: 0 });
+    const emptyState = () => ({ size: 48, blocks: [], loops: [], strokes: [], bg: null, loopColor: 0, dan: null, card: null });
 
     function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
     function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* のこせなくても うごく */ } }
@@ -40,10 +41,15 @@
     }
 
     const settings = Object.assign(
-        { snap: true, count: true, expr: false, rows: 4, cols: 3, arrC: 'b', penC: 'k', penW: 4 },
+        {
+            snap: true, count: true, expr: false, sound: true, voice: true,
+            rows: 4, cols: 3, arrC: 'b', penC: 'k', penW: 4, countMode: 'one',
+            danLoops: true, danC: 'b', sceneKind: 'plate', sceneN: 4,
+        },
         (() => { try { return JSON.parse(lsGet(SET_KEY)) || {}; } catch (e) { return {}; } })()
     );
     const saveSettings = () => lsSet(SET_KEY, JSON.stringify(settings));
+    SND.setEnabled(settings.sound);
 
     let state = loadState();
     let saved = JSON.stringify(state);
@@ -79,6 +85,9 @@
         updateUndoButtons();
         updateSizeUI();
         if (tool === 'photo' && !state.bg) setTool('move');
+        resetCount();
+        hideBubble();
+        updateCard();
         requestRender();
     }
 
@@ -188,6 +197,7 @@
         for (const l of state.loops) if (!opts.hide.has(l.id)) drawLoopFill(g, l);
         for (const b of state.blocks) if (!opts.hide.has(b.id)) drawBlock(g, b.x, b.y, S, b.c, false);
         for (const l of state.loops) if (!opts.hide.has(l.id)) drawLoopLine(g, l);
+        drawCountMarks(g, opts.hide);
         for (const s of state.strokes) if (!opts.hide.has(s.id)) drawStroke(g, s);
         if (settings.count) {
             for (const l of state.loops) if (!opts.hide.has(l.id)) drawBadge(g, l);
@@ -335,6 +345,49 @@
         g.restore();
     }
 
+    function drawCountMarks(g, hide) {
+        const S = state.size;
+        g.save();
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        count.order.forEach((id, i) => {
+            const b = blockById(id);
+            if (!b || hide.has(id)) return;
+            roundRectPath(g, b.x + 2, b.y + 2, S - 4, S - 4, S * 0.12);
+            g.lineWidth = 4;
+            g.strokeStyle = '#f5b800';
+            g.stroke();
+            const t = String(i + 1);
+            g.font = `800 ${Math.round(S * (t.length > 2 ? 0.34 : 0.44))}px "M PLUS Rounded 1c", sans-serif`;
+            g.lineWidth = Math.max(3, S * 0.08);
+            g.strokeStyle = 'rgba(0,0,0,.55)';
+            g.strokeText(t, b.x + S / 2, b.y + S / 2 + 1);
+            g.fillStyle = '#fff';
+            g.fillText(t, b.x + S / 2, b.y + S / 2 + 1);
+        });
+        for (const gr of count.groups) {
+            const l = loopById(gr.loopId);
+            if (!l || hide.has(l.id)) continue;
+            const bb = L.bbox(l.pts);
+            const t = String(gr.total);
+            g.font = '400 26px "Mochiy Pop One", "M PLUS Rounded 1c", sans-serif';
+            const w = Math.max(44, g.measureText(t).width + 24), h = 38;
+            /* かこみの ひだり（はいらない ときは 右）に 出す */
+            let x = bb.x0 - w - 6;
+            if (x < 2) x = Math.min(W - w - 2, bb.x1 + 26);
+            const y = (bb.y0 + bb.y1) / 2 - h / 2;
+            roundRectPath(g, x, y, w, h, 12);
+            g.fillStyle = '#2fa84f';
+            g.fill();
+            g.lineWidth = 3;
+            g.strokeStyle = '#fff';
+            g.stroke();
+            g.fillStyle = '#fff';
+            g.fillText(t, x + w / 2, y + h / 2 + 1);
+        }
+        g.restore();
+    }
+
     const ERASE_R = 16;
     function drawEraser(g, [x, y]) {
         g.beginPath();
@@ -351,8 +404,9 @@
     const exprEl = $('#expr');
     let lastExpr = '';
     function updateExpr() {
+        updateDanBar();
         let html = '';
-        if (settings.expr && state.blocks.length) {
+        if (settings.expr && state.blocks.length && !state.dan) {
             const counts = state.loops.map(loopCount);
             const inAny = new Set();
             for (const l of state.loops) for (const b of L.blocksInLoop(state.blocks, l.pts, state.size)) inAny.add(b.id);
@@ -374,6 +428,7 @@
     const drags = new Map();      /* pointerId → いま うごかしている もの */
     const bgPointers = new Map(); /* しゃしんを うごかしている ゆび */
     let tool = 'move';
+    let count = { order: [], groups: [] };  /* かぞえる（れきしには のこさない） */
 
     function hiddenIds() {
         const s = new Set();
@@ -469,6 +524,7 @@
         rect = wrap.getBoundingClientRect();
         const [x, y] = toBoard(e);
         try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* なくても よい */ }
+        hideBubble();
 
         if (tool === 'move') {
             const b = hitBlock(x, y);
@@ -487,6 +543,9 @@
             drags.set(e.pointerId, d);
             eraseAt(x, y);
             requestRender();
+        } else if (tool === 'count') {
+            drags.set(e.pointerId, { type: 'count', last: [x, y] });
+            countAt(x, y, true);
         } else if (tool === 'photo') {
             bgPointers.set(e.pointerId, [x, y]);
         }
@@ -529,6 +588,11 @@
                 const q = pts[pts.length - 1];
                 if (Math.hypot(px - q[0], py - q[1]) >= 1.5) pts.push([r1(px), r1(py)]);
             }
+        } else if (d.type === 'count') {
+            const [lx, ly] = d.last;
+            const steps = Math.max(1, Math.ceil(Math.hypot(x - lx, y - ly) / 8));
+            for (let i = 1; i <= steps; i++) countAt(lx + (x - lx) * i / steps, ly + (y - ly) * i / steps, false);
+            d.last = [x, y];
         } else if (d.type === 'erase') {
             const [lx, ly] = d.last;
             const steps = Math.max(1, Math.ceil(Math.hypot(x - lx, y - ly) / 6));
@@ -589,15 +653,17 @@
                          || L.findFreeRect(1, 1, S, occ, { x0: 0, y0: 0, x1: W, y1: H }, 0)
                          || [S, S];
                 b.x = pos[0]; b.y = pos[1];
+                SND.pop();
             } else if (d.tapFlip && !cancelled) {
                 const b = blockById(d.ids[0]);
-                if (b) b.c = b.c === 'b' ? 'r' : 'b';   /* タップで うらがえす */
+                if (b) { b.c = b.c === 'b' ? 'r' : 'b'; SND.flip(); }  /* タップで うらがえす */
             }
             return;
         }
-        if (overTrash(e) && !cancelled) { removeBlocks(d.ids); return; }
+        if (overTrash(e) && !cancelled) { removeBlocks(d.ids); SND.trash(); return; }
         if (d.fromPalette && (cancelled || !insideBoard(e))) { removeBlocks(d.ids); return; }
         settle(d.ids.map(blockById).filter(Boolean));
+        SND.pop();
     }
 
     function occupiedCells(exceptIds) {
@@ -649,8 +715,12 @@
     }
 
     function endLoopDrag(e, d, cancelled) {
-        if (!d.moved) return;
+        if (!d.moved) {
+            if (!cancelled) showBubble(d.loopId);   /* タップ → まわす・ふやす・けす */
+            return;
+        }
         if (overTrash(e) && !cancelled) {
+            SND.trash();
             /* かこみを すてると、中の ブロックも いっしょに すてる */
             const gone = new Set([d.loopId, ...d.loopIds]);
             state.loops = state.loops.filter(l => !gone.has(l.id));
@@ -681,6 +751,7 @@
         const color = LOOP_COLORS[state.loopColor % LOOP_COLORS.length];
         state.loopColor = (state.loopColor + 1) % LOOP_COLORS.length;
         state.loops.push({ id: uid('l'), pts, color });
+        SND.loop();
     }
 
     function eraseAt(x, y) {
@@ -692,6 +763,194 @@
 
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     $('.side').addEventListener('contextmenu', (e) => e.preventDefault());
+
+    /* ---------- かぞえる ---------- */
+
+    function resetCount() {
+        count = { order: [], groups: [] };
+        updateCountBar();
+        requestRender();
+    }
+
+    function updateCountBar() {
+        for (const b of $$('.seg-b')) b.classList.toggle('on', b.dataset.cm === settings.countMode);
+        const n = settings.countMode === 'one'
+            ? count.order.length
+            : (count.groups.length ? count.groups[count.groups.length - 1].total : 0);
+        $('#countNow').textContent = n;
+        $('#countVoice').classList.toggle('off', !settings.voice);
+        $('#countVoice').textContent = settings.voice ? '🔈' : '🔇';
+    }
+
+    function sayNumber(n) {
+        if (settings.voice) SND.speak(String(n));
+        else SND.count();
+    }
+
+    /** tap … おした とき（さいごの ものを もう一度 おすと とりけし）。なぞって いる ときは false */
+    function countAt(x, y, tap) {
+        if (settings.countMode === 'one') {
+            const b = hitBlock(x, y);
+            if (!b) return;
+            const i = count.order.indexOf(b.id);
+            if (i >= 0) {
+                if (tap && i === count.order.length - 1) count.order.pop();
+                else return;
+            } else {
+                count.order.push(b.id);
+                sayNumber(count.order.length);
+            }
+        } else {
+            const l = hitLoop(x, y);
+            if (!l) return;
+            const i = count.groups.findIndex(g => g.loopId === l.id);
+            if (i >= 0) {
+                if (tap && i === count.groups.length - 1) count.groups.pop();
+                else return;
+            } else {
+                const n = loopCount(l);
+                if (!n) { if (tap) toast('この かこみは からっぽだよ'); return; }
+                const total = (count.groups.length ? count.groups[count.groups.length - 1].total : 0) + n;
+                count.groups.push({ loopId: l.id, total });
+                sayNumber(total);
+            }
+        }
+        updateCountBar();
+        requestRender();
+    }
+
+    for (const b of $$('.seg-b')) {
+        b.addEventListener('click', () => { settings.countMode = b.dataset.cm; saveSettings(); resetCount(); });
+    }
+    $('#countReset').addEventListener('click', resetCount);
+    $('#countVoice').addEventListener('click', () => { settings.voice = !settings.voice; saveSettings(); updateCountBar(); });
+
+    /* ---------- かこみの メニュー（まわす・ふやす・けす） ---------- */
+
+    const bubble = $('#loopBubble');
+    let bubbleLoop = null;
+
+    function showBubble(id) {
+        const l = loopById(id);
+        if (!l) return hideBubble();
+        bubbleLoop = id;
+        bubble.hidden = false;
+        const bb = L.bbox(l.pts);
+        const bw = bubble.offsetWidth, bh = bubble.offsetHeight;
+        const left = Math.max(6, Math.min(W - bw - 6, (bb.x0 + bb.x1) / 2 - bw / 2));
+        let top = bb.y0 - bh - 12;
+        if (top < 6) top = Math.min(H - bh - 6, bb.y1 + 12);
+        bubble.style.left = left + 'px';
+        bubble.style.top = top + 'px';
+    }
+
+    function hideBubble() {
+        bubbleLoop = null;
+        bubble.hidden = true;
+    }
+
+    function loopGroup(l) {
+        const S = state.size;
+        const blocks = L.blocksInLoop(state.blocks, l.pts, S);
+        const loops = [l, ...L.loopsInLoop(state.loops, l)];
+        const grp = { blocks, loops };
+        grp.box = groupBoxOf(grp);
+        return grp;
+    }
+
+    /** まとまり（ブロックと かこみ）ぜんたいの はこ */
+    function groupBoxOf(grp) {
+        const S = state.size;
+        const pts = grp.loops.flatMap(o => o.pts);
+        for (const b of grp.blocks) pts.push([b.x, b.y], [b.x + S, b.y + S]);
+        return L.bbox(pts);
+    }
+
+    /** まとまり いがいの ブロックと かこみの はこ */
+    function othersBoxes(grp) {
+        const S = state.size;
+        const mine = new Set([...grp.blocks.map(b => b.id), ...grp.loops.map(o => o.id)]);
+        const out = [];
+        for (const o of state.loops) if (!mine.has(o.id)) out.push(L.bbox(o.pts));
+        for (const b of state.blocks) if (!mine.has(b.id)) out.push({ x0: b.x, y0: b.y, x1: b.x + S, y1: b.y + S });
+        return out;
+    }
+
+    function shiftGroup(grp, dx, dy) {
+        shiftBlocks(grp.blocks, dx, dy);
+        for (const o of grp.loops) o.pts = o.pts.map(([x, y]) => [r1(x + dx), r1(y + dy)]);
+    }
+
+    /** 90° まわす（3 × 4 ⇔ 4 × 3） */
+    function rotateLoop(id) {
+        const l = loopById(id);
+        if (!l) return;
+        const S = state.size;
+        const grp = loopGroup(l);
+        const pb = grp.blocks.length ? groupBox(grp.blocks) : L.bbox(l.pts);
+        const px = (pb.x0 + pb.x1) / 2, py = (pb.y0 + pb.y1) / 2;
+        for (const b of grp.blocks) {
+            const [cx, cy] = L.rotate90(b.x + S / 2, b.y + S / 2, px, py);
+            b.x = cx - S / 2;
+            b.y = cy - S / 2;
+        }
+        for (const o of grp.loops) o.pts = o.pts.map(([x, y]) => L.rotate90(x, y, px, py).map(r1));
+        if (settings.snap && grp.blocks.length) {
+            const f = grp.blocks[0];
+            shiftGroup(grp, L.snap(f.x, S) - f.x, L.snap(f.y, S) - f.y);
+        }
+        let [dx, dy] = clampShift(groupBoxOf(grp));
+        if (settings.snap) { dx = Math.sign(dx) * Math.ceil(Math.abs(dx) / S - 1e-6) * S; dy = Math.sign(dy) * Math.ceil(Math.abs(dy) / S - 1e-6) * S; }
+        shiftGroup(grp, dx, dy);
+        /* まわした ら ほかの ものに かさなる ときは、まとまりごと あいている ところへ */
+        const box = groupBoxOf(grp);
+        const obstacles = othersBoxes(grp);
+        const inner = { x0: box.x0 + 2, y0: box.y0 + 2, x1: box.x1 - 2, y1: box.y1 - 2 };
+        if (obstacles.some(o => L.boxesOverlap(inner, o))) {
+            const off = L.findSpot(box, obstacles, { x0: 0, y0: 0, x1: W, y1: H }, S, 2);
+            if (off) shiftGroup(grp, off[0], off[1]);
+        }
+        if (settings.snap) resolveOverlaps(grp.blocks);
+        SND.flip();
+        commit();
+        requestRender();
+        showBubble(id);
+    }
+
+    /** おなじ まとまりを もう 1つ つくる（あいている ところへ） */
+    function copyLoop(id) {
+        const l = loopById(id);
+        if (!l) return;
+        const S = state.size;
+        const grp = loopGroup(l);
+        const obstacles = [grp.box, ...othersBoxes(grp)];
+        const off = L.findSpot(grp.box, obstacles, { x0: 0, y0: 0, x1: W, y1: H }, S, 4);
+        if (!off) { toast('あいている ばしょが ないよ'); return; }
+        const [dx, dy] = off;
+        for (const o of grp.loops) {
+            const color = LOOP_COLORS[state.loopColor % LOOP_COLORS.length];
+            state.loopColor = (state.loopColor + 1) % LOOP_COLORS.length;
+            state.loops.push({ id: uid('l'), pts: o.pts.map(([x, y]) => [r1(x + dx), r1(y + dy)]), color });
+        }
+        for (const b of grp.blocks) state.blocks.push({ id: uid('b'), x: b.x + dx, y: b.y + dy, c: b.c });
+        SND.pop();
+        commit();
+        requestRender();
+    }
+
+    bubble.addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (!btn || !bubbleLoop) return;
+        const id = bubbleLoop;
+        if (btn.dataset.act === 'rotate') rotateLoop(id);
+        else if (btn.dataset.act === 'copy') copyLoop(id);
+        else if (btn.dataset.act === 'unloop') {
+            state.loops = state.loops.filter(l => l.id !== id);
+            commit();
+            hideBubble();
+            requestRender();
+        }
+    });
 
     /* ---------- ブロックばこ ---------- */
 
@@ -719,7 +978,9 @@
         state.blocks = [];
         state.loops = [];
         state.strokes = [];
+        state.dan = null;
         commit();
+        SND.trash();
         closeSheets();
         requestRender();
         toast('「もどす」で もとに もどせるよ');
@@ -736,11 +997,15 @@
         wrap.className = 'board-wrap t-' + t;
         $('#penBar').hidden = t !== 'pen';
         $('#bgBar').hidden = t !== 'photo';
+        $('#countBar').hidden = t !== 'count';
+        hideBubble();
+        resetCount();
         if (t === 'photo') $('#bgAlpha').value = state.bg ? state.bg.alpha : 1;
         if (!hinted.has(t)) {
             hinted.add(t);
             if (t === 'loop') toast('ゆびで ぐるっと かこもう');
             if (t === 'erase') toast('かいた 線と かこみを けせるよ（ブロックは ごみばこへ）');
+            if (t === 'count') toast('ブロックを じゅんに タップしよう');
         }
         requestRender();
     }
@@ -889,6 +1154,7 @@
     async function openPhotoSheet() {
         $('#curBg').hidden = !state.bg;
         $('#bgAlpha2').value = state.bg ? state.bg.alpha : 1;
+        renderScenes();
         openSheet('photoSheet');
         const box = $('#thumbs');
         box.innerHTML = '';
@@ -1063,6 +1329,7 @@
                 state.blocks.push({ id: uid('b'), x: pos[0] + c * S, y: pos[1] + r * S, c: settings.arrC });
             }
         }
+        SND.pop();
         commit();
         closeSheets();
         if (tool !== 'move') setTool('move');
@@ -1070,10 +1337,238 @@
     });
 
     /* ================================================================
+       くくの だん
+       ================================================================ */
+
+    /** ブロック 1だんを かこむ、かどの まるい 長方形 */
+    function stadium(x0, y0, x1, y1) {
+        const r = (y1 - y0) / 2, pts = [];
+        for (let i = 0; i <= 8; i++) { const a = -Math.PI / 2 + Math.PI * i / 8; pts.push([x1 - r + r * Math.cos(a), y0 + r + r * Math.sin(a)]); }
+        for (let i = 0; i <= 8; i++) { const a = Math.PI / 2 + Math.PI * i / 8; pts.push([x0 + r + r * Math.cos(a), y0 + r + r * Math.sin(a)]); }
+        return pts.map(([x, y]) => [r1(x), r1(y)]);
+    }
+
+    function renderDanSheet() {
+        const grid = $('#danGrid');
+        if (!grid.children.length) {
+            for (let n = 1; n <= 9; n++) {
+                const b = document.createElement('button');
+                b.innerHTML = `${n}<small>の だん</small>`;
+                b.addEventListener('click', () => startDan(n));
+                grid.appendChild(b);
+            }
+        }
+        $('#danLoops').checked = settings.danLoops;
+        for (const b of $$('.dan-c')) b.classList.toggle('on', b.dataset.c === settings.danC);
+    }
+
+    $('#btnDan').addEventListener('click', () => { renderDanSheet(); openSheet('danSheet'); });
+    $('#danLoops').addEventListener('change', () => { settings.danLoops = $('#danLoops').checked; saveSettings(); });
+    for (const b of $$('.dan-c')) b.addEventListener('click', () => { settings.danC = b.dataset.c; saveSettings(); renderDanSheet(); });
+
+    function startDan(n) {
+        closeSheets();
+        if (tool !== 'move') setTool('move');
+        const S = state.size;
+        const pitch = settings.danLoops ? Math.round(S * 1.3) : S;
+        const occ = occupiedCells([]);
+        const b = { x0: 0, y0: state.card ? 2 * S : 0, x1: W, y1: H };
+        const pos = L.findFreeRect(Math.ceil(9 * pitch / S), n, S, occ, b)
+                 || L.findFreeRect(Math.ceil(9 * pitch / S), n, S, occ, { x0: 0, y0: 0, x1: W, y1: H })
+                 || L.findFreeRect(Math.ceil(5 * pitch / S), n, S, occ, { x0: 0, y0: 0, x1: W, y1: H })
+                 || [S, S];
+        state.dan = { n, c: settings.danC, loops: settings.danLoops, pitch, x: pos[0], y: pos[1], rows: [] };
+        danAdd();
+    }
+
+    function danAdd() {
+        const d = state.dan;
+        if (!d || d.rows.length >= 9) return;
+        const S = state.size, k = d.rows.length, y = d.y + k * d.pitch;
+        if (y + S > H + 2) { toast('つくえが いっぱいだよ'); return; }
+        const color = d.c === 'x' ? (k % 2 ? 'r' : 'b') : d.c;
+        const ids = [];
+        for (let c = 0; c < d.n; c++) {
+            const id = uid('b');
+            ids.push(id);
+            state.blocks.push({ id, x: d.x + c * S, y, c: color });
+        }
+        let loopId = null;
+        if (d.loops) {
+            loopId = uid('l');
+            const pad = Math.max(4, Math.round(S * 0.1));
+            state.loops.push({ id: loopId, pts: stadium(d.x - pad, y - pad, d.x + d.n * S + pad, y + S + pad), color: LOOP_COLORS[k % LOOP_COLORS.length] });
+        }
+        d.rows.push({ ids, loopId });
+        commit();
+        sayDan();
+        requestRender();
+    }
+
+    function danRemove() {
+        const d = state.dan;
+        if (!d || d.rows.length <= 1) return;
+        const row = d.rows.pop();
+        removeBlocks(row.ids);
+        if (row.loopId) state.loops = state.loops.filter(l => l.id !== row.loopId);
+        commit();
+        sayDan();
+        requestRender();
+    }
+
+    function sayDan() {
+        const d = state.dan;
+        if (!d) return;
+        const k = d.rows.length;
+        if (settings.voice) SND.speak(L.kukuReading(d.n, k));
+        else SND.up();
+    }
+
+    let lastDan = '';
+    function updateDanBar() {
+        const d = state.dan;
+        const key = d ? d.n + ':' + d.rows.length : '';
+        if (key === lastDan) return;
+        lastDan = key;
+        $('#danBar').hidden = !d;
+        if (!d) return;
+        const k = d.rows.length;
+        $('#danExpr').textContent = `${d.n} × ${k} = ${d.n * k}`;
+        $('#danRead').textContent = L.kukuReading(d.n, k);
+        const seq = [];
+        for (let i = 1; i <= k; i++) seq.push(i === k ? `<em>${d.n * i}</em>` : String(d.n * i));
+        $('#danSeq').innerHTML = seq.join(' → ') + (k >= 2 ? `（${d.n}ずつ ふえる）` : '');
+        $('#danMinus').disabled = k <= 1;
+        $('#danPlus').disabled = k >= 9;
+    }
+
+    $('#danPlus').addEventListener('click', danAdd);
+    $('#danMinus').addEventListener('click', danRemove);
+    $('#danEnd').addEventListener('click', () => { state.dan = null; commit(); requestRender(); });
+
+    /* ================================================================
+       おだい
+       ================================================================ */
+
+    function setupLabel(su) {
+        if (!su) return '';
+        if (su.loose) return `ブロック ${su.loose}こ`;
+        if (su.array) return `${su.array[1]}こ × ${su.array[0]}だん の ならび`;
+        if (su.scene) {
+            const k = window.KukuScenes.KINDS.find(x => x.key === su.scene[0]);
+            return `イラスト：${k.name} ${su.scene[1]}${k.unit}`;
+        }
+        return '';
+    }
+
+    function renderCards() {
+        const box = $('#cardList');
+        if (box.children.length) return;
+        for (const grp of window.KukuCards) {
+            const sec = document.createElement('div');
+            sec.className = 'card-group';
+            sec.innerHTML = `<h3></h3><div class="cards"></div>`;
+            sec.querySelector('h3').textContent = grp.group;
+            for (const c of grp.cards) {
+                const b = document.createElement('button');
+                b.className = 'card';
+                b.textContent = c.text;
+                const lbl = setupLabel(c.setup);
+                if (lbl) { const sm = document.createElement('small'); sm.textContent = '＋ ' + lbl; b.appendChild(sm); }
+                b.addEventListener('click', () => useCard(c));
+                sec.querySelector('.cards').appendChild(b);
+            }
+            box.appendChild(sec);
+        }
+    }
+
+    function useCard(c) {
+        closeSheets();
+        if (tool !== 'move') setTool('move');
+        state.card = { text: c.text };
+        const su = c.setup;
+        if (su) {
+            state.blocks = [];
+            state.loops = [];
+            state.strokes = [];
+            state.dan = null;
+            const S = state.size;
+            const top = Math.max(2 * S, L.snap(110, S));
+            if (su.loose) {
+                const per = Math.min(10, Math.floor(W / S) - 2);
+                for (let i = 0; i < su.loose; i++) {
+                    state.blocks.push({ id: uid('b'), x: S + (i % per) * S, y: top + Math.floor(i / per) * S, c: 'b' });
+                }
+            } else if (su.array) {
+                const [rows, cols] = su.array;
+                for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+                    state.blocks.push({ id: uid('b'), x: S + q * S, y: top + r * S, c: 'b' });
+                }
+            }
+        }
+        commit();
+        updateCard();
+        requestRender();
+        if (su && su.scene) {
+            importAndUse(window.KukuScenes.make(su.scene[0], su.scene[1], W / H));
+        } else if (su) {
+            toast('「もどす」で まえの つくえに もどせるよ');
+        }
+    }
+
+    function updateCard() {
+        $('#cardBanner').hidden = !state.card;
+        if (state.card) $('#cardText').textContent = state.card.text;
+    }
+
+    $('#btnCards').addEventListener('click', () => { renderCards(); openSheet('cardSheet'); });
+    $('#cardClose').addEventListener('click', () => { state.card = null; commit(); updateCard(); });
+    function ownCard() {
+        const t = $('#ownCard').value.trim();
+        if (!t) { $('#ownCard').focus(); return; }
+        $('#ownCard').value = '';
+        useCard({ text: t });
+    }
+    $('#ownCardGo').addEventListener('click', ownCard);
+    $('#ownCard').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) ownCard(); });
+
+    /* ================================================================
+       イラストの はいけい
+       ================================================================ */
+
+    const SC = window.KukuScenes;
+    function renderScenes() {
+        const box = $('#sceneKinds');
+        if (!box.children.length) {
+            for (const k of SC.KINDS) {
+                const b = document.createElement('button');
+                b.className = 'scene-k';
+                b.dataset.k = k.key;
+                const mini = document.createElement('canvas');
+                mini.width = 120;
+                mini.height = 72;
+                mini.getContext('2d').drawImage(SC.make(k.key, 2, 1.67), 0, 0, 120, 72);
+                b.appendChild(mini);
+                b.appendChild(document.createTextNode(k.name));
+                b.addEventListener('click', () => { settings.sceneKind = k.key; saveSettings(); renderScenes(); });
+                box.appendChild(b);
+            }
+        }
+        for (const b of $$('.scene-k')) b.classList.toggle('on', b.dataset.k === settings.sceneKind);
+        $('#sceneN').textContent = settings.sceneN;
+        const kind = SC.KINDS.find(x => x.key === settings.sceneKind) || SC.KINDS[0];
+        $('#sceneUnit').textContent = kind.unit;
+    }
+    $('#sceneMinus').addEventListener('click', () => { settings.sceneN = Math.max(1, settings.sceneN - 1); saveSettings(); renderScenes(); });
+    $('#scenePlus').addEventListener('click', () => { settings.sceneN = Math.min(9, settings.sceneN + 1); saveSettings(); renderScenes(); });
+    $('#sceneGo').addEventListener('click', () => importAndUse(SC.make(settings.sceneKind, settings.sceneN, W / H)));
+
+    /* ================================================================
        せってい
        ================================================================ */
 
     const setSnap = $('#setSnap'), setCount = $('#setCount'), setExpr = $('#setExpr'), setSize = $('#setSize');
+    const setSound = $('#setSound');
 
     function updateSizeUI() {
         setSize.value = state.size;
@@ -1084,6 +1579,7 @@
         setSnap.checked = settings.snap;
         setCount.checked = settings.count;
         setExpr.checked = settings.expr;
+        setSound.checked = settings.sound;
         updateSizeUI();
         openSheet('menuSheet');
     });
@@ -1095,12 +1591,26 @@
     });
     setCount.addEventListener('change', () => { settings.count = setCount.checked; saveSettings(); requestRender(); });
     setExpr.addEventListener('change', () => { settings.expr = setExpr.checked; saveSettings(); requestRender(); });
+    setSound.addEventListener('change', () => { settings.sound = setSound.checked; saveSettings(); SND.setEnabled(settings.sound); });
+
+    $('#btnHelp').addEventListener('click', () => openSheet('helpSheet'));
+    $('#btnFull').addEventListener('click', () => {
+        closeSheets();
+        try {
+            if (document.fullscreenElement) document.exitFullscreen();
+            else document.documentElement.requestFullscreen();
+        } catch (e) { toast('ぜんがめんに できませんでした'); }
+    });
+    document.addEventListener('fullscreenchange', () => {
+        $('#fullLbl').textContent = document.fullscreenElement ? 'ぜんがめんを やめる' : 'ぜんがめん';
+    });
 
     /* 大きさを かえても ならびかたは そのまま（ひだり うえを きじゅんに のびちぢみ） */
     let sizeBase = null;
     setSize.addEventListener('input', () => {
         if (!sizeBase) sizeBase = JSON.parse(JSON.stringify({ size: state.size, blocks: state.blocks, loops: state.loops }));
         const ns = +setSize.value, k = ns / sizeBase.size;
+        state.dan = null;
         let ax = 0, ay = 0;
         if (sizeBase.blocks.length) {
             const b = L.bbox(sizeBase.blocks.map(o => [o.x, o.y]));
@@ -1159,6 +1669,7 @@
 
     function openSheet(id) {
         closeSheets();
+        hideBubble();
         $('#' + id).hidden = false;
     }
     function closeSheets() {
@@ -1182,6 +1693,7 @@
     }
 
     window.addEventListener('keydown', (e) => {
+        if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'text') return;
         const k = e.key.toLowerCase();
         if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
         else if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); }
@@ -1201,6 +1713,7 @@
     updateUndoButtons();
     updateSizeUI();
     setTool('move');
+    updateCard();
     syncBg();
     if (document.fonts) document.fonts.ready.then(requestRender);
 
