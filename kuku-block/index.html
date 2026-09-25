@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f6fdc">
+<meta name="description" content="2年生の 九九の がくしゅうで、すうずブロックを ならべたり、まるで かこんだり、教科書の しゃしんに かさねたり できる アプリ。">
+<title>くく ブロック</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ========== うえの バー ========== -->
+<header class="top">
+  <h1 class="logo"><span>く</span><span>く</span><i></i><span>ブ</span><span>ロ</span><span>ッ</span><span>ク</span></h1>
+
+  <nav class="tools" id="tools" aria-label="どうぐ">
+    <button class="tool on" data-tool="move"><span class="ico">✋</span><span class="lbl">うごかす</span></button>
+    <button class="tool" data-tool="loop"><span class="ico ico-loop"></span><span class="lbl">かこむ</span></button>
+    <button class="tool" data-tool="pen"><span class="ico">✏️</span><span class="lbl">かく</span></button>
+    <button class="tool" data-tool="erase"><span class="ico ico-eraser"></span><span class="lbl">けす</span></button>
+    <button class="tool" data-tool="count"><span class="ico ico-count">123</span><span class="lbl">かぞえる</span></button>
+  </nav>
+
+  <div class="top-right">
+    <button class="btn" id="btnUndo" aria-label="もどす"><span class="ico">↩️</span><span class="lbl">もどす</span></button>
+    <button class="btn" id="btnRedo" aria-label="やりなおす"><span class="ico">↪️</span><span class="lbl">すすむ</span></button>
+    <button class="btn btn-photo" id="btnPhoto"><span class="ico">📷</span><span class="lbl">しゃしん</span></button>
+    <button class="btn" id="btnMenu" aria-label="せってい"><span class="ico">⚙️</span><span class="lbl">せってい</span></button>
+  </div>
+</header>
+
+<main class="main">
+  <!-- ========== ひだりの ブロックばこ ========== -->
+  <aside class="side" aria-label="ブロックばこ">
+    <div class="src" data-c="b" title="あおい ブロック"><span class="blk blk-b"></span><span class="lbl">あお</span></div>
+    <div class="src" data-c="r" title="あかい ブロック"><span class="blk blk-r"></span><span class="lbl">あか</span></div>
+    <button class="side-btn" id="btnArray"><span class="ico ico-array"></span><span class="lbl">ならべる</span></button>
+    <button class="side-btn" id="btnDan"><span class="ico ico-dan">×</span><span class="lbl">くくの だん</span></button>
+    <button class="side-btn" id="btnCards"><span class="ico">📝</span><span class="lbl">おだい</span></button>
+    <div class="side-gap"></div>
+    <button class="trash" id="trash" title="ここに すてる／おすと ぜんぶ けす"><span class="ico">🗑️</span><span class="lbl">ごみばこ</span></button>
+  </aside>
+
+  <!-- ========== つくえ（ボード） ========== -->
+  <section class="board-wrap" id="boardWrap">
+    <canvas id="board"></canvas>
+
+    <!-- かく ときの いろ -->
+    <div class="float-bar pen-bar" id="penBar" hidden>
+      <button class="pen-c on" data-c="k" style="--c:#2b2b2b" aria-label="くろ"></button>
+      <button class="pen-c" data-c="r" style="--c:#e5413a" aria-label="あか"></button>
+      <button class="pen-c" data-c="b" style="--c:#2f6fdc" aria-label="あお"></button>
+      <button class="pen-c" data-c="g" style="--c:#2fa84f" aria-label="みどり"></button>
+      <span class="sep"></span>
+      <button class="pen-w on" data-w="4" aria-label="ほそい"><i style="--w:4px"></i></button>
+      <button class="pen-w" data-w="10" aria-label="ふとい"><i style="--w:10px"></i></button>
+    </div>
+
+    <!-- しゃしんを うごかす とき -->
+    <div class="float-bar bg-bar" id="bgBar" hidden>
+      <span class="bg-hint">ゆびで うごかす・2本ゆびで 大きさ</span>
+      <button class="chip" id="bgMinus" aria-label="ちいさく">➖</button>
+      <button class="chip" id="bgPlus" aria-label="おおきく">➕</button>
+      <button class="chip" id="bgRot">🔄 まわす</button>
+      <button class="chip" id="bgFit">🔲 ぴったり</button>
+      <label class="chip chip-range">うすく<input type="range" id="bgAlpha" min="0.2" max="1" step="0.05"></label>
+      <button class="chip chip-go" id="bgDone">✔ できた</button>
+    </div>
+
+    <!-- かぞえる とき -->
+    <div class="float-bar count-bar" id="countBar" hidden>
+      <div class="seg">
+        <button class="seg-b on" data-cm="one">1こずつ</button>
+        <button class="seg-b" data-cm="group">まとまりで</button>
+      </div>
+      <span class="count-now"><b id="countNow">0</b></span>
+      <button class="chip" id="countVoice" aria-label="よみあげ">🔈</button>
+      <button class="chip" id="countReset">🔁 いちから</button>
+    </div>
+
+    <!-- かこみを タップした とき -->
+    <div class="bubble" id="loopBubble" hidden>
+      <button data-act="rotate"><span class="ico">🔄</span>まわす</button>
+      <button data-act="copy"><span class="ico">📄</span>ふやす</button>
+      <button data-act="unloop"><span class="ico ico-loop"></span>かこみを けす</button>
+    </div>
+
+    <!-- おだい -->
+    <div class="card-banner" id="cardBanner" hidden>
+      <span class="card-ico">📝</span><span class="card-text" id="cardText"></span>
+      <button class="card-x" id="cardClose" aria-label="おだいを しまう">✕</button>
+    </div>
+
+    <!-- くくの だん -->
+    <div class="dan-bar" id="danBar" hidden>
+      <button class="dan-b" id="danMinus" aria-label="へらす">−</button>
+      <div class="dan-mid">
+        <b id="danExpr"></b>
+        <span class="dan-read" id="danRead"></span>
+        <span class="dan-seq" id="danSeq"></span>
+      </div>
+      <button class="dan-b dan-plus" id="danPlus" aria-label="ふやす">＋</button>
+      <button class="dan-x" id="danEnd" aria-label="おわる">✕</button>
+    </div>
+
+    <div class="expr" id="expr" hidden></div>
+    <div class="toast" id="toast" hidden></div>
+    <div class="drop-hint" id="dropHint" hidden>ここに はなすと はいけいに なります</div>
+  </section>
+</main>
+
+<!-- ドラッグ ちゅうの ものを、いちばん うえに かく -->
+<canvas id="dragLayer" class="drag-layer"></canvas>
+
+<!-- ========== しゃしん の まど ========== -->
+<div class="sheet-back" id="photoSheet" hidden>
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>📷 はいけいの しゃしん</h2>
+      <button class="x" data-close aria-label="とじる">✕</button>
+    </div>
+    <div class="big-row">
+      <button class="big" id="btnCamera"><span class="ico">📷</span>カメラで とる</button>
+      <button class="big" id="btnFile"><span class="ico">🖼️</span>ファイルから</button>
+      <button class="big" id="btnPaste"><span class="ico">📋</span>はりつける</button>
+    </div>
+    <p class="note">コピーした がぞうは <kbd>Ctrl</kbd> + <kbd>V</kbd>、ファイルは つくえに ドラッグしても はいります。</p>
+
+    <div class="cur-bg" id="curBg" hidden>
+      <button class="chip" id="btnBgMove">✋ いち・大きさを かえる</button>
+      <label class="chip chip-range">うすく<input type="range" id="bgAlpha2" min="0.2" max="1" step="0.05"></label>
+      <button class="chip chip-warn" id="btnBgOff">はいけいを はずす</button>
+    </div>
+
+    <h3>イラスト</h3>
+    <div class="scene-row">
+      <div class="scene-kinds" id="sceneKinds"></div>
+      <div class="stepper stepper-sm">
+        <button class="st" id="sceneMinus">−</button>
+        <b id="sceneN">4</b>
+        <button class="st" id="scenePlus">＋</button>
+        <span class="st-lbl" id="sceneUnit">まい</span>
+      </div>
+      <button class="chip chip-go" id="sceneGo">はいけいに する</button>
+    </div>
+
+    <h3>さいきんの しゃしん</h3>
+    <div class="thumbs" id="thumbs"></div>
+    <input type="file" id="fileInput" accept="image/*" hidden>
+  </div>
+</div>
+
+<!-- ========== カメラ ========== -->
+<div class="camera" id="camera" hidden>
+  <video id="camVideo" playsinline muted></video>
+  <div class="cam-msg" id="camMsg" hidden></div>
+  <div class="cam-bar">
+    <button class="cam-side" id="camClose" aria-label="やめる">✕<span>やめる</span></button>
+    <button class="shutter" id="camShot" aria-label="とる"></button>
+    <button class="cam-side" id="camFlip" aria-label="カメラを かえる">🔄<span>カメラ</span></button>
+  </div>
+  <div class="flash" id="camFlash"></div>
+</div>
+
+<!-- ========== ならべる の まど ========== -->
+<div class="sheet-back" id="arraySheet" hidden>
+  <div class="sheet sheet-array">
+    <div class="sheet-head">
+      <h2><span class="ico ico-array"></span> ならべる</h2>
+      <button class="x" data-close aria-label="とじる">✕</button>
+    </div>
+    <div class="arr-body">
+      <div class="arr-ctrl">
+        <div class="stepper">
+          <span class="st-lbl">よこに</span>
+          <button class="st" data-k="cols" data-d="-1">−</button>
+          <b id="arrCols">3</b>
+          <button class="st" data-k="cols" data-d="1">＋</button>
+          <span class="st-lbl">こ</span>
+        </div>
+        <div class="stepper">
+          <span class="st-lbl">たてに</span>
+          <button class="st" data-k="rows" data-d="-1">−</button>
+          <b id="arrRows">4</b>
+          <button class="st" data-k="rows" data-d="1">＋</button>
+          <span class="st-lbl">だん</span>
+        </div>
+        <div class="arr-color">
+          <button class="arr-c on" data-c="b"><span class="blk blk-b"></span></button>
+          <button class="arr-c" data-c="r"><span class="blk blk-r"></span></button>
+        </div>
+      </div>
+      <div class="arr-preview" id="arrPreview"></div>
+    </div>
+    <button class="go" id="arrGo">ならべる</button>
+  </div>
+</div>
+
+<!-- ========== くくの だん の まど ========== -->
+<div class="sheet-back" id="danSheet" hidden>
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2><span class="ico ico-dan">×</span> くくの だん</h2>
+      <button class="x" data-close aria-label="とじる">✕</button>
+    </div>
+    <p class="note note-top">だんを えらぶと、「＋」を おす たびに 1つぶん ずつ ふえます。</p>
+    <div class="dan-grid" id="danGrid"></div>
+    <div class="set-list">
+      <label class="set"><span>1つぶんを かこむ</span><input type="checkbox" id="danLoops"><i class="sw"></i></label>
+      <div class="set"><span>ブロックの いろ</span>
+        <div class="arr-color">
+          <button class="dan-c arr-c" data-c="b"><span class="blk blk-b"></span></button>
+          <button class="dan-c arr-c" data-c="r"><span class="blk blk-r"></span></button>
+          <button class="dan-c arr-c" data-c="x" title="1つぶんごとに かわる"><span class="blk blk-b blk-half"></span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== おだい の まど ========== -->
+<div class="sheet-back" id="cardSheet" hidden>
+  <div class="sheet sheet-wide">
+    <div class="sheet-head">
+      <h2>📝 おだい</h2>
+      <button class="x" data-close aria-label="とじる">✕</button>
+    </div>
+    <div id="cardList"></div>
+    <h3>じぶんで かく</h3>
+    <div class="own-card">
+      <input type="text" id="ownCard" maxlength="80" placeholder="例：6この ブロックを 2こずつ かこもう" enterkeyhint="done">
+      <button class="chip chip-go" id="ownCardGo">だす</button>
+    </div>
+    <p class="note">ブロックが つく おだいを えらぶと、つくえを あたらしく して はじめます（「もどす」で もとに もどせます）。</p>
+  </div>
+</div>
+
+<!-- ========== つかいかた ========== -->
+<div class="sheet-back" id="helpSheet" hidden>
+  <div class="sheet sheet-wide">
+    <div class="sheet-head">
+      <h2>❓ つかいかた</h2>
+      <button class="x" data-close aria-label="とじる">✕</button>
+    </div>
+    <table class="help">
+      <tr><th>ブロックを おく</th><td>ひだりの あお・あか を つくえへ ドラッグ（タップすると ひだりうえから ならぶ）</td></tr>
+      <tr><th>うらがえす</th><td>✋ うごかす で ブロックを タップ</td></tr>
+      <tr><th>まとめて うごかす</th><td>ブロックを ながおし（くっついている ブロックが ぜんぶ ついてくる）</td></tr>
+      <tr><th>すてる</th><td>ごみばこへ もっていく／ごみばこを おすと ぜんぶ けす</td></tr>
+      <tr><th>かこむ</th><td>⭕ かこむ で ぐるっと かく。かこみを ドラッグすると 中の ブロックも うごく</td></tr>
+      <tr><th>まわす・ふやす</th><td>✋ うごかす で かこみを タップ →「まわす」（3×4 ⇔ 4×3）・「ふやす」（おなじ まとまりを もう1つ）</td></tr>
+      <tr><th>かぞえる</th><td>123 かぞえる で ブロックを じゅんに タップ（なぞっても よい）。「まとまりで」なら かこみごとに 3、6、9 …</td></tr>
+      <tr><th>くくの だん</th><td>だんを えらんで「＋」。しきと となえかたが 出る</td></tr>
+      <tr><th>しゃしん</th><td>📷 から カメラ・ファイル・はりつけ。<kbd>Ctrl</kbd>+<kbd>V</kbd> や ドラッグでも すぐ はいる</td></tr>
+      <tr><th>もどす</th><td>↩️（<kbd>Ctrl</kbd>+<kbd>Z</kbd>）。なんでも もとに もどせる</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ========== せってい の まど ========== -->
+<div class="sheet-back" id="menuSheet" hidden>
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>⚙️ せってい</h2>
+      <button class="x" data-close aria-label="とじる">✕</button>
+    </div>
+    <div class="set-list">
+      <label class="set"><span>マス目に そろえる</span><input type="checkbox" id="setSnap"><i class="sw"></i></label>
+      <label class="set"><span>かこみの 中の かずを 見せる</span><input type="checkbox" id="setCount"><i class="sw"></i></label>
+      <label class="set"><span>しきを 見せる</span><input type="checkbox" id="setExpr"><i class="sw"></i></label>
+      <label class="set"><span>おと（こうかおん・よみあげ）</span><input type="checkbox" id="setSound"><i class="sw"></i></label>
+      <div class="set set-size">
+        <span>ブロックの 大きさ</span>
+        <input type="range" id="setSize" min="24" max="96" step="2">
+        <span class="blk blk-b" id="sizeSample"></span>
+      </div>
+    </div>
+    <div class="big-row">
+      <button class="big" id="btnSave"><span class="ico">💾</span>がぞうで ほぞん</button>
+      <button class="big" id="btnFull"><span class="ico">⛶</span><span id="fullLbl">ぜんがめん</span></button>
+      <button class="big" id="btnHelp"><span class="ico">❓</span>つかいかた</button>
+      <button class="big big-warn" id="btnClear"><span class="ico">🧹</span>ぜんぶ けす</button>
+    </div>
+    <p class="note">「ぜんぶ けす」は ブロック・かこみ・かいた 線を けします（しゃしんは のこります）。<br>まちがえて けしても「もどす」で もとに もどせます。</p>
+  </div>
+</div>
+
+<!-- ごみばこを おした とき -->
+<div class="sheet-back" id="clearSheet" hidden>
+  <div class="sheet sheet-small">
+    <p class="ask">ぜんぶ けしますか？</p>
+    <div class="big-row">
+      <button class="big big-warn" id="clearYes">けす</button>
+      <button class="big" data-close>やめる</button>
+    </div>
+  </div>
+</div>
+
+<script src="logic.js"></script>
+<script src="photos.js"></script>
+<script src="sound.js"></script>
+<script src="scenes.js"></script>
+<script src="cards.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
