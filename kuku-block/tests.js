@@ -89,6 +89,8 @@
         const d3 = L.describe([4, 4, 0], 2);
         t('からの かこみは かぞえない・のこりも 出す', d3 && d3.expr === '4 × 2 = 8' && d3.words.includes('のこり 2こ'), d3 && d3.words);
         t('かこみが ない ときは しき なし', L.describe([], 5) === null && L.describe([0, 0], 5) === null);
+        const one = L.describe([5], 0);
+        t('かこみ 1つ でも しきを 出す（5 × 1 = 5）', one && one.kind === 'mul' && one.expr === '5 × 1 = 5' && one.words.startsWith('5こずつ 1つぶん'), one && one.expr);
 
         /* 九九の となえかた */
         let allRead = true;
@@ -166,6 +168,7 @@
         t('クラスの せってい：とめた きのう だけ false、しらない キーは むし',
             cf.allow.pen === false && cf.allow.zoom === false && cf.allow.loop === true && !('xxx' in cf.allow) && Object.keys(cf.allow).length === L.FEATURES.length);
         t('クラスの せってい：なまえ・大きさの はんい・しき・ページばんごう', cf.name === '2年1組' && cf.set.size === 96 && cf.set.expr === true && cf.set.snap === true && cf.pv === 3);
+        t('しきは はじめから 見せる（とめた ときだけ かくす）', L.sanitizeCfg({}).set.expr === true && L.sanitizeCfg({ set: { expr: false } }).set.expr === false);
         t('へんな せっていは null・あいことばが へんなら から', L.sanitizeCfg(null) === null && L.sanitizeCfg({ pin: 'zz' }).pin === '');
         t('出席番号は 1〜99', L.isSeatNo(1) && L.isSeatNo(35) && !L.isSeatNo(0) && !L.isSeatNo(100) && !L.isSeatNo(3.5));
         const withO = L.sanitizeState({ blocks: [], bg: { id: 'p1', x: 0, y: 0, s: 1, rot: 0, alpha: 1, o: 'pT' } }, empty);

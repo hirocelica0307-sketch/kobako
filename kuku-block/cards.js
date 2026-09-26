@@ -21,6 +21,19 @@ window.KukuCards = [
         ],
     },
     {
+        group: 'ゆうえんち・おかし（なんこずつ・いくつぶん）',
+        cards: [
+            { text: 'ジェットコースターに 1だい 2人ずつ のります。4だいで なん人？', setup: { scene: ['coaster', 4] } },
+            { text: 'コーヒーカップに 1つ 3人ずつ のります。4つで なん人？', setup: { scene: ['cup', 4] } },
+            { text: 'かんらんしゃの ゴンドラに 4人ずつ のります。3つで なん人？', setup: { scene: ['gondola', 3] } },
+            { text: 'ボートに 2人ずつ のります。5そうで なん人？', setup: { scene: ['boat', 5] } },
+            { text: '1ふくろに あめが 5こずつ 入っています。3ふくろで なんこ？', setup: { scene: ['bag', 3] } },
+            { text: '1パックに いちごが 6こずつ。2パックで なんこ？', setup: { scene: ['pack', 2] } },
+            { text: 'だんごが 1ぽんに 3こずつ。4ほんで なんこ？', setup: { scene: ['dango', 4] } },
+            { text: '1つの かびんに 花を 4ほんずつ。5つで なんぼん？', setup: { scene: ['vase', 5] } },
+        ],
+    },
+    {
         group: '九九の きまり',
         cards: [
             { text: '3 × 4 と 4 × 3。かこんで「まわす」で くらべよう', setup: { array: [4, 3] } },

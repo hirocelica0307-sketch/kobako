@@ -291,7 +291,9 @@ button{ font:inherit; color:inherit; cursor:pointer; }
 kbd{ font-family:inherit; border:1px solid var(--line); border-bottom-width:3px; border-radius:5px; padding:0 5px; background:#fff; }
 .ask{ font-size:20px; margin:8px 0 16px; }
 
-.cur-bg{ display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; padding:10px; border-radius:14px; background:#fff8ea; }
+.cur-bg{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:10px; border-radius:14px; background:#fff8ea; }
+.cur-bg-ops{ display:inline-flex; gap:8px; flex-wrap:wrap; }
+.cur-lbl{ font-size:14px; margin-right:auto; }
 
 .thumbs{ display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; }
 .thumbs:empty::before{ content:"まだ ありません"; color:var(--ink-thin); font-size:14px; }
@@ -463,14 +465,18 @@ kbd{ font-family:inherit; border:1px solid var(--line); border-bottom-width:3px;
 .dan-x{ flex:none; width:40px; height:40px; border-radius:50%; border:2px solid var(--line); background:#fff; font-size:16px; align-self:flex-start; }
 
 /* ---------- イラスト ---------- */
-.scene-row{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
-.scene-kinds{ display:flex; gap:6px; }
+.scene-row{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:8px; }
+.scene-pick{ font-size:16px; min-width:8em; }
+.scene-kinds{ display:flex; flex-direction:column; gap:6px; }
+.scene-group{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.scene-group > span{ font-size:12px; color:var(--ink-thin); width:100%; }
 .scene-k{
-    width:74px; height:60px; border-radius:12px; border:2px solid var(--line); background:#fff; padding:2px;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:11px;
+    width:88px; height:70px; border-radius:12px; border:2px solid var(--line); background:#fff; padding:2px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:10px; line-height:1.2;
+    white-space:nowrap; overflow:hidden;
 }
-.scene-k canvas{ width:60px; height:36px; }
-.scene-k.on{ border-color:var(--accent); background:var(--tap); }
+.scene-k canvas{ width:78px; height:44px; }
+.scene-k.on{ border-color:var(--accent); background:var(--tap); box-shadow:0 0 0 2px var(--accent) inset; }
 .stepper-sm .st{ width:42px; height:42px; font-size:22px; }
 .stepper-sm b{ font-size:26px; }
 

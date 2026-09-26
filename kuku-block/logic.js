@@ -200,15 +200,12 @@
         const sum = used.reduce((a, b) => a + b, 0);
         const same = used.every(n => n === used[0]);
         const rest = loose > 0 ? `（のこり ${loose}こ）` : '';
-        if (same && used.length > 1) {
+        if (same) {
             return {
                 kind: 'mul',
                 expr: `${used[0]} × ${used.length} = ${sum}`,
                 words: `${used[0]}こずつ ${used.length}つぶん で ${sum}こ${rest}`,
             };
-        }
-        if (used.length === 1) {
-            return { kind: 'one', expr: `${sum}`, words: `${sum}こ${rest}` };
         }
         return { kind: 'add', expr: `${used.join(' + ')} = ${sum}`, words: `ぜんぶで ${sum}こ${rest}` };
     }
@@ -319,7 +316,7 @@
         ['block', 'ブロック'], ['ohajiki', 'おはじき'],
         ['loop', 'かこむ'], ['pen', 'かく'], ['erase', 'けす'], ['count', 'かぞえる'],
         ['rotate', 'まわす・ふやす'], ['array', 'ならべる'], ['dan', 'くくの だん'], ['cards', 'おだい'],
-        ['photo', 'しゃしん'], ['tabs', 'ページを ふやす・とじる'], ['zoom', 'ズーム'], ['clear', 'ぜんぶ けす'],
+        ['photo', 'しゃしん・はいけい'], ['tabs', 'ページを ふやす・とじる'], ['zoom', 'ズーム'], ['clear', 'ぜんぶ けす'],
     ];
 
     /** あいことば（4けた）を そのまま のこさない ための かんたんな ハッシュ（FNV-1a）。
@@ -345,7 +342,7 @@
             pin: str(c.pin, 8) && /^[0-9a-f]{8}$/.test(c.pin) ? c.pin : '',
             allow,
             set: {
-                snap: st.snap !== false, count: st.count !== false, expr: st.expr === true, sound: st.sound !== false,
+                snap: st.snap !== false, count: st.count !== false, expr: st.expr !== false, sound: st.sound !== false,
                 size: num(st.size) ? Math.max(24, Math.min(96, Math.round(st.size))) : 48,
             },
             live: c.live !== false,
