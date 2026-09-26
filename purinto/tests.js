@@ -5,6 +5,7 @@
     const G = root.PurintoGen || require('./gen.js');
     const D = root.PurintoData || require('./data.js');
     const S = root.PurintoSheets || require('./sheets.js');
+    const K = root.PurintoSakubun || require('./sakubun.js');
 
     function runTests() {
         const rows = [];
@@ -160,6 +161,32 @@
 
         /* かんじ */
         t('かんじ たしざん: おなじ こたえが ない', new Set(D.KANJI_ADD.map(k => k.kanji)).size === D.KANJI_ADD.length);
+
+
+        /* さくぶん（あのね にっき） */
+        const allOdai = K.CATEGORIES.flatMap(c => c.items);
+        t(`お題の ばんごうが かぶらない（${allOdai.length}こ）`, new Set(allOdai.map(o => o.id)).size === allOdai.length);
+        t('お題が 200こ いじょう', allOdai.length >= 200, String(allOdai.length));
+        const kanjiOut = [];
+        const textsOf = [...allOdai.map(o => o.text), ...K.CATEGORIES.flatMap(c => [c.title, c.short, c.nerai, ...c.words]), ...K.RULES_OF_ODAI,
+            ...Object.values(K.ORGANIZERS).flat(2), ...Object.values(K.WEB_PROMPTS).flat(), ...K.POINTS_LOW.list, ...K.POINTS_LOW.special, ...K.POINTS_LOW.stars,
+            ...K.POINTS_MID.steps.flatMap(([h, l]) => [h, ...l]), ...K.POINTS_MID.special, ...K.POINTS_MID.stars];
+        for (const x of textsOf) {
+            const bare = x.replace(/\{[^|{}]+\|[^{}]+\}/g, '');
+            if (/[\u4e00-\u9fff々]/.test(bare)) kanjiOut.push(x);
+        }
+        t('漢字には ぜんぶ ふりがなが ある', kanjiOut.length === 0, kanjiOut.slice(0, 3).join(' / '));
+        t('なかまの かたちに あう 図と ふきだしが ある', K.CATEGORIES.every(c => K.ORGANIZERS[c.type] && K.WEB_PROMPTS[c.type]));
+        const an = S.CATALOG.find(c => c.id === 'anone'), anm = S.CATALOG.find(c => c.id === 'anone-mid');
+        let anOk = true;
+        for (const o of allOdai) for (const e of [an, anm]) {
+            const h = S.buildSheet(e, { odai: o.id }, 1).page;
+            if (!h.includes('class="gk') || /undefined|NaN|\{[^}]*\|/.test(h) || !h.includes(o.id)) anOk = false;
+        }
+        t('どの お題でも あのね にっきが できる（1・2ねん・3・4ねん）', anOk);
+        t('ふりがな なしでは <ruby> を つかわない', !S.buildSheet(anm, { odai: 'B1', furi: false }, 1).page.includes('<ruby>'));
+        const ol = S.buildSheet(S.CATALOG.find(c => c.id === 'odailist'), {}, 1).page;
+        t('お題 いちらんに ぜんぶの お題が のる', allOdai.every(o => ol.includes(`>${o.id}<`)));
 
         /* ぜんぶの プリント */
         for (const e of S.CATALOG) {
