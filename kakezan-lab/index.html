@@ -191,17 +191,18 @@ dialog{
     color:var(--ink); background:var(--panel); box-shadow:0 20px 60px rgba(0,0,0,.25);
 }
 dialog::backdrop{ background:rgba(40,40,50,.35); }
-.dlg{ padding:1.2rem 1.4rem; display:flex; flex-direction:column; gap:1rem; }
+.dlg{ padding:.9rem 1.3rem 1.1rem; display:flex; flex-direction:column; gap:.75rem; }
+.dlg-head{ display:flex; align-items:center; justify-content:space-between; }
 .dlg h2{ margin:0; font-size:1.4rem; }
 .dlg h3{ margin:0 0 .4rem; font-size:1.05rem; }
 .dlg .row .btn{ flex:1 1 0; flex-direction:column; padding:.5rem; }
-.dlg .row .btn svg{ width:4.5rem; height:3rem; }
+.dlg .row .btn svg{ width:3.6rem; height:2.4rem; }
 .dlg .sub{ font-size:.8rem; color:var(--thin); font-weight:500; }
 
 .copy{ flex:none; text-align:center; font-size:12px; color:var(--thin); padding:2px 0 3px; font-weight:500; }
 
 /* ---------- せんせい（ていじ）の がめん ---------- */
-.teach .hint, .teach .strip, .teach .n-only{ display:none !important; }
+.teach .hint, .teach .n-only{ display:none !important; }
 .teach .main{ grid-template-columns:minmax(0, 1fr) clamp(330px, 34vw, 700px); }
 .teach .bar{ padding:4px 10px; }
 .teach .panel{ padding:.6rem 1rem; }
@@ -294,7 +295,7 @@ dialog::backdrop{ background:rgba(40,40,50,.35); }
 <!-- ========== せってい ========== -->
 <dialog id="setDlg">
   <div class="dlg">
-    <h2>⚙️ せってい</h2>
+    <div class="dlg-head"><h2>⚙️ せってい</h2><button class="btn soft" data-act="closeSet" aria-label="とじる">✕</button></div>
     <section>
       <h3>●の ならべ方</h3>
       <div class="row">
@@ -325,9 +326,11 @@ dialog::backdrop{ background:rgba(40,40,50,.35); }
     <section>
       <h3>この がめんを くばる</h3>
       <p class="note">いまの モード・数・せっていが 入った リンクです。Google Classroom などに はると、おなじ がめんから はじめられます。</p>
-      <div class="row" style="margin-top:.5rem"><button class="btn soft" data-act="copyLink"><span class="i">🔗</span>リンクを コピー</button></div>
+      <div class="row" style="margin-top:.5rem">
+        <button class="btn soft" data-act="copyLink" style="flex-direction:row"><span class="i">🔗</span>リンクを コピー</button>
+        <button class="btn go" data-act="closeSet" style="flex-direction:row">とじる</button>
+      </div>
     </section>
-    <div class="row"><button class="btn go" data-act="closeSet">とじる</button></div>
   </div>
 </dialog>
 
@@ -500,6 +503,121 @@ dialog::backdrop{ background:rgba(40,40,50,.35); }
         return best && best.d <= lim ? { ax: best.ax, at: best.at } : null;
     }
 
+    /* ---------- かたちの● ----------
+       shape = { w, h, cells: [[true/false …] …] }（うえの だんから、ひだりから） */
+    const SHAPES = [
+        { name: 'Lの かたち', rows: ['###...', '###...', '######', '######', '######'] },
+        { name: 'かいだん', rows: ['##....', '##....', '####..', '####..', '######', '######'] },
+        { name: 'でっぱり', rows: ['..###..', '..###..', '#######', '#######', '#######'] },
+        { name: 'へこみ', rows: ['##...##', '##...##', '#######', '#######', '#######'] },
+        { name: 'ずれた かたち', rows: ['####..', '####..', '..####', '..####'] },
+        { name: '十字', rows: ['..##..', '..##..', '######', '######', '..##..', '..##..'] },
+    ];
+
+    function makeShape(rows) {
+        const h = rows.length, w = Math.max.apply(null, rows.map(s => s.length));
+        return { w, h, cells: rows.map(s => Array.from({ length: w }, (_, c) => s[c] === '#')) };
+    }
+    function shapeCount(sh) {
+        let n = 0;
+        for (const row of sh.cells) for (const v of row) if (v) n++;
+        return n;
+    }
+    /** まわりの ●の ない だん・れつを けずる（●が 1つも なければ null） */
+    function trimShape(sh) {
+        let r0 = sh.h, r1 = -1, c0 = sh.w, c1 = -1;
+        for (let r = 0; r < sh.h; r++) for (let c = 0; c < sh.w; c++) {
+            if (!sh.cells[r][c]) continue;
+            r0 = Math.min(r0, r); r1 = Math.max(r1, r); c0 = Math.min(c0, c); c1 = Math.max(c1, c);
+        }
+        if (r1 < 0) return null;
+        const cells = [];
+        for (let r = r0; r <= r1; r++) cells.push(sh.cells[r].slice(c0, c1 + 1));
+        return { w: c1 - c0 + 1, h: r1 - r0 + 1, cells };
+    }
+
+    /** かたちを せんで わける（モード4「わける」）。
+        どの ぶぶんの ●も 長方形 なら ok。長方形で ない ぶぶんは bad に 入る */
+    function shapeSplit(sh, cuts, muki) {
+        const parts = [], bad = [];
+        let total = 0;
+        for (const g of regions(sh.w, sh.h, fitCuts(cuts, sh.w, sh.h))) {
+            let n = 0, r0 = 99, r1 = -1, c0 = 99, c1 = -1;
+            for (let r = g.r0; r < g.r1; r++) for (let c = g.c0; c < g.c1; c++) {
+                if (!sh.cells[r][c]) continue;
+                n++; r0 = Math.min(r0, r); r1 = Math.max(r1, r); c0 = Math.min(c0, c); c1 = Math.max(c1, c);
+            }
+            total += n;
+            if (!n) continue;
+            const w = c1 - c0 + 1, h = r1 - r0 + 1;
+            if (w * h !== n) { bad.push(g); continue; }
+            parts.push({ reg: g, box: { r0, r1: r1 + 1, c0, c1: c1 + 1 }, w, h });
+        }
+        const ok = bad.length === 0;
+        let lines = [];
+        if (ok) {
+            parts.forEach((p, i) => { p.mark = MARK[i]; p.line = mulLine(p.w, p.h, muki, p.mark); });
+            lines = parts.map(p => p.line);
+            if (parts.length > 1) lines.push(sumLine(parts.map(p => p.line.n)));
+            lines.push(totalLine(total));
+        }
+        return { ok, bad, parts, lines, total };
+    }
+
+    /** ばらばらの マス（'r,c' の Set）を 長方形に わける（うえ・ひだりから よこに のばして、下へ のばす） */
+    function rectsOf(set, w, h) {
+        const left = new Set(set), out = [];
+        for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
+            if (!left.has(r + ',' + c)) continue;
+            let c1 = c;
+            while (c1 + 1 < w && left.has(r + ',' + (c1 + 1))) c1++;
+            let r1 = r;
+            grow: while (r1 + 1 < h) {
+                for (let k = c; k <= c1; k++) if (!left.has((r1 + 1) + ',' + k)) break grow;
+                r1++;
+            }
+            for (let y = r; y <= r1; y++) for (let x = c; x <= c1; x++) left.delete(y + ',' + x);
+            out.push({ r0: r, r1: r1 + 1, c0: c, c1: c1 + 1 });
+        }
+        return out;
+    }
+
+    /** うすい ●で おぎなう（モード4「おぎなう」）。fill は うすい ●を おいた マス（'r,c'） */
+    function oginau(sh, fill, muki) {
+        let missing = 0;
+        const put = new Set();
+        for (let r = 0; r < sh.h; r++) for (let c = 0; c < sh.w; c++) {
+            if (sh.cells[r][c]) continue;
+            if (fill.has(r + ',' + c)) put.add(r + ',' + c); else missing++;
+        }
+        const total = shapeCount(sh);
+        if (missing) return { complete: false, missing, total, holes: [], lines: [] };
+        const big = mulLine(sh.w, sh.h, muki, MARK[0], '大きい 長方形');
+        const holes = rectsOf(put, sh.w, sh.h).map((g, i) => ({ box: g, line: mulLine(g.c1 - g.c0, g.r1 - g.r0, muki, MARK[i + 1], 'おぎなった ところ') }));
+        const lines = [big].concat(holes.map(x => x.line));
+        if (holes.length) lines.push(diffLine(big.n, holes.map(x => x.line.n)));
+        lines.push(totalLine(total));
+        return { complete: true, missing: 0, total, big, holes, lines };
+    }
+
+    /** かたちを URL に 入れる 文字に（'6x5-7.7.3f.3f.3f'：1だんずつ 2しんすう → 36しんすう） */
+    function encodeShape(sh) {
+        return sh.w + 'x' + sh.h + '-' + sh.cells.map(row => parseInt(row.map(v => (v ? 1 : 0)).join(''), 2).toString(36)).join('.');
+    }
+    function decodeShape(str) {
+        const m = /^(\d{1,2})x(\d{1,2})-([0-9a-z.]+)$/.exec(String(str || ''));
+        if (!m) return null;
+        const w = Number(m[1]), h = Number(m[2]), list = m[3].split('.');
+        if (w < 1 || w > 12 || h < 1 || h > 12 || list.length !== h) return null;
+        const cells = [];
+        for (const s of list) {
+            const v = parseInt(s, 36);
+            if (!isFinite(v) || v < 0 || v >= Math.pow(2, w)) return null;
+            cells.push(v.toString(2).padStart(w, '0').split('').map(ch => ch === '1'));
+        }
+        return trimShape({ w, h, cells });
+    }
+
     /* ---------- URL（#m=wakeru&a=7&b=3 …）---------- */
     function toHash(o) {
         return Object.keys(o).filter(k => o[k] !== undefined && o[k] !== null && o[k] !== '')
@@ -520,6 +638,7 @@ dialog::backdrop{ background:rgba(40,40,50,.35); }
         mulLine, sumLine, diffLine, totalLine,
         sameCut, hasCut, sortCuts, toggleCut, moveCut, fitCuts, regions, splitArray,
         layout, cellAt, nearestGap, toHash, fromHash,
+        SHAPES, makeShape, shapeCount, trimShape, shapeSplit, rectsOf, oginau, encodeShape, decodeShape,
     };
 })(typeof window !== 'undefined' ? window : globalThis);
 // ==/LOGIC==
@@ -545,6 +664,8 @@ dialog::backdrop{ background:rgba(40,40,50,.35); }
         set: { muki: 'yoko', max: 9, yomi: false },
         m1: { a: 3, b: 4, shown: false, groups: [], steps: false, popFrom: null },
         m2: { a: 7, b: 3, cuts: [], undo: [], rev: 0 },
+        m3: { a: 3, b: 4, from: null, rev: 0 },
+        m4: { q: 0, method: 'wakeru', cuts: [], fill: [], undo: [], rev: 0, prev: null, my: null, edit: null },
     };
     let lay = null;               /* いま かいている ●の いち */
     let pv = null;                /* せんの 下書き（ゆびで おしている あいだ） */
@@ -552,7 +673,7 @@ dialog::backdrop{ background:rgba(40,40,50,.35); }
     let busy = false;             /* くるっと まわしている あいだ */
     let fresh = -1;               /* いま 出した しきの 行（ふわっと 出す） */
 
-    const cur = () => (st.mode === 'tsukuru' ? st.m1 : st.m2);
+    const cur = () => ({ tsukuru: st.m1, wakeru: st.m2, kurutto: st.m3, katachi: st.m4 }[st.mode]);
 
     /* ---------- こえ ---------- */
     function speak(t) {
@@ -681,7 +802,7 @@ dialog::backdrop{ background:rgba(40,40,50,.35); }
             return `
             <div class="p-top">${steppers(m)}</div>
             <div class="p-mid">
-              <p class="eq">${m.a} × ${m.b} ＝ ${m.shown ? `<span class="ans">${n}</span>` : '<span class="box">00</span>'}</p>
+              <p class="eq"${st.teach ? ' data-act="next" style="cursor:pointer"' : ''}>${m.a} × ${m.b} ＝ ${m.shown ? `<span class="ans">${n}</span>` : '<span class="box">00</span>'}</p>
               <p class="words">${m.a}こずつ ${m.b}つ分</p>
               ${m.shown && yomi ? `<p class="yomi">${yomi}</p>` : ''}
               ${steps}
@@ -805,15 +926,7 @@ dialog::backdrop{ background:rgba(40,40,50,.35); }
 
     /* ---------- パネルの ぶひん ---------- */
     function steppers(m) {
-        const one = (k, label, v, hi) => `
-          <div class="stepper">
-            <span class="sl">${label}</span>
-            <span class="sv">
-              <button class="btn" data-act="dec" data-k="${k}" aria-label="へらす"${v <= 1 ? ' disabled' : ''}>−</button>
-              <output>${v}</output>
-              <button class="btn" data-act="inc" data-k="${k}" aria-label="ふやす"${v >= hi ? ' disabled' : ''}>＋</button>
-            </span>
-          </div>`;
+        const one = (k, label, v, hi) => stepBox(label, v, 1, hi, `data-act="dec" data-k="${k}"`, `data-act="inc" data-k="${k}"`);
         return `<div class="steppers">${one('a', '1つ分の 数', m.a, 9)}${one('b', 'いくつ分', m.b, st.set.max)}</div>`;
     }
 
@@ -844,10 +957,269 @@ dialog::backdrop{ background:rgba(40,40,50,.35); }
           </div>`;
     }
 
+
+    /* =====================================================================
+       モード3「くるっと」
+       ===================================================================== */
+    const M3 = {
+        hint: '「くるっと」を おすと、●が まわるよ。まわしても ●の 数は かわらない かな？',
+        lines() {
+            const m = st.m3, n = m.a * m.b;
+            const mk = (a, b, note) => ({ kind: 'part', note, text: `${a} × ${b} ＝ ${a * b}`, say: L.sayMul(a, b), n: a * b });
+            if (!m.from) return [mk(m.a, m.b, 'いまの ●')];
+            return [mk(m.from.a, m.from.b, 'まわす まえ'), mk(m.a, m.b, 'まわした あと'),
+                { kind: 'ans', text: `こたえは おなじ ${n}`, say: `こたえは おなじ ${n}`, n }];
+        },
+        rev() { return st.teach ? st.m3.rev : M3.lines().length; },
+        badge() {
+            const el = $('#badge');
+            el.hidden = false;
+            el.innerHTML = `●の 数<b>${st.m3.a * st.m3.b}</b>こ`;
+        },
+        board() {
+            const m = st.m3, { cols, rows } = L.gridSize(m.a, m.b, st.set.muki);
+            const side = 2 * 60 + Math.max(cols, rows) * 100;
+            lay = L.layout(cols, rows, [], { pad: 60, minW: side, minH: side });
+            let s = '<g id="spin">';
+            const yoko = st.set.muki !== 'tate';
+            /* 1つ分 ずつの うすい わく（まわすと むきが かわるのが 見える） */
+            for (let g = 0; g < m.b; g++) {
+                const S = lay.S;
+                if (yoko) s += `<rect x="${lay.x0 + 6}" y="${lay.rowY(g) + 8}" width="${lay.x1 - lay.x0 - 12}" height="${S - 16}" rx="${S / 2 - 8}" fill="none" stroke="#d6cdbb" stroke-width="4"/>`;
+                else s += `<rect x="${lay.colX(g) + 8}" y="${lay.y0 + 6}" width="${S - 16}" height="${lay.y1 - lay.y0 - 12}" rx="${S / 2 - 8}" fill="none" stroke="#d6cdbb" stroke-width="4"/>`;
+            }
+            for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const [x, y] = center(r, c); s += dot(x, y, BASE); }
+            s += '</g>';
+            setBoard(s);
+        },
+        panel() {
+            const m = st.m3, ls = M3.lines();
+            return `
+            <div class="p-top">${steppers(m)}</div>
+            <div class="p-mid">${linesHtml(ls, M3.rev())}</div>
+            <div class="p-bot">
+              <div class="row t-only">
+                <button class="btn" data-act="prev"${m.rev > 0 ? '' : ' disabled'}>◀</button>
+                <button class="btn" data-act="next"${m.rev < ls.length ? '' : ' disabled'}>つぎ ▶</button>
+              </div>
+              <div class="row"><button class="btn go" data-act="rotate" style="font-size:1.4rem"><span class="i">↻</span>くるっと</button></div>
+            </div>`;
+        },
+        spin() {
+            const g = board.querySelector('#spin');
+            if (!g) return;
+            busy = true;
+            const m = st.m3, cx = lay.W / 2, cy = lay.H / 2;
+            const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const dur = reduce ? 400 : 1800, t0 = performance.now();
+            const step = (now) => {
+                const t = Math.min(1, (now - t0) / dur);
+                const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+                g.setAttribute('transform', `rotate(${90 * e} ${cx} ${cy})`);
+                if (t < 1) { requestAnimationFrame(step); return; }
+                m.from = { a: m.a, b: m.b };
+                const a = m.a; m.a = m.b; m.b = a;
+                m.rev = Math.min(m.rev, 1);
+                busy = false;
+                render();
+                if (!st.teach) speak(`${L.sayMul(m.from.a, m.from.b)}。${L.sayMul(m.a, m.b)}`);
+            };
+            requestAnimationFrame(step);
+        },
+    };
+
+    /* =====================================================================
+       モード4「かたちの●」
+       ===================================================================== */
+    const M4 = {
+        shape() { const m = st.m4; return m.q === 'my' && m.my ? m.my : L.makeShape(L.SHAPES[m.q].rows); },
+        res() {
+            const m = st.m4, sh = M4.shape();
+            return m.method === 'oginau' ? L.oginau(sh, new Set(m.fill), st.set.muki) : L.shapeSplit(sh, m.cuts, st.set.muki);
+        },
+        lines() { return st.m4.edit ? [] : M4.res().lines; },
+        hint() {
+            const m = st.m4;
+            if (m.edit) return 'マスを タップ（なぞる）すると、●が 出たり きえたり するよ。';
+            return m.method === 'oginau'
+                ? 'たりない ところを タップ（なぞる）して、うすい ●を おこう。大きい 長方形に して、あとで ひくよ。'
+                : '●と ●の あいだを タップして、長方形に わけよう（せんは 2本まで）。';
+        },
+        hoverCut() { return !st.m4.edit && st.m4.method === 'wakeru'; },
+        strip() {
+            const m = st.m4;
+            if (m.edit) return '';
+            let s = '<span class="lbl">もんだい</span>';
+            s += L.SHAPES.map((x, i) => `<button class="btn soft${m.q === i ? ' on' : ''}" data-act="q" data-q="${i}">${x.name}</button>`).join('');
+            if (m.my) s += `<button class="btn soft${m.q === 'my' ? ' on' : ''}" data-act="q" data-q="my">じぶんの かたち</button>`;
+            s += '<button class="btn soft" data-act="edit">✏️ かたちを つくる</button>';
+            return s;
+        },
+        board() {
+            const m = st.m4;
+            if (m.edit) return M4.boardEdit();
+            const sh = M4.shape(), res = M4.res();
+            const empty = (x, y) => `<circle cx="${x}" cy="${y}" r="7" fill="#ddd5c6"/>`;
+            let s = '';
+            if (m.method === 'wakeru') {
+                lay = L.layout(sh.w, sh.h, m.cuts, { pad: 80 });
+                const owner = {};
+                if (m.cuts.length) {
+                    res.parts.forEach((p, i) => {
+                        if (res.ok) s += partFrame(p.box, i);
+                        for (let r = p.box.r0; r < p.box.r1; r++) for (let c = p.box.c0; c < p.box.c1; c++) owner[r + ',' + c] = i;
+                    });
+                    for (const g of res.bad) s += badFrame(g);
+                }
+                for (let r = 0; r < sh.h; r++) for (let c = 0; c < sh.w; c++) {
+                    const [x, y] = center(r, c);
+                    if (!sh.cells[r][c]) { s += empty(x, y); continue; }
+                    const i = owner[r + ',' + c];
+                    s += dot(x, y, res.ok && m.cuts.length && i != null ? PART[i % PART.length] : BASE);
+                }
+                s += cutMarks(m.cuts);
+            } else {
+                lay = L.layout(sh.w, sh.h, [], { pad: 80 });
+                const fill = new Set(m.fill);
+                if (res.complete) {
+                    s += partFrame({ r0: 0, r1: sh.h, c0: 0, c1: sh.w }, 0);
+                    res.holes.forEach((hl, i) => { s += partFrame(hl.box, i + 1, true); });
+                }
+                for (let r = 0; r < sh.h; r++) for (let c = 0; c < sh.w; c++) {
+                    const [x, y] = center(r, c);
+                    if (sh.cells[r][c]) s += dot(x, y, BASE);
+                    else if (fill.has(r + ',' + c)) s += `<circle class="dot" cx="${x}" cy="${y}" r="${R - 2}" fill="#f7dcb9" stroke="#df8a2e" stroke-width="5" stroke-dasharray="11 8"/>`;
+                    else s += `<circle cx="${x}" cy="${y}" r="${R - 4}" fill="none" stroke="#cdc3b1" stroke-width="3" stroke-dasharray="8 8"/>`;
+                }
+            }
+            setBoard(s);
+        },
+        boardEdit() {
+            const e = st.m4.edit;
+            lay = L.layout(e.w, e.h, [], { pad: 50 });
+            let s = `<rect x="${lay.x0}" y="${lay.y0}" width="${lay.x1 - lay.x0}" height="${lay.y1 - lay.y0}" rx="16" fill="#fff" stroke="#e2d9c8" stroke-width="3"/>`;
+            for (let r = 0; r < e.h; r++) for (let c = 0; c < e.w; c++) {
+                const [x, y] = center(r, c);
+                s += e.cells[r][c] ? dot(x, y, BASE) : `<circle cx="${x}" cy="${y}" r="${R - 4}" fill="none" stroke="#cdc3b1" stroke-width="3" stroke-dasharray="8 8"/>`;
+            }
+            setBoard(s);
+        },
+        panel() {
+            const m = st.m4;
+            if (m.edit) return M4.panelEdit();
+            const res = M4.res(), ls = res.lines;
+            let mid = '';
+            if (m.method === 'wakeru') {
+                if (!m.cuts.length && !res.ok) mid = '<p class="note">●と ●の あいだを タップして、せんを 入れよう。</p>';
+                else if (!res.ok) mid = '<p class="msg">まだ 長方形に なって いない ところが あるよ（赤い わく）。せんを たしたり、うごかしたり してみよう。</p>';
+            } else if (!res.complete) {
+                mid = '<p class="note">大きい 長方形に なるまで、うすい ●を おこう。</p>';
+            }
+            mid += linesHtml(ls, m.rev);
+            if (ls.length && m.rev >= ls.length) mid += '<div class="row"><button class="btn soft" data-act="other">🔄 ちがう やりかたで やってみる</button></div>';
+            if (m.prev && m.prev.method !== m.method) {
+                const done = ls.length && m.rev >= ls.length;
+                mid += `<p class="msg ok"><span class="nt" style="display:block;font-size:.85em">さっきの やりかた（${m.prev.method === 'oginau' ? 'おぎなう' : 'わける'}）</span>${esc(m.prev.text)}${done && m.prev.total === res.total ? `<br>どちらの やりかたでも ●は ${res.total}こ！` : ''}</p>`;
+            }
+            const has = m.method === 'oginau' ? m.fill.length : m.cuts.length;
+            return `
+            <div class="p-top">
+              <p class="q">●は ぜんぶで <span class="big">なんこ</span>？</p>
+              <div class="row">
+                <button class="btn${m.method === 'wakeru' ? ' on' : ''}" data-act="method" data-v="wakeru"><span class="i">✂️</span>わける</button>
+                <button class="btn${m.method === 'oginau' ? ' on' : ''}" data-act="method" data-v="oginau"><span class="i" style="color:#df8a2e">◌</span>おぎなう</button>
+              </div>
+            </div>
+            <div class="p-mid">${mid}</div>
+            <div class="p-bot">
+              ${revealRow(ls, m.rev)}
+              <div class="row">
+                <button class="btn soft" data-act="undo"${m.undo.length ? '' : ' disabled'}>↩ もとにもどす</button>
+                <button class="btn soft" data-act="clear"${has ? '' : ' disabled'}>ぜんぶけす</button>
+              </div>
+            </div>`;
+        },
+        panelEdit() {
+            const e = st.m4.edit;
+            const box = (k, label, v) => stepBox(label, v, 2, 12, `data-act="esize" data-k="${k}" data-d="-1"`, `data-act="esize" data-k="${k}" data-d="1"`);
+            return `
+            <div class="p-top">
+              <p class="q">✏️ かたちを つくる</p>
+              <div class="steppers">${box('w', 'よこの 数', e.w)}${box('h', 'たての 数', e.h)}</div>
+            </div>
+            <div class="p-mid">
+              <p class="note">マスを タップ・なぞると ●が 出たり きえたり します。まわりの あいた だん・れつは「できた」で けずります。<br>できた かたちは この がめんの リンク（⚙️ → リンクを コピー）で くばれます。</p>
+              <div class="row">
+                <button class="btn soft" data-act="efill" data-v="1">ぜんぶ ●</button>
+                <button class="btn soft" data-act="efill" data-v="0">ぜんぶ けす</button>
+              </div>
+            </div>
+            <div class="p-bot">
+              <div class="row">
+                <button class="btn soft" data-act="ecancel">✕ やめる</button>
+                <button class="btn go" data-act="edone">✔ できた</button>
+              </div>
+            </div>`;
+        },
+        down(p) {
+            const m = st.m4;
+            if (m.edit) return paintDrag(p, (r, c) => m.edit.cells[r][c], (r, c, v) => { m.edit.cells[r][c] = v; }, null);
+            if (m.method === 'wakeru') return cutDrag(p, () => m.cuts, (cuts) => { pushUndo(m); m.cuts = cuts; m.rev = 0; });
+            const sh = M4.shape();
+            return paintDrag(p, (r, c) => (sh.cells[r][c] ? null : m.fill.includes(r + ',' + c)), (r, c, v) => {
+                const k = r + ',' + c;
+                m.fill = v ? m.fill.concat([k]) : m.fill.filter(x => x !== k);
+                m.rev = 0;
+            }, () => pushUndo(m));
+        },
+    };
+
+    /** なぞって ●を おく・けす（はじめに さわった マスの はんたいに そろえる） */
+    function paintDrag(p, get, set, before) {
+        const cell = L.cellAt(p.x, p.y, lay);
+        if (!cell) return null;
+        const v0 = get(cell.r, cell.c);
+        if (v0 === null) return null;
+        const want = !v0, seen = new Set();
+        const touch = (c) => {
+            if (!c || seen.has(c.r + ',' + c.c)) return;
+            seen.add(c.r + ',' + c.c);
+            const v = get(c.r, c.c);
+            if (v === null || v === want) return;
+            set(c.r, c.c, want);
+            drawBoard();
+        };
+        if (before) before();
+        touch(cell);
+        return {
+            move(q) { touch(L.cellAt(q.x, q.y, lay)); },
+            up() { render(); },
+            cancel() { render(); },
+        };
+    }
+
+    function badFrame(g) {
+        const S = lay.S, x = lay.colX(g.c0) + 2, y = lay.rowY(g.r0) + 2;
+        const w = lay.colX(g.c1 - 1) + S - 2 - x, h = lay.rowY(g.r1 - 1) + S - 2 - y;
+        return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="22" fill="#c8463b" fill-opacity=".06" stroke="#c8463b" stroke-width="5" stroke-dasharray="16 10"/>`;
+    }
+
+    function stepBox(label, v, lo, hi, decAttr, incAttr) {
+        return `
+          <div class="stepper">
+            <span class="sl">${label}</span>
+            <span class="sv">
+              <button class="btn" ${decAttr} aria-label="へらす"${v <= lo ? ' disabled' : ''}>−</button>
+              <output>${v}</output>
+              <button class="btn" ${incAttr} aria-label="ふやす"${v >= hi ? ' disabled' : ''}>＋</button>
+            </span>
+          </div>`;
+    }
+
     /* =====================================================================
        がめんを かく
        ===================================================================== */
-    const VIEWS = { tsukuru: M1, wakeru: M2 };
+    const VIEWS = { tsukuru: M1, wakeru: M2, kurutto: M3, katachi: M4 };
 
     function drawBoard() { VIEWS[st.mode].board(); }
 
@@ -876,7 +1248,13 @@ dialog::backdrop{ background:rgba(40,40,50,.35); }
     /* ---------- URL に いまの ようすを のこす（リンクで くばれる・読みこみなおしても おなじ がめん） ---------- */
     function syncHash() {
         const o = { m: st.view === 'home' ? 'home' : st.mode };
-        if (st.view !== 'home' && (st.mode === 'tsukuru' || st.mode === 'wakeru')) { o.a = cur().a; o.b = cur().b; }
+        if (st.view !== 'home' && st.mode !== 'katachi') { o.a = cur().a; o.b = cur().b; }
+        if (st.view !== 'home' && st.mode === 'katachi') {
+            const m = st.m4;
+            o.q = m.q === 'my' ? 'my' : m.q + 1;
+            if (m.q === 'my' && m.my) o.s = L.encodeShape(m.my);
+            if (m.method === 'oginau') o.w = 'o';
+        }
         if (st.teach) o.t = 1;
         if (st.set.muki === 'tate') o.muki = 'tate';
         if (st.set.max === 12) o.max = 12;
@@ -895,8 +1273,15 @@ dialog::backdrop{ background:rgba(40,40,50,.35); }
             st.view = 'work';
             st.mode = o.m;
             const m = cur();
-            if (o.a) m.a = L.clamp(o.a, 1, 9);
-            if (o.b) m.b = L.clamp(o.b, 1, st.set.max);
+            if (st.mode === 'katachi') {
+                const my = L.decodeShape(o.s);
+                if (o.q === 'my' && my) { m.my = my; m.q = 'my'; }
+                else if (o.q) m.q = L.clamp(o.q, 1, L.SHAPES.length) - 1;
+                if (o.w === 'o') m.method = 'oginau';
+            } else {
+                if (o.a) m.a = L.clamp(o.a, 1, st.mode === 'kurutto' ? st.set.max : 9);
+                if (o.b) m.b = L.clamp(o.b, 1, st.set.max);
+            }
         } else if (st.teach) {
             st.view = 'work';
         }
@@ -925,10 +1310,14 @@ dialog::backdrop{ background:rgba(40,40,50,.35); }
             if (st.set.muki === d.v) return;
             st.set.muki = d.v;
             st.m2.cuts = []; st.m2.undo = []; st.m2.rev = 0;
+            st.m3.from = null; st.m3.rev = 0;
+            st.m4.rev = 0;
         },
         setMax(d) {
             st.set.max = Number(d.v) === 12 ? 12 : 9;
-            for (const m of [st.m1, st.m2]) m.b = Math.min(m.b, st.set.max);
+            for (const m of [st.m1, st.m2, st.m3]) m.b = Math.min(m.b, st.set.max);
+            if (st.m3.a > st.set.max) { st.m3.a = st.set.max; }
+            st.m3.from = null; st.m3.rev = 0;
             st.m1.groups = st.m1.groups.filter(g => g < st.m1.b);
             fitAll();
         },
@@ -962,14 +1351,73 @@ dialog::backdrop{ background:rgba(40,40,50,.35); }
         },
         all() { cur().rev = lines().length; },
         hide() { if (st.mode === 'tsukuru') st.m1.shown = false; else cur().rev = 0; },
-        undo() { popUndo(cur()); },
-        clear() { const m = cur(); if (!m.cuts.length) return; pushUndo(m); m.cuts = []; m.rev = 0; },
+        undo() { const m = cur(); if (m.undo) popUndo(m); },
+        clear() {
+            const m = cur();
+            if (!m.cuts || (!m.cuts.length && !(m.fill && m.fill.length))) return;
+            pushUndo(m);
+            m.cuts = [];
+            if (m.fill) m.fill = [];
+            m.rev = 0;
+        },
+        rotate() { requestAnimationFrame(() => M3.spin()); },
+        q(d) {
+            const m = st.m4;
+            m.q = d.q === 'my' ? 'my' : L.clamp(d.q, 0, L.SHAPES.length - 1);
+            resetM4(true);
+        },
+        method(d) {
+            if (st.m4.method !== d.v) switchMethod();
+        },
+        other() {
+            switchMethod();
+            toast(st.m4.method === 'oginau' ? 'こんどは「おぎなう」で やってみよう' : 'こんどは「わける」で やってみよう');
+        },
+        edit() {
+            const sh = M4.shape();
+            const w = Math.max(sh.w, 6), h = Math.max(sh.h, 5);
+            const cells = [];
+            for (let r = 0; r < h; r++) { const row = []; for (let c = 0; c < w; c++) row.push(!!(sh.cells[r] && sh.cells[r][c])); cells.push(row); }
+            st.m4.edit = { w, h, cells };
+        },
+        esize(d) {
+            const e = st.m4.edit, k = d.k, v = L.clamp(e[k] + Number(d.d), 2, 12);
+            if (k === 'w') e.cells.forEach(row => { while (row.length < v) row.push(false); row.length = v; });
+            else { while (e.cells.length < v) e.cells.push(new Array(e.w).fill(false)); e.cells.length = v; }
+            e[k] = v;
+        },
+        efill(d) { const e = st.m4.edit; e.cells = e.cells.map(row => row.map(() => d.v === '1')); },
+        ecancel() { st.m4.edit = null; },
+        edone() {
+            const m = st.m4, sh = L.trimShape(m.edit);
+            if (!sh || L.shapeCount(sh) < 2) { toast('●を 2こ いじょう おいてね'); return; }
+            m.my = sh; m.q = 'my'; m.edit = null;
+            resetM4(true);
+        },
         odai(d) {
             const m = st.m2;
             m.a = L.clamp(d.a, 1, 9); m.b = L.clamp(d.b, 1, st.set.max);
             m.cuts = []; m.undo = []; m.rev = 0;
         },
     };
+
+    /** かたちの● を はじめから（newQ：ちがう もんだい → さっきの やりかたも けす） */
+    function resetM4(newQ) {
+        const m = st.m4;
+        m.cuts = []; m.fill = []; m.undo = []; m.rev = 0;
+        if (newQ) m.prev = null;
+    }
+
+    /** わける ⇔ おぎなう。できて いれば「さっきの やりかた」に のこす */
+    function switchMethod() {
+        const m = st.m4, ls = M4.res().lines;
+        if (ls.length) {
+            const key = ls.find(l => l.kind === 'sum') || ls[0];
+            m.prev = { method: m.method, text: key.text, total: M4.res().total };
+        }
+        m.method = m.method === 'wakeru' ? 'oginau' : 'wakeru';
+        resetM4(false);
+    }
 
     function fitAll() {
         const m = st.m2, g = L.gridSize(m.a, m.b, st.set.muki);
@@ -991,6 +1439,8 @@ dialog::backdrop{ background:rgba(40,40,50,.35); }
             }
         } else if (st.mode === 'wakeru') {
             fitAll();
+        } else if (st.mode === 'kurutto') {
+            m.from = null; m.rev = 0;
         }
     }
 

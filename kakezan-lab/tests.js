@@ -66,6 +66,55 @@ t('せんの ところは すきまが あく', lay2.colX(5) - lay2.colX(4) === 
 t('せんを うごかす ときは おなじ むきだけ', L.nearestGap(130, 181, lay, 'v').ax === 'v');
 t('マスを 見つける', JSON.stringify(L.cellAt(250, 150, lay)) === '{"r":0,"c":1}');
 
+/* かたちの● */
+const Lsh = L.makeShape(L.SHAPES[0].rows);
+t('Lの かたちは 24こ', L.shapeCount(Lsh) === 24);
+const lw = L.shapeSplit(Lsh, [{ ax: 'h', at: 2 }], 'yoko');
+t('Lの かたちを よこに わける', lw.ok && texts(lw.lines) === '3 × 2 ＝ 6 / 6 × 3 ＝ 18 / 6 ＋ 18 ＝ 24 / ●は ぜんぶで 24こ', texts(lw.lines));
+const lv = L.shapeSplit(Lsh, [{ ax: 'v', at: 3 }], 'yoko');
+t('Lの かたちを たてに わける', lv.ok && texts(lv.lines) === '3 × 5 ＝ 15 / 3 × 3 ＝ 9 / 15 ＋ 9 ＝ 24 / ●は ぜんぶで 24こ', texts(lv.lines));
+const lbad = L.shapeSplit(Lsh, [{ ax: 'h', at: 3 }], 'yoko');
+t('長方形に ならない わけかたは だめ', !lbad.ok && lbad.bad.length === 1 && lbad.lines.length === 0);
+t('せんが ない ときは だめ', !L.shapeSplit(Lsh, [], 'yoko').ok);
+const holes = new Set(['0,3', '0,4', '0,5', '1,3', '1,4', '1,5']);
+const og = L.oginau(Lsh, holes, 'yoko');
+t('Lの かたちを おぎなう', og.complete && texts(og.lines) === '6 × 5 ＝ 30 / 3 × 2 ＝ 6 / 30 − 6 ＝ 24 / ●は ぜんぶで 24こ', texts(og.lines));
+t('たりない ときは まだ', !L.oginau(Lsh, new Set(['0,3']), 'yoko').complete);
+const cross = L.makeShape(L.SHAPES[5].rows), cf = new Set();
+for (let r = 0; r < cross.h; r++) for (let c = 0; c < cross.w; c++) if (!cross.cells[r][c]) cf.add(r + ',' + c);
+const oc = L.oginau(cross, cf, 'yoko');
+t('十字を おぎなう（4つの かど）', oc.holes.length === 4 && oc.lines[5].text === '36 − 4 − 4 − 4 − 4 ＝ 20', texts(oc.lines));
+const stairs = L.makeShape(L.SHAPES[1].rows), sf = new Set();
+for (let r = 0; r < stairs.h; r++) for (let c = 0; c < stairs.w; c++) if (!stairs.cells[r][c]) sf.add(r + ',' + c);
+const os = L.oginau(stairs, sf, 'yoko');
+t('かいだんの たりない ところ（Lの かたち）を 2つの 長方形に', os.holes.length === 2 && os.lines[3].text === '36 − 8 − 4 ＝ 24', texts(os.lines));
+
+/* どの もんだいも、せん 2本 いないで わけられる・おぎなえる */
+for (const p of L.SHAPES) {
+    const sh = L.makeShape(p.rows);
+    const cands = [];
+    for (let k = 1; k < sh.w; k++) cands.push({ ax: 'v', at: k });
+    for (let k = 1; k < sh.h; k++) cands.push({ ax: 'h', at: k });
+    let found = null;
+    for (let i = 0; i < cands.length && !found; i++) {
+        if (L.shapeSplit(sh, [cands[i]], 'yoko').ok) found = [cands[i]];
+        for (let j = i + 1; j < cands.length && !found; j++) if (L.shapeSplit(sh, [cands[i], cands[j]], 'yoko').ok) found = [cands[i], cands[j]];
+    }
+    const all = new Set();
+    for (let r = 0; r < sh.h; r++) for (let c = 0; c < sh.w; c++) if (!sh.cells[r][c]) all.add(r + ',' + c);
+    const o2 = L.oginau(sh, all, 'yoko');
+    const sum = found ? L.shapeSplit(sh, found, 'yoko').total : -1;
+    t(`もんだい「${p.name}」`, found && o2.complete && o2.lines[o2.lines.length - 2].n === L.shapeCount(sh) && sum === L.shapeCount(sh), JSON.stringify(found));
+}
+
+/* じぶんの かたち */
+const enc = L.encodeShape(Lsh);
+t('かたちを 文字に する', enc === '6x5-1k.1k.1r.1r.1r', enc);
+t('文字から かたちに もどす', JSON.stringify(L.decodeShape(enc)) === JSON.stringify(Lsh));
+t('こわれた 文字は つかわない', L.decodeShape('6x5-zz.1') === null && L.decodeShape('99x1-1') === null && L.decodeShape('') === null);
+const tr = L.trimShape({ w: 4, h: 3, cells: [[false, false, false, false], [false, true, true, false], [false, false, false, false]] });
+t('まわりの あいた ところを けずる', tr.w === 2 && tr.h === 1);
+
 /* URL */
 const h = L.toHash({ m: 'wakeru', a: 7, b: 3, x: '' });
 t('URL に かく', h === 'm=wakeru&a=7&b=3', h);
