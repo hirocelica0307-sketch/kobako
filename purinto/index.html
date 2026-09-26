@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ff8a3d">
+<meta name="description" content="小学生が たのしく とりくめる プリントを えらんで、そのまま A4 で いんさつ できる。ことばかいだん・ものがたりめいろ・けいさんめいろ・ビンゴ・すごろく など。">
+<title>たのしい プリント こうぼう</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One:wght@600&family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <h1 class="logo">🖨️ たのしい プリント こうぼう</h1>
+  <p class="lead">えらんで・きめて・いんさつ。まい回 ちがう もんだいが できます。</p>
+</header>
+
+<div class="layout">
+  <aside class="side">
+    <nav class="subjects" id="subjects" aria-label="きょうか"></nav>
+    <div class="cards" id="cards"></div>
+  </aside>
+
+  <main class="main">
+    <div class="panel" id="panel">
+      <div class="panel-head">
+        <span class="panel-icon" id="pIcon"></span>
+        <div>
+          <h2 id="pTitle"></h2>
+          <p id="pDesc"></p>
+        </div>
+      </div>
+      <form class="opts" id="opts" onsubmit="return false"></form>
+      <div class="actions">
+        <button type="button" class="btn" id="btnNew">🎲 べつの もんだい</button>
+        <label class="field">まいすう
+          <select id="copies">
+            <option value="1">1まい</option><option value="2">2まい</option><option value="4">4まい</option>
+            <option value="10">10まい</option><option value="20">20まい</option><option value="30">30まい</option><option value="40">40まい</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" id="withAnswer"> こたえの ページも いんさつ</label>
+        <button type="button" class="btn btn-print" id="btnPrint">🖨️ いんさつ</button>
+        <button type="button" class="btn btn-sub" id="btnLink">🔗 この プリントの URL</button>
+      </div>
+      <p class="hint" id="hint">「まいすう」を ふやすと、1まいずつ ちがう もんだいに なります（クラスで くばる とき べんり）。おなじ URL を ひらけば、いつでも おなじ プリントが でます。</p>
+    </div>
+
+    <div class="preview-wrap" id="previewWrap">
+      <div class="pages" id="pages"></div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="gen.js"></script>
+<script src="data.js"></script>
+<script src="sheets.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
