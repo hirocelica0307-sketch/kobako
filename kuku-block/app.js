@@ -530,56 +530,73 @@
         g.fill();
     }
 
-    /** まん中が (0, 0) の さくらの おはじき */
+    /** さくらの 花の かたち（まるい はなびら 5まい）の みち。r … いちばん そとまでの 大きさ */
+    function flowerPath(g, R) {
+        const d = R * 0.52, pr = R * 0.48;
+        g.beginPath();
+        for (let i = 0; i < 5; i++) {
+            const a = -Math.PI / 2 + i * Math.PI * 2 / 5;
+            const cx = Math.cos(a) * d, cy = Math.sin(a) * d;
+            g.moveTo(cx + pr, cy);
+            g.arc(cx, cy, pr, 0, Math.PI * 2);
+        }
+        g.moveTo(R * 0.6, 0);
+        g.arc(0, 0, R * 0.6, 0, Math.PI * 2);
+    }
+
+    /** まん中が (0, 0) の さくらの おはじき（まるい はなびら 5まい・まん中に くろい じしゃく） */
     function drawOhajiki(g, S, c, lift) {
         const [light, base, dark] = OHAJIKI[c] || OHAJIKI.sb;
-        const R = S * 0.45;
-        g.beginPath();
-        g.arc(0, 0, R, 0, Math.PI * 2);
+        const R = S * 0.48;
+        /* ふち（そとがわ だけ 見える ように、さきに ふとく かいて うえから ぬる） */
+        flowerPath(g, R);
         if (lift) {
             g.shadowColor = 'rgba(0,0,0,.3)';
             g.shadowBlur = 12;
             g.shadowOffsetY = 5;
         } else {
-            g.shadowColor = 'rgba(0,0,0,.18)';
+            g.shadowColor = 'rgba(0,0,0,.2)';
             g.shadowBlur = S * 0.06;
             g.shadowOffsetY = S * 0.03;
         }
-        const grad = g.createRadialGradient(-R * 0.3, -R * 0.35, R * 0.08, 0, 0, R);
+        g.lineWidth = Math.max(1.5, S * 0.05);
+        g.lineJoin = 'round';
+        g.strokeStyle = dark;
+        g.stroke();
+        g.shadowColor = 'transparent';
+        const grad = g.createRadialGradient(-R * 0.25, -R * 0.3, R * 0.05, 0, 0, R);
         grad.addColorStop(0, light);
-        grad.addColorStop(0.55, base);
+        grad.addColorStop(0.6, base);
         grad.addColorStop(1, dark);
         g.fillStyle = grad;
         g.fill();
-        g.shadowColor = 'transparent';
-        g.lineWidth = Math.max(1, S * 0.03);
-        g.strokeStyle = 'rgba(255,255,255,.5)';
-        g.beginPath();
-        g.arc(0, 0, R * 0.9, 0, Math.PI * 2);
-        g.stroke();
-        /* さくらの はな（5まいの はなびら・さきが へこんでいる） */
-        const pr = R * 0.62;
-        g.fillStyle = 'rgba(255,255,255,.9)';
+        /* はなびらの すじ と つや */
+        g.lineWidth = Math.max(1, S * 0.025);
+        g.strokeStyle = 'rgba(255,255,255,.35)';
         for (let i = 0; i < 5; i++) {
-            g.save();
-            g.rotate(i * Math.PI * 2 / 5);
+            const a = -Math.PI / 2 + Math.PI / 5 + i * Math.PI * 2 / 5;
             g.beginPath();
-            g.moveTo(0, 0);
-            g.bezierCurveTo(-pr * 0.55, -pr * 0.35, -pr * 0.5, -pr * 0.95, -pr * 0.15, -pr);
-            g.lineTo(0, -pr * 0.83);
-            g.lineTo(pr * 0.15, -pr);
-            g.bezierCurveTo(pr * 0.5, -pr * 0.95, pr * 0.55, -pr * 0.35, 0, 0);
-            g.fill();
-            g.restore();
+            g.moveTo(Math.cos(a) * R * 0.28, Math.sin(a) * R * 0.28);
+            g.lineTo(Math.cos(a) * R * 0.62, Math.sin(a) * R * 0.62);
+            g.stroke();
         }
         g.beginPath();
-        g.arc(0, 0, pr * 0.2, 0, Math.PI * 2);
-        g.fillStyle = '#ffe08a';
+        g.ellipse(-R * 0.3, -R * 0.62, R * 0.2, R * 0.1, -0.4, 0, Math.PI * 2);
+        g.fillStyle = 'rgba(255,255,255,.5)';
         g.fill();
+        /* まん中の くろい じしゃく */
+        const mr = R * 0.24;
+        const mg = g.createRadialGradient(-mr * 0.35, -mr * 0.35, mr * 0.1, 0, 0, mr);
+        mg.addColorStop(0, '#5a5a5a');
+        mg.addColorStop(0.5, '#1c1c1c');
+        mg.addColorStop(1, '#000');
         g.beginPath();
-        g.ellipse(-R * 0.45, -R * 0.5, R * 0.22, R * 0.12, -0.6, 0, Math.PI * 2);
-        g.fillStyle = 'rgba(255,255,255,.45)';
+        g.arc(0, 0, mr, 0, Math.PI * 2);
+        g.fillStyle = mg;
         g.fill();
+        g.lineWidth = Math.max(1, S * 0.02);
+        g.strokeStyle = 'rgba(255,255,255,.35)';
+        g.stroke();
     }
 
     function loopPath(g, pts) {
