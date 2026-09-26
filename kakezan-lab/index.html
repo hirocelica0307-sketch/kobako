@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#41689e">
+<meta name="description" content="2年生の かけ算で、●を ならべた 図（アレイ図）を わけたり、まわしたり して、しきと 図を むすびつける アプリ。">
+<title>●ならべ かけ算ラボ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap">
+<style>
+/* ●ならべ かけ算ラボ ── 見ため
+   ------------------------------------------------------------------
+   Chromebook（1366×768）と 電子黒板（1920×1080）の どちらでも くずれない ように、
+   文字の 大きさは 画面の 大きさに あわせて かわります（rem）。
+   ページは スクロールしません。●の 図（ボード）が のこりを ぜんぶ つかいます。
+   ------------------------------------------------------------------ */
+:root{
+    --bg:     #f5f1e8;
+    --panel:  #ffffff;
+    --ink:    #2f3440;
+    --thin:   #7b7466;
+    --line:   #e2d9c8;
+    --accent: #41689e;
+    --tap:    #eaf1fb;
+    --go:     #2f8f5b;
+    --warn:   #c8463b;
+    --c0:     #3978d0;
+    --c1:     #df8a2e;
+    --c2:     #379c62;
+    --c3:     #9a60c6;
+    --radius: 14px;
+    --round: "M PLUS Rounded 1c","Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Noto Sans JP","Noto Sans CJK JP","Yu Gothic",sans-serif;
+}
+html{ font-size:clamp(15px, calc(.9vw + .62vh), 25px); height:100%; }
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body{
+    margin:0; height:100dvh; overflow:hidden;
+    display:flex; flex-direction:column;
+    background:var(--bg); color:var(--ink);
+    font-family:var(--round); font-weight:800;
+    -webkit-user-select:none; user-select:none;
+}
+button{ font:inherit; color:inherit; cursor:pointer; }
+[hidden]{ display:none !important; }
+
+.btn{
+    min-height:max(48px, 3rem); min-width:48px; padding:.3rem .9rem;
+    display:inline-flex; align-items:center; justify-content:center; gap:.35rem;
+    border:2px solid var(--line); border-radius:var(--radius);
+    background:var(--panel); font-size:1rem; line-height:1.2;
+    transition:transform .08s, background .15s, border-color .15s;
+}
+.btn:active{ transform:scale(.95); }
+.btn:disabled{ opacity:.35; cursor:default; transform:none; }
+.btn.on{ background:var(--tap); border-color:var(--accent); box-shadow:0 0 0 2px var(--accent) inset; }
+.btn.go{ background:var(--accent); border-color:var(--accent); color:#fff; }
+.btn.soft{ background:#f7f3ea; }
+.btn .i{ font-size:1.25em; line-height:1; }
+
+/* ---------- トップ ---------- */
+.home{
+    flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:3.2vh; padding:16px;
+}
+.home h1{
+    margin:0; font-size:clamp(30px, 6.4vh, 70px); letter-spacing:.04em; text-align:center;
+}
+.home h1 .dot{ color:var(--accent); }
+.home h1 small{ display:block; font-size:.36em; color:var(--thin); letter-spacing:.02em; margin-top:.5em; }
+.cards{
+    display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:1rem;
+    width:min(1560px, 100%);
+}
+.card{
+    display:flex; flex-direction:column; align-items:center; gap:.6rem;
+    padding:1.2rem .8rem 1.1rem; min-height:48px;
+    border:3px solid var(--line); border-radius:22px; background:var(--panel);
+    box-shadow:0 4px 0 var(--line); transition:transform .1s;
+}
+.card:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--line); }
+.card svg{ width:72%; max-width:190px; height:auto; aspect-ratio:1; }
+.card b{ font-size:1.75rem; }
+.card span{ font-size:.92rem; color:var(--thin); text-align:center; line-height:1.45; min-height:2.9em; }
+.card.teach{ border-color:#b9c9e2; background:#f4f8fe; }
+.home-foot{ display:flex; gap:.8rem; }
+
+/* ---------- うえの バー ---------- */
+.work{ flex:1; min-height:0; display:flex; flex-direction:column; }
+.bar{
+    flex:none; display:flex; align-items:center; gap:.5rem;
+    padding:6px 10px; background:var(--panel); border-bottom:2px solid var(--line);
+}
+.tabs{ display:flex; gap:.4rem; margin:0 auto; }
+.tabs .btn{ min-width:6.2rem; font-size:1.05rem; }
+.bar-r{ display:flex; gap:.4rem; }
+.btn.teach-on{ background:#2f3440; border-color:#2f3440; color:#fff; }
+
+/* ---------- ボード と パネル ---------- */
+.main{ flex:1; min-height:0; display:grid; grid-template-columns:minmax(0, 1fr) clamp(330px, 31vw, 580px); }
+.stage{ min-width:0; min-height:0; display:flex; flex-direction:column; padding:.5rem .7rem .4rem; gap:.3rem; }
+.hint{
+    flex:none; margin:0; font-size:.95rem; color:var(--thin); line-height:1.5;
+    padding:.25rem .8rem; background:#fbf8f1; border:2px dashed var(--line); border-radius:12px;
+}
+.board-box{ position:relative; flex:1; min-height:0; }
+#board{ position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+.strip{ flex:none; display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; }
+.strip .lbl{ color:var(--thin); font-size:.9rem; margin-right:.2rem; }
+.strip .btn{ min-width:4.8rem; }
+.badge{
+    position:absolute; left:.6rem; top:.4rem; padding:.35rem .9rem;
+    background:#fff; border:2px solid var(--line); border-radius:999px; font-size:1.2rem;
+}
+.badge b{ font-size:1.5em; color:var(--accent); margin:0 .15em; }
+.toast{
+    position:absolute; left:50%; bottom:.8rem; transform:translateX(-50%);
+    padding:.55rem 1.2rem; border-radius:999px; background:#2f3440; color:#fff;
+    font-size:1rem; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .25s;
+}
+.toast.show{ opacity:.94; }
+
+.panel{
+    min-height:0; display:flex; flex-direction:column; gap:.6rem;
+    padding:.7rem .9rem; background:var(--panel); border-left:2px solid var(--line);
+}
+.p-top{ flex:none; display:flex; flex-direction:column; gap:.55rem; }
+.p-mid{ flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:.5rem; }
+.p-bot{ flex:none; display:flex; flex-direction:column; gap:.45rem; }
+.row{ display:flex; gap:.45rem; flex-wrap:wrap; }
+.row > .btn{ flex:1 1 0; }
+
+.steppers{ display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:.5rem; }
+.stepper{
+    display:flex; flex-direction:column; align-items:center; gap:.2rem;
+    padding:.35rem; border:2px solid var(--line); border-radius:var(--radius); background:#fbf8f1;
+}
+.stepper .sl{ font-size:.9rem; color:var(--thin); }
+.stepper .sv{ display:flex; align-items:center; gap:.3rem; }
+.stepper output{ min-width:1.5em; text-align:center; font-size:1.9rem; line-height:1; }
+.stepper .btn{ font-size:1.5rem; padding:0; width:max(48px, 2.7rem); }
+
+.q{ margin:0; font-size:1.2rem; text-align:center; line-height:1.4; text-wrap:balance; }
+.q .big{ font-size:1.35em; }
+.eq{ margin:0; text-align:center; font-size:2.6rem; line-height:1.25; letter-spacing:.02em; white-space:nowrap; }
+.eq .box{
+    display:inline-block; min-width:1.6em; padding:0 .15em; border:3px solid var(--ink); border-radius:10px;
+    line-height:1.1; color:transparent;
+}
+.eq .ans{ color:var(--warn); }
+.words{ margin:0; text-align:center; font-size:1.05rem; color:var(--thin); }
+.yomi{ margin:0; text-align:center; font-size:1.25rem; color:var(--accent); }
+.steps{ display:flex; flex-wrap:wrap; gap:.3rem .5rem; justify-content:center; font-size:1rem; }
+.steps span{ padding:.15rem .5rem; border-radius:8px; background:#f4efe4; }
+.steps span.now{ background:var(--tap); box-shadow:0 0 0 2px var(--accent) inset; }
+.steps p{ width:100%; margin:.2rem 0 0; text-align:center; color:var(--thin); }
+
+.lines{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.35rem; }
+.ln{
+    display:flex; align-items:center; gap:.5rem; min-height:2.5rem;
+    padding:.2rem .6rem; border-radius:12px; font-size:1.5rem; line-height:1.25;
+    background:#faf7f0;
+}
+.ln.fresh{ animation:lnIn .5s ease-out; }
+.ln .mk{
+    flex:none; width:1.45em; height:1.45em; border-radius:50%; border:3px solid currentColor;
+    display:inline-flex; align-items:center; justify-content:center; font-size:.72em; background:#fff;
+}
+.ln .tx{ white-space:nowrap; }
+.ln .nt{ display:block; font-size:.55em; color:var(--thin); line-height:1.1; }
+.ln.sum{ background:#f1f4f8; }
+.ln.ans{ background:#fdf0ea; color:#9b3a2f; }
+.ln.ghost{ background:transparent; border:2px dashed var(--line); animation:none; }
+.lines.clickable{ cursor:pointer; }
+@keyframes lnIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+
+.msg{ margin:0; padding:.5rem .7rem; border-radius:12px; background:#fdf0ea; color:#9b3a2f; font-size:1rem; line-height:1.45; }
+.msg.ok{ background:#eaf6ef; color:#256d45; }
+.note{ margin:0; font-size:.9rem; color:var(--thin); line-height:1.45; }
+
+/* ---------- ●の 図 ---------- */
+#board .dot{ transform-box:fill-box; transform-origin:center; }
+#board .dot.pop{ animation:pop .7s ease-out both; }
+@keyframes pop{ from{ opacity:0; transform:scale(.3); } to{ opacity:1; transform:scale(1); } }
+#board text{ font-family:var(--round); font-weight:800; }
+
+/* ---------- せってい ---------- */
+dialog{
+    border:none; border-radius:20px; padding:0; width:min(640px, 94vw); max-height:92vh;
+    color:var(--ink); background:var(--panel); box-shadow:0 20px 60px rgba(0,0,0,.25);
+}
+dialog::backdrop{ background:rgba(40,40,50,.35); }
+.dlg{ padding:.9rem 1.3rem 1.1rem; display:flex; flex-direction:column; gap:.75rem; }
+.dlg-head{ display:flex; align-items:center; justify-content:space-between; }
+.dlg h2{ margin:0; font-size:1.4rem; }
+.dlg h3{ margin:0 0 .4rem; font-size:1.05rem; }
+.dlg .row .btn{ flex:1 1 0; flex-direction:column; padding:.5rem; }
+.dlg .row .btn svg{ width:3.6rem; height:2.4rem; }
+.dlg .sub{ font-size:.8rem; color:var(--thin); font-weight:500; }
+
+.copy{ flex:none; text-align:center; font-size:12px; color:var(--thin); padding:2px 0 3px; font-weight:500; }
+
+/* ---------- せんせい（ていじ）の がめん ---------- */
+.teach .hint, .teach .n-only{ display:none !important; }
+.teach .main{ grid-template-columns:minmax(0, 1fr) clamp(330px, 34vw, 700px); }
+.teach .bar{ padding:4px 10px; }
+.teach .panel{ padding:.6rem 1rem; }
+.teach .ln{ font-size:min(2.3rem, 5.4vh); min-height:min(3.4rem, 8vh); }
+.teach .eq{ font-size:3.4rem; }
+.teach .q{ font-size:min(1.6rem, 4vh); }
+.teach .stepper output{ font-size:1.5rem; }
+.teach .stepper .sl{ font-size:.8rem; }
+.t-only{ display:none !important; }
+.teach .t-only{ display:revert !important; }
+.teach .t-only.row{ display:flex !important; }
+.teach .badge{ font-size:1.6rem; }
+
+@media (prefers-reduced-motion: reduce){
+    #board .dot.pop, .ln.fresh{ animation:none; }
+}
+@media (max-width: 900px){
+    .cards{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
+    .main{ grid-template-columns:1fr; grid-template-rows:minmax(0, 1fr) auto; }
+    .panel{ border-left:none; border-top:2px solid var(--line); max-height:48vh; }
+    .tabs .btn{ min-width:0; }
+}
+</style>
+</head>
+<body>
+
+<!-- ========== トップ ========== -->
+<div class="home" id="home">
+  <h1><span class="dot">●</span>ならべ かけ算ラボ<small>●を ならべて、わけて、まわして、かけ算を 考えよう</small></h1>
+  <div class="cards">
+    <button class="card" data-act="mode" data-mode="tsukuru">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><g fill="#41689e"><circle cx="25" cy="30" r="9"/><circle cx="50" cy="30" r="9"/><circle cx="75" cy="30" r="9"/><circle cx="25" cy="55" r="9"/><circle cx="50" cy="55" r="9"/><circle cx="75" cy="55" r="9"/></g><g fill="#df8a2e"><circle cx="25" cy="80" r="9" opacity=".35"/><circle cx="50" cy="80" r="9" opacity=".35"/><circle cx="75" cy="80" r="9" opacity=".35"/></g></svg>
+      <b>つくる</b><span>●を ならべて<br>かけ算の しきに</span>
+    </button>
+    <button class="card" data-act="mode" data-mode="wakeru">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><g fill="#3978d0"><circle cx="15" cy="30" r="8"/><circle cx="35" cy="30" r="8"/><circle cx="55" cy="30" r="8"/><circle cx="15" cy="52" r="8"/><circle cx="35" cy="52" r="8"/><circle cx="55" cy="52" r="8"/><circle cx="15" cy="74" r="8"/><circle cx="35" cy="74" r="8"/><circle cx="55" cy="74" r="8"/></g><g fill="#df8a2e"><circle cx="85" cy="30" r="8"/><circle cx="85" cy="52" r="8"/><circle cx="85" cy="74" r="8"/></g><line x1="70" y1="14" x2="70" y2="90" stroke="#2f3440" stroke-width="5" stroke-linecap="round"/></svg>
+      <b>わける</b><span>せんで わけて<br>あとで たす</span>
+    </button>
+    <button class="card" data-act="mode" data-mode="kurutto">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><g fill="#41689e"><circle cx="30" cy="38" r="8"/><circle cx="50" cy="38" r="8"/><circle cx="70" cy="38" r="8"/><circle cx="30" cy="60" r="8"/><circle cx="50" cy="60" r="8"/><circle cx="70" cy="60" r="8"/></g><path d="M 18 22 A 40 40 0 0 1 84 26" fill="none" stroke="#df8a2e" stroke-width="5" stroke-linecap="round"/><path d="M 84 26 l -12 -2 m 12 2 l -1 -12" stroke="#df8a2e" stroke-width="5" stroke-linecap="round" fill="none"/></svg>
+      <b>くるっと</b><span>まわしても<br>こたえは おなじ？</span>
+    </button>
+    <button class="card" data-act="mode" data-mode="katachi">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><g fill="#41689e"><circle cx="20" cy="20" r="8"/><circle cx="20" cy="42" r="8"/><circle cx="20" cy="64" r="8"/><circle cx="20" cy="86" r="8"/><circle cx="42" cy="20" r="8"/><circle cx="42" cy="42" r="8"/><circle cx="42" cy="64" r="8"/><circle cx="42" cy="86" r="8"/><circle cx="64" cy="64" r="8"/><circle cx="64" cy="86" r="8"/><circle cx="86" cy="64" r="8"/><circle cx="86" cy="86" r="8"/></g><g fill="none" stroke="#b8ae9c" stroke-width="2.5" stroke-dasharray="4 3"><circle cx="64" cy="20" r="8"/><circle cx="86" cy="20" r="8"/><circle cx="64" cy="42" r="8"/><circle cx="86" cy="42" r="8"/></g></svg>
+      <b>かたちの●</b><span>L の かたちも<br>かけ算で</span>
+    </button>
+    <button class="card teach" data-act="teachStart">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><rect x="8" y="16" width="84" height="58" rx="6" fill="#fff" stroke="#2f3440" stroke-width="5"/><g fill="#41689e"><circle cx="30" cy="36" r="7"/><circle cx="50" cy="36" r="7"/><circle cx="70" cy="36" r="7"/><circle cx="30" cy="55" r="7"/><circle cx="50" cy="55" r="7"/><circle cx="70" cy="55" r="7"/></g><path d="M40 74 L34 90 M60 74 L66 90 M28 90 H72" stroke="#2f3440" stroke-width="5" stroke-linecap="round"/></svg>
+      <b>せんせい</b><span>大きく うつして<br>1つずつ 見せる</span>
+    </button>
+  </div>
+  <div class="home-foot">
+    <button class="btn soft" data-act="openSet"><span class="i">⚙️</span>せってい</button>
+    <button class="btn soft" data-act="fs"><span class="i">⛶</span>がめん いっぱい</button>
+  </div>
+</div>
+
+<!-- ========== モードの がめん ========== -->
+<div class="work" id="work" hidden>
+  <header class="bar">
+    <button class="btn soft" data-act="home" aria-label="はじめの がめん"><span class="i">🏠</span><span class="n-only">はじめ</span></button>
+    <nav class="tabs" id="tabs" aria-label="モード">
+      <button class="btn" data-act="mode" data-mode="tsukuru">つくる</button>
+      <button class="btn" data-act="mode" data-mode="wakeru">わける</button>
+      <button class="btn" data-act="mode" data-mode="kurutto">くるっと</button>
+      <button class="btn" data-act="mode" data-mode="katachi">かたちの●</button>
+    </nav>
+    <div class="bar-r">
+      <button class="btn" data-act="teach" id="teachBtn"><span class="i">🧑‍🏫</span>せんせい</button>
+      <button class="btn soft" data-act="openSet" aria-label="せってい"><span class="i">⚙️</span></button>
+      <button class="btn soft" data-act="fs" aria-label="がめん いっぱい"><span class="i">⛶</span></button>
+    </div>
+  </header>
+  <main class="main">
+    <section class="stage">
+      <p class="hint" id="hint"></p>
+      <div class="board-box">
+        <svg id="board" role="img" aria-label="●の 図"></svg>
+        <div class="badge" id="badge" hidden></div>
+        <div class="toast" id="toast"></div>
+      </div>
+      <div class="strip" id="strip"></div>
+    </section>
+    <aside class="panel" id="panel"></aside>
+  </main>
+</div>
+
+<footer class="copy">© Hiroyuki</footer>
+
+<!-- ========== せってい ========== -->
+<dialog id="setDlg">
+  <div class="dlg">
+    <div class="dlg-head"><h2>⚙️ せってい</h2><button class="btn soft" data-act="closeSet" aria-label="とじる">✕</button></div>
+    <section>
+      <h3>●の ならべ方</h3>
+      <div class="row">
+        <button class="btn" data-act="setMuki" data-v="yoko">
+          <svg viewBox="0 0 90 60" aria-hidden="true"><g fill="#41689e"><circle cx="20" cy="18" r="7"/><circle cx="40" cy="18" r="7"/><circle cx="60" cy="18" r="7"/></g><g fill="#c9c1b2"><circle cx="20" cy="42" r="7"/><circle cx="40" cy="42" r="7"/><circle cx="60" cy="42" r="7"/></g><rect x="9" y="8" width="62" height="20" rx="10" fill="none" stroke="#df8a2e" stroke-width="3"/></svg>
+          よこに ならべる<span class="sub">1つ分を よこ 1れつに</span>
+        </button>
+        <button class="btn" data-act="setMuki" data-v="tate">
+          <svg viewBox="0 0 90 60" aria-hidden="true"><g fill="#41689e"><circle cx="30" cy="12" r="7"/><circle cx="30" cy="30" r="7"/><circle cx="30" cy="48" r="7"/></g><g fill="#c9c1b2"><circle cx="52" cy="12" r="7"/><circle cx="52" cy="30" r="7"/><circle cx="52" cy="48" r="7"/></g><rect x="20" y="2" width="20" height="56" rx="10" fill="none" stroke="#df8a2e" stroke-width="3"/></svg>
+          たてに ならべる<span class="sub">1つ分を たて 1れつに</span>
+        </button>
+      </div>
+    </section>
+    <section>
+      <h3>いくつ分の 大きさ</h3>
+      <div class="row">
+        <button class="btn" data-act="setMax" data-v="9">9 まで<span class="sub">ふつう（九九）</span></button>
+        <button class="btn" data-act="setMax" data-v="12">12 まで<span class="sub">かけ算を 広げて（4×12 など）</span></button>
+      </div>
+    </section>
+    <section>
+      <h3>よみあげ（こえ）</h3>
+      <div class="row">
+        <button class="btn" data-act="setYomi" data-v="0">オフ<span class="sub">しずか</span></button>
+        <button class="btn" data-act="setYomi" data-v="1">オン<span class="sub">しきを 見せる ときに よむ</span></button>
+      </div>
+    </section>
+    <section>
+      <h3>この がめんを くばる</h3>
+      <p class="note">いまの モード・数・せっていが 入った リンクです。Google Classroom などに はると、おなじ がめんから はじめられます。</p>
+      <div class="row" style="margin-top:.5rem">
+        <button class="btn soft" data-act="copyLink" style="flex-direction:row"><span class="i">🔗</span>リンクを コピー</button>
+        <button class="btn go" data-act="closeSet" style="flex-direction:row">とじる</button>
+      </div>
+    </section>
+  </div>
+</dialog>
+
+<script>
+// ==LOGIC==
+/* 画面を つかわない 計算（tests.js が この ぶぶんだけ とりだして たしかめます） */
+(function (root) {
+    'use strict';
+
+    /* ---------- 九九の となえかた ---------- */
+    const KUKU = [
+        null,
+        ['いんいちが いち', 'いんにが に', 'いんさんが さん', 'いんしが し', 'いんごが ご', 'いんろくが ろく', 'いんしちが しち', 'いんはちが はち', 'いんくが く'],
+        ['にいちが に', 'ににんが し', 'にさんが ろく', 'にしが はち', 'にご じゅう', 'にろく じゅうに', 'にしち じゅうし', 'にはち じゅうろく', 'にく じゅうはち'],
+        ['さんいちが さん', 'さんにが ろく', 'さざんが く', 'さんし じゅうに', 'さんご じゅうご', 'さぶろく じゅうはち', 'さんしち にじゅういち', 'さんぱ にじゅうし', 'さんく にじゅうしち'],
+        ['しいちが し', 'しにが はち', 'しさん じゅうに', 'しし じゅうろく', 'しご にじゅう', 'しろく にじゅうし', 'ししち にじゅうはち', 'しは さんじゅうに', 'しく さんじゅうろく'],
+        ['ごいちが ご', 'ごに じゅう', 'ごさん じゅうご', 'ごし にじゅう', 'ごご にじゅうご', 'ごろく さんじゅう', 'ごしち さんじゅうご', 'ごは しじゅう', 'ごっく しじゅうご'],
+        ['ろくいちが ろく', 'ろくに じゅうに', 'ろくさん じゅうはち', 'ろくし にじゅうし', 'ろくご さんじゅう', 'ろくろく さんじゅうろく', 'ろくしち しじゅうに', 'ろくは しじゅうはち', 'ろっく ごじゅうし'],
+        ['しちいちが しち', 'しちに じゅうし', 'しちさん にじゅういち', 'しちし にじゅうはち', 'しちご さんじゅうご', 'しちろく しじゅうに', 'しちしち しじゅうく', 'しちは ごじゅうろく', 'しちく ろくじゅうさん'],
+        ['はちいちが はち', 'はちに じゅうろく', 'はちさん にじゅうし', 'はちし さんじゅうに', 'はちご しじゅう', 'はちろく しじゅうはち', 'はちしち ごじゅうろく', 'はっぱ ろくじゅうし', 'はっく しちじゅうに'],
+        ['くいちが く', 'くに じゅうはち', 'くさん にじゅうしち', 'くし さんじゅうろく', 'くご しじゅうご', 'くろく ごじゅうし', 'くしち ろくじゅうさん', 'くは しちじゅうに', 'くく はちじゅういち'],
+    ];
+
+    /** x × y の となえかた（1〜9 の とき だけ） */
+    function kukuReading(x, y) {
+        return (KUKU[x] && KUKU[x][y - 1]) || '';
+    }
+
+    const MARK = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'];
+
+    function clamp(n, lo, hi) {
+        n = Math.round(Number(n));
+        if (!isFinite(n)) n = lo;
+        return Math.max(lo, Math.min(hi, n));
+    }
+
+    /* ---------- ならべ方 ----------
+       よこ（yoko）：1つ分を よこ 1れつ に ならべる → よこの 数 ＝ 1つ分、たての 数 ＝ いくつ分
+       たて（tate）：1つ分を たて 1れつ に ならべる → たての 数 ＝ 1つ分、よこの 数 ＝ いくつ分 */
+    function gridSize(x, y, muki) {
+        return muki === 'tate' ? { cols: y, rows: x } : { cols: x, rows: y };
+    }
+
+    /** よこ w こ・たて h この 長方形を しきに すると [1つ分, いくつ分] */
+    function rectExpr(w, h, muki) {
+        return muki === 'tate' ? [h, w] : [w, h];
+    }
+
+    /* ---------- しきの 1行 ---------- */
+    function sayMul(x, y) {
+        return kukuReading(x, y) || `${x} かける ${y} は ${x * y}`;
+    }
+    function mulLine(w, h, muki, mark, note) {
+        const [x, y] = rectExpr(w, h, muki);
+        return { kind: 'part', mark: mark || '', note: note || '', text: `${x} × ${y} ＝ ${x * y}`, say: sayMul(x, y), n: x * y, x, y };
+    }
+    function sumLine(ns) {
+        const t = ns.reduce((s, v) => s + v, 0);
+        return { kind: 'sum', text: `${ns.join(' ＋ ')} ＝ ${t}`, say: `${ns.join(' たす ')} は ${t}`, n: t };
+    }
+    function diffLine(big, subs) {
+        const t = subs.reduce((s, v) => s - v, big);
+        return { kind: 'sum', text: `${big} − ${subs.join(' − ')} ＝ ${t}`, say: `${big} ひく ${subs.join(' ひく ')} は ${t}`, n: t };
+    }
+    function totalLine(n) {
+        return { kind: 'ans', text: `●は ぜんぶで ${n}こ`, say: `ぜんぶで ${n}こ`, n };
+    }
+
+    /* ---------- くぎりせん ----------
+       { ax:'v', at:k } … たての せん。ひだりから k れつめ と k+1 れつめ の あいだ
+       { ax:'h', at:k } … よこの せん。うえから k だんめ と k+1 だんめ の あいだ */
+    function sameCut(p, q) { return !!p && !!q && p.ax === q.ax && p.at === q.at; }
+    function hasCut(cuts, c) { return cuts.some(d => sameCut(d, c)); }
+    function sortCuts(cuts) {
+        return cuts.slice().sort((p, q) => (p.ax === q.ax ? p.at - q.at : (p.ax === 'v' ? -1 : 1)));
+    }
+    /** せんを 入れる・けす（max 本 まで）。did: 'add' | 'del' | 'full' */
+    function toggleCut(cuts, c, max) {
+        if (hasCut(cuts, c)) return { cuts: cuts.filter(d => !sameCut(d, c)), did: 'del' };
+        if (cuts.length >= (max || 2)) return { cuts, did: 'full' };
+        return { cuts: sortCuts(cuts.concat([{ ax: c.ax, at: c.at }])), did: 'add' };
+    }
+    /** せんを うごかす（おなじ むきで、まだ せんの ない ところ へ） */
+    function moveCut(cuts, from, to) {
+        if (!hasCut(cuts, from) || hasCut(cuts, to) || from.ax !== to.ax) return { cuts, did: 'none' };
+        return { cuts: sortCuts(cuts.map(d => (sameCut(d, from) ? { ax: to.ax, at: to.at } : d))), did: 'move' };
+    }
+    /** ●の 数が かわって はみ出した せんを おとす */
+    function fitCuts(cuts, cols, rows) {
+        return cuts.filter(c => c.at >= 1 && c.at < (c.ax === 'v' ? cols : rows));
+    }
+
+    /** せんで わけた ぶぶん（うえの だんから、ひだりから じゅんに） */
+    function regions(cols, rows, cuts) {
+        const xs = [0].concat(cuts.filter(c => c.ax === 'v').map(c => c.at).sort((a, b) => a - b), [cols]);
+        const ys = [0].concat(cuts.filter(c => c.ax === 'h').map(c => c.at).sort((a, b) => a - b), [rows]);
+        const out = [];
+        for (let j = 0; j < ys.length - 1; j++) {
+            for (let i = 0; i < xs.length - 1; i++) out.push({ c0: xs[i], c1: xs[i + 1], r0: ys[j], r1: ys[j + 1] });
+        }
+        return out;
+    }
+
+    /** 長方形の ●を わけた ときの ぶぶんと しき（モード2） */
+    function splitArray(x, y, muki, cuts) {
+        const { cols, rows } = gridSize(x, y, muki);
+        const parts = regions(cols, rows, fitCuts(cuts, cols, rows)).map((g, i) => {
+            const p = { reg: g, box: g, w: g.c1 - g.c0, h: g.r1 - g.r0, mark: MARK[i] };
+            p.line = mulLine(p.w, p.h, muki, p.mark);
+            return p;
+        });
+        let lines = [];
+        if (parts.length > 1) {
+            lines = parts.map(p => p.line);
+            lines.push(sumLine(parts.map(p => p.line.n)));
+            lines.push({ kind: 'ans', text: `${x} × ${y} ＝ ${x * y}`, say: sayMul(x, y), n: x * y });
+        }
+        return { cols, rows, parts, lines };
+    }
+
+    /* ---------- ●の いち（ボードの 中の ざひょう） ---------- */
+    /** opt: S（1マス）・G（せんの ところの すきま）・pad（数 か {l,t,r,b}）・minW・minH（まん中に よせる） */
+    function layout(cols, rows, cuts, opt) {
+        opt = opt || {};
+        const S = opt.S || 100, G = opt.G == null ? 40 : opt.G;
+        const p = typeof opt.pad === 'object' ? opt.pad : { l: opt.pad == null ? 70 : opt.pad };
+        const P = { l: p.l, t: p.t == null ? p.l : p.t, r: p.r == null ? p.l : p.r, b: p.b == null ? p.l : p.b };
+        const vs = cuts.filter(c => c.ax === 'v').map(c => c.at).sort((a, b) => a - b);
+        const hs = cuts.filter(c => c.ax === 'h').map(c => c.at).sort((a, b) => a - b);
+        const gw = cols * S + G * vs.length, gh = rows * S + G * hs.length;
+        let W = P.l + gw + P.r, H = P.t + gh + P.b, ox = P.l, oy = P.t;
+        if (opt.minW > W) { ox += (opt.minW - W) / 2; W = opt.minW; }
+        if (opt.minH > H) { oy += (opt.minH - H) / 2; H = opt.minH; }
+        const colX = c => ox + c * S + G * vs.filter(k => k <= c).length;
+        const rowY = r => oy + r * S + G * hs.filter(k => k <= r).length;
+        const vb = [], hb = [];
+        for (let k = 1; k < cols; k++) vb.push({ at: k, x: vs.includes(k) ? colX(k) - G / 2 : colX(k) });
+        for (let k = 1; k < rows; k++) hb.push({ at: k, y: hs.includes(k) ? rowY(k) - G / 2 : rowY(k) });
+        return { S, G, W, H, cols, rows, x0: ox, x1: ox + gw, y0: oy, y1: oy + gh, colX, rowY, vb, hb };
+    }
+
+    /** (px, py) の ところの マス（すきまの 上 なら null） */
+    function cellAt(px, py, lay) {
+        let c = -1, r = -1;
+        for (let i = 0; i < lay.cols; i++) { const x = lay.colX(i); if (px >= x && px < x + lay.S) { c = i; break; } }
+        for (let j = 0; j < lay.rows; j++) { const y = lay.rowY(j); if (py >= y && py < y + lay.S) { r = j; break; } }
+        return c < 0 || r < 0 ? null : { r, c };
+    }
+
+    /** (px, py) に いちばん ちかい ●と ●の あいだ。only を わたすと その むき だけ（せんを うごかす とき）。
+        ●の まん中 あたり（どの あいだ からも とおい）は null */
+    function nearestGap(px, py, lay, only) {
+        let best = null;
+        const look = (ax) => {
+            const list = ax === 'v' ? lay.vb : lay.hb, p = ax === 'v' ? px : py;
+            for (const b of list) {
+                const d = Math.abs(p - (ax === 'v' ? b.x : b.y));
+                if (!best || d < best.d) best = { ax, at: b.at, d };
+            }
+        };
+        if (only) { look(only); return best ? { ax: best.ax, at: best.at } : null; }
+        const S = lay.S, M = S * 0.95;
+        const inX = px >= lay.x0 && px <= lay.x1, inY = py >= lay.y0 && py <= lay.y1;
+        if (px < lay.x0 - M || px > lay.x1 + M || py < lay.y0 - M || py > lay.y1 + M) return null;
+        let lim;
+        if (inX && inY) { look('v'); look('h'); lim = S * 0.4; }
+        else if (inX) { look('v'); lim = S * 0.5; }         /* ●の うえ・した の そと → たての せん */
+        else if (inY) { look('h'); lim = S * 0.5; }         /* ●の ひだり・みぎ の そと → よこの せん */
+        else return null;
+        return best && best.d <= lim ? { ax: best.ax, at: best.at } : null;
+    }
+
+    /* ---------- かたちの● ----------
+       shape = { w, h, cells: [[true/false …] …] }（うえの だんから、ひだりから） */
+    const SHAPES = [
+        { name: 'Lの かたち', rows: ['###...', '###...', '######', '######', '######'] },
+        { name: 'かいだん', rows: ['##....', '##....', '####..', '####..', '######', '######'] },
+        { name: 'でっぱり', rows: ['..###..', '..###..', '#######', '#######', '#######'] },
+        { name: 'へこみ', rows: ['##...##', '##...##', '#######', '#######', '#######'] },
+        { name: 'ずれた かたち', rows: ['####..', '####..', '..####', '..####'] },
+        { name: '十字', rows: ['..##..', '..##..', '######', '######', '..##..', '..##..'] },
+    ];
+
+    function makeShape(rows) {
+        const h = rows.length, w = Math.max.apply(null, rows.map(s => s.length));
+        return { w, h, cells: rows.map(s => Array.from({ length: w }, (_, c) => s[c] === '#')) };
+    }
+    function shapeCount(sh) {
+        let n = 0;
+        for (const row of sh.cells) for (const v of row) if (v) n++;
+        return n;
+    }
+    /** まわりの ●の ない だん・れつを けずる（●が 1つも なければ null） */
+    function trimShape(sh) {
+        let r0 = sh.h, r1 = -1, c0 = sh.w, c1 = -1;
+        for (let r = 0; r < sh.h; r++) for (let c = 0; c < sh.w; c++) {
+            if (!sh.cells[r][c]) continue;
+            r0 = Math.min(r0, r); r1 = Math.max(r1, r); c0 = Math.min(c0, c); c1 = Math.max(c1, c);
+        }
+        if (r1 < 0) return null;
+        const cells = [];
+        for (let r = r0; r <= r1; r++) cells.push(sh.cells[r].slice(c0, c1 + 1));
+        return { w: c1 - c0 + 1, h: r1 - r0 + 1, cells };
+    }
+
+    /** かたちを せんで わける（モード4「わける」）。
+        どの ぶぶんの ●も 長方形 なら ok。長方形で ない ぶぶんは bad に 入る */
+    function shapeSplit(sh, cuts, muki) {
+        const parts = [], bad = [];
+        let total = 0;
+        for (const g of regions(sh.w, sh.h, fitCuts(cuts, sh.w, sh.h))) {
+            let n = 0, r0 = 99, r1 = -1, c0 = 99, c1 = -1;
+            for (let r = g.r0; r < g.r1; r++) for (let c = g.c0; c < g.c1; c++) {
+                if (!sh.cells[r][c]) continue;
+                n++; r0 = Math.min(r0, r); r1 = Math.max(r1, r); c0 = Math.min(c0, c); c1 = Math.max(c1, c);
+            }
+            total += n;
+            if (!n) continue;
+            const w = c1 - c0 + 1, h = r1 - r0 + 1;
+            if (w * h !== n) { bad.push(g); continue; }
+            parts.push({ reg: g, box: { r0, r1: r1 + 1, c0, c1: c1 + 1 }, w, h });
+        }
+        const ok = bad.length === 0;
+        let lines = [];
+        if (ok) {
+            parts.forEach((p, i) => { p.mark = MARK[i]; p.line = mulLine(p.w, p.h, muki, p.mark); });
+            lines = parts.map(p => p.line);
+            if (parts.length > 1) lines.push(sumLine(parts.map(p => p.line.n)));
+            lines.push(totalLine(total));
+        }
+        return { ok, bad, parts, lines, total };
+    }
+
+    /** ばらばらの マス（'r,c' の Set）を 長方形に わける（うえ・ひだりから よこに のばして、下へ のばす） */
+    function rectsOf(set, w, h) {
+        const left = new Set(set), out = [];
+        for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
+            if (!left.has(r + ',' + c)) continue;
+            let c1 = c;
+            while (c1 + 1 < w && left.has(r + ',' + (c1 + 1))) c1++;
+            let r1 = r;
+            grow: while (r1 + 1 < h) {
+                for (let k = c; k <= c1; k++) if (!left.has((r1 + 1) + ',' + k)) break grow;
+                r1++;
+            }
+            for (let y = r; y <= r1; y++) for (let x = c; x <= c1; x++) left.delete(y + ',' + x);
+            out.push({ r0: r, r1: r1 + 1, c0: c, c1: c1 + 1 });
+        }
+        return out;
+    }
+
+    /** うすい ●で おぎなう（モード4「おぎなう」）。fill は うすい ●を おいた マス（'r,c'） */
+    function oginau(sh, fill, muki) {
+        let missing = 0;
+        const put = new Set();
+        for (let r = 0; r < sh.h; r++) for (let c = 0; c < sh.w; c++) {
+            if (sh.cells[r][c]) continue;
+            if (fill.has(r + ',' + c)) put.add(r + ',' + c); else missing++;
+        }
+        const total = shapeCount(sh);
+        if (missing) return { complete: false, missing, total, holes: [], lines: [] };
+        const big = mulLine(sh.w, sh.h, muki, MARK[0], '大きい 長方形');
+        const holes = rectsOf(put, sh.w, sh.h).map((g, i) => ({ box: g, line: mulLine(g.c1 - g.c0, g.r1 - g.r0, muki, MARK[i + 1], 'おぎなった ところ') }));
+        const lines = [big].concat(holes.map(x => x.line));
+        if (holes.length) lines.push(diffLine(big.n, holes.map(x => x.line.n)));
+        lines.push(totalLine(total));
+        return { complete: true, missing: 0, total, big, holes, lines };
+    }
+
+    /** かたちを URL に 入れる 文字に（'6x5-7.7.3f.3f.3f'：1だんずつ 2しんすう → 36しんすう） */
+    function encodeShape(sh) {
+        return sh.w + 'x' + sh.h + '-' + sh.cells.map(row => parseInt(row.map(v => (v ? 1 : 0)).join(''), 2).toString(36)).join('.');
+    }
+    function decodeShape(str) {
+        const m = /^(\d{1,2})x(\d{1,2})-([0-9a-z.]+)$/.exec(String(str || ''));
+        if (!m) return null;
+        const w = Number(m[1]), h = Number(m[2]), list = m[3].split('.');
+        if (w < 1 || w > 12 || h < 1 || h > 12 || list.length !== h) return null;
+        const cells = [];
+        for (const s of list) {
+            const v = parseInt(s, 36);
+            if (!isFinite(v) || v < 0 || v >= Math.pow(2, w)) return null;
+            cells.push(v.toString(2).padStart(w, '0').split('').map(ch => ch === '1'));
+        }
+        return trimShape({ w, h, cells });
+    }
+
+    /* ---------- URL（#m=wakeru&a=7&b=3 …）---------- */
+    function toHash(o) {
+        return Object.keys(o).filter(k => o[k] !== undefined && o[k] !== null && o[k] !== '')
+            .map(k => k + '=' + encodeURIComponent(o[k])).join('&');
+    }
+    function fromHash(str) {
+        const out = {};
+        String(str || '').replace(/^#/, '').split('&').forEach(p => {
+            const i = p.indexOf('=');
+            if (i <= 0) return;
+            try { out[p.slice(0, i)] = decodeURIComponent(p.slice(i + 1)); } catch (e) { /* こわれた ところは つかわない */ }
+        });
+        return out;
+    }
+
+    root.NarabeLogic = {
+        KUKU, MARK, kukuReading, clamp, gridSize, rectExpr, sayMul,
+        mulLine, sumLine, diffLine, totalLine,
+        sameCut, hasCut, sortCuts, toggleCut, moveCut, fitCuts, regions, splitArray,
+        layout, cellAt, nearestGap, toHash, fromHash,
+        SHAPES, makeShape, shapeCount, trimShape, shapeSplit, rectsOf, oginau, encodeShape, decodeShape,
+    };
+})(typeof window !== 'undefined' ? window : globalThis);
+// ==/LOGIC==
+</script>
+
+<script>
+/* ●ならべ かけ算ラボ ── うごき */
+(function () {
+    'use strict';
+    const L = window.NarabeLogic;
+    const $ = s => document.querySelector(s);
+    const board = $('#board'), panel = $('#panel');
+
+    const PART = ['#3978d0', '#df8a2e', '#379c62', '#9a60c6'];
+    const BASE = '#41689e';
+    const GROUP = ['#df8a2e', '#379c62'];
+    const INK = '#2f3440';
+    const R = 36;                 /* ●の 大きさ（1マス 100 の うち） */
+
+    /* ---------- じょうたい ---------- */
+    const st = {
+        view: 'home', mode: 'wakeru', teach: false,
+        set: { muki: 'yoko', max: 9, yomi: false },
+        m1: { a: 3, b: 4, shown: false, groups: [], steps: false, popFrom: null },
+        m2: { a: 7, b: 3, cuts: [], undo: [], rev: 0 },
+        m3: { a: 3, b: 4, from: null, rev: 0 },
+        m4: { q: 0, method: 'wakeru', cuts: [], fill: [], undo: [], rev: 0, prev: null, my: null, edit: null },
+    };
+    let lay = null;               /* いま かいている ●の いち */
+    let pv = null;                /* せんの 下書き（ゆびで おしている あいだ） */
+    let hover = null;             /* マウスの ときの 下書き */
+    let busy = false;             /* くるっと まわしている あいだ */
+    let fresh = -1;               /* いま 出した しきの 行（ふわっと 出す） */
+
+    const cur = () => ({ tsukuru: st.m1, wakeru: st.m2, kurutto: st.m3, katachi: st.m4 }[st.mode]);
+
+    /* ---------- こえ ---------- */
+    function speak(t) {
+        if (!st.set.yomi || !t || !('speechSynthesis' in window)) return;
+        try {
+            speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(t);
+            u.lang = 'ja-JP';
+            u.rate = 0.9;
+            speechSynthesis.speak(u);
+        } catch (e) { /* よめなくても うごく */ }
+    }
+
+    let toastT = 0;
+    function toast(msg) {
+        const el = $('#toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(toastT);
+        toastT = setTimeout(() => el.classList.remove('show'), 2600);
+    }
+
+    /* ---------- SVG の ぶひん ---------- */
+    const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    function dot(cx, cy, fill, cls, delay) {
+        return `<circle class="dot${cls ? ' ' + cls : ''}" cx="${cx}" cy="${cy}" r="${R}" fill="${fill}"${delay ? ` style="animation-delay:${delay}ms"` : ''}/>`;
+    }
+    function text(x, y, s, size, fill, extra) {
+        return `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}" text-anchor="middle" dominant-baseline="central"${extra || ''}>${esc(s)}</text>`;
+    }
+    function center(r, c) { return [lay.colX(c) + lay.S / 2, lay.rowY(r) + lay.S / 2]; }
+    function setBoard(inner) {
+        board.setAttribute('viewBox', `0 0 ${lay.W} ${lay.H}`);
+        board.innerHTML = inner;
+    }
+
+    /** せんの 下書き・目じるし・本物の せん */
+    function cutMarks(cuts) {
+        let s = '';
+        const tick = '#cfc6b5';
+        for (const b of lay.vb) {
+            if (L.hasCut(cuts, { ax: 'v', at: b.at })) continue;
+            s += `<line x1="${b.x}" y1="${lay.y0 - 46}" x2="${b.x}" y2="${lay.y0 - 20}" stroke="${tick}" stroke-width="6" stroke-linecap="round"/>`;
+            s += `<line x1="${b.x}" y1="${lay.y1 + 20}" x2="${b.x}" y2="${lay.y1 + 46}" stroke="${tick}" stroke-width="6" stroke-linecap="round"/>`;
+        }
+        for (const b of lay.hb) {
+            if (L.hasCut(cuts, { ax: 'h', at: b.at })) continue;
+            s += `<line x1="${lay.x0 - 46}" y1="${b.y}" x2="${lay.x0 - 20}" y2="${b.y}" stroke="${tick}" stroke-width="6" stroke-linecap="round"/>`;
+            s += `<line x1="${lay.x1 + 20}" y1="${b.y}" x2="${lay.x1 + 46}" y2="${b.y}" stroke="${tick}" stroke-width="6" stroke-linecap="round"/>`;
+        }
+        const seg = (c, stroke, w, dash, op) => {
+            const o = op == null ? 1 : op;
+            if (c.ax === 'v') {
+                const b = lay.vb.find(q => q.at === c.at);
+                if (!b) return '';
+                return `<line x1="${b.x}" y1="${lay.y0 - 34}" x2="${b.x}" y2="${lay.y1 + 34}" stroke="${stroke}" stroke-width="${w}" stroke-linecap="round"${dash ? ` stroke-dasharray="${dash}"` : ''} opacity="${o}"/>`;
+            }
+            const b = lay.hb.find(q => q.at === c.at);
+            if (!b) return '';
+            return `<line x1="${lay.x0 - 34}" y1="${b.y}" x2="${lay.x1 + 34}" y2="${b.y}" stroke="${stroke}" stroke-width="${w}" stroke-linecap="round"${dash ? ` stroke-dasharray="${dash}"` : ''} opacity="${o}"/>`;
+        };
+        for (const c of cuts) {
+            const picked = pv && pv.from && L.sameCut(pv.from, c);
+            if (picked && pv.moving) s += seg(c, INK, 10, '4 18', 0.35);
+            else if (picked) s += seg(c, '#c8463b', 12, '');
+            else s += seg(c, INK, 10, '');
+        }
+        const show = pv || hover;
+        if (show && !(pv && pv.from && !pv.moving) && !L.hasCut(cuts, show)) s += seg(show, '#3978d0', 8, '22 14', 0.8);
+        return s;
+    }
+
+    /** わけた ぶぶんの いろの わくと 番号 */
+    function partFrame(box, i, dashed) {
+        const col = PART[i % PART.length], S = lay.S;
+        const x = lay.colX(box.c0) + 4, y = lay.rowY(box.r0) + 4;
+        const w = lay.colX(box.c1 - 1) + S - 4 - x, h = lay.rowY(box.r1 - 1) + S - 4 - y;
+        let s = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="26" fill="${col}" fill-opacity=".1" stroke="${col}" stroke-width="4"${dashed ? ' stroke-dasharray="14 10"' : ''}/>`;
+        s += `<circle cx="${x + 2}" cy="${y + 2}" r="27" fill="#fff" stroke="${col}" stroke-width="5"/>`;
+        s += text(x + 2, y + 4, String(i + 1), 34, col);
+        return s;
+    }
+
+    /* =====================================================================
+       モード1「つくる」
+       ===================================================================== */
+    const M1 = {
+        hint: '＋ − で ●の 数を かえよう。●を タップすると、1つ分ずつ 色が つくよ。',
+        board() {
+            const m = st.m1, yoko = st.set.muki !== 'tate';
+            const { cols, rows } = L.gridSize(m.a, m.b, st.set.muki);
+            lay = L.layout(cols, rows, [], { pad: yoko ? { l: 50, t: 50, r: 160, b: 50 } : { l: 50, t: 50, r: 50, b: 130 } });
+            let s = '';
+            m.groups.forEach((g, i) => {
+                const col = GROUP[i % 2], S = lay.S;
+                if (yoko) {
+                    const y = lay.rowY(g);
+                    s += `<rect x="${lay.x0 + 3}" y="${y + 5}" width="${lay.x1 - lay.x0 - 6}" height="${S - 10}" rx="${S / 2 - 5}" fill="${col}" fill-opacity=".14" stroke="${col}" stroke-width="4"/>`;
+                    s += text(lay.x1 + 80, y + S / 2 + 2, String((i + 1) * m.a), 54, col);
+                } else {
+                    const x = lay.colX(g);
+                    s += `<rect x="${x + 5}" y="${lay.y0 + 3}" width="${S - 10}" height="${lay.y1 - lay.y0 - 6}" rx="${S / 2 - 5}" fill="${col}" fill-opacity=".14" stroke="${col}" stroke-width="4"/>`;
+                    s += text(x + S / 2, lay.y1 + 64, String((i + 1) * m.a), 54, col);
+                }
+            });
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const g = yoko ? r : c, k = m.groups.indexOf(g);
+                    const pop = m.popFrom != null && g >= m.popFrom;
+                    const [x, y] = center(r, c);
+                    s += dot(x, y, k >= 0 ? GROUP[k % 2] : BASE, pop ? 'pop' : '', pop ? (yoko ? c : r) * 60 : 0);
+                }
+            }
+            m.popFrom = null;
+            setBoard(s);
+        },
+        panel() {
+            const m = st.m1, n = m.a * m.b;
+            let steps = '';
+            if (m.steps) {
+                const list = [];
+                for (let k = 1; k <= m.b; k++) list.push(`<span class="${k === m.b ? 'now' : ''}">${m.a} × ${k} ＝ ${m.a * k}</span>`);
+                steps = `<div class="steps">${list.join('')}<p>かける数が 1 ふえると、こたえは ${m.a} ふえる</p></div>`;
+            }
+            const yomi = L.kukuReading(m.a, m.b);
+            return `
+            <div class="p-top">${steppers(m)}</div>
+            <div class="p-mid">
+              <p class="eq"${st.teach ? ' data-act="next" style="cursor:pointer"' : ''}>${m.a} × ${m.b} ＝ ${m.shown ? `<span class="ans">${n}</span>` : '<span class="box">00</span>'}</p>
+              <p class="words">${m.a}こずつ ${m.b}つ分</p>
+              ${m.shown && yomi ? `<p class="yomi">${yomi}</p>` : ''}
+              ${steps}
+            </div>
+            <div class="p-bot">
+              <div class="row"><button class="btn go" data-act="ans">${m.shown ? 'こたえを かくす' : '<span class="i">👀</span>こたえを見る'}</button></div>
+              <div class="row n-only">
+                <button class="btn soft" data-act="clearColor"${m.groups.length ? '' : ' disabled'}>色を けす</button>
+                <button class="btn soft${m.steps ? ' on' : ''}" data-act="steps">📈 ふえかた</button>
+              </div>
+            </div>`;
+        },
+        down(p) {
+            const cell = L.cellAt(p.x, p.y, lay);
+            if (!cell) return null;
+            const yoko = st.set.muki !== 'tate', g = yoko ? cell.r : cell.c;
+            return {
+                up(q) {
+                    const c2 = L.cellAt(q.x, q.y, lay);
+                    if (!c2 || (yoko ? c2.r : c2.c) !== g) return;
+                    const m = st.m1, i = m.groups.indexOf(g);
+                    if (i >= 0) m.groups.splice(i, 1); else m.groups.push(g);
+                    render();
+                },
+            };
+        },
+    };
+
+    /* =====================================================================
+       モード2「わける」
+       ===================================================================== */
+    const M2 = {
+        hint: '●と ●の あいだを タップすると、せんが 入るよ（2本まで）。もう いちど タップで けす・ゆびで ずらすと うごく。',
+        res() { const m = st.m2; return L.splitArray(m.a, m.b, st.set.muki, m.cuts); },
+        lines() { return M2.res().lines; },
+        board() {
+            const m = st.m2, r = M2.res();
+            lay = L.layout(r.cols, r.rows, m.cuts, { pad: 80 });
+            let s = '';
+            const split = r.parts.length > 1;
+            if (split) r.parts.forEach((p, i) => { s += partFrame(p.box, i); });
+            r.parts.forEach((p, i) => {
+                for (let y = p.reg.r0; y < p.reg.r1; y++) {
+                    for (let x = p.reg.c0; x < p.reg.c1; x++) {
+                        const [cx, cy] = center(y, x);
+                        s += dot(cx, cy, split ? PART[i % PART.length] : BASE);
+                    }
+                }
+            });
+            s += cutMarks(m.cuts);
+            setBoard(s);
+        },
+        panel() {
+            const m = st.m2;
+            return `
+            <div class="p-top">
+              ${steppers(m)}
+              <p class="q"><span class="big">${m.a} × ${m.b}</span> の こたえを、わけて 見つけよう</p>
+            </div>
+            <div class="p-mid">${linesHtml(M2.lines(), m.rev, m.cuts.length ? '' : '●と ●の あいだを タップして、せんを 入れよう')}</div>
+            <div class="p-bot">
+              ${revealRow(M2.lines(), m.rev)}
+              <div class="row">
+                <button class="btn soft" data-act="undo"${m.undo.length ? '' : ' disabled'}>↩ もとにもどす</button>
+                <button class="btn soft" data-act="clear"${m.cuts.length ? '' : ' disabled'}>ぜんぶけす</button>
+              </div>
+            </div>`;
+        },
+        strip() {
+            const list = [[6, 4], [7, 3], [8, 6], [9, 7], [6, 8]];
+            if (st.set.max > 9) list.push([4, 12], [3, 12]);
+            return `<span class="lbl">れい</span>` + list.map(([a, b]) =>
+                `<button class="btn soft${st.m2.a === a && st.m2.b === b ? ' on' : ''}" data-act="odai" data-a="${a}" data-b="${b}">${a} × ${b}</button>`).join('');
+        },
+        down(p) { return cutDrag(p, () => st.m2.cuts, (cuts) => { pushUndo(st.m2); st.m2.cuts = cuts; st.m2.rev = 0; }); },
+    };
+
+    /* ---------- せんを 入れる・けす・うごかす（モード2・4 で つかう） ---------- */
+    function cutDrag(p, get, set) {
+        const start = L.nearestGap(p.x, p.y, lay);
+        if (!start) return null;
+        const existing = L.hasCut(get(), start);
+        const d = { cur: start };
+        pv = existing ? { from: start, ax: start.ax, at: start.at, moving: false } : { ax: start.ax, at: start.at };
+        drawBoard();
+        d.move = (q) => {
+            const c = L.nearestGap(q.x, q.y, lay, existing ? start.ax : null);
+            if (!c || L.sameCut(c, d.cur)) return;
+            d.cur = c;
+            pv = existing ? { from: start, ax: c.ax, at: c.at, moving: !L.sameCut(c, start) } : { ax: c.ax, at: c.at };
+            drawBoard();
+        };
+        d.up = () => {
+            pv = null;
+            const cuts = get(), t = d.cur;
+            if (existing && !L.sameCut(t, start)) {
+                const r = L.moveCut(cuts, start, t);
+                if (r.did === 'move') set(r.cuts);
+            } else {
+                const r = L.toggleCut(cuts, t, 2);
+                if (r.did === 'full') toast('せんは 2本まで。いらない せんを タップして けしてね');
+                else set(r.cuts);
+            }
+            render();
+        };
+        d.cancel = () => { pv = null; render(); };
+        return d;
+    }
+
+    function pushUndo(m) {
+        m.undo.push(JSON.stringify({ cuts: m.cuts, fill: m.fill }));
+        if (m.undo.length > 60) m.undo.shift();
+    }
+    function popUndo(m) {
+        if (!m.undo.length) return;
+        const o = JSON.parse(m.undo.pop());
+        m.cuts = o.cuts || [];
+        if (o.fill) m.fill = o.fill;
+        m.rev = 0;
+    }
+
+    /* ---------- パネルの ぶひん ---------- */
+    function steppers(m) {
+        const one = (k, label, v, hi) => stepBox(label, v, 1, hi, `data-act="dec" data-k="${k}"`, `data-act="inc" data-k="${k}"`);
+        return `<div class="steppers">${one('a', '1つ分の 数', m.a, 9)}${one('b', 'いくつ分', m.b, st.set.max)}</div>`;
+    }
+
+    function linesHtml(lines, rev, empty) {
+        if (!lines.length) return empty ? `<p class="note">${empty}</p>` : '';
+        let colorIdx = 0;
+        const li = lines.map((ln, i) => {
+            if (i >= rev) return '<li class="ln ghost"></li>';
+            let mk = '';
+            if (ln.mark) {
+                const col = PART[(ln.color != null ? ln.color : colorIdx++) % PART.length];
+                mk = `<span class="mk" style="color:${col}">${L.MARK.indexOf(ln.mark) + 1}</span>`;
+            }
+            return `<li class="ln ${ln.kind}${i === fresh ? ' fresh' : ''}">${mk}<span class="tx">${ln.note ? `<span class="nt">${esc(ln.note)}</span>` : ''}${esc(ln.text)}</span></li>`;
+        });
+        fresh = -1;
+        return `<ol class="lines${st.teach ? ' clickable' : ''}" data-act="${st.teach ? 'next' : ''}">${li.join('')}</ol>`;
+    }
+
+    function revealRow(lines, rev) {
+        const n = lines.length;
+        return `
+          <div class="row">
+            <button class="btn t-only" data-act="prev"${rev > 0 ? '' : ' disabled'}>◀</button>
+            <button class="btn go" data-act="next"${n && rev < n ? '' : ' disabled'}>つぎ ▶</button>
+            <button class="btn soft n-only" data-act="all"${n && rev < n ? '' : ' disabled'}>ぜんぶ</button>
+            <button class="btn soft" data-act="hide"${rev > 0 ? '' : ' disabled'}>かくす</button>
+          </div>`;
+    }
+
+
+    /* =====================================================================
+       モード3「くるっと」
+       ===================================================================== */
+    const M3 = {
+        hint: '「くるっと」を おすと、●が まわるよ。まわしても ●の 数は かわらない かな？',
+        lines() {
+            const m = st.m3, n = m.a * m.b;
+            const mk = (a, b, note) => ({ kind: 'part', note, text: `${a} × ${b} ＝ ${a * b}`, say: L.sayMul(a, b), n: a * b });
+            if (!m.from) return [mk(m.a, m.b, 'いまの ●')];
+            return [mk(m.from.a, m.from.b, 'まわす まえ'), mk(m.a, m.b, 'まわした あと'),
+                { kind: 'ans', text: `こたえは おなじ ${n}`, say: `こたえは おなじ ${n}`, n }];
+        },
+        rev() { return st.teach ? st.m3.rev : M3.lines().length; },
+        badge() {
+            const el = $('#badge');
+            el.hidden = false;
+            el.innerHTML = `●の 数<b>${st.m3.a * st.m3.b}</b>こ`;
+        },
+        board() {
+            const m = st.m3, { cols, rows } = L.gridSize(m.a, m.b, st.set.muki);
+            const side = 2 * 60 + Math.max(cols, rows) * 100;
+            lay = L.layout(cols, rows, [], { pad: 60, minW: side, minH: side });
+            let s = '<g id="spin">';
+            const yoko = st.set.muki !== 'tate';
+            /* 1つ分 ずつの うすい わく（まわすと むきが かわるのが 見える） */
+            for (let g = 0; g < m.b; g++) {
+                const S = lay.S;
+                if (yoko) s += `<rect x="${lay.x0 + 6}" y="${lay.rowY(g) + 8}" width="${lay.x1 - lay.x0 - 12}" height="${S - 16}" rx="${S / 2 - 8}" fill="none" stroke="#d6cdbb" stroke-width="4"/>`;
+                else s += `<rect x="${lay.colX(g) + 8}" y="${lay.y0 + 6}" width="${S - 16}" height="${lay.y1 - lay.y0 - 12}" rx="${S / 2 - 8}" fill="none" stroke="#d6cdbb" stroke-width="4"/>`;
+            }
+            for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const [x, y] = center(r, c); s += dot(x, y, BASE); }
+            s += '</g>';
+            setBoard(s);
+        },
+        panel() {
+            const m = st.m3, ls = M3.lines();
+            return `
+            <div class="p-top">${steppers(m)}</div>
+            <div class="p-mid">${linesHtml(ls, M3.rev())}</div>
+            <div class="p-bot">
+              <div class="row t-only">
+                <button class="btn" data-act="prev"${m.rev > 0 ? '' : ' disabled'}>◀</button>
+                <button class="btn" data-act="next"${m.rev < ls.length ? '' : ' disabled'}>つぎ ▶</button>
+              </div>
+              <div class="row"><button class="btn go" data-act="rotate" style="font-size:1.4rem"><span class="i">↻</span>くるっと</button></div>
+            </div>`;
+        },
+        spin() {
+            const g = board.querySelector('#spin');
+            if (!g) return;
+            busy = true;
+            const m = st.m3, cx = lay.W / 2, cy = lay.H / 2;
+            const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const dur = reduce ? 400 : 1800, t0 = performance.now();
+            const step = (now) => {
+                const t = Math.min(1, (now - t0) / dur);
+                const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+                g.setAttribute('transform', `rotate(${90 * e} ${cx} ${cy})`);
+                if (t < 1) { requestAnimationFrame(step); return; }
+                m.from = { a: m.a, b: m.b };
+                const a = m.a; m.a = m.b; m.b = a;
+                m.rev = Math.min(m.rev, 1);
+                busy = false;
+                render();
+                if (!st.teach) speak(`${L.sayMul(m.from.a, m.from.b)}。${L.sayMul(m.a, m.b)}`);
+            };
+            requestAnimationFrame(step);
+        },
+    };
+
+    /* =====================================================================
+       モード4「かたちの●」
+       ===================================================================== */
+    const M4 = {
+        shape() { const m = st.m4; return m.q === 'my' && m.my ? m.my : L.makeShape(L.SHAPES[m.q].rows); },
+        res() {
+            const m = st.m4, sh = M4.shape();
+            return m.method === 'oginau' ? L.oginau(sh, new Set(m.fill), st.set.muki) : L.shapeSplit(sh, m.cuts, st.set.muki);
+        },
+        lines() { return st.m4.edit ? [] : M4.res().lines; },
+        hint() {
+            const m = st.m4;
+            if (m.edit) return 'マスを タップ（なぞる）すると、●が 出たり きえたり するよ。';
+            return m.method === 'oginau'
+                ? 'たりない ところを タップ（なぞる）して、うすい ●を おこう。大きい 長方形に して、あとで ひくよ。'
+                : '●と ●の あいだを タップして、長方形に わけよう（せんは 2本まで）。';
+        },
+        hoverCut() { return !st.m4.edit && st.m4.method === 'wakeru'; },
+        strip() {
+            const m = st.m4;
+            if (m.edit) return '';
+            let s = '<span class="lbl">もんだい</span>';
+            s += L.SHAPES.map((x, i) => `<button class="btn soft${m.q === i ? ' on' : ''}" data-act="q" data-q="${i}">${x.name}</button>`).join('');
+            if (m.my) s += `<button class="btn soft${m.q === 'my' ? ' on' : ''}" data-act="q" data-q="my">じぶんの かたち</button>`;
+            s += '<button class="btn soft" data-act="edit">✏️ かたちを つくる</button>';
+            return s;
+        },
+        board() {
+            const m = st.m4;
+            if (m.edit) return M4.boardEdit();
+            const sh = M4.shape(), res = M4.res();
+            const empty = (x, y) => `<circle cx="${x}" cy="${y}" r="7" fill="#ddd5c6"/>`;
+            let s = '';
+            if (m.method === 'wakeru') {
+                lay = L.layout(sh.w, sh.h, m.cuts, { pad: 80 });
+                const owner = {};
+                if (m.cuts.length) {
+                    res.parts.forEach((p, i) => {
+                        if (res.ok) s += partFrame(p.box, i);
+                        for (let r = p.box.r0; r < p.box.r1; r++) for (let c = p.box.c0; c < p.box.c1; c++) owner[r + ',' + c] = i;
+                    });
+                    for (const g of res.bad) s += badFrame(g);
+                }
+                for (let r = 0; r < sh.h; r++) for (let c = 0; c < sh.w; c++) {
+                    const [x, y] = center(r, c);
+                    if (!sh.cells[r][c]) { s += empty(x, y); continue; }
+                    const i = owner[r + ',' + c];
+                    s += dot(x, y, res.ok && m.cuts.length && i != null ? PART[i % PART.length] : BASE);
+                }
+                s += cutMarks(m.cuts);
+            } else {
+                lay = L.layout(sh.w, sh.h, [], { pad: 80 });
+                const fill = new Set(m.fill);
+                if (res.complete) {
+                    s += partFrame({ r0: 0, r1: sh.h, c0: 0, c1: sh.w }, 0);
+                    res.holes.forEach((hl, i) => { s += partFrame(hl.box, i + 1, true); });
+                }
+                for (let r = 0; r < sh.h; r++) for (let c = 0; c < sh.w; c++) {
+                    const [x, y] = center(r, c);
+                    if (sh.cells[r][c]) s += dot(x, y, BASE);
+                    else if (fill.has(r + ',' + c)) s += `<circle class="dot" cx="${x}" cy="${y}" r="${R - 2}" fill="#f7dcb9" stroke="#df8a2e" stroke-width="5" stroke-dasharray="11 8"/>`;
+                    else s += `<circle cx="${x}" cy="${y}" r="${R - 4}" fill="none" stroke="#cdc3b1" stroke-width="3" stroke-dasharray="8 8"/>`;
+                }
+            }
+            setBoard(s);
+        },
+        boardEdit() {
+            const e = st.m4.edit;
+            lay = L.layout(e.w, e.h, [], { pad: 50 });
+            let s = `<rect x="${lay.x0}" y="${lay.y0}" width="${lay.x1 - lay.x0}" height="${lay.y1 - lay.y0}" rx="16" fill="#fff" stroke="#e2d9c8" stroke-width="3"/>`;
+            for (let r = 0; r < e.h; r++) for (let c = 0; c < e.w; c++) {
+                const [x, y] = center(r, c);
+                s += e.cells[r][c] ? dot(x, y, BASE) : `<circle cx="${x}" cy="${y}" r="${R - 4}" fill="none" stroke="#cdc3b1" stroke-width="3" stroke-dasharray="8 8"/>`;
+            }
+            setBoard(s);
+        },
+        panel() {
+            const m = st.m4;
+            if (m.edit) return M4.panelEdit();
+            const res = M4.res(), ls = res.lines;
+            let mid = '';
+            if (m.method === 'wakeru') {
+                if (!m.cuts.length && !res.ok) mid = '<p class="note">●と ●の あいだを タップして、せんを 入れよう。</p>';
+                else if (!res.ok) mid = '<p class="msg">まだ 長方形に なって いない ところが あるよ（赤い わく）。せんを たしたり、うごかしたり してみよう。</p>';
+            } else if (!res.complete) {
+                mid = '<p class="note">大きい 長方形に なるまで、うすい ●を おこう。</p>';
+            }
+            mid += linesHtml(ls, m.rev);
+            if (ls.length && m.rev >= ls.length) mid += '<div class="row"><button class="btn soft" data-act="other">🔄 ちがう やりかたで やってみる</button></div>';
+            if (m.prev && m.prev.method !== m.method) {
+                const done = ls.length && m.rev >= ls.length;
+                mid += `<p class="msg ok"><span class="nt" style="display:block;font-size:.85em">さっきの やりかた（${m.prev.method === 'oginau' ? 'おぎなう' : 'わける'}）</span>${esc(m.prev.text)}${done && m.prev.total === res.total ? `<br>どちらの やりかたでも ●は ${res.total}こ！` : ''}</p>`;
+            }
+            const has = m.method === 'oginau' ? m.fill.length : m.cuts.length;
+            return `
+            <div class="p-top">
+              <p class="q">●は ぜんぶで <span class="big">なんこ</span>？</p>
+              <div class="row">
+                <button class="btn${m.method === 'wakeru' ? ' on' : ''}" data-act="method" data-v="wakeru"><span class="i">✂️</span>わける</button>
+                <button class="btn${m.method === 'oginau' ? ' on' : ''}" data-act="method" data-v="oginau"><span class="i" style="color:#df8a2e">◌</span>おぎなう</button>
+              </div>
+            </div>
+            <div class="p-mid">${mid}</div>
+            <div class="p-bot">
+              ${revealRow(ls, m.rev)}
+              <div class="row">
+                <button class="btn soft" data-act="undo"${m.undo.length ? '' : ' disabled'}>↩ もとにもどす</button>
+                <button class="btn soft" data-act="clear"${has ? '' : ' disabled'}>ぜんぶけす</button>
+              </div>
+            </div>`;
+        },
+        panelEdit() {
+            const e = st.m4.edit;
+            const box = (k, label, v) => stepBox(label, v, 2, 12, `data-act="esize" data-k="${k}" data-d="-1"`, `data-act="esize" data-k="${k}" data-d="1"`);
+            return `
+            <div class="p-top">
+              <p class="q">✏️ かたちを つくる</p>
+              <div class="steppers">${box('w', 'よこの 数', e.w)}${box('h', 'たての 数', e.h)}</div>
+            </div>
+            <div class="p-mid">
+              <p class="note">マスを タップ・なぞると ●が 出たり きえたり します。まわりの あいた だん・れつは「できた」で けずります。<br>できた かたちは この がめんの リンク（⚙️ → リンクを コピー）で くばれます。</p>
+              <div class="row">
+                <button class="btn soft" data-act="efill" data-v="1">ぜんぶ ●</button>
+                <button class="btn soft" data-act="efill" data-v="0">ぜんぶ けす</button>
+              </div>
+            </div>
+            <div class="p-bot">
+              <div class="row">
+                <button class="btn soft" data-act="ecancel">✕ やめる</button>
+                <button class="btn go" data-act="edone">✔ できた</button>
+              </div>
+            </div>`;
+        },
+        down(p) {
+            const m = st.m4;
+            if (m.edit) return paintDrag(p, (r, c) => m.edit.cells[r][c], (r, c, v) => { m.edit.cells[r][c] = v; }, null);
+            if (m.method === 'wakeru') return cutDrag(p, () => m.cuts, (cuts) => { pushUndo(m); m.cuts = cuts; m.rev = 0; });
+            const sh = M4.shape();
+            return paintDrag(p, (r, c) => (sh.cells[r][c] ? null : m.fill.includes(r + ',' + c)), (r, c, v) => {
+                const k = r + ',' + c;
+                m.fill = v ? m.fill.concat([k]) : m.fill.filter(x => x !== k);
+                m.rev = 0;
+            }, () => pushUndo(m));
+        },
+    };
+
+    /** なぞって ●を おく・けす（はじめに さわった マスの はんたいに そろえる） */
+    function paintDrag(p, get, set, before) {
+        const cell = L.cellAt(p.x, p.y, lay);
+        if (!cell) return null;
+        const v0 = get(cell.r, cell.c);
+        if (v0 === null) return null;
+        const want = !v0, seen = new Set();
+        const touch = (c) => {
+            if (!c || seen.has(c.r + ',' + c.c)) return;
+            seen.add(c.r + ',' + c.c);
+            const v = get(c.r, c.c);
+            if (v === null || v === want) return;
+            set(c.r, c.c, want);
+            drawBoard();
+        };
+        if (before) before();
+        touch(cell);
+        return {
+            move(q) { touch(L.cellAt(q.x, q.y, lay)); },
+            up() { render(); },
+            cancel() { render(); },
+        };
+    }
+
+    function badFrame(g) {
+        const S = lay.S, x = lay.colX(g.c0) + 2, y = lay.rowY(g.r0) + 2;
+        const w = lay.colX(g.c1 - 1) + S - 2 - x, h = lay.rowY(g.r1 - 1) + S - 2 - y;
+        return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="22" fill="#c8463b" fill-opacity=".06" stroke="#c8463b" stroke-width="5" stroke-dasharray="16 10"/>`;
+    }
+
+    function stepBox(label, v, lo, hi, decAttr, incAttr) {
+        return `
+          <div class="stepper">
+            <span class="sl">${label}</span>
+            <span class="sv">
+              <button class="btn" ${decAttr} aria-label="へらす"${v <= lo ? ' disabled' : ''}>−</button>
+              <output>${v}</output>
+              <button class="btn" ${incAttr} aria-label="ふやす"${v >= hi ? ' disabled' : ''}>＋</button>
+            </span>
+          </div>`;
+    }
+
+    /* =====================================================================
+       がめんを かく
+       ===================================================================== */
+    const VIEWS = { tsukuru: M1, wakeru: M2, kurutto: M3, katachi: M4 };
+
+    function drawBoard() { VIEWS[st.mode].board(); }
+
+    function render() {
+        document.body.classList.toggle('teach', st.teach);
+        $('#home').hidden = st.view !== 'home';
+        $('#work').hidden = st.view === 'home';
+        document.querySelectorAll('#tabs [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === st.mode));
+        $('#teachBtn').classList.toggle('teach-on', st.teach);
+        document.querySelectorAll('#setDlg [data-act="setMuki"]').forEach(b => b.classList.toggle('on', b.dataset.v === st.set.muki));
+        document.querySelectorAll('#setDlg [data-act="setMax"]').forEach(b => b.classList.toggle('on', Number(b.dataset.v) === st.set.max));
+        document.querySelectorAll('#setDlg [data-act="setYomi"]').forEach(b => b.classList.toggle('on', (b.dataset.v === '1') === st.set.yomi));
+        if (st.view !== 'home') {
+            const V = VIEWS[st.mode];
+            $('#hint').textContent = typeof V.hint === 'function' ? V.hint() : V.hint;
+            $('#strip').innerHTML = V.strip ? V.strip() : '';
+            $('#strip').hidden = !V.strip;
+            $('#badge').hidden = true;
+            if (V.badge) V.badge();
+            V.board();
+            panel.innerHTML = V.panel();
+        }
+        syncHash();
+    }
+
+    /* ---------- URL に いまの ようすを のこす（リンクで くばれる・読みこみなおしても おなじ がめん） ---------- */
+    function syncHash() {
+        const o = { m: st.view === 'home' ? 'home' : st.mode };
+        if (st.view !== 'home' && st.mode !== 'katachi') { o.a = cur().a; o.b = cur().b; }
+        if (st.view !== 'home' && st.mode === 'katachi') {
+            const m = st.m4;
+            o.q = m.q === 'my' ? 'my' : m.q + 1;
+            if (m.q === 'my' && m.my) o.s = L.encodeShape(m.my);
+            if (m.method === 'oginau') o.w = 'o';
+        }
+        if (st.teach) o.t = 1;
+        if (st.set.muki === 'tate') o.muki = 'tate';
+        if (st.set.max === 12) o.max = 12;
+        if (st.set.yomi) o.yomi = 1;
+        const h = '#' + L.toHash(o);
+        if (location.hash !== h) { try { history.replaceState(null, '', h); } catch (e) { /* file:// などで だめでも よい */ } }
+    }
+
+    function loadHash() {
+        const o = L.fromHash(location.hash);
+        if (o.muki === 'tate') st.set.muki = 'tate';
+        if (o.max === '12') st.set.max = 12;
+        if (o.yomi === '1') st.set.yomi = true;
+        if (o.t === '1') st.teach = true;
+        if (VIEWS[o.m]) {
+            st.view = 'work';
+            st.mode = o.m;
+            const m = cur();
+            if (st.mode === 'katachi') {
+                const my = L.decodeShape(o.s);
+                if (o.q === 'my' && my) { m.my = my; m.q = 'my'; }
+                else if (o.q) m.q = L.clamp(o.q, 1, L.SHAPES.length) - 1;
+                if (o.w === 'o') m.method = 'oginau';
+            } else {
+                if (o.a) m.a = L.clamp(o.a, 1, st.mode === 'kurutto' ? st.set.max : 9);
+                if (o.b) m.b = L.clamp(o.b, 1, st.set.max);
+            }
+        } else if (st.teach) {
+            st.view = 'work';
+        }
+    }
+
+    /* =====================================================================
+       ボタン
+       ===================================================================== */
+    function lines() { const V = VIEWS[st.mode]; return V.lines ? V.lines() : []; }
+
+    const ACT = {
+        home() { st.view = 'home'; st.teach = false; },
+        mode(d) { st.view = 'work'; st.mode = d.mode; },
+        teach() { st.teach = !st.teach; },
+        teachStart() { st.view = 'work'; st.teach = true; if (st.mode === 'tsukuru') st.mode = 'wakeru'; },
+        fs() {
+            try {
+                if (document.fullscreenElement) document.exitFullscreen();
+                else document.documentElement.requestFullscreen();
+            } catch (e) { /* できない ブラウザ */ }
+            return false;
+        },
+        openSet() { $('#setDlg').showModal(); return false; },
+        closeSet() { $('#setDlg').close(); return false; },
+        setMuki(d) {
+            if (st.set.muki === d.v) return;
+            st.set.muki = d.v;
+            st.m2.cuts = []; st.m2.undo = []; st.m2.rev = 0;
+            st.m3.from = null; st.m3.rev = 0;
+            st.m4.rev = 0;
+        },
+        setMax(d) {
+            st.set.max = Number(d.v) === 12 ? 12 : 9;
+            for (const m of [st.m1, st.m2, st.m3]) m.b = Math.min(m.b, st.set.max);
+            if (st.m3.a > st.set.max) { st.m3.a = st.set.max; }
+            st.m3.from = null; st.m3.rev = 0;
+            st.m1.groups = st.m1.groups.filter(g => g < st.m1.b);
+            fitAll();
+        },
+        setYomi(d) { st.set.yomi = d.v === '1'; if (!st.set.yomi && 'speechSynthesis' in window) speechSynthesis.cancel(); },
+        copyLink() {
+            syncHash();
+            const url = location.href;
+            const done = () => toast('リンクを コピーしました');
+            try {
+                navigator.clipboard.writeText(url).then(done, () => window.prompt('この リンクを コピーしてください', url));
+            } catch (e) { window.prompt('この リンクを コピーしてください', url); }
+            return false;
+        },
+        inc(d) { changeAB(d.k, +1); },
+        dec(d) { changeAB(d.k, -1); },
+        ans() { const m = st.m1; m.shown = !m.shown; if (m.shown) speak(L.sayMul(m.a, m.b)); },
+        clearColor() { st.m1.groups = []; },
+        steps() { st.m1.steps = !st.m1.steps; },
+        next() {
+            if (st.mode === 'tsukuru') { if (!st.m1.shown) ACT.ans(); return; }
+            const ls = lines(), m = cur();
+            if (m.rev >= ls.length) return;
+            m.rev++;
+            fresh = m.rev - 1;
+            speak(ls[m.rev - 1].say);
+        },
+        prev() {
+            if (st.mode === 'tsukuru') { st.m1.shown = false; return; }
+            const m = cur();
+            if (m.rev > 0) m.rev--;
+        },
+        all() { cur().rev = lines().length; },
+        hide() { if (st.mode === 'tsukuru') st.m1.shown = false; else cur().rev = 0; },
+        undo() { const m = cur(); if (m.undo) popUndo(m); },
+        clear() {
+            const m = cur();
+            if (!m.cuts || (!m.cuts.length && !(m.fill && m.fill.length))) return;
+            pushUndo(m);
+            m.cuts = [];
+            if (m.fill) m.fill = [];
+            m.rev = 0;
+        },
+        rotate() { requestAnimationFrame(() => M3.spin()); },
+        q(d) {
+            const m = st.m4;
+            m.q = d.q === 'my' ? 'my' : L.clamp(d.q, 0, L.SHAPES.length - 1);
+            resetM4(true);
+        },
+        method(d) {
+            if (st.m4.method !== d.v) switchMethod();
+        },
+        other() {
+            switchMethod();
+            toast(st.m4.method === 'oginau' ? 'こんどは「おぎなう」で やってみよう' : 'こんどは「わける」で やってみよう');
+        },
+        edit() {
+            const sh = M4.shape();
+            const w = Math.max(sh.w, 6), h = Math.max(sh.h, 5);
+            const cells = [];
+            for (let r = 0; r < h; r++) { const row = []; for (let c = 0; c < w; c++) row.push(!!(sh.cells[r] && sh.cells[r][c])); cells.push(row); }
+            st.m4.edit = { w, h, cells };
+        },
+        esize(d) {
+            const e = st.m4.edit, k = d.k, v = L.clamp(e[k] + Number(d.d), 2, 12);
+            if (k === 'w') e.cells.forEach(row => { while (row.length < v) row.push(false); row.length = v; });
+            else { while (e.cells.length < v) e.cells.push(new Array(e.w).fill(false)); e.cells.length = v; }
+            e[k] = v;
+        },
+        efill(d) { const e = st.m4.edit; e.cells = e.cells.map(row => row.map(() => d.v === '1')); },
+        ecancel() { st.m4.edit = null; },
+        edone() {
+            const m = st.m4, sh = L.trimShape(m.edit);
+            if (!sh || L.shapeCount(sh) < 2) { toast('●を 2こ いじょう おいてね'); return; }
+            m.my = sh; m.q = 'my'; m.edit = null;
+            resetM4(true);
+        },
+        odai(d) {
+            const m = st.m2;
+            m.a = L.clamp(d.a, 1, 9); m.b = L.clamp(d.b, 1, st.set.max);
+            m.cuts = []; m.undo = []; m.rev = 0;
+        },
+    };
+
+    /** かたちの● を はじめから（newQ：ちがう もんだい → さっきの やりかたも けす） */
+    function resetM4(newQ) {
+        const m = st.m4;
+        m.cuts = []; m.fill = []; m.undo = []; m.rev = 0;
+        if (newQ) m.prev = null;
+    }
+
+    /** わける ⇔ おぎなう。できて いれば「さっきの やりかた」に のこす */
+    function switchMethod() {
+        const m = st.m4, ls = M4.res().lines;
+        if (ls.length) {
+            const key = ls.find(l => l.kind === 'sum') || ls[0];
+            m.prev = { method: m.method, text: key.text, total: M4.res().total };
+        }
+        m.method = m.method === 'wakeru' ? 'oginau' : 'wakeru';
+        resetM4(false);
+    }
+
+    function fitAll() {
+        const m = st.m2, g = L.gridSize(m.a, m.b, st.set.muki);
+        const f = L.fitCuts(m.cuts, g.cols, g.rows);
+        if (f.length !== m.cuts.length) { m.cuts = f; m.undo = []; }
+        m.rev = 0;
+    }
+
+    function changeAB(k, delta) {
+        const m = cur(), hi = k === 'a' ? 9 : st.set.max, old = m[k];
+        const v = old + delta;
+        if (v < 1 || (delta > 0 && v > Math.max(hi, old))) return;
+        m[k] = v;
+        if (st.mode === 'tsukuru') {
+            m.shown = false;
+            if (k === 'b') {
+                if (delta > 0) m.popFrom = old;
+                m.groups = m.groups.filter(g => g < m.b);
+            }
+        } else if (st.mode === 'wakeru') {
+            fitAll();
+        } else if (st.mode === 'kurutto') {
+            m.from = null; m.rev = 0;
+        }
+    }
+
+    document.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-act]');
+        if (!b || b.disabled || !b.dataset.act || busy) return;
+        const f = ACT[b.dataset.act];
+        if (!f) return;
+        f(b.dataset);
+        render();
+    });
+
+    $('#setDlg').addEventListener('click', (e) => { if (e.target === $('#setDlg')) $('#setDlg').close(); });
+
+    /* ---------- ボードの ゆび・マウス ---------- */
+    function svgPoint(e) {
+        const m = board.getScreenCTM();
+        if (!m) return { x: 0, y: 0 };
+        const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+        return { x: p.x, y: p.y };
+    }
+    let drag = null;
+    board.addEventListener('pointerdown', (e) => {
+        if (drag || busy || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        const V = VIEWS[st.mode];
+        if (!V.down || !lay) return;
+        hover = null;
+        const d = V.down(svgPoint(e));
+        if (!d) return;
+        drag = d;
+        drag.id = e.pointerId;
+        try { board.setPointerCapture(e.pointerId); } catch (err) { /* なくても よい */ }
+        e.preventDefault();
+    });
+    board.addEventListener('pointermove', (e) => {
+        if (drag) {
+            if (e.pointerId === drag.id && drag.move) drag.move(svgPoint(e));
+            return;
+        }
+        if (e.pointerType !== 'mouse' || busy || !lay) return;
+        const V = VIEWS[st.mode];
+        if (!V.hoverCut || !V.hoverCut()) { if (hover) { hover = null; drawBoard(); } return; }
+        const p = svgPoint(e), c = L.nearestGap(p.x, p.y, lay);
+        if (!L.sameCut(c, hover)) { hover = c; drawBoard(); }
+    });
+    const endDrag = (e, cancel) => {
+        if (!drag || e.pointerId !== drag.id) return;
+        const d = drag;
+        drag = null;
+        if (cancel) { if (d.cancel) d.cancel(); } else if (d.up) d.up(svgPoint(e));
+    };
+    board.addEventListener('pointerup', (e) => endDrag(e, false));
+    board.addEventListener('pointercancel', (e) => endDrag(e, true));
+    board.addEventListener('pointerleave', () => { if (hover && !drag) { hover = null; drawBoard(); } });
+    M2.hoverCut = () => true;
+
+    /* ---------- キーボード（プレゼンの リモコンも PageDown／PageUp で つかえます） ---------- */
+    document.addEventListener('keydown', (e) => {
+        if (st.view === 'home' || $('#setDlg').open || busy) return;
+        const k = e.key;
+        if ((e.ctrlKey || e.metaKey) && (k === 'z' || k === 'Z')) {
+            if (cur().undo) { ACT.undo(); render(); e.preventDefault(); }
+            return;
+        }
+        if (k === 'ArrowRight' || k === 'PageDown' || (k === ' ' && !(e.target instanceof HTMLButtonElement))) {
+            ACT.next(); render(); e.preventDefault();
+        } else if (k === 'ArrowLeft' || k === 'PageUp') {
+            ACT.prev(); render(); e.preventDefault();
+        }
+    });
+
+    window.addEventListener('hashchange', () => { /* リンクから ひらきなおした とき */
+        const h = location.hash;
+        if (h && h !== '#' + L.toHash({})) { loadHash(); render(); }
+    });
+
+    loadHash();
+    render();
+})();
+</script>
+</body>
+</html>
