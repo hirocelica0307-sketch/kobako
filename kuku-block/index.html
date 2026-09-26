@@ -84,6 +84,18 @@
       <button class="chip chip-go" id="bgDone">✔ できた</button>
     </div>
 
+    <!-- イラストを ならべる とき -->
+    <div class="float-bar scene-bar" id="sceneBar" hidden>
+      <span class="bg-hint" id="sceneHint">ゆびで うごかす・かどの ● で 大きさ</span>
+      <button class="chip" id="sAdd">＋ ふやす</button>
+      <button class="chip" id="sDel">🗑 けす</button>
+      <button class="chip" id="sSmaller" aria-label="ちいさく">➖</button>
+      <button class="chip" id="sBigger" aria-label="おおきく">➕</button>
+      <button class="chip" id="sRelayout">🔄 ならべなおす</button>
+      <button class="chip" id="sCancel">✕ やめる</button>
+      <button class="chip chip-go" id="sDone">✔ できた</button>
+    </div>
+
     <!-- かぞえる とき -->
     <div class="float-bar count-bar" id="countBar" hidden>
       <div class="seg">
@@ -147,6 +159,7 @@
 
     <div class="cur-bg">
       <span class="cur-lbl">いまの はいけい：<b id="curBgName">まっしろ</b></span>
+      <button class="chip" id="btnSceneEdit" hidden>✋ イラストを うごかす</button>
       <span id="curBg" class="cur-bg-ops" hidden>
         <button class="chip" id="btnBgMove">✋ いち・大きさ</button>
         <label class="chip chip-range">うすく<input type="range" id="bgAlpha2" min="0.2" max="1" step="0.05"></label>
@@ -173,9 +186,9 @@
         <button class="st" id="scenePlus">＋</button>
         <span class="st-lbl" id="sceneUnit">まい</span>
       </div>
-      <button class="chip chip-go" id="sceneGo">はいけいに する</button>
+      <button class="chip chip-go" id="sceneGo">ならべる</button>
     </div>
-    <p class="note">1だんに 4つ まで ならびます（5つ いじょうは 2だんめ・3だんめへ）。</p>
+    <p class="note">「ならべる」を おすと つくえの 上に 出ます。すきな ところに うごかして「✔ できた」で はいけいに なります（あとから「イラストを うごかす」で なおせます）。</p>
 
     <h3>さいきん つかった はいけい</h3>
     <div class="thumbs" id="thumbs"></div>
@@ -356,7 +369,7 @@
       <tr><th>まわす・ふやす</th><td>✋ うごかす で かこみを タップ →「まわす」（3×4 ⇔ 4×3）・「ふやす」（おなじ まとまりを もう1つ）</td></tr>
       <tr><th>かぞえる</th><td>123 かぞえる で ブロックを じゅんに タップ（なぞっても よい）。「まとまりで」なら かこみごとに 3、6、9 …</td></tr>
       <tr><th>くくの だん</th><td>だんを えらんで「＋」。しきと となえかたが 出る</td></tr>
-      <tr><th>しゃしん・はいけい</th><td>🖼️ から カメラ・ファイル・はりつけ・イラスト（18しゅるい）。まっしろにも もどせる。<kbd>Ctrl</kbd>+<kbd>V</kbd> や ドラッグでも すぐ はいる</td></tr>
+      <tr><th>しゃしん・はいけい</th><td>🖼️ から カメラ・ファイル・はりつけ・イラスト（18しゅるい。ならべてから「できた」で はいけいに）。まっしろにも もどせる。<kbd>Ctrl</kbd>+<kbd>V</kbd> や ドラッグでも すぐ はいる</td></tr>
       <tr><th>せんせい</th><td>🧑‍🏫 せんせい（あいことば 4けた）→ クラスを つくる・みんなの つくえ・テレビに うつす・コードで くばる・つくえの せってい</td></tr>
       <tr><th>クラスに はいる</th><td>せんせいの クラスの URL を ひらいて、しゅっせき ばんごう と なまえ を いれる</td></tr>
       <tr><th>もどす</th><td>↩️（<kbd>Ctrl</kbd>+<kbd>Z</kbd>）。なんでも もとに もどせる</td></tr>

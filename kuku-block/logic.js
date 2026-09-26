@@ -304,6 +304,12 @@
                 str(b.o, 60) ? { o: b.o } : {})
             : null;
         out.loopColor = num(s.loopColor) ? Math.abs(Math.round(s.loopColor)) % 6 : 0;
+        /* イラストの はいけい（1こずつ うごかせる。絵ではなく ばしょ だけ もつ） */
+        const sc = s.scene;
+        const items = sc && Array.isArray(sc.items) ? sc.items.filter(it => it && str(it.id, 40) && /^[a-z]{2,12}$/.test(it.k)
+            && num(it.x) && num(it.y) && num(it.w) && num(it.h) && it.w > 4 && it.h > 4 && it.w < 20000 && it.h < 20000).slice(0, 60)
+            .map(it => ({ id: it.id, k: it.k, x: it.x, y: it.y, w: it.w, h: it.h, c: num(it.c) ? Math.abs(Math.round(it.c)) % 50 : 0 })) : [];
+        out.scene = items.length ? { kind: str(sc.kind, 20) ? sc.kind : items[0].k, label: str(sc.label, 40) ? sc.label : 'イラスト', items } : null;
         out.card = s.card && str(s.card.text, 200) ? { text: s.card.text } : null;
         out.dan = null;   /* だんの とちゅうは ひきつがない（ブロックは のこる） */
         return out;

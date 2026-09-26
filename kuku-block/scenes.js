@@ -550,6 +550,31 @@
 
     const DRAW = { plate, bench, car, box, bag, basket, pack, dango, fishbowl, vase, tree, table, coaster, cup, gondola, boat, bus, train };
 
+    /** n こを box（x0,y0,x1,y1）の 中に 1だん 4つ まで ならべた ときの 1こずつの まん中と 大きさ */
+    function layout(n, box) {
+        const W = box.x1 - box.x0, H = box.y1 - box.y0;
+        const cols = Math.max(1, Math.min(n, 4));
+        const rows = Math.max(1, Math.ceil(n / cols));
+        const padX = W * 0.04, padY = H * 0.06;
+        const cellW = (W - padX * 2) / cols, cellH = (H - padY * 2) / rows;
+        const iw = Math.min(cellW * 0.86, cellH * 1.5), ih = Math.min(cellH * 0.8, iw);
+        const out = [];
+        for (let i = 0; i < n; i++) {
+            const r = Math.floor(i / cols), col = i % cols;
+            const inRow = r === rows - 1 ? n - cols * (rows - 1) : cols;
+            const offset = (cols - inRow) * cellW / 2;
+            out.push({ x: box.x0 + padX + offset + cellW * (col + 0.5), y: box.y0 + padY + cellH * (r + 0.55), w: iw, h: ih });
+        }
+        return out;
+    }
+
+    /** 1こ かく。(cx, cy) が まん中、w × h の 中に おさまる。i … いろの ばんごう */
+    function drawItem(g, kind, cx, cy, w, h, i) {
+        g.save();
+        (DRAW[kind] || plate)(g, cx, cy, w, h, i || 0);
+        g.restore();
+    }
+
     /** kind の 絵を n こ ならべた canvas（1だんに 4つ まで）。よこたて比は つくえに あわせる。W … よこの 大きさ */
     function make(kind, n, aspect, Wopt) {
         const W = Wopt || 1600, H = Math.round(W / Math.max(0.8, Math.min(2.6, aspect || 1.8)));
@@ -559,20 +584,9 @@
         const g = c.getContext('2d');
         g.fillStyle = '#fffdf8';
         g.fillRect(0, 0, W, H);
-        const cols = Math.min(n, 4);
-        const rows = Math.ceil(n / cols);
-        const padX = W * 0.04, padY = H * 0.08;
-        const cellW = (W - padX * 2) / cols, cellH = (H - padY * 2) / rows;
-        const iw = Math.min(cellW * 0.86, cellH * 1.5), ih = Math.min(cellH * 0.8, iw);
-        for (let i = 0; i < n; i++) {
-            const r = Math.floor(i / cols), col = i % cols;
-            const inRow = r === rows - 1 ? n - cols * (rows - 1) : cols;
-            const offset = (cols - inRow) * cellW / 2;
-            const cx = padX + offset + cellW * (col + 0.5), cy = padY + cellH * (r + 0.55);
-            (DRAW[kind] || plate)(g, cx, cy, iw, ih, i);
-        }
+        layout(n, { x0: 0, y0: 0, x1: W, y1: H }).forEach((it, i) => drawItem(g, kind, it.x, it.y, it.w, it.h, i));
         return c;
     }
 
-    root.KukuScenes = { KINDS, make };
+    root.KukuScenes = { KINDS, make, layout, drawItem, has: (k) => !!DRAW[k] };
 })(window);

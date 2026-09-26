@@ -217,6 +217,9 @@ button{ font:inherit; color:inherit; cursor:pointer; }
 .sep{ width:2px; height:28px; background:var(--line); }
 
 .bg-bar{ border-color:#f0a020; }
+.scene-bar{ border-color:#2fa84f; }
+.board-wrap.t-scene{ box-shadow:inset 0 0 0 4px #2fa84f; }
+.board-wrap.t-scene #board{ cursor:move; }
 .bg-hint{ font-size:13px; color:var(--ink-thin); padding:0 4px; }
 .chip{
     height:40px; padding:0 12px; border-radius:999px;
