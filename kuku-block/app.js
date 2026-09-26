@@ -80,13 +80,15 @@
 
     const settings = Object.assign(
         {
-            snap: true, count: true, expr: false, sound: true, voice: true,
+            snap: true, count: true, expr: true, sound: true, voice: true,
             rows: 4, cols: 3, arrC: 'b', penC: 'k', penW: 4, countMode: 'one',
             danLoops: true, danC: 'b', sceneKind: 'plate', sceneN: 4,
         },
         (() => { try { return JSON.parse(lsGet(SET_KEY)) || {}; } catch (e) { return {}; } })()
     );
     const saveSettings = () => lsSet(SET_KEY, JSON.stringify(settings));
+    /* v2：「しきを 見せる」を はじめから オンに（まえの はんで ほぞんした オフは いちど オンに もどす） */
+    if (settings.v !== 2) { settings.v = 2; settings.expr = true; saveSettings(); }
     SND.setEnabled(settings.sound);
 
     const loaded = loadPages();
@@ -799,7 +801,7 @@
         updateDanBar();
         let html = '';
         if (settings.expr && state.blocks.length && !state.dan) {
-            const counts = state.loops.map(loopCount);
+            const counts = state.loops.map(l => loopCount(l));
             const inAny = new Set();
             for (const l of state.loops) for (const b of L.blocksInLoop(state.blocks, l.pts, state.size)) inAny.add(b.id);
             const d = L.describe(counts, state.blocks.length - inAny.size);
@@ -1713,6 +1715,8 @@
 
     async function openPhotoSheet() {
         $('#curBg').hidden = !state.bg;
+        $('#curBgName').textContent = state.bg ? (state.bg.label || 'しゃしん') : 'まっしろ';
+        $('#btnBgOff').disabled = !state.bg;
         $('#bgAlpha2').value = state.bg ? state.bg.alpha : 1;
         renderScenes();
         openSheet('photoSheet');
@@ -1771,12 +1775,14 @@
     });
 
     $('#btnBgMove').addEventListener('click', () => { closeSheets(); setTool('photo'); });
+    $('#btnBgNewPage').addEventListener('click', () => { closeSheets(); if (addPage()) toast('まっしろな ページを ふやしました'); });
     $('#btnBgOff').addEventListener('click', () => {
         state.bg = null;
         commit();
         syncBg();
         closeSheets();
         if (tool === 'photo') setTool('move');
+        toast('まっしろに しました（「もどす」で もとの はいけいに）');
     });
 
     /* ファイルを ドラッグ して きた とき */
@@ -2125,24 +2131,34 @@
     function renderScenes() {
         const box = $('#sceneKinds');
         if (!box.children.length) {
+            const groups = new Map();
             for (const k of SC.KINDS) {
+                if (!groups.has(k.group)) {
+                    const gEl = document.createElement('div');
+                    gEl.className = 'scene-group';
+                    gEl.innerHTML = '<span></span>';
+                    gEl.firstChild.textContent = k.group;
+                    groups.set(k.group, gEl);
+                    box.appendChild(gEl);
+                }
                 const b = document.createElement('button');
                 b.className = 'scene-k';
                 b.dataset.k = k.key;
                 const mini = document.createElement('canvas');
-                mini.width = 120;
-                mini.height = 72;
-                mini.getContext('2d').drawImage(SC.make(k.key, 2, 1.67), 0, 0, 120, 72);
+                mini.width = 156;
+                mini.height = 88;
+                mini.getContext('2d').drawImage(SC.make(k.key, 2, 156 / 88, 312), 0, 0, 156, 88);
                 b.appendChild(mini);
                 b.appendChild(document.createTextNode(k.name));
                 b.addEventListener('click', () => { settings.sceneKind = k.key; saveSettings(); renderScenes(); });
-                box.appendChild(b);
+                groups.get(k.group).appendChild(b);
             }
         }
         for (const b of $$('.scene-k')) b.classList.toggle('on', b.dataset.k === settings.sceneKind);
         $('#sceneN').textContent = settings.sceneN;
         const kind = SC.KINDS.find(x => x.key === settings.sceneKind) || SC.KINDS[0];
         $('#sceneUnit').textContent = kind.unit;
+        $('#scenePick').textContent = kind.name;
     }
     $('#sceneMinus').addEventListener('click', () => { settings.sceneN = Math.max(1, settings.sceneN - 1); saveSettings(); renderScenes(); });
     $('#scenePlus').addEventListener('click', () => { settings.sceneN = Math.min(9, settings.sceneN + 1); saveSettings(); renderScenes(); });

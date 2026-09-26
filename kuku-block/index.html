@@ -35,7 +35,7 @@
   <div class="top-right">
     <button class="btn" id="btnUndo" aria-label="もどす"><span class="ico">↩️</span><span class="lbl">もどす</span></button>
     <button class="btn" id="btnRedo" aria-label="やりなおす"><span class="ico">↪️</span><span class="lbl">すすむ</span></button>
-    <button class="btn btn-photo" id="btnPhoto" data-lock="photo"><span class="ico">📷</span><span class="lbl">しゃしん</span></button>
+    <button class="btn btn-photo" id="btnPhoto" data-lock="photo"><span class="ico">🖼️</span><span class="lbl">しゃしん・はいけい</span></button>
     <button class="btn" id="btnMenu" aria-label="メニュー"><span class="ico">☰</span><span class="lbl">メニュー</span></button>
     <button class="btn btn-teacher" id="btnTeacher"><span class="ico">🧑‍🏫</span><span class="lbl">せんせい</span></button>
   </div>
@@ -137,29 +137,36 @@
 <!-- ドラッグ ちゅうの ものを、いちばん うえに かく -->
 <canvas id="dragLayer" class="drag-layer"></canvas>
 
-<!-- ========== しゃしん の まど ========== -->
+<!-- ========== しゃしん・はいけい の まど ========== -->
 <div class="sheet-back" id="photoSheet" hidden>
-  <div class="sheet">
+  <div class="sheet sheet-wide">
     <div class="sheet-head">
-      <h2>📷 はいけいの しゃしん</h2>
+      <h2>🖼️ しゃしん・はいけい</h2>
       <button class="x" data-close aria-label="とじる">✕</button>
     </div>
+
+    <div class="cur-bg">
+      <span class="cur-lbl">いまの はいけい：<b id="curBgName">まっしろ</b></span>
+      <span id="curBg" class="cur-bg-ops" hidden>
+        <button class="chip" id="btnBgMove">✋ いち・大きさ</button>
+        <label class="chip chip-range">うすく<input type="range" id="bgAlpha2" min="0.2" max="1" step="0.05"></label>
+      </span>
+      <button class="chip" id="btnBgOff">⬜ まっしろに する</button>
+      <button class="chip" id="btnBgNewPage" data-lock="tabs">＋ まっしろな ページ</button>
+    </div>
+
+    <h3>しゃしんを はいけいに</h3>
     <div class="big-row">
       <button class="big" id="btnCamera"><span class="ico">📷</span>カメラで とる</button>
-      <button class="big" id="btnFile"><span class="ico">🖼️</span>ファイルから</button>
+      <button class="big" id="btnFile"><span class="ico">🗂️</span>ファイルから</button>
       <button class="big" id="btnPaste"><span class="ico">📋</span>はりつける</button>
     </div>
     <p class="note">コピーした がぞうは <kbd>Ctrl</kbd> + <kbd>V</kbd>、ファイルは つくえに ドラッグしても はいります。</p>
 
-    <div class="cur-bg" id="curBg" hidden>
-      <button class="chip" id="btnBgMove">✋ いち・大きさを かえる</button>
-      <label class="chip chip-range">うすく<input type="range" id="bgAlpha2" min="0.2" max="1" step="0.05"></label>
-      <button class="chip chip-warn" id="btnBgOff">はいけいを はずす</button>
-    </div>
-
-    <h3>イラスト</h3>
+    <h3>イラストを はいけいに</h3>
+    <div class="scene-kinds" id="sceneKinds"></div>
     <div class="scene-row">
-      <div class="scene-kinds" id="sceneKinds"></div>
+      <span class="scene-pick" id="scenePick"></span>
       <div class="stepper stepper-sm">
         <button class="st" id="sceneMinus">−</button>
         <b id="sceneN">4</b>
@@ -168,8 +175,9 @@
       </div>
       <button class="chip chip-go" id="sceneGo">はいけいに する</button>
     </div>
+    <p class="note">1だんに 4つ まで ならびます（5つ いじょうは 2だんめ・3だんめへ）。</p>
 
-    <h3>さいきんの しゃしん</h3>
+    <h3>さいきん つかった はいけい</h3>
     <div class="thumbs" id="thumbs"></div>
     <input type="file" id="fileInput" accept="image/*" hidden>
   </div>
@@ -348,7 +356,7 @@
       <tr><th>まわす・ふやす</th><td>✋ うごかす で かこみを タップ →「まわす」（3×4 ⇔ 4×3）・「ふやす」（おなじ まとまりを もう1つ）</td></tr>
       <tr><th>かぞえる</th><td>123 かぞえる で ブロックを じゅんに タップ（なぞっても よい）。「まとまりで」なら かこみごとに 3、6、9 …</td></tr>
       <tr><th>くくの だん</th><td>だんを えらんで「＋」。しきと となえかたが 出る</td></tr>
-      <tr><th>しゃしん</th><td>📷 から カメラ・ファイル・はりつけ。<kbd>Ctrl</kbd>+<kbd>V</kbd> や ドラッグでも すぐ はいる</td></tr>
+      <tr><th>しゃしん・はいけい</th><td>🖼️ から カメラ・ファイル・はりつけ・イラスト（18しゅるい）。まっしろにも もどせる。<kbd>Ctrl</kbd>+<kbd>V</kbd> や ドラッグでも すぐ はいる</td></tr>
       <tr><th>せんせい</th><td>🧑‍🏫 せんせい（あいことば 4けた）→ クラスを つくる・みんなの つくえ・テレビに うつす・コードで くばる・つくえの せってい</td></tr>
       <tr><th>クラスに はいる</th><td>せんせいの クラスの URL を ひらいて、しゅっせき ばんごう と なまえ を いれる</td></tr>
       <tr><th>もどす</th><td>↩️（<kbd>Ctrl</kbd>+<kbd>Z</kbd>）。なんでも もとに もどせる</td></tr>
