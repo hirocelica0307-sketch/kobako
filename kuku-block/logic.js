@@ -303,13 +303,58 @@
             .slice(0, 2000).map(t => ({ id: t.id, pts: t.pts, color: t.color, w: Math.max(1, Math.min(40, t.w)) }));
         const b = s.bg;
         out.bg = b && str(b.id, 60) && num(b.x) && num(b.y) && num(b.s) && b.s > 0 && [0, 1, 2, 3].includes(b.rot) && num(b.alpha)
-            ? { id: b.id, x: b.x, y: b.y, s: b.s, rot: b.rot, alpha: Math.max(0.1, Math.min(1, b.alpha)), label: str(b.label, 40) ? b.label : 'しゃしん' }
+            ? Object.assign({ id: b.id, x: b.x, y: b.y, s: b.s, rot: b.rot, alpha: Math.max(0.1, Math.min(1, b.alpha)), label: str(b.label, 40) ? b.label : 'しゃしん' },
+                str(b.o, 60) ? { o: b.o } : {})
             : null;
         out.loopColor = num(s.loopColor) ? Math.abs(Math.round(s.loopColor)) % 6 : 0;
         out.card = s.card && str(s.card.text, 200) ? { text: s.card.text } : null;
         out.dan = null;   /* だんの とちゅうは ひきつがない（ブロックは のこる） */
         return out;
     }
+
+    /* ---------- クラス（せんせいの せってい） ---------- */
+
+    /** せんせいが こどもに つかわせるか えらべる きのう（キー・なまえ） */
+    const FEATURES = [
+        ['block', 'ブロック'], ['ohajiki', 'おはじき'],
+        ['loop', 'かこむ'], ['pen', 'かく'], ['erase', 'けす'], ['count', 'かぞえる'],
+        ['rotate', 'まわす・ふやす'], ['array', 'ならべる'], ['dan', 'くくの だん'], ['cards', 'おだい'],
+        ['photo', 'しゃしん'], ['tabs', 'ページを ふやす・とじる'], ['zoom', 'ズーム'], ['clear', 'ぜんぶ けす'],
+    ];
+
+    /** あいことば（4けた）を そのまま のこさない ための かんたんな ハッシュ（FNV-1a）。
+        こどもが せんせいの 画面を あけない ための もので、ひみつを まもる ほどの つよさは ない */
+    function pinHash(pin) {
+        let h = 0x811c9dc5;
+        const t = 'ohajiki:' + pin;
+        for (let i = 0; i < t.length; i++) {
+            h ^= t.charCodeAt(i);
+            h = Math.imul(h, 0x01000193) >>> 0;
+        }
+        return ('0000000' + h.toString(16)).slice(-8);
+    }
+
+    /** とどいた クラスの せっていを つかえる かたちに（ない ものは「つかえる」に する） */
+    function sanitizeCfg(c) {
+        if (!c || typeof c !== 'object') return null;
+        const allow = {};
+        for (const [k] of FEATURES) allow[k] = !(c.allow && c.allow[k] === false);
+        const st = c.set || {};
+        return {
+            name: str(c.name, 40) && c.name.trim() ? c.name.trim() : 'クラス',
+            pin: str(c.pin, 8) && /^[0-9a-f]{8}$/.test(c.pin) ? c.pin : '',
+            allow,
+            set: {
+                snap: st.snap !== false, count: st.count !== false, expr: st.expr === true, sound: st.sound !== false,
+                size: num(st.size) ? Math.max(24, Math.min(96, Math.round(st.size))) : 48,
+            },
+            live: c.live !== false,
+            pv: num(c.pv) ? Math.max(0, Math.round(c.pv)) : 0,
+        };
+    }
+
+    /** 出席番号（1〜99） */
+    const isSeatNo = (n) => Number.isInteger(n) && n >= 1 && n <= 99;
 
     function boxesOverlap(a, b) {
         return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
@@ -341,7 +386,7 @@
         snap, cellKey, findFreeCell, findFreeRect, clusterOf, describe,
         kukuReading, rotate90, boxesOverlap, findSpot,
         rotateAround, snapAngle, isRightAngle, PIECES, isOhajiki, flipColor, danColor,
-        fitView, sanitizeState,
+        fitView, sanitizeState, FEATURES, pinHash, sanitizeCfg, isSeatNo,
     };
     root.KukuLogic = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
