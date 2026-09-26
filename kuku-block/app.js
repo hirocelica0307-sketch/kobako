@@ -38,7 +38,7 @@
        ページ・ほぞん・もどす
        ================================================================ */
 
-    const emptyState = (size) => ({ size: size || 48, blocks: [], loops: [], strokes: [], bg: null, loopColor: 0, dan: null, card: null });
+    const emptyState = (size) => ({ size: size || 48, blocks: [], loops: [], strokes: [], bg: null, scene: null, loopColor: 0, dan: null, card: null });
 
     function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
     function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
@@ -140,6 +140,7 @@
         updateUndoButtons();
         updateSizeUI();
         if (tool === 'photo' && !state.bg) setTool('move');
+        if (tool === 'scene') { sceneSkipFinish = true; setTool('move'); sceneSkipFinish = false; }
         resetCount();
         hideBubble();
         updateCard();
@@ -149,20 +150,20 @@
     }
 
     function undo() {
-        if (!page.undo.length || drags.size) return;
+        if (!page.undo.length || drags.size || tool === 'scene') return;
         page.redo.push(page.saved);
         restore(page.undo.pop());
     }
 
     function redo() {
-        if (!page.redo.length || drags.size) return;
+        if (!page.redo.length || drags.size || tool === 'scene') return;
         page.undo.push(page.saved);
         restore(page.redo.pop());
     }
 
     function updateUndoButtons() {
-        $('#btnUndo').disabled = !page.undo.length;
-        $('#btnRedo').disabled = !page.redo.length;
+        $('#btnUndo').disabled = !page.undo.length || tool === 'scene';
+        $('#btnRedo').disabled = !page.redo.length || tool === 'scene';
     }
 
     /* ---------- ページ（タブ） ---------- */
@@ -210,7 +211,8 @@
         afterPageChange();
     }
 
-    const isEmptyState = (s) => !s.bg && !s.blocks.length && !s.loops.length && !s.strokes.length && !s.card;
+    const hasScene = (s) => !!(s.scene && s.scene.items && s.scene.items.length);
+    const isEmptyState = (s) => !s.bg && !hasScene(s) && !s.blocks.length && !s.loops.length && !s.strokes.length && !s.card;
 
     const photoThumbs = new Map();   /* しゃしんの id → 小さな がぞう（タブに 出す） */
     async function refreshThumbs() {
@@ -220,6 +222,7 @@
 
     function pageLabel(s) {
         if (s.bg) return s.bg.label || 'しゃしん';
+        if (hasScene(s)) return s.scene.label || 'イラスト';
         if (s.card) return 'おだい';
         return s.blocks.length || s.loops.length || s.strokes.length ? 'つくえ' : 'まっしろ';
     }
@@ -381,6 +384,7 @@
         for (const b of st.blocks) pts.push([b.x, b.y], [b.x + S, b.y + S]);
         for (const l of st.loops) pts.push(...l.pts);
         for (const t of st.strokes) pts.push(...t.pts);
+        if (hasScene(st)) for (const it of st.scene.items) pts.push([it.x - it.w / 2, it.y - it.h / 2], [it.x + it.w / 2, it.y + it.h / 2]);
         if (st.bg && img) {
             const [iw, ih] = imgSize(img);
             const [w, h] = st.bg.rot % 2 ? [ih, iw] : [iw, ih];
@@ -452,6 +456,10 @@
             g.imageSmoothingQuality = 'high';
             g.drawImage(img, -iw / 2, -ih / 2, iw, ih);
             g.restore();
+        }
+        if (hasScene(st)) {
+            for (const it of st.scene.items) SC.drawItem(g, it.k, it.x, it.y, it.w, it.h, it.c);
+            if (opts.own && opts.live && tool === 'scene') drawSceneEdit(g, st, z);
         }
 
         if (opts.grid && settings.snap) {
@@ -840,6 +848,17 @@
     function cancelDrags() {
         if (!drags.size) return;
         for (const d of drags.values()) clearTimeout(d.timer);
+        if (tool === 'scene') {
+            /* ならべて いる とちゅうは、うごかして いた 1こ だけ もとへ（ほかの ならべた ものは そのまま） */
+            for (const d of drags.values()) {
+                const it = sceneItem(d.id);
+                if (it && d.type === 'smove') [it.x, it.y] = d.orig;
+                if (it && d.type === 'sresize') { it.w = d.orig.w; it.h = d.orig.h; }
+            }
+            drags.clear();
+            requestRender();
+            return;
+        }
         drags.clear();
         state = JSON.parse(page.saved);
         trashEl.classList.remove('hot');
@@ -995,6 +1014,8 @@
             countAt(x, y, true);
         } else if (tool === 'photo') {
             bgPointers.set(e.pointerId, [x, y]);
+        } else if (tool === 'scene') {
+            sceneDown(e, x, y);
         }
     });
 
@@ -1032,6 +1053,7 @@
         if (!d) return;
         const [x, y] = toBoard(e);
 
+        if (d.type === 'smove' || d.type === 'sresize') { sceneMove(d, x, y); requestRender(); return; }
         if (d.type === 'blocks' || d.type === 'loop' || d.type === 'rot') {
             const dx = x - d.start[0], dy = y - d.start[1];
             if (!d.moved) {
@@ -1124,6 +1146,7 @@
         drags.delete(e.pointerId);
         clearTimeout(d.timer);
         trashEl.classList.remove('hot');
+        if (d.type === 'smove' || d.type === 'sresize') { requestRender(); return; }   /* 「できた」まで のこさない */
 
         if (d.type === 'blocks') endBlockDrag(e, d, cancelled);
         else if (d.type === 'loop') endLoopDrag(e, d, cancelled);
@@ -1487,7 +1510,7 @@
         src.addEventListener('pointerdown', (e) => {
             if (e.button > 0) return;
             e.preventDefault();
-            if (tool === 'photo') setTool('move');
+            if (tool === 'photo' || tool === 'scene') setTool('move');
             rect = wrap.getBoundingClientRect();
             try { src.setPointerCapture(e.pointerId); } catch (err) { /* なくても よい */ }
             const S = state.size;
@@ -1522,12 +1545,17 @@
 
     const hinted = new Set();
     function setTool(t) {
-        if (t !== 'move' && t !== 'photo' && !allowed(t)) t = 'move';
+        if (t !== 'move' && t !== 'photo' && t !== 'scene' && !allowed(t)) t = 'move';
+        if ((t === 'photo' || t === 'scene') && !allowed('photo')) t = 'move';
+        if (tool === 'scene' && t !== 'scene') finishScene();
         tool = t;
         for (const b of $$('.tool')) b.classList.toggle('on', b.dataset.tool === t);
         wrap.className = 'board-wrap t-' + t;
         $('#penBar').hidden = t !== 'pen';
         $('#bgBar').hidden = t !== 'photo';
+        $('#sceneBar').hidden = t !== 'scene';
+        updateUndoButtons();
+        if (t === 'scene') updateSceneBar();
         $('#countBar').hidden = t !== 'count';
         hideBubble();
         resetCount();
@@ -1594,7 +1622,8 @@
     /** はいけいを きめる。この ページに もう はいけいが あれば、あたらしい タブに する */
     function useBackground(id, image, label, inPlace) {
         let newTab = false;
-        if (!inPlace && state.bg) newTab = addPage();
+        if (!inPlace && (state.bg || hasScene(state))) newTab = addPage();
+        if (inPlace || !newTab) state.scene = null;
         bgImageId = id;
         bgImage = image;
         const [cx, cy] = viewCenter();
@@ -1715,8 +1744,9 @@
 
     async function openPhotoSheet() {
         $('#curBg').hidden = !state.bg;
-        $('#curBgName').textContent = state.bg ? (state.bg.label || 'しゃしん') : 'まっしろ';
-        $('#btnBgOff').disabled = !state.bg;
+        $('#curBgName').textContent = state.bg ? (state.bg.label || 'しゃしん') : hasScene(state) ? (state.scene.label || 'イラスト') : 'まっしろ';
+        $('#btnBgOff').disabled = !state.bg && !hasScene(state);
+        $('#btnSceneEdit').hidden = !hasScene(state);
         $('#bgAlpha2').value = state.bg ? state.bg.alpha : 1;
         renderScenes();
         openSheet('photoSheet');
@@ -1778,6 +1808,7 @@
     $('#btnBgNewPage').addEventListener('click', () => { closeSheets(); if (addPage()) toast('まっしろな ページを ふやしました'); });
     $('#btnBgOff').addEventListener('click', () => {
         state.bg = null;
+        state.scene = null;
         commit();
         syncBg();
         closeSheets();
@@ -2101,7 +2132,11 @@
         updateCard();
         requestRender();
         if (su && su.scene) {
-            importAndUse(window.KukuScenes.make(su.scene[0], su.scene[1], W / H), { label: sceneLabel(su.scene[0], su.scene[1]), inPlace: true });
+            state.bg = null;
+            state.scene = makeScene(su.scene[0], su.scene[1]);
+            commit();
+            syncBg();
+            requestRender();
         } else if (su) {
             toast('「もどす」で まえの つくえに もどせるよ');
         }
@@ -2166,7 +2201,189 @@
         const k = SC.KINDS.find(x => x.key === kind) || SC.KINDS[0];
         return `${k.name} ${n}${k.unit}`;
     }
-    $('#sceneGo').addEventListener('click', () => importAndUse(SC.make(settings.sceneKind, settings.sceneN, W / H), { label: sceneLabel(settings.sceneKind, settings.sceneN) }));
+    /* ---------- イラストを ならべる（できた で はいけいに） ---------- */
+
+    let sceneSel = null;       /* えらんで いる イラストの id */
+    let sceneNewTab = false;   /* ならべる ために あたらしい タブを つくった か（やめる で とじる） */
+    let sceneSkipFinish = false;
+
+    const sceneItem = (id) => (hasScene(state) ? state.scene.items.find(it => it.id === id) : null);
+    function sceneItemAt(x, y) {
+        if (!hasScene(state)) return null;
+        const items = state.scene.items;
+        for (let i = items.length - 1; i >= 0; i--) {
+            const it = items[i];
+            if (Math.abs(x - it.x) <= it.w / 2 && Math.abs(y - it.y) <= it.h / 2) return it;
+        }
+        return null;
+    }
+    const sceneHandlePos = (it) => [it.x + it.w / 2, it.y + it.h / 2];
+
+    /** kind を n こ、見えて いる ところに 1だん 4つ まで ならべた イラストの はいけい */
+    function makeScene(kind, n, box) {
+        const b = box || placeRect();
+        const cells = SC.layout(n, b);
+        return {
+            kind, label: sceneLabel(kind, n),
+            items: cells.map((c, i) => ({ id: uid('i'), k: kind, x: r1(c.x), y: r1(c.y), w: r1(c.w), h: r1(c.h), c: i })),
+        };
+    }
+
+    function startScene(kind, n) {
+        closeSheets();
+        if (!allowed('photo')) return;
+        commit();
+        sceneNewTab = false;
+        if (state.bg || hasScene(state)) sceneNewTab = addPage();
+        if (!sceneNewTab && (state.bg || hasScene(state))) { state.bg = null; syncBg(); }
+        state.scene = makeScene(kind, n);
+        sceneSel = null;
+        setTool('scene');
+        toast(sceneNewTab ? 'あたらしい ページに ならべたよ。すきな ところに うごかして「できた」' : 'すきな ところに うごかして「できた」を おしてね', 3500);
+        requestRender();
+    }
+
+    /** できた：いまの ならびを はいけいに する */
+    function finishScene() {
+        if (sceneSkipFinish) return;
+        if (hasScene(state)) {
+            const k = SC.KINDS.find(x => x.key === state.scene.kind);
+            if (k) state.scene.label = sceneLabel(k.key, state.scene.items.length);
+        } else {
+            state.scene = null;
+        }
+        sceneSel = null;
+        commit();
+        renderTabs();
+    }
+
+    function cancelScene() {
+        state = JSON.parse(page.saved);
+        sceneSel = null;
+        sceneSkipFinish = true;
+        setTool('move');
+        sceneSkipFinish = false;
+        if (sceneNewTab && isEmptyState(state)) closePage(curIdx);
+        sceneNewTab = false;
+        requestRender();
+    }
+
+    function sceneDown(e, x, y) {
+        const sel = sceneItem(sceneSel);
+        if (sel) {
+            const [hx, hy] = sceneHandlePos(sel);
+            if (Math.hypot(x - hx, y - hy) <= handleR() + 10) {
+                drags.set(e.pointerId, { type: 'sresize', id: sel.id, orig: { w: sel.w, h: sel.h }, c: [sel.x, sel.y], d0: Math.max(10, Math.hypot(hx - sel.x, hy - sel.y)) });
+                return;
+            }
+        }
+        const it = sceneItemAt(x, y);
+        sceneSel = it ? it.id : null;
+        if (it) {
+            state.scene.items = state.scene.items.filter(o => o !== it).concat([it]);   /* まえに 出す */
+            drags.set(e.pointerId, { type: 'smove', id: it.id, start: [x, y], orig: [it.x, it.y] });
+        }
+        updateSceneBar();
+        requestRender();
+    }
+
+    function sceneMove(d, x, y) {
+        const it = sceneItem(d.id);
+        if (!it) return;
+        if (d.type === 'smove') {
+            it.x = r1(d.orig[0] + x - d.start[0]);
+            it.y = r1(d.orig[1] + y - d.start[1]);
+        } else {
+            const f = Math.max(0.15, Math.min(8, Math.hypot(x - d.c[0], y - d.c[1]) / d.d0));
+            it.w = r1(Math.max(30, d.orig.w * f));
+            it.h = r1(Math.max(30, d.orig.h * f));
+        }
+    }
+
+    /** ならべて いる とちゅうの しるし（てんせん の わく・えらんだ ものの 大きさ つまみ） */
+    function drawSceneEdit(g, st, z) {
+        g.save();
+        for (const it of st.scene.items) {
+            const on = it.id === sceneSel;
+            g.setLineDash(on ? [] : [8 / z, 6 / z]);
+            g.lineWidth = (on ? 3 : 2) / z;
+            g.strokeStyle = on ? '#2fa84f' : 'rgba(47,168,79,.55)';
+            g.strokeRect(it.x - it.w / 2, it.y - it.h / 2, it.w, it.h);
+            if (on) {
+                const [hx, hy] = sceneHandlePos(it);
+                const r = handleR();
+                g.setLineDash([]);
+                g.beginPath();
+                g.arc(hx, hy, r, 0, Math.PI * 2);
+                g.fillStyle = '#2fa84f';
+                g.fill();
+                g.lineWidth = r * 0.16;
+                g.strokeStyle = '#fff';
+                g.stroke();
+                /* ↘ の しるし */
+                g.beginPath();
+                g.moveTo(hx - r * 0.4, hy - r * 0.4);
+                g.lineTo(hx + r * 0.35, hy + r * 0.35);
+                g.moveTo(hx + r * 0.35, hy - r * 0.05);
+                g.lineTo(hx + r * 0.35, hy + r * 0.35);
+                g.lineTo(hx - r * 0.05, hy + r * 0.35);
+                g.lineWidth = r * 0.2;
+                g.stroke();
+            }
+        }
+        g.restore();
+    }
+
+    function updateSceneBar() {
+        const sel = !!sceneItem(sceneSel);
+        $('#sDel').disabled = !sel;
+        $('#sceneHint').textContent = sel ? 'えらんだ イラスト：かどの ● で 大きさ' : 'ゆびで うごかす・タップで えらぶ';
+    }
+
+    /** えらんだ もの（なければ ぜんぶ）を f ばい */
+    function scaleScene(f) {
+        if (!hasScene(state)) return;
+        const sel = sceneItem(sceneSel);
+        for (const it of sel ? [sel] : state.scene.items) {
+            it.w = r1(Math.max(30, it.w * f));
+            it.h = r1(Math.max(30, it.h * f));
+        }
+        requestRender();
+    }
+
+    $('#sBigger').addEventListener('click', () => scaleScene(1.15));
+    $('#sSmaller').addEventListener('click', () => scaleScene(1 / 1.15));
+    $('#sAdd').addEventListener('click', () => {
+        if (!hasScene(state)) return;
+        if (state.scene.items.length >= 60) { toast('60こ までです'); return; }
+        const base = sceneItem(sceneSel) || state.scene.items[state.scene.items.length - 1];
+        const it = { id: uid('i'), k: base.k, x: r1(base.x + base.w * 0.3), y: r1(base.y + base.h * 0.3), w: base.w, h: base.h, c: state.scene.items.length };
+        state.scene.items.push(it);
+        sceneSel = it.id;
+        updateSceneBar();
+        requestRender();
+    });
+    $('#sDel').addEventListener('click', () => {
+        if (!hasScene(state) || !sceneSel) return;
+        state.scene.items = state.scene.items.filter(it => it.id !== sceneSel);
+        sceneSel = null;
+        updateSceneBar();
+        requestRender();
+    });
+    $('#sRelayout').addEventListener('click', () => {
+        if (!hasScene(state)) return;
+        const cells = SC.layout(state.scene.items.length, placeRect());
+        state.scene.items.forEach((it, i) => Object.assign(it, { x: r1(cells[i].x), y: r1(cells[i].y), w: r1(cells[i].w), h: r1(cells[i].h) }));
+        requestRender();
+    });
+    $('#sCancel').addEventListener('click', cancelScene);
+    $('#sDone').addEventListener('click', () => {
+        setTool('move');
+        toast(hasScene(state) ? 'はいけいに しました（「イラストを うごかす」で なおせます）' : 'イラストを ぜんぶ けしました');
+    });
+
+    $('#sceneGo').addEventListener('click', () => startScene(settings.sceneKind, settings.sceneN));
+    $('#btnSceneEdit').addEventListener('click', () => { closeSheets(); sceneNewTab = false; sceneSel = null; setTool('scene'); toast('すきな ところに うごかして「できた」を おしてね', 3000); });
 
     /* ================================================================
        せってい

@@ -173,6 +173,12 @@
         t('出席番号は 1〜99', L.isSeatNo(1) && L.isSeatNo(35) && !L.isSeatNo(0) && !L.isSeatNo(100) && !L.isSeatNo(3.5));
         const withO = L.sanitizeState({ blocks: [], bg: { id: 'p1', x: 0, y: 0, s: 1, rot: 0, alpha: 1, o: 'pT' } }, empty);
         t('はいけいの もと（せんせいの しゃしん）の しるしを のこす', withO.bg && withO.bg.o === 'pT');
+        const sc = L.sanitizeState({ blocks: [], scene: { kind: 'plate', label: 'おさら 2まい', items: [
+            { id: 'i1', k: 'plate', x: 10, y: 20, w: 200, h: 120, c: 1 }, { id: 'i2', k: 'BAD!', x: 0, y: 0, w: 10, h: 10 },
+            { id: 'i3', k: 'bag', x: 'x', y: 0, w: 10, h: 10 }, { id: 'i4', k: 'bag', x: 5, y: 5, w: 90, h: 90 } ] } }, empty);
+        t('イラストの はいけい：へんな ものは すてて のこす', sc.scene && sc.scene.items.length === 2 && sc.scene.items[0].k === 'plate' && sc.scene.label === 'おさら 2まい',
+            sc.scene && sc.scene.items.map(i => i.id).join(','));
+        t('イラストが 0こ なら scene は null', L.sanitizeState({ blocks: [], scene: { items: [] } }, empty).scene === null);
 
         return rows;
     }
