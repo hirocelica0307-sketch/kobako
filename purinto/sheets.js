@@ -10,6 +10,7 @@
     'use strict';
     const G = root.PurintoGen || require('./gen.js');
     const D = root.PurintoData || require('./data.js');
+    const K = root.PurintoSakubun || require('./sakubun.js');
 
     const SUBJECTS = {
         kokugo: { label: 'こくご', icon: '📖' },
@@ -30,7 +31,7 @@
     function page(o) {
         const S = SUBJECTS[o.subject] || SUBJECTS.kokugo;
         const rules = (!o.answer && o.rules && o.rules.length)
-            ? `<div class="rules"><b class="rules-h">やりかた</b><ol>${o.rules.map((r, i) => `<li><span class="rn">${MARU[i]}</span>${r}</li>`).join('')}</ol></div>`
+            ? `<div class="rules"><b class="rules-h">やりかた</b><ol>${o.rules.map((r, i) => `<li><span class="rn">${MARU[i]}</span><span>${r}</span></li>`).join('')}</ol></div>`
             : '';
         return `<section class="page subj-${o.subject}${o.answer ? ' is-answer' : ''}">
   <header class="ph">
@@ -683,10 +684,187 @@
         },
     };
 
+    /* ================================================================
+       さくぶん（あのね にっき）・お題 いちらん
+       ================================================================ */
+
+    /** {漢字|かんじ} → ふりがな（on が false なら 漢字だけ） */
+    const ruby = (s, on = true) => esc(s).replace(/\{([^|{}]+)\|([^{}]*)\}/g, (_, k, r) => on && r ? `<ruby>${k}<rt>${r}</rt></ruby>` : k);
+    const plain = s => String(s).replace(/\{([^|{}]+)\|[^{}]*\}/g, '$1');
+    const ALL_ODAI = K.CATEGORIES.flatMap(c => c.items.map(it => ({ ...it, cat: c })));
+    const FEEL_WORDS = ['うれしい', 'たのしい', 'わくわく', 'どきどき', 'びっくり', 'ほっと した', 'くやしい', 'かなしい', 'はずかしい', 'おもしろい', 'こわい', 'がんばろう'];
+    const KATA_TYPES = { diary: 'あのね（いつ・どこで・だれと）', order: 'じゅんばん', compare: 'くらべる', teach: 'おしえる', reason: 'わけ', group: 'なかま分け', ifthen: 'もしも', solve: 'かいけつ', explain: 'せつめい', senses: '5つの かんかく' };
+
+    /** 記号の みほん（できごと・おと・セリフ・きもち） */
+    function symbolLegend() {
+        const sv = inner => `<svg viewBox="0 0 40 20" class="an-sym">${inner}</svg>`;
+        return `<div class="an-legend">
+          <span>できごと… ${sv('<rect x="3" y="3" width="34" height="14" />')}</span>
+          <span>おと… ${sv('<path d="M8 15 a5 5 0 0 1 2-9 a6 6 0 0 1 11-2 a6 6 0 0 1 11 3 a4 4 0 0 1 -2 8 z" />')}</span>
+          <span>セリフ… ${sv('<ellipse cx="20" cy="10" rx="17" ry="7" />')}</span>
+          <span>きもち… ${sv('<path d="M20 18 C 4 9, 8 1, 20 7 C 32 1, 36 9, 20 18 z" />')}</span></div>`;
+    }
+
+    /** ① かんがえを ひろげる（まんなかに お題、まわりに ふきだし） */
+    function ideaWeb(type, center, fz, R) {
+        if (type === 'group') {
+            const spots = [[14, 16], [42, 13], [70, 16], [88, 30], [13, 38], [88, 52], [14, 62], [86, 74], [28, 86], [54, 88], [78, 90], [40, 30]];
+            return `<div class="an-web group"><div class="an-hint">${R('{思|おも}いつく ものを どんどん {書|か}こう（10〜20こ）')}</div>
+              ${spots.map(([x, y]) => `<span class="an-dot" style="left:${x}%;top:${y}%"></span>`).join('')}
+              <div class="an-center" style="font-size:${fz}mm">${center}</div></div>`;
+        }
+        const prompts = K.WEB_PROMPTS[type] || K.WEB_PROMPTS.diary;
+        const pos = [[50, 11], [82, 29], [82, 71], [50, 89], [18, 71], [18, 29]];
+        const lines = pos.map(([x, y]) => `<line x1="50" y1="50" x2="${x}" y2="${y}" />`).join('');
+        return `<div class="an-web"><svg class="an-web-lines" viewBox="0 0 100 100" preserveAspectRatio="none">${lines}</svg>
+          ${prompts.map((p, i) => `<div class="an-bub b${i}"><small>${R(p)}</small></div>`).join('')}
+          <div class="an-center" style="font-size:${fz}mm">${center}</div></div>`;
+    }
+
+    /** ② 考えを 図にする（組み立て図） */
+    function organizer(type, R) {
+        const rows = K.ORGANIZERS[type] || K.ORGANIZERS.diary;
+        return `<div class="an-org">${rows.map((r, i) => `${i ? '<div class="an-down">▼</div>' : ''}<div class="an-orow">${r.map(b => `<div class="an-obox"><small>${R(b)}</small></div>`).join('')}</div>`).join('')}</div>`;
+    }
+
+    function genkou(wmm, hmm, cell, guide) {
+        const cols = Math.max(4, Math.floor((wmm - 1) / cell)), rows = Math.max(4, Math.floor((hmm - 1) / cell));
+        return `<div class="gk${guide ? ' guide' : ''}" style="grid-template-columns:repeat(${cols},${cell}mm);grid-template-rows:repeat(${rows},${cell}mm)">${'<i></i>'.repeat(cols * rows)}</div>`;
+    }
+
+    function pickOdai(opt, rng) {
+        const v = opt.odai || '';
+        if (!v) return null;
+        if (v === 'random') return rng.pick(ALL_ODAI);
+        if (v.startsWith('cat:')) return rng.pick(ALL_ODAI.filter(o => o.cat.id === v.slice(4)));
+        return ALL_ODAI.find(o => o.id === v) || null;
+    }
+
+    const anone = {
+        id: 'anone', title: 'あのね にっき（さくぶん）', icon: '📔',
+        desc: '① かんがえを ひろげる → ② (図にする) → かいてみる → ふりかえる。お題に あわせた ヒントと たて書きの マス。',
+        options: [
+            { key: 'grade', label: 'かたち', type: 'select', def: 'low', choices: [['low', '1・2ねん（3ステップ）'], ['mid', '3・4ねん（4ステップ・図にする つき）']] },
+            { key: 'odai', label: 'お題', type: 'select', def: '', choices: [['', 'じぶんで きめる（かく らん）'], ['random', 'くじ（ぜんぶ から）'],
+                ...K.CATEGORIES.map(c => ['cat:' + c.id, `くじ：${c.id} ${plain(c.short)}`]), ...ALL_ODAI.map(o => [o.id, `${o.id} ${plain(o.text)}`])] },
+            { key: 'kata', label: 'ヒントの かたち', type: 'select', def: 'auto', choices: [['auto', 'お題に あわせる'], ...Object.entries(KATA_TYPES)] },
+            { key: 'masu', label: 'マスの おおきさ', type: 'select', def: 'm', choices: [['l', 'おおきい'], ['m', 'ふつう'], ['s', 'ちいさい']] },
+            { key: 'guide', label: 'マスに 十字の 点線', type: 'check', def: true },
+            { key: 'furi', label: 'ふりがな', type: 'check', def: true },
+        ],
+        build(opt, rng) {
+            const mid = opt.grade === 'mid';
+            const o = pickOdai(opt, rng);
+            const type = opt.kata !== 'auto' && KATA_TYPES[opt.kata] ? opt.kata : o ? o.cat.type : 'diary';
+            const cat = o ? o.cat : K.CATEGORIES.find(c => c.type === type) || K.CATEGORIES[0];
+            const R = s => ruby(s, opt.furi);
+            const odaiText = o ? R(o.text) : '';
+            const odaiBox = `<div class="an-odai"><b>${R('お{題|だい}')}</b>${o ? `<span class="an-odai-t">${odaiText}</span><small class="an-id">${o.id}${o.research ? ' 📚' : ''}</small>` : '<span class="an-odai-line"></span>'}</div>`;
+            const center = o ? `<span>${odaiText}</span>` : '';
+            const words = `<div class="an-words"><b>つかえる ことば</b>${cat.words.map(w => `<span>${R(w)}</span>`).join('')}</div>`;
+            const feel = `<div class="an-feel"><b>きもちの ことば</b>${FEEL_WORDS.map(w => `<span>${w}</span>`).join('')}</div>`;
+            const wordsTsunagi = plain(cat.words.filter(w => !w.startsWith('〜')).slice(0, 2).join('・'));
+            const cellL = { l: 15, m: 12, s: 10 }[opt.masu] || 12, cellM = { l: 11, m: 10, s: 9 }[opt.masu] || 10;
+            const pill = (n, t) => `<div class="an-pill"><span>${n}</span><span class="t">${R(t)}</span></div>`;
+            const strip = `<div class="an-strip"><div class="an-title">${mid ? R('あのね{日記|にっき}') : 'あのね にっき'}</div>
+              ${mid ? '<div>（　　）' + R('{回目|かいめ}') + '</div>' : ''}<div>（　　）${R(mid ? '{月|がつ}' : 'がつ')}（　　）${R(mid ? '{日|にち}' : 'にち')}</div>
+              <div>${R(mid ? '{名前|なまえ}' : 'なまえ')}（　　　　　　　　）</div></div>`;
+
+            let body;
+            if (!mid) {
+                const pts = K.POINTS_LOW;
+                const points = `<div class="an-points"><div class="an-ph">〈ポイント〉</div>
+                    ${pts.list.map((p, i) => `<div class="an-pt">${MARU[i]}□ ${R(p)}</div>`).join('')}
+                    <div class="an-sp"></div>${[...pts.special, `「${wordsTsunagi}」を つかう`].map(p => `<div class="an-pt">★□ ${R(p)}</div>`).join('')}</div>
+                  <div class="an-stars"><div class="an-sh">ほしの かず</div>${pts.stars.map((s, i) => `<div>${'★'.repeat(i + 1)}…${R(s)}</div>`).join('')}</div>
+                  <div class="an-starbox">${'<i></i>'.repeat(pts.stars.length)}</div>${feel}`;
+                body = `<div class="an low">
+                  <div class="an-col c3">${pill('③', 'ふりかえる')}${points}</div>
+                  <div class="an-col c2">${pill('②', 'かいてみる')}${genkou(120, 184, cellL, opt.guide)}</div>
+                  <div class="an-col c1">${pill('①', 'かんがえを ひろげる')}${odaiBox}${ideaWeb(type, center, 3.4, R)}${symbolLegend()}${words}</div>
+                  ${strip}</div>`;
+            } else {
+                const pts = K.POINTS_MID;
+                let n = 0;
+                const points = `<div class="an-points mid"><div class="an-ph">【ポイント】</div>
+                    ${pts.steps.map(([h, list]) => `<div class="an-step">${R(h)}</div>${list.map(p => `<div class="an-pt">□${MARU[n++]} ${R(p)}</div>`).join('')}`).join('')}
+                    <div class="an-step">スペシャル</div>${[...pts.special, `「${wordsTsunagi}」を つかう`].map(p => `<div class="an-pt">□ ${R(p)}</div>`).join('')}</div>
+                  <div class="an-stars"><div class="an-sh">〈${R('{結果|けっか}')}〉</div>${pts.stars.map((s, i) => `<div>☆${i + 1}こ…${R(s)}</div>`).join('')}</div>
+                  <div class="an-result"></div>`;
+                body = `<div class="an mid">
+                  <div class="an-col c4">${pill('④', 'ふりかえる')}${points}</div>
+                  <div class="an-main">
+                    <div class="an-col c2">${pill('②', '{考|かんが}えを {図|ず}にする')}${organizer(type, R)}${words}</div>
+                    <div class="an-col c1">${pill('①', '{考|かんが}えを {広|ひろ}げる')}${odaiBox}${ideaWeb(type, center, 2.9, R)}${symbolLegend()}</div>
+                    <div class="an-col c3">${pill('③', '{書|か}いてみる')}${genkou(206, 100, cellM, opt.guide)}</div>
+                  </div>
+                  ${strip}</div>`;
+            }
+            return { page: `<section class="page subj-kokugo land">${body}</section>`, answer: null };
+        },
+    };
+
+    /* ---------- お題 いちらん ---------- */
+    const odaiList = {
+        id: 'odailist', title: 'さくぶん お題 いちらん', icon: '📋',
+        desc: 'あのね にっきの お題 200こを、10の なかま（じゅんばん・くらべる・もしも など）に わけた 一覧。ばんごうで えらべる。',
+        options: [
+            { key: 'mode', label: 'だれ むけ', type: 'select', def: 'child', choices: [['child', 'こども むけ（✓ らん つき）'], ['teacher', 'せんせい むけ（ねらい つき）']] },
+            { key: 'cat', label: 'なかま', type: 'select', def: 'all', choices: [['all', 'ぜんぶ'], ...K.CATEGORIES.map(c => [c.id, `${c.id} ${plain(c.short)}`])] },
+            { key: 'furi', label: 'ふりがな', type: 'check', def: true },
+        ],
+        build(opt) {
+            const teacher = opt.mode === 'teacher';
+            const R = s => ruby(s, opt.furi);
+            const cats = opt.cat && opt.cat !== 'all' ? K.CATEGORIES.filter(c => c.id === opt.cat) : K.CATEGORIES;
+            const lh = 7.1, perLine = 20;
+            const lines = s => Math.max(1, Math.ceil(plain(s).length / perLine));
+            /* ぎょう（見出し・ねらい・お題）に ばらして、たかさを みつもって だんに つめる */
+            const rows = [];
+            for (const c of cats) {
+                rows.push({ h: 11, head: true, html: `<div class="ol-head" style="--cc:${c.color}"><span class="ol-id">${c.id}</span>${c.icon} ${R(c.title)}</div>` });
+                if (teacher) rows.push({ h: lines(c.nerai) * (lh - .6) + 2, html: `<div class="ol-nerai">${R(c.nerai)}</div>` });
+                rows.push({ h: lh + 1, html: `<div class="ol-words">つかえる ことば：${c.words.map(w => R(w)).join('・')}</div>` });
+                for (const it of c.items) {
+                    rows.push({ h: lines(it.text) * lh, cat: c, html: `<div class="ol-item">${teacher ? '' : '<span class="ol-ck"></span>'}<span class="ol-no">${it.id}</span><span class="ol-t">${R(it.text)}${it.research ? ' 📚' : ''}${teacher && it.new ? ' <em>ふやした</em>' : ''}</span></div>` });
+                }
+            }
+            const cap1 = teacher ? 184 : 190, cap = 232;
+            const pages = [[[]]];
+            let used = 0;
+            const capOf = () => (pages.length === 1 ? cap1 : cap);
+            for (let i = 0; i < rows.length; i++) {
+                const r = rows[i];
+                const need = r.head ? r.h + (rows[i + 1] ? rows[i + 1].h : 0) + (rows[i + 2] ? rows[i + 2].h : 0) : r.h;
+                if (used + need > capOf() && used > 0) {
+                    const pg = pages[pages.length - 1];
+                    if (pg.length < 2) pg.push([]); else pages.push([[]]);
+                    used = 0;
+                    if (!r.head && r.cat) {    /* とちゅうから つづく とき */
+                        const cc = r.cat;
+                        pages[pages.length - 1].slice(-1)[0].push(`<div class="ol-head cont" style="--cc:${cc.color}"><span class="ol-id">${cc.id}</span>${R(cc.title)}（つづき）</div>`);
+                        used += 9;
+                    }
+                }
+                pages[pages.length - 1].slice(-1)[0].push(r.html);
+                used += r.h;
+            }
+            const howto = teacher
+                ? `<div class="rules"><b class="rules-h">${R('お{題|だい}を えらぶ 3つの きまり')}</b><ol>${K.RULES_OF_ODAI.map((r, i) => `<li><span class="rn">${MARU[i]}</span><span>${R(r)}</span></li>`).join('')}</ol></div>`
+                : '';
+            const out = pages.map((cols, pi) => page({
+                subject: 'kokugo', catchline: pi ? `つづき（${pi + 1}まいめ）` : 'かきたい お題を えらぼう！', title: 'さくぶん お題 いちらん', icon: '📋',
+                rules: pi || teacher ? null : ['すきな お{題|だい}を えらんで、あのね にっきに {書|か}こう。', 'ばんごう（A1 など）を せんせいに つたえよう。', '{書|か}いた お{題|だい}には □に ✓ を つけよう。'].map(R),
+                body: (pi ? '' : howto) + `<div class="ol-cols">${cols.map(c => `<div class="ol-col">${c.join('')}</div>`).join('')}</div>`,
+            }));
+            return { page: out.join(''), answer: null };
+        },
+    };
+
     /* ---------- ならび ---------- */
 
     const SHEETS = { kaidan, storymaze: storyMaze, wordsearch: wordSearch, kanjiadd: kanjiAdd, anagram, headquiz: headQuiz, acrostic, dicestory: diceStory,
-        calcmaze: calcMaze, magic, pyramid, sudoku, symbols: symbolSearch, dotcopy: dotCopy, diffs, halfpic: halfPic, doodle, bingo, feelings, sugoroku };
+        calcmaze: calcMaze, magic, pyramid, sudoku, symbols: symbolSearch, dotcopy: dotCopy, diffs, halfpic: halfPic, doodle, bingo, feelings, sugoroku, anone, odailist: odaiList };
 
     /** メニュー（id は URL に のる ので かえない） */
     const CATALOG = [
@@ -698,6 +876,9 @@
         { id: 'kanjiadd', sheet: 'kanjiadd', subject: 'kokugo' },
         { id: 'acrostic', sheet: 'acrostic', subject: 'kokugo' },
         { id: 'dicestory', sheet: 'dicestory', subject: 'kokugo' },
+        { id: 'anone', sheet: 'anone', subject: 'kokugo', title: 'あのね にっき（1・2ねん）', desc: '① かんがえを ひろげる → ② かいてみる → ③ ふりかえる。お題に あわせた ヒントと たて書きの マス。' },
+        { id: 'anone-mid', sheet: 'anone', subject: 'kokugo', title: 'あのね日記（3・4ねん）', desc: '① 考えを広げる → ② 図にする → ③ 書いてみる → ④ ふりかえる。お題の なかまごとに 組み立て図が かわる。', defaults: { grade: 'mid', guide: false } },
+        { id: 'odailist', sheet: 'odailist', subject: 'kokugo' },
         { id: 'calcmaze', sheet: 'calcmaze', subject: 'sansu' },
         { id: 'pyramid', sheet: 'pyramid', subject: 'sansu' },
         { id: 'magic', sheet: 'magic', subject: 'sansu' },
@@ -743,7 +924,7 @@
         const s = SHEETS[entry.sheet];
         const rng = G.makeRng(seed);
         const r = s.build(resolveOptions(entry, opt), rng);
-        const fix = h => h && h.replace(/class="page subj-\w+/, `class="page subj-${entry.subject}`).replace(/<span class="subj-badge">[^<]*<\/span>/, `<span class="subj-badge">${SUBJECTS[entry.subject].icon} ${SUBJECTS[entry.subject].label}</span>`);
+        const fix = h => h && h.replace(/class="page subj-\w+/g, `class="page subj-${entry.subject}`).replace(/<span class="subj-badge">[^<]*<\/span>/g, `<span class="subj-badge">${SUBJECTS[entry.subject].icon} ${SUBJECTS[entry.subject].label}</span>`);
         return { page: fix(r.page), answer: fix(r.answer) };
     }
 

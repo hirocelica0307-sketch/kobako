@@ -120,7 +120,8 @@
     /** A4（210mm ≒ 794px）を よこはばに あわせて ちぢめる */
     function fit() {
         const w = $('previewWrap').clientWidth - 24;
-        const z = Math.min(1, w / 800);
+        const base = $('pages').querySelector('.page.land') ? 1140 : 800;
+        const z = Math.min(1, w / base);
         $('pages').style.zoom = z;
     }
 
