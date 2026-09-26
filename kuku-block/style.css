@@ -492,6 +492,109 @@ kbd{ font-family:inherit; border:1px solid var(--line); border-bottom-width:3px;
 .help td{ padding:8px 4px; font-weight:700; line-height:1.6; }
 .help tr{ border-bottom:1px solid #f0e8da; }
 
+/* ---------- せんせい・クラス ---------- */
+.btn-teacher{ background:#f3eefc; border-color:#c9b6ef; }
+.kid-chip{
+    flex:none; display:flex; align-items:center; gap:6px; height:40px; padding:0 12px;
+    border-radius:999px; border:2px solid #9fd3a8; background:#eef8ef; font-size:14px; white-space:nowrap;
+}
+.kid-chip .dot{ width:10px; height:10px; border-radius:50%; background:#aaa; }
+.kid-chip .dot.on{ background:#2fa84f; box-shadow:0 0 0 3px rgba(47,168,79,.2); }
+.kid-chip .dot.off{ background:#e5413a; }
+.src-grid.one{ grid-template-columns:1fr; width:56px; }
+
+.pin-dots{ display:flex; justify-content:center; gap:14px; margin:4px 0 12px; }
+.pin-dots i{ width:18px; height:18px; border-radius:50%; border:3px solid #8a5cd6; }
+.pin-dots i.on{ background:#8a5cd6; }
+.keypad{ display:grid; grid-template-columns:repeat(3, 72px); gap:8px; justify-content:center; margin-bottom:10px; }
+.keypad button{
+    height:56px; border-radius:14px; border:2px solid var(--line); background:#fff;
+    font-family:var(--pop); font-weight:400; font-size:26px;
+}
+.keypad button:active{ transform:scale(.94); background:var(--tap); }
+.keypad button.k-sub{ font-family:var(--round); font-weight:800; font-size:14px; }
+.sheet-small .big{ min-height:52px; }
+
+.class-list{ display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
+.class-list:empty::before{ content:"まだ クラスが ありません"; color:var(--ink-thin); font-size:14px; }
+.class-row{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    padding:10px 12px; border-radius:14px; background:#f7f2ff; border:2px solid #e2d6f7;
+}
+.class-row b{ font-size:17px; }
+.class-row .code{ font-family:var(--pop); font-weight:400; color:#6a3fc0; letter-spacing:.08em; }
+.class-row .sp{ flex:1; }
+
+.field{ display:flex; align-items:center; gap:10px; margin:6px 0; font-size:15px; }
+.field input{
+    flex:1; min-width:0; height:44px; border-radius:12px; border:2px solid var(--line); padding:0 12px;
+    font:inherit; font-size:16px; -webkit-user-select:text; user-select:text;
+}
+.allow-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:6px; }
+.allow-grid button{
+    height:44px; border-radius:12px; border:2px solid var(--line); background:#fff; font-size:14px;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+}
+.allow-grid button.on{ background:#eef8ef; border-color:var(--go); }
+.allow-grid button:not(.on){ color:var(--ink-thin); text-decoration:line-through; }
+.allow-grid button::before{ content:"🔒"; }
+.allow-grid button.on::before{ content:"✅"; }
+.seg-wide{ display:inline-flex; margin-bottom:6px; }
+.seg-wide .seg-b{ height:42px; padding:0 16px; font-size:14px; }
+
+.sheet-join{ width:min(420px, 100%); }
+.join-no{ display:flex; align-items:center; justify-content:center; gap:12px; margin:4px 0 10px; font-size:15px; }
+.join-no b{
+    min-width:3em; height:56px; line-height:56px; border-radius:14px; border:3px solid var(--go); background:#fff;
+    font-family:var(--pop); font-weight:400; font-size:34px; text-align:center; color:#23823c;
+}
+
+/* みんなの つくえ */
+.class-view{ position:fixed; inset:0; z-index:45; background:#2b2f36; color:#fff; display:flex; flex-direction:column; }
+.cv-head{ flex:none; display:flex; align-items:center; gap:12px; padding:10px 14px; background:#1f2328; }
+.cv-head h2{ margin:0; font-size:20px; }
+.cv-count{ font-size:14px; color:#b9c0ca; }
+.cv-btns{ margin-left:auto; display:flex; gap:8px; }
+.cv-btns .chip{ color:var(--ink); }
+.cv-btns .chip.on{ background:#ffe9a8; border-color:#f0c040; }
+.cv-grid{
+    flex:1; min-height:0; overflow:auto; padding:12px;
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(var(--cw, 240px), 1fr)); gap:12px; align-content:start;
+}
+.kid-card{
+    position:relative; border-radius:14px; overflow:hidden; background:#fffdf8; cursor:pointer;
+    border:3px solid transparent; box-shadow:0 3px 10px rgba(0,0,0,.3); color:var(--ink);
+}
+.kid-card canvas{ display:block; width:100%; aspect-ratio:16/10; }
+.kid-card .kc-name{
+    position:absolute; left:6px; top:6px; padding:3px 10px; border-radius:999px;
+    background:rgba(255,255,255,.92); font-size:14px; display:flex; align-items:center; gap:6px;
+}
+.kid-card .kc-name i{ width:9px; height:9px; border-radius:50%; background:#2fa84f; }
+.kid-card.off .kc-name i{ background:#aaa; }
+.kid-card.off canvas{ opacity:.55; }
+.kid-card.sel{ border-color:#f0c040; }
+.kid-card.sel::after{
+    content:"✔"; position:absolute; right:8px; top:6px; width:28px; height:28px; border-radius:50%;
+    background:#f0c040; color:#fff; text-align:center; line-height:28px;
+}
+.cv-focus{ flex:1; min-height:0; display:grid; gap:10px; padding:10px; }
+.cv-focus .kid-card{ cursor:default; display:flex; flex-direction:column; }
+.cv-focus .kid-card canvas{ flex:1; min-height:0; aspect-ratio:auto; height:100%; }
+.cv-empty{ text-align:center; color:#b9c0ca; font-size:16px; }
+.class-view.tv .cv-head{ display:none; }
+.class-view.tv .cv-grid, .class-view.tv .cv-focus{ padding:6px; gap:6px; }
+
+/* テレビに うつす（ボタンを ぜんぶ かくす） */
+body.present .tabbar, body.present .top, body.present .side, body.present .zoom-bar,
+body.present .float-bar, body.present .dan-bar, body.present .bubble, body.present .card-x,
+body.present .toast{ display:none !important; }
+.tv-exit{
+    position:fixed; right:10px; top:10px; z-index:60; width:44px; height:44px; border-radius:50%;
+    border:none; background:rgba(0,0,0,.35); color:#fff; font-size:18px; opacity:.25; transition:opacity .2s;
+}
+.tv-exit:hover, .tv-exit:focus{ opacity:1; }
+
 /* たて画面や せまい 画面 */
 @media (max-width:900px){
     .logo{ display:none; }
@@ -515,4 +618,6 @@ kbd{ font-family:inherit; border:1px solid var(--line); border-bottom-width:3px;
     .dan-read{ font-size:12px; }
     .dan-grid{ grid-template-columns:repeat(5,1fr); }
     .card-banner{ max-width:calc(100% - 24px); font-size:15px; }
+    .kid-chip{ font-size:12px; padding:0 8px; }
+    .cv-btns .chip{ padding:0 8px; font-size:12px; }
 }

@@ -122,5 +122,130 @@
         });
     }
 
-    root.KukuShare = { upload, download, isCode: (s) => /^[0-9]{6}$/.test(s), connect, hold, release };
+    /* ================================================================
+       クラス（せんせいが つくる。こどもは URL で はいる）
+       ohajiki/classes/{code}/
+         owner              つくった せんせいの 匿名ID
+         cfg                クラスの なまえ・あいことば・つかえる きのう・せってい・ページの ばんごう
+         pages              はじめに くばる ページ（しゃしん つき の JSON 文字）
+         kids/{kid}         こどもの いまの つくえ（uid・ばんごう・なまえ・つながり・ページ）
+         imgs/{kid}/{id}    こどもが じぶんで 入れた しゃしん（小さく した もの）
+       ================================================================ */
+    const CPATH = 'ohajiki/classes/';
+    const T = (p, ms) => withTimeout(p, ms || TIMEOUT, 'つうしんに 時間が かかりすぎました');
+
+    async function uid() { const c = await connect(); return c.fake ? 'fake' : c.uid; }
+
+    /** あたらしい クラスを つくって コードを かえす */
+    async function createClass(cfg, pages) {
+        return using(async (c) => {
+            try {
+                for (let i = 0; i < 8; i++) {
+                    const code = newCode();
+                    const base = CPATH + code;
+                    if ((await T(c.fb.get(c.fb.ref(c.db, base + '/owner')))).exists()) continue;
+                    await T(c.fb.set(c.fb.ref(c.db, base + '/owner'), c.uid));
+                    await T(c.fb.set(c.fb.ref(c.db, base + '/cfg'), Object.assign({}, cfg, { t: c.fb.serverTimestamp() })));
+                    await T(c.fb.set(c.fb.ref(c.db, base + '/pages'), pages || ''), 60000);
+                    return code;
+                }
+            } catch (e) { throw explain(e); }
+            throw new Error('コードを つくれませんでした。もう一度 おしてください');
+        });
+    }
+
+    async function getClass(code) {
+        return using(async (c) => {
+            try {
+                const [o, g] = await Promise.all([
+                    T(c.fb.get(c.fb.ref(c.db, CPATH + code + '/owner'))),
+                    T(c.fb.get(c.fb.ref(c.db, CPATH + code + '/cfg'))),
+                ]);
+                if (!o.exists() || !g.exists()) return null;
+                return { owner: o.val(), cfg: g.val(), mine: o.val() === c.uid };
+            } catch (e) { throw explain(e); }
+        });
+    }
+
+    async function getPages(code) {
+        return using(async (c) => {
+            try { return (await T(c.fb.get(c.fb.ref(c.db, CPATH + code + '/pages')), 60000)).val() || ''; } catch (e) { throw explain(e); }
+        });
+    }
+
+    async function saveCfg(code, cfg) {
+        return using(async (c) => {
+            try { await T(c.fb.set(c.fb.ref(c.db, CPATH + code + '/cfg'), Object.assign({}, cfg, { t: c.fb.serverTimestamp() }))); } catch (e) { throw explain(e); }
+        });
+    }
+
+    async function savePages(code, pages) {
+        return using(async (c) => {
+            try { await T(c.fb.set(c.fb.ref(c.db, CPATH + code + '/pages'), pages), 60000); } catch (e) { throw explain(e); }
+        });
+    }
+
+    /** code の cfg が かわる たびに cb。やめる ときは かえり値の 関数を よぶ（その あいだ つないだ まま） */
+    async function watchCfg(code, cb) {
+        const c = await connect();
+        hold(c);
+        const off = c.fb.onValue(c.fb.ref(c.db, CPATH + code + '/cfg'), (snap) => cb(snap.val()), () => {});
+        return () => { off(); release(c); };
+    }
+
+    /** こどもの つくえを おくる。つながりが きれたら on を false に（onDisconnect） */
+    let presenceSet = '';
+    async function sendKid(code, kid, data) {
+        return using(async (c) => {
+        const path = CPATH + code + '/kids/' + kid;
+        try {
+            await T(c.fb.update(c.fb.ref(c.db, path), Object.assign({}, data, { uid: c.uid, on: true, t: c.fb.serverTimestamp() })));
+            if (presenceSet !== path) {
+                presenceSet = path;
+                await c.fb.onDisconnect(c.fb.ref(c.db, path + '/on')).set(false);
+            }
+        } catch (e) { throw explain(e); }
+        });
+    }
+
+    async function putImg(code, kid, id, dataUrl) {
+        return using(async (c) => {
+            try { await T(c.fb.set(c.fb.ref(c.db, CPATH + code + '/imgs/' + kid + '/' + id), dataUrl), 60000); } catch (e) { throw explain(e); }
+        });
+    }
+
+    async function getImg(code, path) {
+        return using(async (c) => {
+            try { return (await T(c.fb.get(c.fb.ref(c.db, CPATH + code + '/imgs/' + path)), 60000)).val(); } catch (e) { throw explain(e); }
+        });
+    }
+
+    /** せんせい：こどもの つくえ ぜんぶを 見はる */
+    async function watchKids(code, cb, onErr) {
+        const c = await connect();
+        hold(c);
+        const off = c.fb.onValue(c.fb.ref(c.db, CPATH + code + '/kids'), (snap) => cb(snap.val() || {}), (e) => onErr && onErr(explain(e)));
+        return () => { off(); release(c); };
+    }
+
+    /** こどもの つくえ・しゃしんを けす（クラスの せっていは のこる） */
+    async function clearKids(code) {
+        return using(async (c) => {
+            try {
+                await T(c.fb.set(c.fb.ref(c.db, CPATH + code + '/kids'), null));
+                await T(c.fb.set(c.fb.ref(c.db, CPATH + code + '/imgs'), null));
+            } catch (e) { throw explain(e); }
+        });
+    }
+
+    async function removeClass(code) {
+        return using(async (c) => {
+            try { await T(c.fb.set(c.fb.ref(c.db, CPATH + code), null)); } catch (e) { throw explain(e); }
+        });
+    }
+
+    root.KukuShare = {
+        upload, download, isCode: (s) => /^[0-9]{6}$/.test(s), connect, hold, release,
+        cls: { uid, createClass, getClass, getPages, saveCfg, savePages, watchCfg, sendKid, putImg, getImg, watchKids, clearKids, removeClass },
+    };
 })(window);

@@ -159,6 +159,18 @@
             sn && `b${sn.blocks.length} l${sn.loops.length} s${sn.strokes.length}`);
         t('ページで ない ものは null', L.sanitizeState(null, empty) === null && L.sanitizeState({ blocks: 3 }, empty) === null);
 
+        /* クラス */
+        t('あいことばの ハッシュは 8けた・おなじ ものは おなじ・ちがう ものは ちがう',
+            /^[0-9a-f]{8}$/.test(L.pinHash('1234')) && L.pinHash('1234') === L.pinHash('1234') && L.pinHash('1234') !== L.pinHash('1235'));
+        const cf = L.sanitizeCfg({ name: '  2年1組 ', pin: L.pinHash('0000'), allow: { pen: false, zoom: false, xxx: false }, set: { size: 500, expr: true }, pv: 3 });
+        t('クラスの せってい：とめた きのう だけ false、しらない キーは むし',
+            cf.allow.pen === false && cf.allow.zoom === false && cf.allow.loop === true && !('xxx' in cf.allow) && Object.keys(cf.allow).length === L.FEATURES.length);
+        t('クラスの せってい：なまえ・大きさの はんい・しき・ページばんごう', cf.name === '2年1組' && cf.set.size === 96 && cf.set.expr === true && cf.set.snap === true && cf.pv === 3);
+        t('へんな せっていは null・あいことばが へんなら から', L.sanitizeCfg(null) === null && L.sanitizeCfg({ pin: 'zz' }).pin === '');
+        t('出席番号は 1〜99', L.isSeatNo(1) && L.isSeatNo(35) && !L.isSeatNo(0) && !L.isSeatNo(100) && !L.isSeatNo(3.5));
+        const withO = L.sanitizeState({ blocks: [], bg: { id: 'p1', x: 0, y: 0, s: 1, rot: 0, alpha: 1, o: 'pT' } }, empty);
+        t('はいけいの もと（せんせいの しゃしん）の しるしを のこす', withO.bg && withO.bg.o === 'pT');
+
         return rows;
     }
 

@@ -106,6 +106,7 @@
     function persist() {
         clearTimeout(persistTimer);
         persistTimer = setTimeout(persistNow, 250);
+        scheduleSend();
     }
     window.addEventListener('pagehide', persistNow);
 
@@ -255,6 +256,7 @@
             x.className = 'tab-x';
             x.setAttribute('aria-label', `${i + 1}ページを とじる`);
             x.textContent = '✕';
+            x.hidden = !allowed('tabs');
             x.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (pageInfo(pages[i], i).empty) { closePage(i); return; }
@@ -369,14 +371,18 @@
     }
 
     function contentBox() {
-        const S = state.size, pts = [];
-        for (const b of state.blocks) pts.push([b.x, b.y], [b.x + S, b.y + S]);
-        for (const l of state.loops) pts.push(...l.pts);
-        for (const t of state.strokes) pts.push(...t.pts);
-        if (state.bg && bgImage) {
-            const [iw, ih] = imgSize(bgImage);
-            const [w, h] = state.bg.rot % 2 ? [ih, iw] : [iw, ih];
-            pts.push([state.bg.x - w * state.bg.s / 2, state.bg.y - h * state.bg.s / 2], [state.bg.x + w * state.bg.s / 2, state.bg.y + h * state.bg.s / 2]);
+        return contentBoxOf(state, state.bg && bgImageId === state.bg.id ? bgImage : null);
+    }
+    /** つくえ st に のっている もの ぜんぶの はこ（しゃしんも ふくむ）。なにも なければ null */
+    function contentBoxOf(st, img) {
+        const S = st.size, pts = [];
+        for (const b of st.blocks) pts.push([b.x, b.y], [b.x + S, b.y + S]);
+        for (const l of st.loops) pts.push(...l.pts);
+        for (const t of st.strokes) pts.push(...t.pts);
+        if (st.bg && img) {
+            const [iw, ih] = imgSize(img);
+            const [w, h] = st.bg.rot % 2 ? [ih, iw] : [iw, ih];
+            pts.push([st.bg.x - w * st.bg.s / 2, st.bg.y - h * st.bg.s / 2], [st.bg.x + w * st.bg.s / 2, st.bg.y + h * st.bg.s / 2]);
         }
         return pts.length ? L.bbox(pts) : null;
     }
@@ -406,7 +412,7 @@
         const hide = hiddenIds();
         const v = page.view;
         ctx.setTransform(dpr * v.z, 0, 0, dpr * v.z, dpr * v.ox, dpr * v.oy);
-        drawScene(ctx, viewRect(), { grid: true, hide, live: true, z: v.z });
+        drawScene(ctx, viewRect(), { grid: !document.body.classList.contains('present'), hide, live: true, z: v.z });
         drawLayer(hide);
         updateExpr();
     }
@@ -422,20 +428,27 @@
 
     /** vr … かく ところ（つくえの ざひょう）。g には もう view の へんかんが かかっている */
     function drawScene(g, vr, opts) {
-        const S = state.size, z = opts.z || 1;
+        const img = state.bg && bgImageId === state.bg.id ? bgImage : null;
+        drawState(g, state, img, vr, Object.assign({ own: true }, opts));
+    }
+
+    /** つくえ st を かく（じぶんの つくえ でも、せんせいが 見る こどもの つくえ でも）。
+        own … じぶんの つくえ（かぞえた 番号・つまみ・かいている とちゅう も かく） */
+    function drawState(g, st, img, vr, opts) {
+        const S = st.size, z = opts.z || 1, hide = opts.hide || new Set();
         g.fillStyle = '#fffdf8';
         g.fillRect(vr.x0 - 2, vr.y0 - 2, vr.x1 - vr.x0 + 4, vr.y1 - vr.y0 + 4);
 
-        if (state.bg && bgImage && bgImageId === state.bg.id) {
-            const b = state.bg;
-            const [iw, ih] = imgSize(bgImage);
+        if (st.bg && img) {
+            const b = st.bg;
+            const [iw, ih] = imgSize(img);
             g.save();
             g.globalAlpha = b.alpha;
             g.translate(b.x, b.y);
             g.rotate(b.rot * Math.PI / 2);
             g.scale(b.s, b.s);
             g.imageSmoothingQuality = 'high';
-            g.drawImage(bgImage, -iw / 2, -ih / 2, iw, ih);
+            g.drawImage(img, -iw / 2, -ih / 2, iw, ih);
             g.restore();
         }
 
@@ -444,23 +457,23 @@
             const off = 0.5 / z;
             for (let x = Math.floor(vr.x0 / S) * S; x < vr.x1; x += S) { g.moveTo(x + off, vr.y0); g.lineTo(x + off, vr.y1); }
             for (let y = Math.floor(vr.y0 / S) * S; y < vr.y1; y += S) { g.moveTo(vr.x0, y + off); g.lineTo(vr.x1, y + off); }
-            g.strokeStyle = state.bg ? 'rgba(0,0,0,.07)' : 'rgba(47,111,220,.09)';
+            g.strokeStyle = st.bg ? 'rgba(0,0,0,.07)' : 'rgba(47,111,220,.09)';
             g.lineWidth = 1 / z;
             g.stroke();
         }
 
-        for (const l of state.loops) if (!opts.hide.has(l.id)) drawLoopFill(g, l);
-        for (const b of state.blocks) if (!opts.hide.has(b.id)) drawPiece(g, b, S, false);
-        for (const l of state.loops) if (!opts.hide.has(l.id)) drawLoopLine(g, l);
-        drawCountMarks(g, opts.hide);
-        for (const s of state.strokes) if (!opts.hide.has(s.id)) drawStroke(g, s);
+        for (const l of st.loops) if (!hide.has(l.id)) drawLoopFill(g, l);
+        for (const b of st.blocks) if (!hide.has(b.id)) drawPiece(g, b, S, false);
+        for (const l of st.loops) if (!hide.has(l.id)) drawLoopLine(g, l);
+        if (opts.own) drawCountMarks(g, hide);
+        for (const s of st.strokes) if (!hide.has(s.id)) drawStroke(g, s);
         if (settings.count) {
-            for (const l of state.loops) if (!opts.hide.has(l.id)) drawBadge(g, l);
+            for (const l of st.loops) if (!hide.has(l.id)) drawBadge(g, l, st);
         }
 
-        if (opts.live) {
-            if (tool === 'move') {
-                for (const l of state.loops) if (!opts.hide.has(l.id) || rotating(l.id)) drawHandle(g, l, rotating(l.id));
+        if (opts.live && opts.own) {
+            if (tool === 'move' && allowed('rotate')) {
+                for (const l of st.loops) if (!hide.has(l.id) || rotating(l.id)) drawHandle(g, l, rotating(l.id));
             }
             for (const d of drags.values()) {
                 if (d.type === 'lasso') drawLasso(g, d.pts);
@@ -479,7 +492,7 @@
         for (const l of state.loops) if (hide.has(l.id)) drawLoopFill(lctx, l);
         for (const b of state.blocks) if (hide.has(b.id)) drawPiece(lctx, b, S, true);
         for (const l of state.loops) if (hide.has(l.id)) drawLoopLine(lctx, l);
-        if (settings.count) for (const l of state.loops) if (hide.has(l.id)) drawBadge(lctx, l);
+        if (settings.count) for (const l of state.loops) if (hide.has(l.id)) drawBadge(lctx, l, state);
     }
 
     function roundRectPath(g, x, y, w, h, r) {
@@ -620,8 +633,9 @@
         g.stroke();
     }
 
-    function loopCount(l) {
-        return L.blocksInLoop(state.blocks, l.pts, state.size).length;
+    function loopCount(l, st) {
+        const s2 = st || state;
+        return L.blocksInLoop(s2.blocks, l.pts, s2.size).length;
     }
 
     function badgePos(l) {
@@ -629,8 +643,8 @@
         return [b.x1 - 8, b.y0 + 8];
     }
 
-    function drawBadge(g, l) {
-        const n = loopCount(l);
+    function drawBadge(g, l, st) {
+        const n = loopCount(l, st);
         const [x, y] = badgePos(l);
         const r = 17;
         g.beginPath();
@@ -846,6 +860,7 @@
     }
 
     function hitHandle(x, y) {
+        if (!allowed('rotate')) return null;
         const hide = hiddenIds(), r = handleR() + 8;
         for (let i = state.loops.length - 1; i >= 0; i--) {
             const l = state.loops[i];
@@ -945,7 +960,7 @@
 
         /* 2本め の ゆび → つくえを 大きく・小さく（しゃしんを うごかす とき いがい） */
         if (e.pointerType === 'touch') touches.set(e.pointerId, screenPt(e));
-        if (tool !== 'photo' && e.pointerType === 'touch' && touches.size >= 2) {
+        if (tool !== 'photo' && e.pointerType === 'touch' && touches.size >= 2 && allowed('zoom')) {
             if (!pinch) {
                 cancelDrags();
                 pinch = { ids: [...touches.keys()].slice(-2) };
@@ -1482,6 +1497,7 @@
     }
 
     trashEl.addEventListener('click', () => {
+        if (!allowed('clear')) { toast('ごみばこに もっていくと すてられるよ'); return; }
         if (state.blocks.length || state.loops.length || state.strokes.length) openSheet('clearSheet');
         else toast('ごみばこに ブロックを もってくると すてられるよ');
     });
@@ -1504,6 +1520,7 @@
 
     const hinted = new Set();
     function setTool(t) {
+        if (t !== 'move' && t !== 'photo' && !allowed(t)) t = 'move';
         tool = t;
         for (const b of $$('.tool')) b.classList.toggle('on', b.dataset.tool === t);
         wrap.className = 'board-wrap t-' + t;
@@ -1654,6 +1671,7 @@
             return;
         }
         /* Ctrl＋ホイール・タッチパッドの ピンチ → 大きさ、ふつうの ホイール → うごかす */
+        if (!allowed('zoom')) return;
         if (e.ctrlKey || e.metaKey) {
             const f = Math.max(0.8, Math.min(1.25, Math.exp(-e.deltaY * 0.01)));
             zoomView(f, e.clientX - rect.left, e.clientY - rect.top);
@@ -1747,7 +1765,7 @@
     document.addEventListener('paste', (e) => {
         const items = e.clipboardData ? [...e.clipboardData.items] : [];
         const it = items.find(i => i.kind === 'file' && i.type.startsWith('image/'));
-        if (!it) return;
+        if (!it || !allowed('photo')) return;
         e.preventDefault();
         importAndUse(it.getAsFile(), { label: 'はりつけ' });
     });
@@ -1776,8 +1794,9 @@
         const files = [...e.dataTransfer.files];
         const f = files.find(x => x.type.startsWith('image/'));
         const j = files.find(x => /\.json$/i.test(x.name) || x.type === 'application/json');
-        if (f) importAndUse(f, { label: fileLabel(f) });
-        else if (j) loadShareFile(j);
+        if (f && allowed('photo')) importAndUse(f, { label: fileLabel(f) });
+        else if (j && allowed('tabs')) loadShareFile(j);
+        else if (f || j) toast('いまは つかえません');
         else toast('がぞうの ファイルを いれてね');
     });
 
@@ -2145,14 +2164,14 @@
         $('#sizeSample').style.setProperty('--s', Math.min(60, state.size) + 'px');
     }
 
-    $('#btnMenu').addEventListener('click', () => {
+    $('#btnMenu').addEventListener('click', () => openSheet('menuSheet'));
+    function fillSettingsUI() {
         setSnap.checked = settings.snap;
         setCount.checked = settings.count;
         setExpr.checked = settings.expr;
         setSound.checked = settings.sound;
         updateSizeUI();
-        openSheet('menuSheet');
-    });
+    }
     setSnap.addEventListener('change', () => {
         settings.snap = setSnap.checked;
         saveSettings();
@@ -2258,6 +2277,7 @@
         for (const p of (all ? pages : [page])) {
             const st = JSON.parse(p.saved);
             st.dan = null;
+            if (st.bg) delete st.bg.o;   /* くばる しゃしんの id は いつも この たんまつの もの */
             if (st.bg && !out.images[st.bg.id]) {
                 const img = await P.load(st.bg.id);
                 if (img) out.images[st.bg.id] = imageToDataURL(img, 1600, 0.82);
@@ -2268,8 +2288,10 @@
         return out;
     }
 
-    /** くばられた データを あたらしい タブに する。いくつ よみこんだか を かえす */
-    async function applyPayload(pl) {
+    /** くばられた データを あたらしい タブに する。いくつ よみこんだか を かえす。
+        opts.replaceAll … いまの ページを ぜんぶ おきかえる（クラスに はいった とき） */
+    async function applyPayload(pl, opts) {
+        const o = opts || {};
         if (!pl || pl.app !== 'block-ohajiki' || !Array.isArray(pl.pages)) throw new Error('ブロック おはじき の データでは ありません');
         const idMap = new Map();
         for (const [oid, url] of Object.entries(pl.images || {})) {
@@ -2282,7 +2304,8 @@
         }
         commit();
         cancelDrags();
-        const replaceBlank = pages.length === 1 && isEmptyState(state);
+        if (o.replaceAll) { pages.length = 0; pages.push(newPage(emptyState(state.size))); tabInfo.clear(); }
+        const replaceBlank = pages.length === 1 && (o.replaceAll || isEmptyState(pages[0] === page ? state : JSON.parse(pages[0].saved)));
         const first = replaceBlank ? 0 : pages.length;
         let added = 0;
         for (const item of pl.pages) {
@@ -2290,7 +2313,8 @@
             if (!st) continue;
             if (st.bg) {
                 const nid = idMap.get(st.bg.id);
-                if (nid) st.bg.id = nid; else st.bg = null;
+                /* o … せんせいの もとの しゃしんの id（みんなの つくえで せんせいが じぶんの しゃしんを つかう） */
+                if (nid) { st.bg.o = st.bg.o || st.bg.id; st.bg.id = nid; } else st.bg = null;
             }
             const pg = newPage(st, item.v);
             if (replaceBlank && added === 0) pages[0] = pg;
@@ -2298,7 +2322,10 @@
             else { toast(`ページは ${MAX_PAGES}まい までなので、のこりは よみこめませんでした`, 4000); break; }
             added++;
         }
-        if (!added) throw new Error('よみこめる ページが ありませんでした');
+        if (!added) {
+            if (o.replaceAll) { curIdx = 0; page = pages[0]; state = JSON.parse(page.saved); persistNow(); afterPageChange(); }
+            throw new Error('よみこめる ページが ありませんでした');
+        }
         curIdx = first;
         page = pages[curIdx];
         state = JSON.parse(page.saved);
@@ -2309,7 +2336,7 @@
         return added;
     }
 
-    $('#btnShare').addEventListener('click', () => {
+    $('#tShare').addEventListener('click', () => {
         $('#shareOut').hidden = true;
         $('#sharePages').textContent = pages.length;
         openSheet('shareSheet');
@@ -2408,6 +2435,734 @@
     }
 
     /* ================================================================
+       せんせい・クラス
+       ------------------------------------------------------------------
+       ・せんせいの たんまつ：🧑‍🏫 せんせい（あいことば）→ クラスを つくる・かえる・
+         みんなの つくえ・テレビに うつす・コードで くばる・つくえの せってい
+       ・こどもの たんまつ：クラスの URL（?class=123456）を ひらいて
+         しゅっせき ばんごう・なまえ を いれる。せんせいが ゆるした きのう だけ 出る。
+         つくえが かわる たびに せんせいへ おくる
+       ================================================================ */
+
+    const CLASS_KEY = 'kuku-block/v1/class';        /* こども：はいって いる クラス */
+    const MYCLASS_KEY = 'kuku-block/v1/myclasses';  /* せんせい：つくった クラス */
+    const TEACHER_KEY = 'kuku-block/v1/teacher';    /* せんせい：あいことば（ハッシュ） */
+    const UNLOCK_KEY = 'kuku-block/unlock';          /* この タブで せんせいが ロックを はずした */
+
+    const readJSON = (k, d) => { try { return JSON.parse(lsGet(k)) || d; } catch (e) { return d; } };
+    let klass = readJSON(CLASS_KEY, null);           /* { code, kid, no, name, pv, cfg, imgs } */
+    if (klass && (!SH.isCode(klass.code) || !klass.kid)) klass = null;
+    if (klass) klass.cfg = L.sanitizeCfg(klass.cfg);
+    const saveKlass = () => lsSet(CLASS_KEY, JSON.stringify(klass));
+    const myClasses = () => readJSON(MYCLASS_KEY, []);
+    const saveMyClasses = (list) => lsSet(MYCLASS_KEY, JSON.stringify(list));
+    let teacherOk = (() => { try { return sessionStorage.getItem(UNLOCK_KEY) === '1'; } catch (e) { return false; } })();
+    const setTeacherOk = (v) => { teacherOk = v; try { sessionStorage.setItem(UNLOCK_KEY, v ? '1' : '0'); } catch (e) { /* なし */ } };
+
+    /** こどもが この きのうを つかえるか */
+    function allowed(key) {
+        if (!klass || !klass.cfg || teacherOk) return true;
+        return klass.cfg.allow[key] !== false;
+    }
+
+    /** ロックを がめんに あてはめる（ゆるされて いない ボタンは かくす） */
+    function applyLocks() {
+        for (const el of $$('[data-lock]')) el.hidden = !allowed(el.dataset.lock);
+        const blk = allowed('block'), ohj = allowed('ohajiki');
+        $('#srcGrid').hidden = !blk && !ohj;
+        $('#srcGrid').classList.toggle('one', blk !== ohj);
+        if (!allowed(settings.arrC.length > 1 ? 'ohajiki' : 'block')) settings.arrC = blk ? 'b' : 'sb';
+        if (!allowed(L.isOhajiki(settings.danC) || settings.danC === 'sx' ? 'ohajiki' : 'block')) settings.danC = blk ? 'b' : 'sb';
+        if (tool !== 'move' && tool !== 'photo' && !allowed(tool)) setTool('move');
+        if (tool === 'photo' && !allowed('photo')) setTool('move');
+        if (!allowed('rotate') && bubbleLoop) hideBubble();
+        renderTabs();
+        updateKidChip();
+        requestRender();
+    }
+
+    /** クラスの せってい（マス目・かず・しき・おと・大きさ）を この たんまつに */
+    function applyClassSettings(set) {
+        settings.snap = set.snap;
+        settings.count = set.count;
+        settings.expr = set.expr;
+        settings.sound = set.sound;
+        SND.setEnabled(settings.sound);
+        saveSettings();
+        if (state.size !== set.size && !state.blocks.length && !state.loops.length) {
+            state.size = set.size;
+            commit();
+        }
+        updateSizeUI();
+        requestRender();
+    }
+
+    function updateKidChip() {
+        const chip = $('#kidChip');
+        chip.hidden = !klass;
+        if (!klass) return;
+        $('#kidText').textContent = `${klass.cfg ? klass.cfg.name + '　' : ''}${klass.no}ばん ${klass.name || ''}`.trim();
+    }
+    function setKidDot(ok) {
+        const d = $('#kidDot');
+        d.classList.toggle('on', ok === true);
+        d.classList.toggle('off', ok === false);
+        $('#kidChip').title = ok === false ? 'せんせいに つながって いません' : 'せんせいに つながって います';
+    }
+
+    /* ---------- あいことば（4けた） ---------- */
+
+    let pinCb = null, pinBuf = '';
+    function buildPad(el, onKey) {
+        el.innerHTML = '';
+        for (const k of ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'けす', '0', 'もどる']) {
+            const b = document.createElement('button');
+            b.textContent = k;
+            if (k.length > 1) b.className = 'k-sub';
+            b.addEventListener('click', () => onKey(k));
+            el.appendChild(b);
+        }
+    }
+    function showPinDots() {
+        [...$('#pinDots').children].forEach((d, i) => d.classList.toggle('on', i < pinBuf.length));
+    }
+    /** 4けたを きいて cb(pin) を よぶ */
+    function askPin(title, note, cb) {
+        pinBuf = '';
+        pinCb = cb;
+        $('#pinAsk').textContent = title;
+        $('#pinNote').textContent = note || '';
+        showPinDots();
+        openSheet('pinSheet');
+    }
+    buildPad($('#pinPad'), (k) => {
+        if (k === 'けす') pinBuf = '';
+        else if (k === 'もどる') pinBuf = pinBuf.slice(0, -1);
+        else if (pinBuf.length < 4) pinBuf += k;
+        showPinDots();
+        if (pinBuf.length === 4) {
+            const p2 = pinBuf, cb = pinCb;
+            setTimeout(() => { pinBuf = ''; showPinDots(); if (cb) cb(p2); }, 120);
+        }
+    });
+
+    const teacherHash = () => (readJSON(TEACHER_KEY, {}).pin || '');
+    function setTeacherPin(then) {
+        askPin('あたらしい あいことば（4けた）', 'こどもが せんせいの がめんを ひらかない ための あいことば です', (p1) => {
+            askPin('もう一度 いれてください', '', (p2) => {
+                if (p1 !== p2) { toast('ちがいました。もう一度 きめてください'); setTeacherPin(then); return; }
+                lsSet(TEACHER_KEY, JSON.stringify({ pin: L.pinHash(p1) }));
+                setTeacherOk(true);
+                toast('あいことばを きめました');
+                if (then) then();
+            });
+        });
+    }
+
+    /** せんせいの がめんを ひらく（あいことばを たしかめてから） */
+    function openTeacher() {
+        const need = klass && klass.cfg ? klass.cfg.pin : teacherHash();
+        if (!klass && !need) { setTeacherPin(showTeacherSheet); return; }
+        if (teacherOk || !need) { showTeacherSheet(); return; }
+        askPin('せんせいの あいことば', '', (p) => {
+            if (L.pinHash(p) === need) { setTeacherOk(!klass); showTeacherSheet(); }
+            else toast('あいことばが ちがいます');
+        });
+    }
+    $('#btnTeacher').addEventListener('click', openTeacher);
+
+    function showTeacherSheet() {
+        fillSettingsUI();
+        $('#tKidBox').hidden = !klass;
+        $('#tOwnerBox').hidden = !!klass;
+        $('#tPinChange').hidden = !!klass;
+        if (klass) {
+            $('#tKidInfo').textContent = `${klass.cfg ? klass.cfg.name : ''}（コード ${klass.code}）に ${klass.no}ばん ${klass.name || ''} で はいって います。`;
+            $('#tUnlockLbl').textContent = teacherOk ? 'ロックに もどす' : 'ロックを はずす（この タブ だけ）';
+        } else {
+            renderClassList();
+        }
+        openSheet('teacherSheet');
+    }
+    $('#tPinChange').addEventListener('click', () => setTeacherPin(showTeacherSheet));
+    $('#tUnlock').addEventListener('click', () => {
+        setTeacherOk(!teacherOk);
+        applyLocks();
+        closeSheets();
+        toast(teacherOk ? 'ロックを はずしました（とじると もどります）' : 'ロックに もどしました');
+    });
+    $('#tLeave').addEventListener('click', () => {
+        leaveClass();
+        closeSheets();
+        toast('クラスから ぬけました');
+    });
+    $('#tPresent').addEventListener('click', () => { closeSheets(); present(true); });
+
+    function classLink(code) {
+        return location.href.split('#')[0].split('?')[0] + '?class=' + code;
+    }
+
+    function renderClassList() {
+        const box = $('#classList');
+        box.innerHTML = '';
+        for (const c of myClasses()) {
+            const row = document.createElement('div');
+            row.className = 'class-row';
+            row.innerHTML = '<b></b><span class="code"></span><span class="sp"></span>';
+            row.querySelector('b').textContent = c.name;
+            row.querySelector('.code').textContent = c.code;
+            const mk = (label, fn, cls) => { const b = document.createElement('button'); b.className = 'chip ' + (cls || ''); b.textContent = label; b.addEventListener('click', fn); row.appendChild(b); };
+            mk('👀 みんなの つくえ', () => { closeSheets(); openClassView(c.code, c.name); }, 'chip-go');
+            mk('⚙️ せってい', () => editClass(c.code));
+            mk('📋 URL', async () => {
+                try { await navigator.clipboard.writeText(classLink(c.code)); toast('URL を コピーしました'); }
+                catch (e) { prompt('URL', classLink(c.code)); }
+            });
+            mk('🗑', async () => {
+                if (!confirm(`「${c.name}」を けしますか？（こどもの つくえも きえます）`)) return;
+                try { await SH.cls.removeClass(c.code); } catch (e) { toast(e.message, 5000); }
+                saveMyClasses(myClasses().filter(x => x.code !== c.code));
+                renderClassList();
+            }, 'chip-warn');
+            box.appendChild(row);
+        }
+    }
+
+    /* ---------- クラスを つくる・かえる ---------- */
+
+    let editing = null;   /* { code|null, allow, pagesMode } */
+    function renderAllow() {
+        const box = $('#cAllow');
+        box.innerHTML = '';
+        for (const [k, name] of L.FEATURES) {
+            const b = document.createElement('button');
+            b.className = editing.allow[k] ? 'on' : '';
+            b.textContent = name;
+            b.addEventListener('click', () => { editing.allow[k] = !editing.allow[k]; renderAllow(); });
+            box.appendChild(b);
+        }
+    }
+    function fillClassForm(cfg) {
+        $('#cName').value = cfg.name === 'クラス' ? '' : cfg.name;
+        $('#cSnap').checked = cfg.set.snap;
+        $('#cCount').checked = cfg.set.count;
+        $('#cExpr').checked = cfg.set.expr;
+        $('#cSound').checked = cfg.set.sound;
+        $('#cLive').checked = cfg.live;
+        $('#cSize').value = cfg.set.size;
+        $('#cSizeVal').textContent = cfg.set.size;
+        renderAllow();
+        for (const b of $$('#cPages .seg-b')) b.classList.toggle('on', b.dataset.p === editing.pagesMode);
+    }
+    $('#cSize').addEventListener('input', () => { $('#cSizeVal').textContent = $('#cSize').value; });
+    function pagesSeg(isEdit) {
+        const seg = $('#cPages');
+        let keep = seg.querySelector('[data-p="keep"]');
+        if (isEdit && !keep) {
+            keep = document.createElement('button');
+            keep.className = 'seg-b';
+            keep.dataset.p = 'keep';
+            keep.textContent = 'かえない';
+            keep.addEventListener('click', () => pickPages('keep'));
+            seg.prepend(keep);
+        }
+        if (keep) keep.hidden = !isEdit;
+    }
+    function pickPages(p) {
+        editing.pagesMode = p;
+        for (const b of $$('#cPages .seg-b')) b.classList.toggle('on', b.dataset.p === p);
+    }
+    for (const b of $$('#cPages .seg-b')) b.addEventListener('click', () => pickPages(b.dataset.p));
+
+    $('#tNewClass').addEventListener('click', () => {
+        editing = { code: null, allow: Object.fromEntries(L.FEATURES.map(([k]) => [k, true])), pagesMode: 'cur' };
+        pagesSeg(false);
+        $('#classSheetTitle').textContent = 'あたらしい クラス';
+        $('#cSave').textContent = 'URL を つくる';
+        $('#cOut').hidden = true;
+        fillClassForm(L.sanitizeCfg({ set: { snap: settings.snap, count: settings.count, expr: settings.expr, sound: settings.sound, size: state.size } }));
+        openSheet('classSheet');
+    });
+
+    async function editClass(code) {
+        toast('よみこみちゅう…', 20000);
+        try {
+            const c = await SH.cls.getClass(code);
+            if (!c) { toast('クラスが みつかりません'); return; }
+            if (!c.mine) { toast('この たんまつで つくった クラスでは ないので かえられません', 5000); return; }
+            const cfg = L.sanitizeCfg(c.cfg);
+            editing = { code, allow: Object.assign({}, cfg.allow), pagesMode: 'keep', pv: cfg.pv };
+            pagesSeg(true);
+            $('#classSheetTitle').textContent = `「${cfg.name}」の せってい`;
+            $('#cSave').textContent = 'ほぞん（こどもの がめんにも すぐ つたわる）';
+            $('#cLink').value = classLink(code);
+            $('#cOut').hidden = false;
+            fillClassForm(cfg);
+            toast('');
+            toastEl.hidden = true;
+            openSheet('classSheet');
+        } catch (e) { toast(e.message || 'よみこめませんでした', 5000); }
+    }
+
+    let savingClass = false;
+    $('#cSave').addEventListener('click', async () => {
+        if (savingClass || !editing) return;
+        const name = $('#cName').value.trim();
+        if (!name) { $('#cName').focus(); toast('クラスの なまえを いれてね'); return; }
+        savingClass = true;
+        toast('ほぞん しています…', 60000);
+        try {
+            let pagesStr = null;
+            if (editing.pagesMode === 'cur' || editing.pagesMode === 'all') pagesStr = JSON.stringify(await buildPayload(editing.pagesMode === 'all'));
+            else if (editing.pagesMode === 'none') pagesStr = '';
+            if (pagesStr && pagesStr.length > 8500000) throw new Error('しゃしんが おおくて おくれません。「いまの ページ」に してください');
+            const cfg = {
+                name, pin: teacherHash(), allow: editing.allow,
+                set: { snap: $('#cSnap').checked, count: $('#cCount').checked, expr: $('#cExpr').checked, sound: $('#cSound').checked, size: +$('#cSize').value },
+                live: $('#cLive').checked,
+                pv: (editing.pv || 0) + (pagesStr !== null && editing.code ? 1 : 0) || 1,
+            };
+            let code = editing.code;
+            if (!code) {
+                code = await SH.cls.createClass(cfg, pagesStr || '');
+                saveMyClasses([{ code, name, t: Date.now() }, ...myClasses().filter(x => x.code !== code)]);
+                editing.code = code;
+                editing.pv = cfg.pv;
+            } else {
+                if (pagesStr !== null) await SH.cls.savePages(code, pagesStr);
+                await SH.cls.saveCfg(code, cfg);
+                editing.pv = cfg.pv;
+                saveMyClasses(myClasses().map(x => x.code === code ? Object.assign(x, { name }) : x));
+            }
+            $('#cLink').value = classLink(code);
+            $('#cOut').hidden = false;
+            $('#cSave').textContent = 'ほぞん（こどもの がめんにも すぐ つたわる）';
+            pagesSeg(true);
+            pickPages('keep');
+            toast(`「${name}」を ほぞんしました（コード ${code}）`, 3000);
+        } catch (e) {
+            toast((e && e.message) || 'ほぞん できませんでした', 6000);
+        } finally {
+            savingClass = false;
+        }
+    });
+    $('#cCopy').addEventListener('click', async () => {
+        const inp = $('#cLink');
+        try { await navigator.clipboard.writeText(inp.value); } catch (e) { inp.select(); document.execCommand('copy'); }
+        toast('URL を コピーしました');
+    });
+
+    /* ---------- クラスに はいる（こども） ---------- */
+
+    let joinNo = '', joining = null;
+    function showJoinNo() { $('#joinNo').textContent = joinNo || ' '; }
+    buildPad($('#joinPad'), (k) => {
+        if (k === 'けす') joinNo = '';
+        else if (k === 'もどる') joinNo = joinNo.slice(0, -1);
+        else if (joinNo.length < 2) joinNo = (joinNo + k).replace(/^0+/, '');
+        showJoinNo();
+    });
+
+    /** クラスの URL で ひらいた とき */
+    async function checkClassInUrl() {
+        let code = null;
+        try { code = new URLSearchParams(location.search).get('class'); } catch (e) { /* なし */ }
+        if (!code || !SH.isCode(code)) return false;
+        if (klass && klass.code === code) return false;   /* もう はいって いる（startKidSync で つづき） */
+        try {
+            const c = await SH.cls.getClass(code);
+            if (!c) { toast('その クラスは みつかりません', 5000); return true; }
+            if (c.mine) {
+                toast('せんせいの クラスです。「みんなの つくえ」を ひらきます');
+                openClassView(code, L.sanitizeCfg(c.cfg).name);
+                return true;
+            }
+            joining = { code, cfg: L.sanitizeCfg(c.cfg) };
+            $('#joinClass').textContent = joining.cfg.name;
+            joinNo = '';
+            showJoinNo();
+            $('#joinName').value = '';
+            $('#joinNote').textContent = klass ? `いまの クラス（${klass.cfg ? klass.cfg.name : klass.code}）から かわります。` : 'いまの ページは クラスの ページに かわります。';
+            openSheet('joinSheet');
+        } catch (e) {
+            toast((e && e.message) || 'クラスに つながりません', 6000);
+        }
+        return true;
+    }
+
+    $('#kidChip').addEventListener('click', () => {
+        if (!klass) return;
+        joining = { code: klass.code, cfg: klass.cfg, edit: true };
+        $('#joinClass').textContent = klass.cfg ? klass.cfg.name : klass.code;
+        joinNo = String(klass.no);
+        showJoinNo();
+        $('#joinName').value = klass.name || '';
+        $('#joinNote').textContent = 'ばんごう・なまえを なおせます';
+        openSheet('joinSheet');
+    });
+
+    $('#joinGo').addEventListener('click', async () => {
+        if (!joining) return;
+        const no = parseInt(joinNo, 10);
+        if (!L.isSeatNo(no)) { toast('しゅっせき ばんごう を いれてね'); return; }
+        const name = $('#joinName').value.trim().slice(0, 12);
+        closeSheets();
+        if (joining.edit) {
+            klass.no = no;
+            klass.name = name;
+            saveKlass();
+            updateKidChip();
+            scheduleSend(true);
+            joining = null;
+            return;
+        }
+        const j = joining;
+        joining = null;
+        toast('クラスに はいって います…', 60000);
+        try {
+            stopKidSync();
+            const data = await SH.cls.getPages(j.code);
+            klass = { code: j.code, kid: uid('k'), no, name, pv: j.cfg.pv, cfg: j.cfg, imgs: {} };
+            saveKlass();
+            if (data) await applyPayload(JSON.parse(data), { replaceAll: true });
+            else { pages.length = 0; pages.push(newPage(emptyState(j.cfg.set.size))); curIdx = 0; page = pages[0]; state = JSON.parse(page.saved); persistNow(); afterPageChange(); }
+            applyClassSettings(j.cfg.set);
+            applyLocks();
+            startKidSync();
+            toast(`${j.cfg.name} に はいりました`);
+        } catch (e) {
+            toast((e && e.message) || 'クラスに はいれませんでした', 6000);
+        }
+    });
+
+    function leaveClass() {
+        stopKidSync();
+        klass = null;
+        try { localStorage.removeItem(CLASS_KEY); } catch (e) { /* なし */ }
+        setTeacherOk(false);
+        applyLocks();
+    }
+
+    /* ---------- こども → せんせい（つくえを おくる） ---------- */
+
+    let cfgStop = null, sendTimer = 0, sending = false, sendAgain = false, retryTimer = 0;
+
+    async function startKidSync() {
+        if (!klass) return;
+        applyLocks();
+        updateKidChip();
+        try {
+            cfgStop = await SH.cls.watchCfg(klass.code, onClassCfg);
+            setKidDot(true);
+        } catch (e) {
+            setKidDot(false);
+            clearTimeout(retryTimer);
+            retryTimer = setTimeout(startKidSync, 15000);
+            return;
+        }
+        scheduleSend(true);
+    }
+    function stopKidSync() {
+        clearTimeout(sendTimer);
+        clearTimeout(retryTimer);
+        if (cfgStop) { cfgStop(); cfgStop = null; }
+    }
+
+    async function onClassCfg(raw) {
+        if (!klass) return;
+        if (raw === null) {
+            toast('せんせいが クラスを けしました', 5000);
+            leaveClass();
+            return;
+        }
+        const c = L.sanitizeCfg(raw);
+        const pvOld = klass.pv || 0;
+        const setChanged = JSON.stringify(c.set) !== JSON.stringify(klass.cfg && klass.cfg.set);
+        klass.cfg = c;
+        saveKlass();
+        if (setChanged) applyClassSettings(c.set);
+        applyLocks();
+        if (c.pv > pvOld) {
+            klass.pv = c.pv;
+            saveKlass();
+            try {
+                const data = await SH.cls.getPages(klass.code);
+                if (data) { await applyPayload(JSON.parse(data)); toast('せんせいから あたらしい ページが とどきました', 3000); }
+            } catch (e) { /* つぎの ときに */ }
+        }
+        scheduleSend();
+    }
+
+    /** つくえが かわった ら すこし まって おくる（いっぱい うごかしても 1びょうに 2かい くらい） */
+    function scheduleSend(now) {
+        if (!klass || !klass.cfg || !klass.cfg.live) return;
+        clearTimeout(sendTimer);
+        sendTimer = setTimeout(sendNow, now ? 50 : 500);
+    }
+
+    async function sendNow() {
+        if (!klass) return;
+        if (sending) { sendAgain = true; return; }
+        sending = true;
+        try {
+            const st = JSON.parse(page.saved);
+            let ref = null;
+            if (st.bg) ref = st.bg.o ? 't:' + st.bg.o : await kidImgRef(st.bg.id);
+            let json = JSON.stringify(st);
+            if (json.length > 400000) { st.strokes = []; json = JSON.stringify(st); }
+            await SH.cls.sendKid(klass.code, klass.kid, { no: klass.no, name: klass.name || '', tab: curIdx, n: pages.length, st: json, ref });
+            setKidDot(true);
+        } catch (e) {
+            setKidDot(false);
+            clearTimeout(retryTimer);
+            retryTimer = setTimeout(() => scheduleSend(true), 8000);
+        } finally {
+            sending = false;
+            if (sendAgain) { sendAgain = false; scheduleSend(true); }
+        }
+    }
+
+    /** こどもが じぶんで 入れた しゃしんは 1かい だけ 小さく して おくる */
+    async function kidImgRef(id) {
+        const ref = 'k:' + klass.kid + '/' + id;
+        klass.imgs = klass.imgs || {};
+        if (klass.imgs[id]) return ref;
+        const img = await P.load(id);
+        if (!img) return null;
+        await SH.cls.putImg(klass.code, klass.kid, id, imageToDataURL(img, 1200, 0.75));
+        klass.imgs[id] = 1;
+        saveKlass();
+        return ref;
+    }
+
+    /* ---------- みんなの つくえ（せんせい） ---------- */
+
+    const cvEl = $('#classView'), cvGrid = $('#cvGrid'), cvFocus = $('#cvFocus');
+    let cv = null;   /* { code, name, stop, kids: Map, compare, sel: Set, focus: [] } */
+    const refImgs = new Map();   /* ref → Image（または よみこみ ちゅうの Promise） */
+
+    async function openClassView(code, name) {
+        closeClassView();
+        cv = { code, name, stop: null, kids: new Map(), compare: false, sel: new Set(), focus: null };
+        $('#cvTitle').textContent = `みんなの つくえ ─ ${name}（${code}）`;
+        cvEl.hidden = false;
+        cvEl.classList.remove('tv');
+        $('#cvCompare').classList.remove('on');
+        cvGrid.innerHTML = '';
+        cvGrid.hidden = false;
+        cvFocus.hidden = true;
+        $('#cvEmpty').hidden = false;
+        $('#cvCount').textContent = '';
+        try {
+            cv.stop = await SH.cls.watchKids(code, onKids, (e) => toast(e.message, 6000));
+        } catch (e) {
+            toast((e && e.message) || 'つながりません', 6000);
+        }
+    }
+    function closeClassView() {
+        if (cv && cv.stop) cv.stop();
+        cv = null;
+        cvEl.hidden = true;
+        $('#tvExit').hidden = !document.body.classList.contains('present');
+    }
+    $('#cvClose').addEventListener('click', closeClassView);
+
+    function kidLabel(k) { return `${k.no}ばん ${k.name || ''}`.trim(); }
+
+    function onKids(all) {
+        if (!cv) return;
+        const ids = Object.keys(all).filter(id => all[id] && L.isSeatNo(all[id].no));
+        for (const id of [...cv.kids.keys()]) if (!ids.includes(id)) { cv.kids.get(id).card.remove(); cv.kids.delete(id); }
+        for (const id of ids) {
+            const k = all[id];
+            let e = cv.kids.get(id);
+            if (!e) {
+                e = { card: makeKidCard(id), data: null, st: null };
+                cv.kids.set(id, e);
+            }
+            const changed = !e.data || e.data.st !== k.st || e.data.ref !== k.ref;
+            e.data = k;
+            e.card.classList.toggle('off', k.on === false);
+            e.card.querySelector('.kc-label').textContent = kidLabel(k);
+            if (changed) {
+                try { e.st = L.sanitizeState(JSON.parse(k.st || 'null'), emptyState()); } catch (err) { e.st = null; }
+                drawKidCard(id);
+            }
+        }
+        /* しゅっせき ばんごう じゅん */
+        const order = [...cv.kids.entries()].sort((a, b) => (a[1].data.no - b[1].data.no) || String(a[1].data.name).localeCompare(String(b[1].data.name)));
+        for (const [, e] of order) cvGrid.appendChild(e.card);
+        const n = cv.kids.size, on = [...cv.kids.values()].filter(e => e.data.on !== false).length;
+        $('#cvCount').textContent = `${on}人 つながって います（ぜんぶで ${n}人）`;
+        $('#cvEmpty').hidden = n > 0;
+        cvGrid.style.setProperty('--cw', n <= 4 ? '420px' : n <= 9 ? '320px' : n <= 16 ? '260px' : '200px');
+        if (cv.focus) renderFocus();
+    }
+
+    function makeKidCard(id) {
+        const card = document.createElement('div');
+        card.className = 'kid-card';
+        card.innerHTML = '<canvas></canvas><span class="kc-name"><i></i><span class="kc-label"></span></span>';
+        card.addEventListener('click', () => {
+            if (!cv) return;
+            if (cv.compare) {
+                if (cv.sel.has(id)) cv.sel.delete(id);
+                else if (cv.sel.size < 4) cv.sel.add(id);
+                else toast('くらべられるのは 4人 まで');
+                card.classList.toggle('sel', cv.sel.has(id));
+                $('#cvCompare').textContent = cv.sel.size ? `🔍 ${cv.sel.size}人を 大きく 見る` : '🔍 えらんで くらべる';
+                return;
+            }
+            cv.focus = [id];
+            renderFocus();
+        });
+        return card;
+    }
+
+    /** ref の しゃしん（せんせいの しゃしん か こどもの しゃしん）を よむ */
+    function refImage(ref, redraw) {
+        if (!ref) return null;
+        const hit = refImgs.get(ref);
+        if (hit && !(hit instanceof Promise)) return hit;
+        if (!hit && cv) {
+            const code = cv.code;
+            const p = (async () => {
+                if (ref.startsWith('t:')) return P.load(ref.slice(2));
+                const url = await SH.cls.getImg(code, ref.slice(2));
+                if (typeof url !== 'string' || !url.startsWith('data:image/')) return null;
+                const img = new Image();
+                img.src = url;
+                await img.decode().catch(() => {});
+                return img;
+            })().then((img) => { refImgs.set(ref, img); redraw(); return img; }).catch(() => { refImgs.delete(ref); return null; });
+            refImgs.set(ref, p);
+        }
+        return null;
+    }
+
+    /** こどもの つくえを canvas に（のって いる もの が ぜんぶ 見える 大きさで） */
+    function drawBoardTo(canvas, st, img) {
+        const r = canvas.getBoundingClientRect();
+        const w = Math.max(10, r.width), h = Math.max(10, r.height);
+        const d = window.devicePixelRatio || 1;
+        canvas.width = Math.round(w * d);
+        canvas.height = Math.round(h * d);
+        const g = canvas.getContext('2d');
+        g.setTransform(d, 0, 0, d, 0, 0);
+        g.fillStyle = '#fffdf8';
+        g.fillRect(0, 0, w, h);
+        if (!st) return;
+        const box = contentBoxOf(st, img) || { x0: 0, y0: 0, x1: 800, y1: 500 };
+        const pad = st.size * 0.5;
+        const v = L.fitView({ x0: box.x0 - pad, y0: box.y0 - pad, x1: box.x1 + pad, y1: box.y1 + pad }, w, h, { l: 4, r: 4, t: 4, b: 4 }, 0.02, 4);
+        g.setTransform(d * v.z, 0, 0, d * v.z, d * v.ox, d * v.oy);
+        drawState(g, st, img, { x0: -v.ox / v.z, y0: -v.oy / v.z, x1: (w - v.ox) / v.z, y1: (h - v.oy) / v.z }, { z: v.z });
+    }
+
+    function drawKidCard(id) {
+        if (!cv) return;
+        const e = cv.kids.get(id);
+        if (!e) return;
+        const img = e.st && e.st.bg ? refImage(e.data.ref, () => drawKidCard(id)) : null;
+        drawBoardTo(e.card.querySelector('canvas'), e.st, img);
+        if (cv.focus && cv.focus.includes(id)) renderFocus();
+    }
+
+    function renderFocus() {
+        if (!cv) return;
+        const ids = (cv.focus || []).filter(id => cv.kids.has(id));
+        if (!ids.length) { cv.focus = null; cvFocus.hidden = true; cvGrid.hidden = false; return; }
+        cvGrid.hidden = true;
+        cvFocus.hidden = false;
+        cvFocus.style.gridTemplateColumns = ids.length === 1 ? '1fr' : '1fr 1fr';
+        cvFocus.style.gridTemplateRows = ids.length <= 2 ? '1fr' : '1fr 1fr';
+        if (cvFocus.dataset.ids !== ids.join(',')) {
+            cvFocus.innerHTML = '';
+            for (const id of ids) {
+                const c = document.createElement('div');
+                c.className = 'kid-card';
+                c.dataset.id = id;
+                c.innerHTML = '<canvas></canvas><span class="kc-name"><i></i><span class="kc-label"></span></span>';
+                c.addEventListener('click', () => { cv.focus = null; cvFocus.dataset.ids = ''; renderFocus(); });
+                cvFocus.appendChild(c);
+            }
+            cvFocus.dataset.ids = ids.join(',');
+        }
+        for (const c of cvFocus.children) {
+            const e = cv.kids.get(c.dataset.id);
+            if (!e) continue;
+            c.classList.toggle('off', e.data.on === false);
+            c.querySelector('.kc-label').textContent = kidLabel(e.data);
+            const img = e.st && e.st.bg ? refImage(e.data.ref, () => drawKidCard(c.dataset.id)) : null;
+            drawBoardTo(c.querySelector('canvas'), e.st, img);
+        }
+    }
+
+    $('#cvCompare').addEventListener('click', () => {
+        if (!cv) return;
+        if (cv.compare && cv.sel.size) {
+            cv.focus = [...cv.sel];
+            cv.compare = false;
+            cv.sel.clear();
+            for (const c of cvGrid.children) c.classList.remove('sel');
+            $('#cvCompare').classList.remove('on');
+            $('#cvCompare').textContent = '🔍 えらんで くらべる';
+            renderFocus();
+            return;
+        }
+        cv.compare = !cv.compare;
+        cv.focus = null;
+        cvFocus.dataset.ids = '';
+        renderFocus();
+        $('#cvCompare').classList.toggle('on', cv.compare);
+        $('#cvCompare').textContent = cv.compare ? '🔍 4人まで えらんで ね' : '🔍 えらんで くらべる';
+        if (!cv.compare) { cv.sel.clear(); for (const c of cvGrid.children) c.classList.remove('sel'); }
+    });
+    $('#cvTv').addEventListener('click', () => {
+        cvEl.classList.add('tv');
+        $('#tvExit').hidden = false;
+        try { document.documentElement.requestFullscreen().catch(() => {}); } catch (e) { /* なくても よい */ }
+        setTimeout(redrawClassView, 150);
+    });
+    $('#cvRefresh').addEventListener('click', async () => {
+        if (!cv || !confirm('こどもの つくえの データを けしますか？（クラスの URL・せっていは のこります）')) return;
+        try { await SH.cls.clearKids(cv.code); toast('あとかたづけ しました'); } catch (e) { toast(e.message, 5000); }
+    });
+    function redrawClassView() {
+        if (!cv) return;
+        for (const id of cv.kids.keys()) drawKidCard(id);
+        if (cv.focus) renderFocus();
+    }
+    new ResizeObserver(() => redrawClassView()).observe(cvGrid);
+    new ResizeObserver(() => { if (cv && cv.focus) renderFocus(); }).observe(cvFocus);
+
+    /* ---------- テレビに うつす（ボタンを かくして つくえ だけ） ---------- */
+
+    function present(on) {
+        document.body.classList.toggle('present', on);
+        $('#tvExit').hidden = !on;
+        hideBubble();
+        if (on) {
+            try { document.documentElement.requestFullscreen().catch(() => {}); } catch (e) { /* なくても よい */ }
+            setTimeout(() => { resize(); $('#zoomFit').click(); }, 200);
+        } else {
+            try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) { /* なし */ }
+            setTimeout(resize, 100);
+        }
+    }
+    function exitTv() {
+        if (cv && cvEl.classList.contains('tv')) {
+            cvEl.classList.remove('tv');
+            $('#tvExit').hidden = !document.body.classList.contains('present');
+            try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) { /* なし */ }
+            setTimeout(redrawClassView, 150);
+            return;
+        }
+        present(false);
+    }
+    $('#tvExit').addEventListener('click', exitTv);
+
+    /* ================================================================
        まど・おしらせ・キーボード
        ================================================================ */
 
@@ -2442,7 +3197,8 @@
         if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
         else if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); }
         else if (e.key === 'Escape') {
-            if (!cam.hidden) closeCamera();
+            if (!$('#tvExit').hidden) exitTv();
+            else if (!cam.hidden) closeCamera();
             else if ($$('.sheet-back').some(s => !s.hidden)) closeSheets();
             else if (tool === 'photo') setTool('move');
         }
@@ -2464,6 +3220,9 @@
     refreshThumbs();
     scrollTabIntoView();
     checkCodeInUrl();
+    applyLocks();
+    if (klass) startKidSync();
+    checkClassInUrl();
     if (document.fonts) document.fonts.ready.then(requestRender);
 
     /* たしかめ用（テストから よぶ） */
@@ -2473,5 +3232,6 @@
         get pages() { return pages; },
         get cur() { return curIdx; },
         settings, commit, undo, redo, setTool, importAndUse, switchPage, addPage,
+        get klass() { return klass; }, allowed, present,
     };
 })();

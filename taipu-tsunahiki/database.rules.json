@@ -31,10 +31,65 @@
           ".read": "auth != null",
           ".write": "auth != null && (!data.exists() || data.child('owner').val() === auth.uid)",
           ".validate": "$code.matches(/^[0-9]{6}$/) && newData.hasChildren(['owner', 't', 'data'])",
-          "owner": { ".validate": "newData.val() === auth.uid" },
-          "t": { ".validate": "newData.isNumber()" },
-          "data": { ".validate": "newData.isString() && newData.val().length < 9000000" },
-          "$other": { ".validate": false }
+          "owner": {
+            ".validate": "newData.val() === auth.uid"
+          },
+          "t": {
+            ".validate": "newData.isNumber()"
+          },
+          "data": {
+            ".validate": "newData.isString() && newData.val().length < 9000000"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      },
+      "classes": {
+        "$code": {
+          ".validate": "$code.matches(/^[0-9]{6}$/)",
+          ".write": "auth != null && data.child('owner').val() === auth.uid && !newData.exists()",
+          "owner": {
+            ".read": "auth != null",
+            ".write": "auth != null && !data.exists() && newData.val() === auth.uid"
+          },
+          "cfg": {
+            ".read": "auth != null",
+            ".write": "auth != null && root.child('ohajiki/classes/' + $code + '/owner').val() === auth.uid",
+            ".validate": "newData.hasChildren(['name', 'allow', 'set'])"
+          },
+          "pages": {
+            ".read": "auth != null",
+            ".write": "auth != null && root.child('ohajiki/classes/' + $code + '/owner').val() === auth.uid",
+            ".validate": "newData.isString() && newData.val().length < 9000000"
+          },
+          "kids": {
+            ".read": "auth != null && root.child('ohajiki/classes/' + $code + '/owner').val() === auth.uid",
+            ".write": "auth != null && root.child('ohajiki/classes/' + $code + '/owner').val() === auth.uid",
+            "$kid": {
+              ".read": "auth != null && data.child('uid').val() === auth.uid",
+              ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid) && (!newData.exists() || newData.child('uid').val() === auth.uid)",
+              "st": {
+                ".validate": "newData.isString() && newData.val().length < 500000"
+              },
+              "no": {
+                ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 99"
+              },
+              "name": {
+                ".validate": "newData.isString() && newData.val().length <= 12"
+              }
+            }
+          },
+          "imgs": {
+            ".read": "auth != null && root.child('ohajiki/classes/' + $code + '/owner').val() === auth.uid",
+            ".write": "auth != null && root.child('ohajiki/classes/' + $code + '/owner').val() === auth.uid",
+            "$kid": {
+              "$img": {
+                ".write": "auth != null && root.child('ohajiki/classes/' + $code + '/kids/' + $kid + '/uid').val() === auth.uid",
+                ".validate": "newData.isString() && newData.val().length < 1500000"
+              }
+            }
+          }
         }
       }
     }
