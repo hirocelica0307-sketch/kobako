@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#3B82F6">
+<meta name="description" content="1台の Chromebook を 2人で こうたいで つかう、マス目の 上の たいせんゲーム。サイコロの 数だけ 線を のばして、あいての ひこうきを げきつい しよう。">
+<title>ひこうき線バトル</title>
+<style>
+/* ひこうき線バトル ── 見ため
+   ------------------------------------------------------------------
+   Chromebook の よこ画面（1366×768）が 基準。ページは スクロールしない。
+   ばんめん（SVG）は のこりの 場所 いっぱいに 大きく なる。
+   外部の フォント・画像・音声は つかわない（端末の 丸ゴシック）。
+   ------------------------------------------------------------------ */
+:root{
+    --red:   #E5484D;
+    --blue:  #3B82F6;
+    --grid:  #C9CED6;
+    --ink:   #1f2937;
+    --thin:  #5b6472;
+    --paper: #fbfcfd;
+    --line:  #d5dae2;
+    --shade: #b9c0cb;
+    --go:    #22A06B;
+    --go-d:  #177a50;
+    --team:  var(--red);
+    --round: "Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","M PLUS Rounded 1c","Rounded Mplus 1c","Kosugi Maru","BIZ UDPGothic","Noto Sans JP","Noto Sans CJK JP","Meiryo",system-ui,sans-serif;
+}
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body{ height:100%; }
+body{
+    margin:0; height:100dvh; overflow:hidden;
+    color:var(--ink); font-family:var(--round); font-size:20px; font-weight:700;
+    /* 方眼ノート */
+    background-color:var(--paper);
+    background-image:
+        linear-gradient(#edf1f6 1px, transparent 1px),
+        linear-gradient(90deg, #edf1f6 1px, transparent 1px);
+    background-size:24px 24px;
+    -webkit-user-select:none; user-select:none;
+}
+[hidden]{ display:none !important; }
+button{ font:inherit; color:inherit; cursor:pointer; }
+input{ font:inherit; }
+.red-t{ color:var(--red); } .blue-t{ color:var(--blue); }
+
+/* ── ボタン：高さ 56px いじょう・おすと しずむ ── */
+.btn{
+    min-height:56px; min-width:56px; padding:0 20px;
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    border:none; border-radius:16px; background:#fff; color:var(--ink);
+    font-size:21px; line-height:1.15;
+    box-shadow:0 5px 0 var(--shade), inset 0 0 0 2px var(--line);
+    transition:transform .06s, box-shadow .06s, opacity .15s;
+}
+.btn:active:not(:disabled){ transform:translateY(5px); box-shadow:0 0 0 var(--shade), inset 0 0 0 2px var(--line); }
+.btn:disabled{ opacity:.35; cursor:default; }
+.btn.go{ background:var(--go); color:#fff; box-shadow:0 5px 0 var(--go-d); }
+.btn.go:active:not(:disabled){ box-shadow:0 0 0 var(--go-d); }
+.btn.big{ min-height:64px; font-size:24px; padding:0 28px; border-radius:18px; }
+.btn.call:not(:disabled){ animation:call 1.4s ease-in-out infinite; }
+@keyframes call{ 50%{ filter:brightness(1.12); transform:scale(1.03); } }
+.btn svg{ flex:none; }
+
+/* ── 画面のはし：音・やめる ── */
+.corner{
+    position:fixed; top:10px; z-index:30;
+    min-height:56px; padding:0 14px; font-size:18px;
+    background:rgba(255,255,255,.92);
+}
+#sndBtn{ right:12px; }
+#quitBtn{ left:12px; }
+.snd-off .wave{ display:none; }
+.snd-on  .mute{ display:none; }
+
+.screen{ position:fixed; inset:0; display:flex; flex-direction:column; }
+.copy{ text-align:center; font-size:16px; color:var(--thin); padding:6px 0 10px; font-weight:700; letter-spacing:.05em; }
+
+/* ============ タイトル ============ */
+#title{ align-items:center; justify-content:center; padding:16px 20px 0; }
+.t-wrap{ width:min(1180px, 100%); flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center; gap:14px; }
+.t-head{ display:flex; align-items:center; justify-content:center; gap:18px; }
+.t-head h1{ margin:0; font-size:clamp(40px, 7vh, 64px); letter-spacing:.04em; }
+.t-head h1 .sen{ background:linear-gradient(transparent 62%, #ffe28a 62%); }
+.t-cols{ display:grid; grid-template-columns:1.05fr 1fr; gap:18px; min-height:0; }
+.card{ background:#fff; border-radius:22px; box-shadow:0 3px 0 var(--line), 0 0 0 2px var(--line) inset; padding:16px 20px; }
+.card h2{ margin:0 0 8px; font-size:22px; color:var(--thin); }
+.rules{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+.rules li{ display:flex; align-items:center; gap:14px; font-size:20px; line-height:1.35; }
+.rules .ico{ flex:none; width:78px; height:52px; display:grid; place-items:center; background:#f4f6f9; border-radius:12px; }
+.rules .ico svg{ width:72px; height:48px; }
+.t-set{ display:flex; flex-direction:column; gap:12px; }
+.names{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.name{ display:flex; flex-direction:column; gap:4px; font-size:18px; }
+.name span{ display:flex; align-items:center; gap:6px; }
+.name input{
+    height:56px; border-radius:14px; border:3px solid var(--line); padding:0 14px; font-size:22px; font-weight:700;
+    background:#fff; color:var(--ink); width:100%; -webkit-user-select:text; user-select:text;
+}
+.name.red input:focus{ outline:none; border-color:var(--red); }
+.name.blue input:focus{ outline:none; border-color:var(--blue); }
+.sizes{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.sizes .btn{ flex-direction:column; gap:2px; min-height:84px; padding:8px 6px; }
+.sizes .btn small{ font-size:16px; color:var(--thin); }
+.sizes .btn svg{ width:54px; height:30px; }
+.sizes .btn.on{ background:#fff7d6; box-shadow:0 5px 0 #d9b945, inset 0 0 0 3px #e8c547; }
+.t-actions{ display:flex; gap:14px; justify-content:center; padding-top:4px; }
+.t-actions .btn.go{ min-width:220px; }
+
+/* ============ ゲーム（はいち・たいせん） ============ */
+#game{ display:grid; grid-template-rows:auto minmax(0,1fr); }
+.banner{
+    height:76px; padding:0 150px; display:flex; align-items:center; justify-content:center;
+    background:var(--team); color:#fff; font-size:clamp(32px, 4.6vh, 42px); letter-spacing:.03em;
+    text-shadow:0 2px 0 rgba(0,0,0,.15); transition:background .3s;
+    white-space:nowrap; overflow:hidden;
+}
+.banner span{ overflow:hidden; text-overflow:ellipsis; }
+.g-main{ display:grid; grid-template-columns:minmax(0,1fr) clamp(260px, 22vw, 320px); min-height:0; }
+#boardWrap{ position:relative; min-width:0; min-height:0; }
+#board{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; display:block; }
+.panel{ display:flex; flex-direction:column; gap:10px; padding:10px 14px 14px 4px; min-height:0; }
+.tcards{ display:flex; flex-direction:column; gap:8px; }
+.tcard{
+    display:grid; grid-template-columns:1fr auto; align-items:center; gap:0 8px;
+    background:#fff; border-radius:16px; padding:6px 12px; box-shadow:inset 0 0 0 2px var(--line);
+}
+.tcard.cur{ box-shadow:inset 0 0 0 4px var(--c); }
+.tcard .tn{ font-size:19px; color:var(--c); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tcard .tl{ font-size:18px; grid-row:span 2; align-self:center; white-space:nowrap; }
+.tcard .tp{ display:flex; gap:2px; }
+.tcard .tp svg{ width:34px; height:34px; }
+.hint{
+    min-height:64px; display:flex; align-items:center; justify-content:center; text-align:center;
+    background:#fff; border-radius:16px; padding:6px 10px; font-size:19px; line-height:1.35;
+    box-shadow:inset 0 0 0 2px var(--line);
+}
+.steps{ text-align:center; font-size:22px; line-height:1; padding:4px 0; }
+.steps b{ font-size:48px; margin:0 4px; color:var(--team); }
+.row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.row2 .btn{ padding:0 8px; font-size:20px; }
+.grow{ flex:1; min-height:0; }
+.dicebox{ display:flex; flex-direction:column; align-items:center; gap:12px; }
+.dicebox .btn{ width:100%; }
+
+.dice{
+    position:relative; width:112px; height:112px; border-radius:24px; background:#fff; border:none; padding:18px;
+    display:grid; grid-template:repeat(3,1fr)/repeat(3,1fr); gap:4px;
+    box-shadow:0 6px 0 var(--shade), inset 0 0 0 3px var(--line);
+}
+.dice .pip{ border-radius:50%; background:var(--ink); transform:scale(.82); visibility:hidden; }
+.dice .pip.on{ visibility:visible; }
+.dice[data-n="1"] .pip.on{ background:var(--red); transform:scale(1.35); }
+.dice .q{ position:absolute; inset:0; display:grid; place-items:center; font-size:52px; color:#c3c9d2; }
+.dice:not([data-n=""]) .q{ display:none; }
+.dice.rolling{ animation:roll .24s linear infinite; }
+.dice.land{ animation:land .35s ease-out; }
+@keyframes roll{ 0%{transform:rotate(0) translateY(0)} 25%{transform:rotate(-16deg) translateY(-10px)} 50%{transform:rotate(0) translateY(0)} 75%{transform:rotate(16deg) translateY(-10px)} 100%{transform:rotate(0)} }
+@keyframes land{ 0%{transform:scale(1.25)} 60%{transform:scale(.92)} 100%{transform:scale(1)} }
+
+.left-big{ text-align:center; font-size:22px; }
+.left-big b{ font-size:52px; color:var(--team); margin:0 4px; }
+.panel .stack{ display:flex; flex-direction:column; gap:12px; }
+
+/* ── ばんめんの SVG ── */
+.blink{ animation:blink 1.3s ease-in-out infinite; }
+@keyframes blink{ 50%{ opacity:.35; } }
+.halo{ animation:halo 1.3s ease-in-out infinite; }
+@keyframes halo{ 50%{ transform:scale(1.3); opacity:.25; } }
+.cand{ animation:pulse 1.1s ease-in-out infinite; }
+@keyframes pulse{ 50%{ transform:scale(1.28); } }
+.ring{ animation:spin 4s linear infinite; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+.hit{ animation:hitshake .6s ease-in-out; }
+@keyframes hitshake{
+    0%,100%{ transform:translate(0,0) rotate(0); }
+    15%{ transform:translate(-7px,2px) rotate(-10deg); } 30%{ transform:translate(7px,-2px) rotate(10deg); }
+    45%{ transform:translate(-6px,1px) rotate(-8deg); } 60%{ transform:translate(5px,-1px) rotate(6deg); }
+    75%{ transform:translate(-3px,0) rotate(-3deg); }
+}
+.fade{ animation:fade .9s ease-in forwards; }
+@keyframes fade{ 0%,55%{ fill:var(--c); } 100%{ fill:#A3AAB5; } }
+.xpop{ animation:xpop .4s .5s cubic-bezier(.3,1.6,.6,1) both; }
+@keyframes xpop{ from{ transform:scale(0); opacity:0; } to{ transform:scale(1); opacity:1; } }
+.bad{ animation:bad .45s ease-in-out forwards; }
+@keyframes bad{
+    0%{ transform:translateX(0); opacity:1; } 20%{ transform:translateX(-5px); } 40%{ transform:translateX(5px); }
+    60%{ transform:translateX(-4px); } 80%{ transform:translateX(3px); opacity:1; } 100%{ transform:translateX(0); opacity:0; }
+}
+
+/* ============ けっか ============ */
+#result{ align-items:center; justify-content:center; padding:16px 20px 0; }
+.r-wrap{ flex:1; min-height:0; width:min(1100px,100%); display:flex; flex-direction:column; justify-content:center; align-items:center; gap:16px; }
+.r-head{ font-size:clamp(44px, 8vh, 72px); text-align:center; display:flex; align-items:center; gap:16px; }
+.r-head svg{ width:1.3em; height:1.3em; }
+.r-body{ display:flex; gap:22px; align-items:center; justify-content:center; width:100%; }
+#resBoard{ width:min(560px, 48vw); height:auto; aspect-ratio:560/360; background:#fff; border-radius:18px; box-shadow:inset 0 0 0 2px var(--line); }
+.r-stats{ display:flex; flex-direction:column; gap:10px; min-width:280px; }
+.r-stats .tcard{ padding:10px 16px; }
+.r-stats .tcard .tl b{ font-size:30px; }
+.r-turns{ text-align:center; font-size:22px; }
+.r-turns b{ font-size:32px; }
+.r-actions{ display:flex; gap:16px; }
+#confetti{ position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:40; }
+
+/* ============ 大きな ことば（げきつい！ など） ============ */
+#big{ position:fixed; inset:0; z-index:50; display:grid; place-items:center; background:rgba(255,255,255,.18); }
+.big-in{
+    background:#fff; border-radius:28px; padding:18px 44px 22px; text-align:center;
+    box-shadow:0 8px 0 rgba(0,0,0,.12), 0 0 0 5px var(--bc, var(--ink)) inset;
+}
+#big.pop .big-in{ animation:bigpop .4s cubic-bezier(.3,1.5,.6,1); }
+@keyframes bigpop{ from{ transform:scale(.4); opacity:0; } to{ transform:scale(1); opacity:1; } }
+.big-sub{ font-size:22px; color:var(--thin); }
+.big-sub:empty{ display:none; }
+.big-main{ font-size:clamp(48px, 10vh, 84px); color:var(--bc, var(--ink)); line-height:1.2; }
+
+/* ============ あそびかた・かくにん ============ */
+.modal{ position:fixed; inset:0; z-index:60; background:rgba(31,41,55,.45); display:grid; place-items:center; padding:16px; }
+.m-card{ background:#fff; border-radius:26px; width:min(900px, 100%); max-height:100%; padding:18px 22px 20px; display:flex; flex-direction:column; gap:10px; }
+.m-top{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.m-top h2{ margin:0; font-size:28px; }
+#howSvg{ width:100%; height:auto; max-height:46vh; aspect-ratio:10/6; background:#fff; }
+#howText{ font-size:22px; line-height:1.6; min-height:3.2em; text-align:center; }
+.m-nav{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.dots{ display:flex; gap:10px; }
+.dots i{ width:16px; height:16px; border-radius:50%; background:var(--line); }
+.dots i.on{ background:var(--ink); }
+.m-card.small{ width:min(520px,100%); text-align:center; gap:18px; }
+.m-card.small p{ font-size:26px; margin:10px 0 0; }
+.m-card.small .r-actions{ justify-content:center; }
+
+/* たての 画面（タブレット） */
+@media (orientation:portrait){
+    .g-main{ grid-template-columns:1fr; grid-template-rows:minmax(0,1fr) auto; }
+    .panel{ padding:8px 12px 12px; flex-direction:row; flex-wrap:wrap; }
+    .panel > *{ flex:1 1 45%; }
+    .grow{ display:none; }
+    .t-cols{ grid-template-columns:1fr; }
+    .banner{ padding:0 120px; font-size:30px; }
+    .r-body{ flex-direction:column; }
+    #resBoard{ width:min(560px, 90vw); }
+}
+@media (max-height:680px){
+    .rules li{ font-size:18px; }
+    .tcard .tp svg{ width:28px; height:28px; }
+    .dice{ width:96px; height:96px; padding:15px; }
+}
+@media (prefers-reduced-motion:reduce){
+    .blink,.halo,.cand,.ring,.btn.call{ animation-duration:3s; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ タイトル ============ -->
+<section id="title" class="screen">
+    <div class="t-wrap">
+        <div class="t-head">
+            <span id="tPlaneR"></span>
+            <h1>ひこうき<span class="sen">線</span>バトル</h1>
+            <span id="tPlaneB"></span>
+        </div>
+        <div class="t-cols">
+            <div class="card">
+                <h2>あそびかた</h2>
+                <ul class="rules" id="rules"></ul>
+            </div>
+            <div class="card t-set">
+                <div class="names">
+                    <label class="name red"><span><i id="nIcoR"></i>あかチームの 名前</span><input id="nameRed" maxlength="8" placeholder="あか" autocomplete="off"></label>
+                    <label class="name blue"><span><i id="nIcoB"></i>あおチームの 名前</span><input id="nameBlue" maxlength="8" placeholder="あお" autocomplete="off"></label>
+                </div>
+                <div>
+                    <div style="font-size:18px;margin-bottom:6px">ばんめんの 大きさ</div>
+                    <div class="sizes" id="sizes"></div>
+                </div>
+                <div class="t-actions">
+                    <button class="btn big" id="howBtn">あそびかた</button>
+                    <button class="btn big go" id="startBtn">スタート</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="copy">© Hiroyuki</div>
+</section>
+
+<!-- ============ ゲーム（はいち・たいせん） ============ -->
+<section id="game" class="screen" hidden>
+    <div class="banner" id="banner"><span id="bannerText"></span></div>
+    <div class="g-main">
+        <div id="boardWrap">
+            <svg id="board" xmlns="http://www.w3.org/2000/svg" aria-label="ばんめん"><g id="bScene"></g><g id="bFx"></g></svg>
+        </div>
+        <div class="panel">
+            <div class="tcards" id="tcards"></div>
+
+            <!-- はいち -->
+            <div class="stack" id="placePanel">
+                <div class="hint">光っている 点を タップして ひこうきを おいてね</div>
+                <div class="left-big">あと<b id="placeLeft">3</b>き</div>
+                <button class="btn" id="autoBtn">おまかせ</button>
+                <button class="btn" id="resetBtn">おきなおす</button>
+                <button class="btn big go" id="okBtn">OK</button>
+            </div>
+
+            <!-- たいせん -->
+            <div class="hint" id="hint"></div>
+            <div class="steps" id="steps"></div>
+            <div class="row2" id="moveBtns">
+                <button class="btn" id="undoBtn">1歩 もどす</button>
+                <button class="btn go" id="commitBtn">けってい</button>
+            </div>
+            <div class="grow"></div>
+            <div class="dicebox" id="diceBox">
+                <button class="dice" id="dice" data-n="" aria-label="サイコロ"><span class="q">?</span></button>
+                <button class="btn big go" id="rollBtn">サイコロを ふる</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============ けっか ============ -->
+<section id="result" class="screen" hidden>
+    <div class="r-wrap">
+        <div class="r-head" id="resHead"></div>
+        <div class="r-body">
+            <svg id="resBoard" viewBox="0 0 560 360" xmlns="http://www.w3.org/2000/svg" aria-label="さいごの ばんめん"><g id="rScene"></g></svg>
+            <div class="r-stats">
+                <div class="tcards" id="resCards"></div>
+                <div class="r-turns">ターン数 <b id="resTurns">0</b></div>
+            </div>
+        </div>
+        <div class="r-actions">
+            <button class="btn big go" id="againBtn">もう一回</button>
+            <button class="btn big" id="toTitleBtn">タイトルへ</button>
+        </div>
+    </div>
+    <div class="copy">© Hiroyuki</div>
+    <canvas id="confetti"></canvas>
+</section>
+
+<!-- ============ あそびかた（絵つき スライド） ============ -->
+<div id="howto" class="modal" hidden>
+    <div class="m-card">
+        <div class="m-top">
+            <h2 id="howTitle"></h2>
+            <button class="btn" id="howClose">とじる</button>
+        </div>
+        <svg id="howSvg" viewBox="0 0 600 360" xmlns="http://www.w3.org/2000/svg"><g id="howScene"></g></svg>
+        <div id="howText"></div>
+        <div class="m-nav">
+            <button class="btn" id="howPrev">◀ まえ</button>
+            <div class="dots" id="howDots"></div>
+            <button class="btn go" id="howNext">つぎ ▶</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ やめる？ ============ -->
+<div id="confirm" class="modal" hidden>
+    <div class="m-card small">
+        <p>ゲームを やめて<br>タイトルに もどる？</p>
+        <div class="r-actions">
+            <button class="btn big" id="quitNo">つづける</button>
+            <button class="btn big go" id="quitYes">もどる</button>
+        </div>
+    </div>
+</div>
+
+<div id="big" hidden><div class="big-in"><div class="big-sub" id="bigSub"></div><div class="big-main" id="bigMain"></div></div></div>
+
+<button class="btn corner snd-on" id="sndBtn" aria-label="音 オン・オフ">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/>
+        <path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>
+        <path class="mute" d="M16 9l6 6M22 9l-6 6"/>
+    </svg>
+    <span id="sndText">音 オン</span>
+</button>
+<button class="btn corner" id="quitBtn" hidden>やめる</button>
+
+<script>
+'use strict';
+// ==LOGIC==
+/* ルールと 判定（画面を つかわない ぶぶん）── 計画書「2. ゲームルール」「4. データ設計と判定ロジック」
+   ・ゲームの ようすは state オブジェクト 1つ（s）に まとめる。関数は どれも s を うけとる
+   ・交点は {x, y}（x は 0〜cols、y は 0〜rows）。辺の キーは 2点を 小さい じゅんに ならべた "3,4|4,4"
+   ・tests.js が この ぶぶんだけ とりだして たしかめる */
+(function(){
+    const TEAMS = ['red', 'blue'];
+    const SIZES = { s:{ cols:12, rows:8 }, m:{ cols:16, rows:10 }, l:{ cols:20, rows:12 } };
+    const DEFAULT_NAME = { red:'あか', blue:'あお' };
+    const other = t => t === 'red' ? 'blue' : 'red';
+    const same = (a, b) => a.x === b.x && a.y === b.y;
+    const dist = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+    const ptKey = p => p.x + ',' + p.y;
+    function edgeKey(a, b){
+        const first = a.x < b.x || (a.x === b.x && a.y < b.y);
+        return first ? ptKey(a) + '|' + ptKey(b) : ptKey(b) + '|' + ptKey(a);
+    }
+    function parseEdge(k){
+        return k.split('|').map(s => { const [x, y] = s.split(',').map(Number); return { x, y }; });
+    }
+
+    /* 4-2 状態。phase から 下は 計画書に ない 画面の ための 補助 */
+    function newState(sizeKey, names, rnd){
+        rnd = rnd || Math.random;
+        const size = SIZES[sizeKey] || SIZES.m;
+        names = names || {};
+        const team = t => ({ name:(names[t] || '').trim() || DEFAULT_NAME[t], planes:[], activeLine:null });
+        return {
+            screen:'place',
+            size:{ cols:size.cols, rows:size.rows },
+            teams:{ red:team('red'), blue:team('blue') },
+            edges:new Map(),        // 辺 → その辺を 通った 線の チーム（Set）
+            turn:'red',
+            dice:null,
+            stepsLeft:0,
+            turnPath:[],            // この ターンに すすんだ 交点（1歩 もどす 用）
+            turnEdges:[],           // 1歩ごとに、あたらしく 登録した 辺の キー／登録しなかった ときは null
+            passCount:0,
+            turnCount:1,
+            // ── 補助 ──
+            sizeKey:SIZES[sizeKey] ? sizeKey : 'm',
+            phase:'place',          // place → roll → (select) → move → done … / pass / shot / over
+            placeTeam:'red',        // いま ひこうきを おいて いる チーム
+            first:rnd() < .5 ? 'red' : 'blue',   // 先攻（スタートを おした ときに きめる）
+            newLine:false,          // この ターンに ひこうきから 線を 出した
+            shots:{ red:0, blue:0 },// げきつい した 数
+            winner:null,            // 'red' | 'blue' | null（ひきわけ）
+            lastHit:null            // さいごに げきつい された ひこうき {team, i}
+        };
+    }
+
+    const inBoard = (s, p) => p.x >= 0 && p.x <= s.size.cols && p.y >= 0 && p.y <= s.size.rows;
+    function planeAt(s, p){
+        for (const t of TEAMS){
+            const i = s.teams[t].planes.findIndex(pl => same(pl, p));
+            if (i >= 0) return { team:t, i, plane:s.teams[t].planes[i] };
+        }
+        return null;
+    }
+    const neighbors = p => [{ x:p.x + 1, y:p.y }, { x:p.x - 1, y:p.y }, { x:p.x, y:p.y + 1 }, { x:p.x, y:p.y - 1 }];
+    const tipOf = (s, team) => { const l = s.teams[team].activeLine; return l ? l[l.length - 1] : null; };
+
+    /* 4-3 すすめるか どうか */
+    function canMove(s, team, from, to){
+        if (!from || !to || !inBoard(s, to) || dist(from, to) !== 1) return false;       // 1. となりで ばんめんの 中
+        const used = s.edges.get(edgeKey(from, to));
+        if (used && used.has(other(team))) return false;                                  // 2. あいての 線の 上は 通れない
+        const hit = planeAt(s, to);
+        if (hit && hit.team === team) return false;                                       // 3. じぶんの ひこうき
+        if (hit && !hit.plane.alive) return false;                                        // 4. げきつい された ひこうき
+        return true;                                                                      // あいての 生きている ひこうき → 入れる（げきつい）
+    }
+    const movesFrom = (s, team, from) => neighbors(from).filter(to => canMove(s, team, from, to));
+    const aliveCount = (s, team) => s.teams[team].planes.filter(p => p.alive).length;
+    /* 線を 出せる ひこうき（生きていて、1歩でも すすめる） */
+    const startCandidates = (s, team) =>
+        s.teams[team].planes.map((p, i) => i).filter(i => {
+            const p = s.teams[team].planes[i];
+            return p.alive && movesFrom(s, team, p).length > 0;
+        });
+
+    /* 4-6 はいち */
+    function placeValid(s, team, p){
+        const { cols, rows } = s.size;
+        if (!Number.isInteger(p.x) || !Number.isInteger(p.y)) return false;
+        if (p.x <= 0 || p.x >= cols || p.y <= 0 || p.y >= rows) return false;             // 外周は だめ
+        if (team === 'red' ? !(p.x < cols / 2) : !(p.x > cols / 2)) return false;         // じぶんの じんち（まん中の 線の 上も だめ）
+        for (const t of TEAMS) for (const pl of s.teams[t].planes) if (dist(pl, p) < 3) return false;   // ほかの 全機と 3 いじょう
+        return true;
+    }
+    function placePlane(s, team, p){
+        if (s.teams[team].planes.length >= 3 || !placeValid(s, team, p)) return false;
+        s.teams[team].planes.push({ x:p.x, y:p.y, alive:true });
+        return true;
+    }
+    function removePlane(s, team, i){ s.teams[team].planes.splice(i, 1); }
+    function autoPlace(s, team, rnd){
+        rnd = rnd || Math.random;
+        const { cols, rows } = s.size;
+        const xMin = team === 'red' ? 1 : Math.floor(cols / 2) + 1;
+        const xMax = team === 'red' ? Math.ceil(cols / 2) - 1 : cols - 1;
+        const ri = (a, b) => a + Math.floor(rnd() * (b - a + 1));
+        for (let round = 0; round < 50; round++){
+            s.teams[team].planes = [];
+            let ok = true;
+            for (let n = 0; n < 3 && ok; n++){
+                let placed = false;
+                for (let t = 0; t < 100 && !placed; t++) placed = placePlane(s, team, { x:ri(xMin, xMax), y:ri(1, rows - 1) });
+                if (!placed) ok = false;                                                      // 100回で おけなければ ぜんぶ おきなおす
+            }
+            if (ok) return true;
+        }
+        return false;
+    }
+
+    function beginPlay(s){
+        s.screen = 'play';
+        s.turn = s.first;
+        s.turnCount = 1;
+        s.passCount = 0;
+        s.phase = 'roll';
+    }
+
+    /* 4-5 ターンの はじまり（サイコロの 前）：先っぽが 行き止まりなら あきらめる */
+    function beginTurn(s){
+        const team = s.turn, tip = tipOf(s, team);
+        if (tip && movesFrom(s, team, tip).length === 0){
+            s.teams[team].activeLine = null;
+            return { deadEnd:true };
+        }
+        return { deadEnd:false };
+    }
+
+    /* サイコロの 目が きまった → 'move' | 'select' | 'pass' */
+    function applyRoll(s, n){
+        const team = s.turn, T = s.teams[team];
+        s.dice = n; s.stepsLeft = n; s.turnPath = []; s.turnEdges = []; s.newLine = false;
+        if (T.activeLine && movesFrom(s, team, tipOf(s, team)).length > 0){ s.phase = 'move'; return 'move'; }
+        T.activeLine = null;
+        if (startCandidates(s, team).length === 0){ s.phase = 'pass'; return 'pass'; }
+        s.phase = 'select';
+        return 'select';
+    }
+
+    /* しゅっぱつする ひこうきを えらぶ（まだ 1歩も すすんで いなければ えらびなおせる） */
+    function canReselect(s){ return s.phase === 'move' && s.newLine && s.turnPath.length === 0; }
+    function selectPlane(s, i){
+        const team = s.turn, T = s.teams[team], pl = T.planes[i];
+        if (!(s.phase === 'select' || canReselect(s))) return false;
+        if (!pl || !pl.alive || movesFrom(s, team, pl).length === 0) return false;
+        T.activeLine = [{ x:pl.x, y:pl.y }];
+        s.newLine = true;
+        s.phase = 'move';
+        return true;
+    }
+
+    /* 4-4 1歩 すすむ */
+    function step(s, to){
+        if (s.phase !== 'move' || s.stepsLeft <= 0) return { ok:false };
+        const team = s.turn, T = s.teams[team], from = tipOf(s, team);
+        if (!canMove(s, team, from, to)) return { ok:false };
+        const k = edgeKey(from, to);
+        let used = s.edges.get(k);
+        if (!used){ used = new Set(); s.edges.set(k, used); }
+        if (used.has(team)) s.turnEdges.push(null);
+        else { used.add(team); s.turnEdges.push(k); }                                       // 1. 辺を 登録
+        const p = { x:to.x, y:to.y };
+        T.activeLine.push(p); s.turnPath.push(p); s.stepsLeft--; s.passCount = 0;           // 2.
+        const hit = planeAt(s, to);
+        if (hit && hit.team !== team && hit.plane.alive){                                  // 3. げきつい
+            hit.plane.alive = false;
+            s.shots[team]++;
+            s.lastHit = { team:hit.team, i:hit.i };
+            T.activeLine = null;          // 線は ここで おわり（ばんめんには のこる）
+            s.stepsLeft = 0;              // のこりの 歩数は すてる
+            s.turnPath = []; s.turnEdges = [];   // げきつい した あとは もどせない
+            if (aliveCount(s, hit.team) === 0){
+                s.winner = team; s.phase = 'over'; s.screen = 'result';
+                return { ok:true, shot:hit, win:true };
+            }
+            s.phase = 'shot';
+            return { ok:true, shot:hit, win:false };
+        }
+        if (s.stepsLeft === 0 || movesFrom(s, team, p).length === 0){                     // 4. けってい まち
+            s.phase = 'done';
+            return { ok:true, stuck:s.stepsLeft > 0 };
+        }
+        return { ok:true };
+    }
+
+    /* 1歩 もどす（その ターンの 中だけ） */
+    function canUndo(s){
+        if (!(s.phase === 'move' || s.phase === 'done')) return false;
+        return s.turnPath.length > 0 || (s.newLine && !!s.teams[s.turn].activeLine);
+    }
+    function undoStep(s){
+        if (!canUndo(s)) return false;
+        const team = s.turn, T = s.teams[team];
+        if (s.turnPath.length === 0){                   // ひこうきを えらぶ ところまで もどる
+            T.activeLine = null; s.newLine = false; s.phase = 'select';
+            return true;
+        }
+        s.turnPath.pop();
+        T.activeLine.pop();
+        const k = s.turnEdges.pop();
+        if (k){
+            const used = s.edges.get(k);
+            used.delete(team);
+            if (used.size === 0) s.edges.delete(k);
+        }
+        s.stepsLeft++;
+        s.phase = 'move';
+        return true;
+    }
+
+    function endTurn(s){
+        s.turn = other(s.turn);
+        s.turnCount++;
+        s.dice = null; s.stepsLeft = 0; s.turnPath = []; s.turnEdges = []; s.newLine = false;
+        s.phase = 'roll';
+    }
+    function commit(s){
+        if (s.phase !== 'done') return false;
+        endTurn(s);
+        return true;
+    }
+    /* パス。2人 つづけて パスなら ひきわけ */
+    function doPass(s){
+        s.passCount++;
+        if (s.passCount >= 2){ s.winner = null; s.phase = 'over'; s.screen = 'result'; return { draw:true }; }
+        return { draw:false };
+    }
+
+    globalThis.SenLogic = {
+        TEAMS, SIZES, DEFAULT_NAME, other, same, dist, edgeKey, parseEdge, newState, inBoard, planeAt, neighbors, tipOf,
+        canMove, movesFrom, aliveCount, startCandidates, placeValid, placePlane, removePlane, autoPlace,
+        beginPlay, beginTurn, applyRoll, canReselect, selectPlane, step, canUndo, undoStep, endTurn, commit, doPass
+    };
+})();
+// ==/LOGIC==
+
+/* ================================================================
+   ここから 下は 画面（描画・そうさ・音・演出）
+   ================================================================ */
+const L = SenLogic;
+const $ = s => document.querySelector(s);
+const COLOR = { red:'#E5484D', blue:'#3B82F6' };
+const DEAD = '#A3AAB5';
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+let state = L.newState('m', {});
+state.screen = 'title';
+let busy = false;           // 演出中は タップを うけつけない
+
+/* ── せってい（localStorage。しっぱい しても うごく） ── */
+const SETTING_KEY = 'hikouki-sen-v1';
+const settings = { size:'m', sound:true, red:'', blue:'' };
+try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTING_KEY) || '{}')); } catch (e) {}
+function saveSettings(){ try { localStorage.setItem(SETTING_KEY, JSON.stringify(settings)); } catch (e) {} }
+
+const label = t => { const n = state.teams[t].name; return /チーム$/.test(n) ? n : n + 'チーム'; };
+
+/* ================================================================
+   絵（SVG）
+   ================================================================ */
+/* ひこうき（上から 見た 形・右むき）。100×100 の 中 */
+const PLANE_D = 'M95 50C95 46 89 43.5 81 43.5L61 43.5 39 7 28 7 39.5 43.5 21 43.5 12 27 5 27 9 45 9 55 5 73 12 73 21 56.5 39.5 56.5 28 93 39 93 61 56.5 81 56.5C89 56.5 95 54 95 50Z';
+
+function el(tag, attrs, parent){
+    const e = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+}
+/* 文字列の ひこうき（タイトル・カード用） */
+function planeSVG(team, size, dead){
+    const flip = team === 'blue' ? 'translate(100 0) scale(-1 1)' : '';
+    const x = dead ? `<path d="M22 22L78 78M78 22L22 78" stroke="#fff" stroke-width="20" stroke-linecap="round"/><path d="M22 22L78 78M78 22L22 78" stroke="#374151" stroke-width="11" stroke-linecap="round"/>` : '';
+    return `<svg width="${size}" height="${size}" viewBox="-4 -4 108 108" aria-hidden="true"><g transform="${flip}"><path d="${PLANE_D}" fill="${dead ? DEAD : COLOR[team]}" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke"/><circle cx="81" cy="50" r="4.5" fill="#fff" opacity=".9"/></g>${x}</svg>`;
+}
+function diceSVG(n, w, h){
+    const P = { 1:[[1,1]], 2:[[0,0],[2,2]], 3:[[0,0],[1,1],[2,2]], 4:[[0,0],[2,0],[0,2],[2,2]], 5:[[0,0],[2,0],[1,1],[0,2],[2,2]], 6:[[0,0],[2,0],[0,1],[2,1],[0,2],[2,2]] }[n];
+    const pips = P.map(([c, r]) => `<circle cx="${24 + c * 12}" cy="${12 + r * 12}" r="${n === 1 ? 6 : 4}" fill="${n === 1 ? COLOR.red : '#1f2937'}"/>`).join('');
+    return `<svg width="${w}" height="${h}" viewBox="0 0 72 48" aria-hidden="true"><rect x="16" y="4" width="40" height="40" rx="9" fill="#fff" stroke="#9aa3af" stroke-width="3"/>${pips}</svg>`;
+}
+
+function layoutFor(cols, rows, W, H, pad){
+    pad = pad === undefined ? .62 : pad;
+    const cell = Math.max(4, Math.min(W / (cols + pad * 2), H / (rows + pad * 2)));
+    return { cell, ox:(W - cols * cell) / 2, oy:(H - rows * cell) / 2, cols, rows, W, H };
+}
+
+/* ばんめんの 絵を かく。scene は state から 作る（sceneFromState）か、あそびかたの 絵で 手で 作る
+   { cols, rows, placeTeam, placeDots:[p], edges:[{a,b,team,style:'old'|'live'|'now'}], tips:[{x,y,team,now}],
+     cands:[{x,y,target}], candTeam, planes:[{x,y,team,alive,blink,hit}], marks:[{x,y,kind:'ok'|'ng'}] } */
+function drawScene(g, sc, Lo, opt){
+    opt = opt || {};
+    const { cell, ox, oy, cols, rows } = Lo;
+    const X = x => ox + x * cell, Y = y => oy + y * cell;
+    const lw = opt.lw || Math.max(3, Math.min(6, cell * .11));   // 線の 太さ 6px
+    const half = cols / 2;
+
+    el('rect', { x:X(0), y:Y(0), width:cols * cell, height:rows * cell, fill:'#fff' }, g);
+    const tint = t => sc.placeTeam ? (sc.placeTeam === t ? .15 : .03) : .06;
+    el('rect', { x:X(0), y:Y(0), width:half * cell, height:rows * cell, fill:COLOR.red, 'fill-opacity':tint('red') }, g);
+    el('rect', { x:X(half), y:Y(0), width:half * cell, height:rows * cell, fill:COLOR.blue, 'fill-opacity':tint('blue') }, g);
+
+    let d = '';
+    for (let x = 0; x <= cols; x++) d += `M${X(x)} ${Y(0)}V${Y(rows)}`;
+    for (let y = 0; y <= rows; y++) d += `M${X(0)} ${Y(y)}H${X(cols)}`;
+    el('path', { d, stroke:'#C9CED6', 'stroke-width':Math.max(1, cell * .035), fill:'none' }, g);
+    el('rect', { x:X(0), y:Y(0), width:cols * cell, height:rows * cell, fill:'none', stroke:'#A9B1BD', 'stroke-width':Math.max(1.5, cell * .05) }, g);
+    // まん中の たての 点線
+    el('line', { x1:X(half), y1:Y(0) - cell * .3, x2:X(half), y2:Y(rows) + cell * .3, stroke:'#7E8898',
+        'stroke-width':Math.max(2.5, cell * .08), 'stroke-linecap':'round', 'stroke-dasharray':`0 ${cell * .24}` }, g);
+
+    for (const p of sc.placeDots || []){
+        const t = el('g', { transform:`translate(${X(p.x)} ${Y(p.y)})` }, g);
+        el('circle', { r:Math.max(4, cell * .12), fill:COLOR[sc.placeTeam], 'fill-opacity':.45, class:'cand' }, t);
+    }
+
+    // 線（前の 線 → 相手の 今の 線 → いま ひいて いる 線）
+    for (const style of ['old', 'live', 'now']){
+        for (const team of L.TEAMS){
+            const es = (sc.edges || []).filter(e => e.style === style && e.team === team);
+            if (!es.length) continue;
+            const pd = es.map(e => `M${X(e.a.x)} ${Y(e.a.y)}L${X(e.b.x)} ${Y(e.b.y)}`).join('');
+            el('path', { d:pd, fill:'none', stroke:COLOR[team], 'stroke-linecap':'round',
+                'stroke-width':style === 'now' ? lw * 1.5 : lw, 'stroke-opacity':style === 'old' ? .55 : 1 }, g);
+        }
+    }
+    for (const t of sc.tips || []){
+        if (t.now) el('circle', { cx:X(t.x), cy:Y(t.y), r:lw * 1.45, fill:'#fff', stroke:COLOR[t.team], 'stroke-width':lw * .8 }, g);
+        else el('circle', { cx:X(t.x), cy:Y(t.y), r:lw * 1.05, fill:COLOR[t.team] }, g);
+    }
+
+    // すすめる 点
+    for (const c of sc.cands || []){
+        if (c.target) continue;
+        const t = el('g', { transform:`translate(${X(c.x)} ${Y(c.y)})` }, g);
+        el('circle', { r:Math.max(8, cell * .2), fill:COLOR[sc.candTeam], 'fill-opacity':.3, stroke:COLOR[sc.candTeam], 'stroke-width':3, class:'cand' }, t);
+    }
+
+    for (const p of sc.planes || []) drawPlane(g, X(p.x), Y(p.y), p.team, cell * .9, p);
+
+    // げきつい できる あいての ひこうき
+    for (const c of sc.cands || []){
+        if (!c.target) continue;
+        const t = el('g', { transform:`translate(${X(c.x)} ${Y(c.y)})` }, g);
+        el('circle', { r:cell * .5, fill:'none', stroke:COLOR[sc.candTeam], 'stroke-width':4, 'stroke-dasharray':`${cell * .2} ${cell * .12}`, class:'ring' }, t);
+    }
+
+    for (const m of sc.marks || []){
+        const t = el('g', { transform:`translate(${X(m.x)} ${Y(m.y)})` }, g);
+        const r = cell * .26;
+        if (m.kind === 'ok'){
+            el('circle', { r, fill:'#fff', 'fill-opacity':.6, stroke:'#22A06B', 'stroke-width':cell * .08 }, t);
+        } else {
+            el('circle', { r:r * 1.1, fill:'#fff' }, t);
+            el('path', { d:`M${-r * .7} ${-r * .7}L${r * .7} ${r * .7}M${r * .7} ${-r * .7}L${-r * .7} ${r * .7}`, stroke:'#D92D20', 'stroke-width':cell * .1, 'stroke-linecap':'round' }, t);
+        }
+    }
+}
+
+function drawPlane(g, cx, cy, team, size, o){
+    const outer = el('g', { transform:`translate(${cx} ${cy})` }, g);
+    if (o.blink) el('circle', { r:size * .56, fill:COLOR[team], 'fill-opacity':.2, class:'halo' }, outer);
+    const anim = el('g', { class:(o.blink ? 'blink' : '') + (o.hit ? ' hit' : '') }, outer);
+    const s = size / 100;
+    const body = el('g', { transform:`scale(${team === 'blue' ? -s : s} ${s}) translate(-50 -50)` }, anim);
+    const dead = o.alive === false;
+    const path = el('path', { d:PLANE_D, fill:dead ? DEAD : COLOR[team], stroke:'#fff', 'stroke-width':5, 'stroke-linejoin':'round', 'paint-order':'stroke' }, body);
+    if (o.hit){ path.setAttribute('class', 'fade'); path.style.setProperty('--c', COLOR[team]); }
+    el('circle', { cx:81, cy:50, r:4.5, fill:'#fff', 'fill-opacity':.9 }, body);
+    if (dead){
+        const xg = el('g', { class:o.hit ? 'xpop' : '' }, anim);
+        const r = size * .4, dd = `M${-r} ${-r}L${r} ${r}M${r} ${-r}L${-r} ${r}`;
+        el('path', { d:dd, stroke:'#fff', 'stroke-width':size * .2, 'stroke-linecap':'round' }, xg);
+        el('path', { d:dd, stroke:'#374151', 'stroke-width':size * .11, 'stroke-linecap':'round' }, xg);
+    }
+}
+
+/* state → 絵 */
+function sceneFromState(final){
+    const s = state, sc = { cols:s.size.cols, rows:s.size.rows, edges:[], tips:[], cands:[], planes:[], candTeam:s.turn };
+    const playing = s.screen === 'play' && !final;
+    const style = new Map();
+    for (const t of L.TEAMS){
+        const al = s.teams[t].activeLine;
+        if (!al) continue;
+        for (let i = 1; i < al.length; i++) style.set(L.edgeKey(al[i - 1], al[i]), playing && t === s.turn ? 'now' : 'live');
+        const tip = al[al.length - 1];
+        if (al.length > 1 || (playing && t === s.turn)) sc.tips.push({ x:tip.x, y:tip.y, team:t, now:playing && t === s.turn });
+    }
+    for (const [k, used] of s.edges){
+        const [a, b] = L.parseEdge(k);
+        for (const t of used) sc.edges.push({ a, b, team:t, style:style.get(k) || 'old' });
+    }
+
+    let blink = [];
+    if (s.screen === 'place' && !final){
+        sc.placeTeam = s.placeTeam;
+        sc.placeDots = [];
+        if (s.teams[s.placeTeam].planes.length < 3){
+            for (let x = 1; x < s.size.cols; x++) for (let y = 1; y < s.size.rows; y++)
+                if (L.placeValid(s, s.placeTeam, { x, y })) sc.placeDots.push({ x, y });
+        }
+    }
+    if (playing && !busy){
+        if (s.phase === 'select' || L.canReselect(s)) blink = L.startCandidates(s, s.turn);
+        if (s.phase === 'move'){
+            const tip = L.tipOf(s, s.turn);
+            for (const p of L.movesFrom(s, s.turn, tip)){
+                const h = L.planeAt(s, p);
+                sc.cands.push({ x:p.x, y:p.y, target:!!(h && h.team !== s.turn) });
+            }
+        }
+    }
+    for (const t of L.TEAMS){
+        s.teams[t].planes.forEach((p, i) => {
+            sc.planes.push({ x:p.x, y:p.y, team:t, alive:p.alive,
+                blink:t === s.turn && blink.includes(i) && !(L.canReselect(s) && L.same(p, s.teams[t].activeLine[0])),
+                hit:!!(s.lastHit && s.lastHit.team === t && s.lastHit.i === i) });
+        });
+    }
+    return sc;
+}
+
+/* ================================================================
+   ばんめん（ゲーム画面）
+   ================================================================ */
+let BL = null;   // いまの ばんめんの レイアウト
+function renderBoard(){
+    const wrap = $('#boardWrap');
+    const W = wrap.clientWidth, H = wrap.clientHeight;
+    if (!W || !H || (state.screen !== 'place' && state.screen !== 'play')) return;
+    const svg = $('#board');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    BL = layoutFor(state.size.cols, state.size.rows, W, H);
+    const g = $('#bScene');
+    g.replaceChildren();
+    drawScene(g, sceneFromState(), BL);
+}
+new ResizeObserver(() => renderBoard()).observe($('#boardWrap'));
+
+function boardPoint(e){
+    if (!BL) return null;
+    const r = $('#board').getBoundingClientRect();
+    const lx = e.clientX - r.left, ly = e.clientY - r.top;
+    const x = Math.round((lx - BL.ox) / BL.cell), y = Math.round((ly - BL.oy) / BL.cell);
+    if (x < 0 || x > BL.cols || y < 0 || y > BL.rows) return null;
+    return { x, y };
+}
+/* やっては いけない そうさ：その 点を 赤く 小さく ゆらす だけ */
+function bad(p){
+    SFX.bad();
+    if (!BL) return;
+    const t = el('g', { transform:`translate(${BL.ox + p.x * BL.cell} ${BL.oy + p.y * BL.cell})` }, $('#bFx'));
+    const c = el('g', { class:'bad' }, t);
+    el('circle', { r:Math.max(7, BL.cell * .16), fill:COLOR.red, 'fill-opacity':.85 }, c);
+    setTimeout(() => t.remove(), 480);
+}
+
+$('#board').addEventListener('pointerdown', e => {
+    if (!e.isPrimary || e.button > 0) return;
+    e.preventDefault();
+    const p = boardPoint(e);
+    if (p) onBoardTap(p);
+});
+
+function onBoardTap(p){
+    if (busy) return;
+    if (state.screen === 'place') return placeTap(p);
+    if (state.screen !== 'play') return;
+    const team = state.turn, hit = L.planeAt(state, p);
+    if (state.phase === 'select' || L.canReselect(state)){
+        if (hit && hit.team === team && L.selectPlane(state, hit.i)){ SFX.select(); render(); return; }
+        if (state.phase === 'select') return bad(p);
+    }
+    if (state.phase === 'move'){
+        const r = L.step(state, p);
+        if (r.ok) return afterStep(r);
+    }
+    bad(p);
+}
+
+async function afterStep(r){
+    SFX.step();
+    if (r.win){ SFX.boom(); toResult(); return; }        // 3機目を げきつい した しゅんかんに けっか画面
+    render();
+    if (r.shot){
+        busy = true; render();
+        SFX.boom();
+        await showBig('げきつい！', { color:COLOR[state.turn], ms:1500 });
+        state.lastHit = null;
+        await nextTurn();
+    } else if (r.stuck){
+        SFX.deadend();
+        await showBig('いきどまり！', { sub:'「けってい」を おしてね', ms:1200 });
+    }
+}
+
+/* ── はいち ── */
+function placeTap(p){
+    const t = state.placeTeam, hit = L.planeAt(state, p);
+    if (hit && hit.team === t){ L.removePlane(state, t, hit.i); SFX.tap(); render(); return; }
+    if (L.placePlane(state, t, p)){ SFX.place(); render(); return; }
+    bad(p);
+}
+$('#autoBtn').onclick = () => { if (busy) return; L.autoPlace(state, state.placeTeam); SFX.place(); render(); };
+$('#resetBtn').onclick = () => { if (busy) return; state.teams[state.placeTeam].planes = []; SFX.tap(); render(); };
+$('#okBtn').onclick = async () => {
+    if (busy || state.teams[state.placeTeam].planes.length < 3) return;
+    busy = true;
+    if (state.placeTeam === 'red'){
+        state.placeTeam = 'blue';
+        render(); SFX.turn();
+        await showBig(`${label('blue')}の ばん`, { sub:'ひこうきを 3き おいてね', color:COLOR.blue, ms:1300 });
+    } else {
+        L.beginPlay(state);
+        render(); SFX.turn();
+        await showBig(`${label(state.first)}！`, { sub:'さきに はじめるのは', color:COLOR[state.first], ms:2000 });
+    }
+    busy = false;
+    render();
+};
+
+/* ── たいせん ── */
+async function onRoll(){
+    if (busy || state.screen !== 'play' || state.phase !== 'roll') return;
+    busy = true; render();
+    const n = 1 + Math.floor(Math.random() * 6);
+    await rollAnim(n);
+    const r = L.applyRoll(state, n);
+    render();
+    if (r === 'pass'){
+        SFX.pass();
+        await showBig('パス', { sub:'すすめる ひこうきが ないよ', ms:1700 });
+        if (L.doPass(state).draw){ toResult(); return; }
+        await nextTurn();
+        return;
+    }
+    busy = false; render();
+}
+$('#rollBtn').onclick = onRoll;
+$('#dice').onclick = onRoll;
+$('#undoBtn').onclick = () => { if (!busy && L.undoStep(state)){ SFX.undo(); render(); } };
+$('#commitBtn').onclick = () => { if (!busy && state.phase === 'done') nextTurn(); };
+
+async function nextTurn(){
+    busy = true;
+    if (state.phase === 'done' || state.phase === 'shot' || state.phase === 'pass') L.endTurn(state);
+    render();
+    SFX.turn();
+    await showBig(`${label(state.turn)}の ばん`, { color:COLOR[state.turn], ms:900 });
+    const r = L.beginTurn(state);
+    render();
+    if (r.deadEnd){
+        SFX.deadend();
+        await showBig('いきどまり！', { sub:'ひこうきから あたらしい 線を スタート', color:COLOR[state.turn], ms:1600 });
+    }
+    busy = false;
+    render();
+}
+
+document.addEventListener('keydown', e => {
+    if (state.screen !== 'play' || !$('#confirm').hidden) return;
+    if (e.key === ' ' || e.key === 'Enter'){
+        e.preventDefault();
+        if (state.phase === 'roll') onRoll(); else if (state.phase === 'done' && !busy) nextTurn();
+    } else if (e.key === 'Backspace' || ((e.ctrlKey || e.metaKey) && e.key === 'z')){
+        e.preventDefault(); $('#undoBtn').click();
+    }
+});
+
+/* ── サイコロ ── */
+const PIPS = { 1:[4], 2:[0,8], 3:[0,4,8], 4:[0,2,6,8], 5:[0,2,4,6,8], 6:[0,2,3,5,6,8] };
+(() => { const d = $('#dice'); for (let i = 0; i < 9; i++){ const p = document.createElement('i'); p.className = 'pip'; d.appendChild(p); } })();
+function setDice(n){
+    const d = $('#dice');
+    d.dataset.n = n || '';
+    d.querySelectorAll('.pip').forEach((p, i) => p.classList.toggle('on', !!n && PIPS[n].includes(i)));
+}
+function rollAnim(n){
+    return new Promise(res => {
+        const d = $('#dice');
+        d.classList.remove('land');
+        d.classList.add('rolling');
+        let last = 0;
+        const iv = setInterval(() => { let k; do { k = 1 + Math.floor(Math.random() * 6); } while (k === last); last = k; setDice(k); SFX.tick(); }, 80);
+        setTimeout(() => {
+            clearInterval(iv);
+            d.classList.remove('rolling');
+            setDice(n);
+            void d.offsetWidth;
+            d.classList.add('land');
+            SFX.land();
+            res();
+        }, 1000);
+    });
+}
+
+/* ================================================================
+   画面の きりかえ・表示
+   ================================================================ */
+function showScreen(){
+    const sc = state.screen;
+    $('#title').hidden = sc !== 'title';
+    $('#game').hidden = !(sc === 'place' || sc === 'play');
+    $('#result').hidden = sc !== 'result';
+    $('#quitBtn').hidden = $('#game').hidden;
+}
+
+function teamCard(t, opt){
+    const T = state.teams[t];
+    const icons = [0, 1, 2].map(i => {
+        const p = T.planes[i];
+        if (!p) return `<span style="opacity:.25">${planeSVG(t, 34, false)}</span>`;
+        return planeSVG(t, 34, !p.alive);
+    }).join('');
+    const right = opt.place
+        ? `${T.planes.length}<span style="font-size:15px"> / 3</span>`
+        : opt.result ? `げきつい <b>${state.shots[t]}</b>き` : `のこり ${L.aliveCount(state, t)}き`;
+    return `<div class="tcard ${opt.cur ? 'cur' : ''}" style="--c:${COLOR[t]}">
+        <div class="tn">${esc(label(t))}</div><div class="tl">${right}</div><div class="tp">${icons}</div></div>`;
+}
+const esc = s => s.replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
+function hintText(){
+    const s = state;
+    if ($('#dice').classList.contains('rolling')) return 'サイコロが ころがって いるよ…';
+    if (busy) return '…';
+    switch (s.phase){
+        case 'roll': return 'サイコロを ふってね';
+        case 'select': return 'しゅっぱつする ひこうきを<br>タップしてね';
+        case 'move': return L.canReselect(s) ? '光っている 点を タップ<br><small>ひこうきを えらびなおせるよ</small>' : '光っている 点を<br>タップしてね';
+        case 'done': return s.stepsLeft > 0 ? 'もう すすめない！<br>「けってい」を おしてね' : '「けってい」を おしてね';
+        default: return '';
+    }
+}
+
+function render(){
+    showScreen();
+    const s = state;
+    if (s.screen === 'place' || s.screen === 'play'){
+        const team = s.screen === 'place' ? s.placeTeam : s.turn;
+        document.documentElement.style.setProperty('--team', COLOR[team]);
+        $('#bannerText').textContent = s.screen === 'place' ? `${label(team)}、ひこうきを 3き おいてね` : `${label(team)}の ばん`;
+        $('#tcards').innerHTML = L.TEAMS.map(t => teamCard(t, { cur:t === team, place:s.screen === 'place' })).join('');
+        const place = s.screen === 'place';
+        $('#placePanel').hidden = !place;
+        for (const id of ['#hint', '#steps', '#moveBtns', '#diceBox']) $(id).hidden = place;
+        if (place){
+            const n = s.teams[team].planes.length;
+            $('#placeLeft').textContent = 3 - n;
+            $('#okBtn').disabled = busy || n < 3;
+            $('#okBtn').classList.toggle('call', n === 3);
+            $('#autoBtn').disabled = $('#resetBtn').disabled = busy;
+        } else {
+            $('#hint').innerHTML = hintText();
+            $('#steps').innerHTML = s.dice ? `のこり<b>${s.stepsLeft}</b>歩` : 'のこり<b style="color:#c3c9d2">?</b>歩';
+            $('#undoBtn').disabled = busy || !L.canUndo(s);
+            $('#commitBtn').disabled = busy || s.phase !== 'done';
+            $('#commitBtn').classList.toggle('call', !busy && s.phase === 'done');
+            const canRoll = !busy && s.phase === 'roll';
+            $('#rollBtn').disabled = !canRoll;
+            $('#rollBtn').classList.toggle('call', canRoll);
+            if (!$('#dice').classList.contains('rolling')) setDice(s.dice);
+        }
+        renderBoard();
+    }
+}
+
+/* ── けっか ── */
+function toResult(){
+    state.screen = 'result';
+    busy = false;
+    $('#big').hidden = true;
+    showScreen();
+    const w = state.winner;
+    $('#resHead').innerHTML = w
+        ? `${planeSVG(w, 80, false)}<span style="color:${COLOR[w]}">${esc(label(w))}の かち！</span>${planeSVG(w, 80, false)}`
+        : '<span>ひきわけ！</span>';
+    $('#resCards').innerHTML = L.TEAMS.map(t => teamCard(t, { result:true, cur:t === w })).join('');
+    $('#resTurns').textContent = state.turnCount;
+    const g = $('#rScene');
+    g.replaceChildren();
+    drawScene(g, sceneFromState(true), layoutFor(state.size.cols, state.size.rows, 560, 360, .5), { lw:4.5 });
+    if (w){ SFX.win(); confetti(); } else SFX.draw();
+}
+
+/* ── あたらしい ゲーム ── */
+function newGame(){
+    state = L.newState(settings.size, { red:settings.red, blue:settings.blue });   // 先攻は ここ（スタートを おした とき）で きめる
+    busy = false;
+    stopConfetti();
+    render();
+    SFX.turn();
+    busy = true;
+    showBig(`${label('red')}の ばん`, { sub:'ひこうきを 3き おいてね', color:COLOR.red, ms:1200 }).then(() => { busy = false; render(); });
+}
+$('#startBtn').onclick = () => {
+    settings.red = $('#nameRed').value.trim();
+    settings.blue = $('#nameBlue').value.trim();
+    saveSettings();
+    newGame();
+};
+$('#againBtn').onclick = newGame;
+function toTitle(){
+    stopConfetti();
+    busy = false;
+    $('#big').hidden = true;
+    state.screen = 'title';
+    render();
+}
+$('#toTitleBtn').onclick = toTitle;
+$('#quitBtn').onclick = () => { $('#confirm').hidden = false; };
+$('#quitNo').onclick = () => { $('#confirm').hidden = true; };
+$('#quitYes').onclick = () => { $('#confirm').hidden = true; toTitle(); };
+
+/* ================================================================
+   大きな ことば
+   ================================================================ */
+let bigTimer = 0, bigDone = null;
+function showBig(main, o){
+    o = o || {};
+    if (bigDone) bigDone();
+    return new Promise(res => {
+        const b = $('#big');
+        $('#bigMain').textContent = main;
+        $('#bigSub').textContent = o.sub || '';
+        b.style.setProperty('--bc', o.color || '#1f2937');
+        b.hidden = false;
+        b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+        const finish = () => { clearTimeout(bigTimer); bigDone = null; b.hidden = true; b.onpointerdown = null; res(); };
+        bigDone = finish;
+        bigTimer = setTimeout(finish, o.ms || 1300);
+        setTimeout(() => { if (bigDone === finish) b.onpointerdown = finish; }, 350);   // タップで とばせる
+    });
+}
+
+/* ================================================================
+   紙ふぶき
+   ================================================================ */
+let confRAF = 0;
+function stopConfetti(){
+    cancelAnimationFrame(confRAF);
+    const cv = $('#confetti');
+    cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+}
+function confetti(){
+    stopConfetti();
+    const cv = $('#confetti'), ctx = cv.getContext('2d');
+    const dpr = window.devicePixelRatio || 1, W = innerWidth, H = innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const cs = ['#E5484D', '#3B82F6', '#F5C542', '#22A06B', '#A855F7', '#F97316'];
+    const P = Array.from({ length:180 }, () => ({
+        x:Math.random() * W, y:-20 - Math.random() * H * .7, vx:(Math.random() - .5) * 3, vy:1.5 + Math.random() * 3,
+        a:Math.random() * 6.3, va:(Math.random() - .5) * .25, w:8 + Math.random() * 8, h:5 + Math.random() * 6,
+        c:cs[Math.floor(Math.random() * cs.length)]
+    }));
+    const t0 = performance.now();
+    const f = t => {
+        ctx.clearRect(0, 0, W, H);
+        const age = t - t0;
+        for (const p of P){
+            p.vy = Math.min(p.vy + .05, 5); p.x += p.vx + Math.sin(t / 380 + p.a) * .8; p.y += p.vy; p.a += p.va;
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.a); ctx.scale(1, Math.cos(t / 160 + p.a));
+            ctx.globalAlpha = age > 4500 ? Math.max(0, 1 - (age - 4500) / 1000) : 1;
+            ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+        }
+        if (age < 5500) confRAF = requestAnimationFrame(f); else ctx.clearRect(0, 0, W, H);
+    };
+    confRAF = requestAnimationFrame(f);
+}
+
+/* ================================================================
+   音（Web Audio API の みじかい 音。音声ファイルは つかわない）
+   ================================================================ */
+const Sound = {
+    ctx:null,
+    get(){
+        if (!settings.sound) return null;
+        if (!this.ctx){ try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        return this.ctx;
+    },
+    tone(f, dur, o){
+        o = o || {};
+        const c = this.get(); if (!c) return;
+        const t = c.currentTime + (o.at || 0);
+        const osc = c.createOscillator(), g = c.createGain();
+        osc.type = o.type || 'sine';
+        osc.frequency.setValueAtTime(f, t);
+        if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + dur);
+        g.gain.setValueAtTime(.0001, t);
+        g.gain.exponentialRampToValueAtTime(o.vol || .16, t + .012);
+        g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+        osc.connect(g).connect(c.destination);
+        osc.start(t); osc.stop(t + dur + .03);
+    },
+    noise(dur, vol){
+        const c = this.get(); if (!c) return;
+        const n = Math.floor(c.sampleRate * dur), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+        for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2);
+        const src = c.createBufferSource(), flt = c.createBiquadFilter(), g = c.createGain();
+        src.buffer = buf; flt.type = 'lowpass'; flt.frequency.setValueAtTime(1800, c.currentTime);
+        flt.frequency.exponentialRampToValueAtTime(200, c.currentTime + dur);
+        g.gain.value = vol;
+        src.connect(flt).connect(g).connect(c.destination);
+        src.start();
+    }
+};
+const SFX = {
+    tap(){ Sound.tone(520, .08, { type:'triangle' }); },
+    place(){ Sound.tone(523, .09, { type:'triangle' }); Sound.tone(784, .14, { type:'triangle', at:.07 }); },
+    select(){ Sound.tone(660, .08, { type:'triangle' }); Sound.tone(990, .12, { type:'triangle', at:.06 }); },
+    step(){ Sound.tone(740, .09, { type:'triangle', vol:.18 }); },
+    undo(){ Sound.tone(600, .1, { type:'triangle', to:420 }); },
+    tick(){ Sound.tone(900 + Math.random() * 400, .03, { type:'square', vol:.04 }); },
+    land(){ Sound.tone(392, .1, { type:'triangle' }); Sound.tone(784, .16, { type:'triangle', at:.08 }); },
+    bad(){ Sound.tone(170, .13, { type:'square', vol:.06 }); },
+    turn(){ Sound.tone(659, .12); Sound.tone(880, .18, { at:.1 }); },
+    boom(){ Sound.noise(.6, .5); Sound.tone(320, .5, { type:'sawtooth', vol:.12, to:55 }); },
+    deadend(){ Sound.tone(420, .18, { type:'square', vol:.07, to:260 }); Sound.tone(300, .3, { type:'square', vol:.07, at:.18, to:150 }); },
+    pass(){ Sound.tone(330, .2, { type:'triangle' }); Sound.tone(262, .3, { type:'triangle', at:.2 }); },
+    win(){ [523, 659, 784, 1047].forEach((f, i) => Sound.tone(f, .22, { type:'triangle', at:i * .12, vol:.18 }));
+           [523, 659, 784].forEach(f => Sound.tone(f, .8, { type:'sine', at:.5, vol:.1 })); },
+    draw(){ Sound.tone(440, .25, { type:'triangle' }); Sound.tone(440, .35, { type:'triangle', at:.3 }); }
+};
+function renderSound(){
+    const b = $('#sndBtn');
+    b.classList.toggle('snd-on', settings.sound);
+    b.classList.toggle('snd-off', !settings.sound);
+    $('#sndText').textContent = settings.sound ? '音 オン' : '音 オフ';
+}
+$('#sndBtn').onclick = () => { settings.sound = !settings.sound; saveSettings(); renderSound(); SFX.tap(); };
+
+/* ================================================================
+   タイトル・あそびかた
+   ================================================================ */
+function crossSVG(){
+    return `<svg viewBox="0 0 72 48" aria-hidden="true"><path d="M6 24H66" stroke="${COLOR.red}" stroke-width="6" stroke-linecap="round"/>
+        <path d="M36 4V44" stroke="${COLOR.blue}" stroke-width="6" stroke-linecap="round"/>
+        <circle cx="36" cy="24" r="8" fill="none" stroke="#22A06B" stroke-width="3.5"/></svg>`;
+}
+function initTitle(){
+    $('#tPlaneR').innerHTML = planeSVG('red', 70, false);
+    $('#tPlaneB').innerHTML = planeSVG('blue', 70, false);
+    $('#nIcoR').innerHTML = planeSVG('red', 26, false);
+    $('#nIcoB').innerHTML = planeSVG('blue', 26, false);
+    const rules = [
+        [`<svg viewBox="0 0 72 48">${'<g transform="translate(2 6) scale(.36)">' + planeSVG('red', 100, false).replace(/^<svg[^>]*>|<\/svg>$/g, '') + '</g><g transform="translate(34 6) scale(.36)">' + planeSVG('blue', 100, false).replace(/^<svg[^>]*>|<\/svg>$/g, '') + '</g>'}</svg>`,
+            'じぶんの じんちに ひこうきを 3き おく'],
+        [diceSVG(3, 72, 48), 'サイコロを ふって、出た 数だけ 線を のばす'],
+        [crossSVG(), 'あいての 線の 上は 通れない（交わるのは OK）'],
+        [`<svg viewBox="0 0 72 48"><g transform="translate(18 6) scale(.36)">${planeSVG('blue', 100, true).replace(/^<svg[^>]*>|<\/svg>$/g, '')}</g></svg>`,
+            'あいての ひこうきに とどいたら げきつい！<br>先に 3き ぜんぶ げきついしたら かち'],
+    ];
+    $('#rules').innerHTML = rules.map(([ico, txt]) => `<li><span class="ico">${ico}</span><span>${txt}</span></li>`).join('');
+
+    const sizes = [['s', '小'], ['m', '中'], ['l', '大']];
+    $('#sizes').innerHTML = sizes.map(([k, n]) => {
+        const { cols, rows } = L.SIZES[k];
+        const sw = 54 * cols / 20, sh = 30 * rows / 12;
+        return `<button class="btn" data-size="${k}">${n}
+            <svg viewBox="0 0 54 30"><rect x="${(54 - sw) / 2}" y="${(30 - sh) / 2}" width="${sw}" height="${sh}" rx="2" fill="#eef1f5" stroke="#9aa3af" stroke-width="1.5"/>
+            <line x1="27" y1="${(30 - sh) / 2}" x2="27" y2="${(30 + sh) / 2}" stroke="#9aa3af" stroke-dasharray="1.5 2"/></svg>
+            <small>${cols}×${rows}</small></button>`;
+    }).join('');
+    $('#sizes').querySelectorAll('button').forEach(b => b.onclick = () => { settings.size = b.dataset.size; saveSettings(); SFX.tap(); markSize(); });
+    markSize();
+    $('#nameRed').value = settings.red || '';
+    $('#nameBlue').value = settings.blue || '';
+}
+function markSize(){ $('#sizes').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.size === settings.size)); }
+
+/* あそびかた スライド（10×6 の 小さな ばんめんで 絵を かく） */
+const pe = (pts, team, style) => pts.slice(1).map((p, i) => ({ a:{ x:pts[i][0], y:pts[i][1] }, b:{ x:p[0], y:p[1] }, team, style }));
+const HOW = [
+    { title:'1. じゅんび',
+      text:'左半分が あか、右半分が あおの じんち。<br>じぶんの じんちに ひこうきを 3き おくよ。',
+      scene:{ cols:10, rows:6, planes:[
+          { x:2, y:2, team:'red' }, { x:4, y:4, team:'red' }, { x:1, y:4, team:'red' },
+          { x:6, y:2, team:'blue' }, { x:8, y:1, team:'blue' }, { x:8, y:4, team:'blue' }] } },
+    { title:'2. 線を のばす',
+      text:'サイコロを ふって、出た 数だけ 線を のばすよ。<br>光っている 点を タップして 1歩ずつ すすむ。',
+      scene:{ cols:10, rows:6, candTeam:'red',
+          edges:pe([[2, 3], [3, 3], [4, 3], [4, 2]], 'red', 'now'), tips:[{ x:4, y:2, team:'red', now:true }],
+          cands:[{ x:4, y:1 }, { x:5, y:2 }, { x:3, y:2 }, { x:4, y:3 }],
+          planes:[{ x:2, y:3, team:'red' }, { x:1, y:1, team:'red' }, { x:8, y:3, team:'blue' }, { x:7, y:5, team:'blue' }] } },
+    { title:'3. 通れる 道・通れない 道',
+      text:'あいての 線の 上は 通れない。<br>線と 線が 点で 交わる だけなら 通れるよ。じぶんの 線の 上は もどれるよ。',
+      scene:{ cols:10, rows:6,
+          edges:[...pe([[7, 1], [6, 1], [5, 1], [5, 2], [5, 3], [5, 4], [5, 5]], 'blue', 'live'),
+                 ...pe([[2, 3], [3, 3], [4, 3], [5, 3], [6, 3]], 'red', 'now')],
+          tips:[{ x:5, y:5, team:'blue' }, { x:6, y:3, team:'red', now:true }],
+          marks:[{ x:5, y:3, kind:'ok' }, { x:5, y:1.5, kind:'ng' }, { x:5, y:4.5, kind:'ng' }],
+          planes:[{ x:2, y:3, team:'red' }, { x:7, y:1, team:'blue' }, { x:8, y:4, team:'blue' }] } },
+    { title:'4. げきつい！',
+      text:'あいての ひこうきまで 線が とどいたら げきつい！<br>先に 3き ぜんぶ げきついした チームの かち！',
+      scene:{ cols:10, rows:6,
+          edges:pe([[2, 4], [3, 4], [4, 4], [5, 4], [6, 4], [6, 3], [7, 3]], 'red', 'now'),
+          planes:[{ x:2, y:4, team:'red' }, { x:7, y:3, team:'blue', alive:false, hit:true }, { x:8, y:1, team:'blue' }, { x:3, y:1, team:'red' }] } },
+];
+let howAt = 0;
+function renderHow(){
+    const h = HOW[howAt];
+    $('#howTitle').textContent = h.title;
+    $('#howText').innerHTML = h.text;
+    const g = $('#howScene');
+    g.replaceChildren();
+    const sc = Object.assign({ planes:[] }, h.scene);
+    sc.planes = sc.planes.map(p => Object.assign({ alive:true }, p));
+    drawScene(g, sc, layoutFor(10, 6, 600, 360, .55));
+    $('#howDots').innerHTML = HOW.map((_, i) => `<i class="${i === howAt ? 'on' : ''}"></i>`).join('');
+    $('#howPrev').disabled = howAt === 0;
+    $('#howNext').textContent = howAt === HOW.length - 1 ? 'とじる' : 'つぎ ▶';
+}
+$('#howBtn').onclick = () => { howAt = 0; $('#howto').hidden = false; renderHow(); SFX.tap(); };
+$('#howClose').onclick = () => { $('#howto').hidden = true; };
+$('#howPrev').onclick = () => { if (howAt > 0){ howAt--; renderHow(); SFX.tap(); } };
+$('#howNext').onclick = () => { if (howAt < HOW.length - 1){ howAt++; renderHow(); SFX.tap(); } else $('#howto').hidden = true; };
+
+/* ================================================================
+   はじめ
+   ================================================================ */
+initTitle();
+renderSound();
+render();
+
+/* テスト用（tests.html から さわる） */
+window.HS = {
+    L, get state(){ return state; }, set state(v){ state = v; }, render, renderBoard, onBoardTap, toResult, newGame,
+    get busy(){ return busy; }, set busy(v){ busy = v; }, get layout(){ return BL; }
+};
+</script>
+</body>
+</html>
