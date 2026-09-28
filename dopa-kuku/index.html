@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0e1a">
+<meta name="description" content="ランダムに 出てくる 九九を 1問5びょう いないに こたえつづける チャレンジ。正解が つづくほど 画面が にぎやかに なる。">
+<title>ドパ九九</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=M+PLUS+Rounded+1c:wght@800&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-scr="title">
+
+<!-- ========== 演出の そう（問題・テンキーの うしろ） ========== -->
+<div id="stage" aria-hidden="true">
+  <div class="bg bg-base"></div>
+  <div class="bg bg-rays"></div>
+  <div class="bg bg-flame"><i></i><i></i><i></i></div>
+  <div class="bg bg-gold"></div>
+  <div class="bg bg-rainbow"></div>
+  <div class="bg bg-gray"></div>
+  <canvas id="fx"></canvas>
+  <svg id="frame">
+    <defs>
+      <linearGradient id="rbw" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#ff2d6f"/>
+        <stop offset=".17" stop-color="#ff9d00"/>
+        <stop offset=".33" stop-color="#ffe600"/>
+        <stop offset=".5" stop-color="#2be07a"/>
+        <stop offset=".67" stop-color="#00b7ff"/>
+        <stop offset=".83" stop-color="#7a4dff"/>
+        <stop offset="1" stop-color="#ff2dd2"/>
+      </linearGradient>
+    </defs>
+    <rect class="f-glow"/>
+    <rect class="f-base"/>
+    <rect class="f-flow"/>
+    <rect class="f-lap"/>
+  </svg>
+  <div id="fxl"></div>
+</div>
+
+<div id="app">
+
+  <!-- ========== 画面A：タイトル ========== -->
+  <section class="scr scr-title" id="scrTitle">
+    <button class="btn ghost set-btn" data-act="openSet">⚙ せってい</button>
+    <div class="title-main">
+      <div class="logo"><span class="logo-in"><i>✦</i><span>ドパ九九</span><i>✦</i></span></div>
+      <p class="catch" id="catch">1もん 5びょう いないに こたえつづけろ！</p>
+      <button class="btn start-btn" data-act="start">▶ はじめる</button>
+      <p class="title-best" id="titleBest"></p>
+    </div>
+  </section>
+
+  <!-- ========== 画面B：コースえらび ========== -->
+  <section class="scr scr-course" id="scrCourse" hidden>
+    <header class="bar">
+      <button class="btn ghost" data-act="toTitle" aria-label="もどる">←<span class="wide-only"> もどる</span></button>
+      <h2>コースを えらぼう</h2>
+      <button class="btn ghost limit-chip" data-act="openSet" id="limitChip">せいげん 5びょう</button>
+    </header>
+    <div class="courses" id="courses"></div>
+  </section>
+
+  <!-- ========== 画面C：プレイ ========== -->
+  <section class="scr scr-play" id="scrPlay" hidden>
+    <header class="hud">
+      <span class="hud-course" id="hudCourse"></span>
+      <span class="hud-combo" id="hudCombo"><i class="fire">🔥</i><b id="hudComboN">0</b><span class="wide-only">れんぞく</span><i class="fire">🔥</i></span>
+      <span class="hud-best" id="hudBest"><span class="wide-only">さいこう </span><span class="narrow-only">👑</span><b id="hudBestN">0</b></span>
+      <button class="btn ghost hud-quit" data-act="quit" aria-label="やめる">■<span class="wide-only"> やめる</span></button>
+    </header>
+    <div class="play">
+      <div class="qside">
+        <div class="tz" id="tz"></div>
+        <div class="qwrap" id="qwrap">
+          <div class="qcard" id="qcard">
+            <div class="q" id="q"><span id="qa">7</span><span class="op">×</span><span id="qb">8</span><span class="op">=</span></div>
+            <div class="ansbox" id="ansbox"><span class="ans" id="ans"></span><span class="caret"></span><span class="echo" id="echo"></span></div>
+            <div class="gauge" id="gauge"><i id="gaugeBar"></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="pad" id="pad">
+        <button class="key" data-key="7">7</button><button class="key" data-key="8">8</button><button class="key" data-key="9">9</button>
+        <button class="key" data-key="4">4</button><button class="key" data-key="5">5</button><button class="key" data-key="6">6</button>
+        <button class="key" data-key="1">1</button><button class="key" data-key="2">2</button><button class="key" data-key="3">3</button>
+        <button class="key del" data-key="del">けす</button><button class="key" data-key="0">0</button><span class="key blank"></span>
+      </div>
+    </div>
+    <div class="countdown" id="countdown" hidden></div>
+  </section>
+
+  <!-- ========== 画面D：ゲームオーバー ========== -->
+  <section class="scr scr-over" id="scrOver" hidden>
+    <h2 class="over-title" id="overTitle"></h2>
+    <p class="over-why" id="overWhy"></p>
+    <div class="over-card">
+      <p class="over-q" id="overQ"></p>
+      <p class="over-yomi" id="overYomi"></p>
+      <p class="over-your" id="overYour"></p>
+    </div>
+    <p class="over-rec" id="overRec"></p>
+    <p class="over-new" id="overNew" hidden>👑 しんきろく!!</p>
+    <div class="over-btns">
+      <button class="btn big go" data-act="retry" id="retryBtn">もういちど</button>
+      <button class="btn big" data-act="toCourse">コースえらび</button>
+    </div>
+  </section>
+
+  <!-- ========== 画面E：せってい ========== -->
+  <section class="scr scr-set" id="scrSet" hidden>
+    <header class="bar">
+      <button class="btn ghost" data-act="closeSet" aria-label="もどる">←<span class="wide-only"> もどる</span></button>
+      <h2>せってい</h2>
+      <span class="bar-pad"></span>
+    </header>
+    <div class="set-list scroll">
+      <div class="set-row">
+        <span class="set-l">せいげんじかん</span>
+        <div class="seg" data-key="limit">
+          <button data-v="3">3びょう</button><button data-v="5">5びょう</button><button data-v="7">7びょう</button>
+        </div>
+      </div>
+      <div class="set-row">
+        <span class="set-l">こうかおん</span>
+        <div class="seg" data-key="sound"><button data-v="1">オン</button><button data-v="0">オフ</button></div>
+      </div>
+      <div class="set-row">
+        <span class="set-l">BGM</span>
+        <div class="seg" data-key="bgm"><button data-v="1">オン</button><button data-v="0">オフ</button></div>
+      </div>
+      <div class="set-row">
+        <span class="set-l">えんしゅつ</span>
+        <div class="seg" data-key="fx"><button data-v="hade">ド派手</button><button data-v="hikaeme">ひかえめ</button></div>
+      </div>
+      <p class="set-note" id="fxNote">「ひかえめ」は 画面の ゆれと ちかちかを とめて、紙吹雪を へらします。</p>
+      <div class="nigate">
+        <span class="set-l">にがてな九九</span>
+        <ol id="nigate"></ol>
+      </div>
+      <button class="btn reset-btn" data-act="reset">きろくを けす</button>
+    </div>
+  </section>
+
+  <footer class="copy">© Hiroyuki</footer>
+</div>
+
+<script src="logic.js"></script>
+<script src="sound.js"></script>
+<script src="particles.js"></script>
+<script src="main.js"></script>
+<script src="effects.js"></script>
+</body>
+</html>
