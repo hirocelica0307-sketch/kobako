@@ -22,23 +22,12 @@
   <div class="bg bg-rainbow"></div>
   <div class="bg bg-gray"></div>
   <canvas id="fx"></canvas>
-  <svg id="frame">
-    <defs>
-      <linearGradient id="rbw" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#ff2d6f"/>
-        <stop offset=".17" stop-color="#ff9d00"/>
-        <stop offset=".33" stop-color="#ffe600"/>
-        <stop offset=".5" stop-color="#2be07a"/>
-        <stop offset=".67" stop-color="#00b7ff"/>
-        <stop offset=".83" stop-color="#7a4dff"/>
-        <stop offset="1" stop-color="#ff2dd2"/>
-      </linearGradient>
-    </defs>
-    <rect class="f-glow"/>
-    <rect class="f-base"/>
-    <rect class="f-flow"/>
-    <rect class="f-lap"/>
-  </svg>
+  <div id="frame">
+    <div class="fe fe-t"><b></b><s></s></div>
+    <div class="fe fe-r"><b></b><s></s></div>
+    <div class="fe fe-b"><b></b><s></s></div>
+    <div class="fe fe-l"><b></b><s></s></div>
+  </div>
   <div id="fxl"></div>
 </div>
 
@@ -77,6 +66,7 @@
       <div class="qside">
         <div class="tz" id="tz"></div>
         <div class="qwrap" id="qwrap">
+          <i class="qring" id="qring"></i>
           <div class="qcard" id="qcard">
             <div class="q" id="q"><span id="qa">7</span><span class="op">×</span><span id="qb">8</span><span class="op">=</span></div>
             <div class="ansbox" id="ansbox"><span class="ans" id="ans"></span><span class="caret"></span><span class="echo" id="echo"></span></div>

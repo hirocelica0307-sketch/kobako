@@ -60,7 +60,7 @@
         course: null, limit: 5, best: 0,
         combo: 0, level: 0, passed: false,
         q: null, input: '', recent: [], index: 0,
-        deadline: 0,
+        deadline: 0, qTotal: 0, shown: false, toAt: 0,
         raf: 0, toT: 0, timers: [],
         readyAt: 0,                 /* ゲームオーバー画面の ボタンを うけつける 時こく */
     };
@@ -122,7 +122,11 @@
             }
         }
         const base = '「ひかえめ」は 画面の ゆれと ちかちかを とめて、紙吹雪を 3分の1に します。';
-        $('#fxNote').textContent = reduceMotion && !s.fx ? base + '（この 端末は「視差効果を減らす」が オンなので、ひかえめに なっています）' : base;
+        let note = reduceMotion && !s.fx ? base + '（この 端末は「視差効果を減らす」が オンなので、ひかえめに なっています）' : base;
+        let lite = 0;
+        try { lite = Number(sessionStorage.getItem('dopakuku_lite')) || 0; } catch (e) { /* なくても よい */ }
+        if (lite) note += '　この 端末では 操作が おもく ならない ように、紙吹雪や 背景の うごきを 自動で へらしています。';
+        $('#fxNote').textContent = note;
         const top = L.topMiss(store.miss, 5);
         $('#nigate').innerHTML = top.length
             ? top.map(x => `<li>${x.a}×${x.b}<small>${x.n}かい</small></li>`).join('')
@@ -208,21 +212,43 @@
         $('#qa').textContent = g.q.a;
         $('#qb').textContent = g.q.b;
         renderAns();
-        /* 問題を 出した しゅんかんから 数える。虹ドパの ときだけ hold ぶん とめる */
-        g.deadline = performance.now() + g.limit * 1000 + (hold || 0);
-        clearTimeout(g.toT);
-        g.toT = setTimeout(checkTime, g.deadline - performance.now() + 20);
+        /* 問題を 出した しゅんかんから 数える。虹ドパの ときだけ hold ぶん とめる。
+           じっさいに 画面に 出た ときに tick() が もう一度 数えなおす（端末が もたついても 子どもが 損を しない） */
+        g.qTotal = g.limit * 1000 + (hold || 0);
+        g.shown = false;
+        setDeadline(performance.now() + g.qTotal);
         bus.emit('question', { q: g.q, index: g.index, hold: hold || 0 });
+    }
+
+    /* 時間ぎれを きめる ときの ゆとり（ミリびょう）。押した 時こくが しめきり前なら、
+       処理が すこし おくれても 正しく うけつける ため。ゲージは しめきりで 0 に なる */
+    const GRACE = 120;
+
+    function setDeadline(t) {
+        g.deadline = t;
+        clearTimeout(g.toT);
+        g.toAt = t + GRACE + 20;
+        g.toT = setTimeout(checkTime, g.toAt - performance.now());
     }
 
     /* のこり時間（ゲージ）。時間は performance.now() で はかり、画面の かきかえとは べつに きめる */
     function tick() {
         cancelAnimationFrame(g.raf);
+        let lastT = performance.now();
         const step = () => {
             if (g.state !== 'play') return;
-            const remain = g.deadline - performance.now();
-            if (remain <= 0) { gameOver('time'); return; }
-            setGauge(Math.min(1, remain / (g.limit * 1000)), remain <= 1000 ? 'danger' : remain <= 2000 ? 'warn' : '');
+            const now = performance.now();
+            const gap = now - lastT;
+            lastT = now;
+            /* 問題が 画面に 出る この しゅんかんから 数えなおす（おそく なる ほうに だけ） */
+            if (!g.shown) {
+                g.shown = true;
+                if (now + g.qTotal > g.deadline) setDeadline(now + g.qTotal);
+            }
+            const remain = g.deadline - now;
+            /* 画面が 固まって いた 直後（前の コマから 0.1びょう いじょう）は、たまって いる 入力を さきに 処理させる */
+            if (remain <= -GRACE && gap < 100) { gameOver('time'); return; }
+            setGauge(Math.max(0, Math.min(1, remain / (g.limit * 1000))), remain <= 1000 ? 'danger' : remain <= 2000 ? 'warn' : '');
             g.raf = requestAnimationFrame(step);
         };
         g.raf = requestAnimationFrame(step);
@@ -230,7 +256,11 @@
 
     /* タブが うらに ある ときなど、ゲージが うごかなくても 時間ぎれは きちんと きめる */
     function checkTime() {
-        if (g.state === 'play' && performance.now() >= g.deadline) gameOver('time');
+        if (g.state !== 'play') return;
+        const now = performance.now();
+        /* 予定より おくれて 動いた ＝ 画面が 固まって いた。たまって いる 入力を さきに 処理させてから きめる */
+        if (now - g.toAt > 50) { g.toAt = now + 30; g.toT = setTimeout(checkTime, 30); return; }
+        if (now >= g.deadline + GRACE) gameOver('time');
     }
 
     let gaugeCls = null;
@@ -243,9 +273,12 @@
         el.classList.toggle('danger', cls === 'danger');
     }
 
-    function press(k) {
+    /** k を 押した。at は 指が ふれた 時こく（イベントの timeStamp）。処理の おくれでは 時間ぎれに しない */
+    function press(k, at) {
         if (g.state !== 'play') return;
-        if (performance.now() >= g.deadline) { gameOver('time'); return; }
+        const now = performance.now();
+        if (!(at > 0 && at <= now + 5)) at = now;
+        if (at >= g.deadline) { gameOver('time'); return; }
         if (k === 'del') {
             if (!g.input) return;
             g.input = g.input.slice(0, -1);
@@ -269,14 +302,15 @@
         const kakutei = L.kakuteiOf(g.combo);
         const passBest = !g.passed && g.best > 0 && g.combo > g.best;
         if (passBest) g.passed = true;
+        /* さきに つぎの 問題を 出す（演出を またない。虹ドパの ときだけ タイマーを 1.5びょう とめる）。
+           演出は その あとで 知らせる（effects.js は 画面が 出てから うごく） */
+        nextQuestion(kakutei === 'niji' ? L.NIJI_HOLD : 0);
         renderHud();
         bus.emit('correct', {
             combo: g.combo, level: g.level, prevLevel: prev, q, answer,
             kakutei, milestone: L.isMilestone(g.combo), passBest,
         });
         if (g.level !== prev) bus.emit('level', { level: g.level, prev, combo: g.combo });
-        /* 演出を またずに すぐ つぎの 問題（虹ドパの ときだけ タイマーを 1.5びょう とめる） */
-        nextQuestion(kakutei === 'niji' ? L.NIJI_HOLD : 0);
     }
 
     function gameOver(reason) {
@@ -385,7 +419,7 @@
         if (!b) return;
         e.preventDefault();
         hit(b.dataset.key);
-        press(b.dataset.key);
+        press(b.dataset.key, e.timeStamp);
     });
 
     /* キーボード（数字・Backspace）。日本語入力が オンでも 数字キーの 場所で わかる */
@@ -399,11 +433,11 @@
                 e.preventDefault();
                 if (e.repeat) return;
                 hit(d);
-                press(d);
+                press(d, e.timeStamp);
             } else if (e.key === 'Backspace' || e.key === 'Delete') {
                 e.preventDefault();
                 hit('del');
-                press('del');
+                press('del', e.timeStamp);
             }
         } else if (screen === 'over' && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault();
@@ -414,12 +448,11 @@
         }
     });
 
-    /* れんだで 画面が 大きく なったり、うごいたり しない ように */
+    /* れんだで 画面が 大きく なったり、うごいたり しない ように。
+       スクロールは CSS（touch-action・overflow）で とめる。touchmove を JS で とめると、
+       画面の 処理が いそがしい ときに タッチ全体が またされて 入力が おくれるので つかわない */
     document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
     document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
-    document.addEventListener('touchmove', e => {
-        if (!e.target.closest('.scroll')) e.preventDefault();
-    }, { passive: false });
 
     /* ボタンを さわったら 音の じゅんび（iPhone は さわるまで 音が 出ない） */
     document.addEventListener('pointerdown', e => {

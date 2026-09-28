@@ -10,14 +10,20 @@
     let cv = null, cx = null, W = 0, H = 0, dpr = 1;
     let list = [];
     let raf = 0, last = 0;
-    let limit = mobile ? 400 : 800;
+    const LIMIT = mobile ? 400 : 800;
+    let limit = LIMIT;
     let scale = 1;            /* ひかえめ → 1/3 */
+    let budget = 1;           /* 端末が おもい ときの 自動の かるさ（1・0.5・0.25） */
     let timeScale = 1;        /* ゲームオーバーの スロー */
     let ambient = null;       /* つねに まう 光の粒（'gold' | 'rainbow'） */
     let ambientAcc = 0;
 
     const CONFETTI = ['#ff3b6b', '#ffb300', '#ffe14d', '#34d27b', '#29b6ff', '#7c5cff', '#ff5ce1', '#ffffff'];
     const GOLD = ['#fff4b0', '#ffe066', '#ffd23f', '#f5b700', '#e09a00', '#fffbe6'];
+
+    /* 虹色は 12色に まとめる（色ごとに ぼかし玉を 1つ だけ 作る。ランダムな 色で 毎回 作ると どんどん おもく なる） */
+    const HUES = Array.from({ length: 12 }, (_, i) => `hsl(${i * 30},100%,68%)`);
+    const hueColor = h => HUES[((Math.round(h / 30) % 12) + 12) % 12];
 
     /* 光の粒は 先に かいておいた ぼかし玉を はる（shadowBlur は おもい） */
     const sprites = {};
@@ -61,14 +67,15 @@
 
     function resize() {
         if (!cv) return;
-        dpr = Math.min(root.devicePixelRatio || 1, mobile ? 1.5 : 2);
+        /* 紙吹雪は こまかさより かるさ。スマホは 1倍、パソコンも 1.25倍 まで */
+        dpr = Math.min(root.devicePixelRatio || 1, mobile ? 1 : 1.25);
         W = root.innerWidth;
         H = root.innerHeight;
         cv.width = Math.round(W * dpr);
         cv.height = Math.round(H * dpr);
     }
 
-    const n = c => Math.max(1, Math.round(c * scale));
+    const n = c => Math.max(1, Math.round(c * scale * budget));
 
     function add(p) {
         if (list.length >= limit) return false;
@@ -129,7 +136,7 @@
         add({
             k: 'r', x: tx + rnd(-30, 30), y: H + 10, tx, ty,
             vx: 0, vy: 0, g: 0, drag: 0, size: 10, life: 0, max: up,
-            color: `hsl(${hue},100%,70%)`, hue, sparks: o.sparks || 56, gold: o.gold,
+            color: hueColor(hue), hue, sparks: o.sparks || 40, gold: o.gold,
         });
     }
 
@@ -137,7 +144,7 @@
         const c = n(p.sparks);
         for (let i = 0; i < c; i++) {
             const a = (i / c) * Math.PI * 2 + rnd(-0.05, 0.05), sp = rnd(180, 420);
-            const col = p.gold ? pick(GOLD) : `hsl(${(p.hue + rnd(-25, 25) + 360) % 360},100%,${Math.floor(rnd(55, 75))}%)`;
+            const col = p.gold ? pick(GOLD) : hueColor(p.hue + rnd(-30, 30));
             if (!add({
                 k: 'k', x: p.x, y: p.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
                 g: 240, drag: 1.6, size: rnd(14, 22), life: 0, max: rnd(0.7, 1.1), color: col,
@@ -152,10 +159,10 @@
     }
 
     function spawnAmbient(dt) {
-        ambientAcc += dt * 26 * scale;
+        ambientAcc += dt * 22 * scale * budget;
         while (ambientAcc >= 1) {
             ambientAcc -= 1;
-            const col = ambient === 'rainbow' ? `hsl(${Math.floor(rnd(0, 360))},100%,70%)` : pick(GOLD);
+            const col = ambient === 'rainbow' ? pick(HUES) : pick(GOLD);
             add({
                 k: 'g', x: rnd(0, W), y: H + 10, vx: rnd(-20, 20), vy: rnd(-160, -70),
                 g: 0, drag: 0, size: rnd(10, 26), life: 0, max: rnd(2.5, 4.5), color: col, tw: rnd(0, 6.28),
@@ -171,7 +178,7 @@
     }
 
     function frame(t) {
-        raf = 0;
+        /* raf は ここでは 0 に しない（うごかしている とちゅうで 粒を 足しても、ループが 2本に ふえない ように） */
         const dt = Math.min(0.05, (t - last) / 1000) * timeScale;
         last = t;
         if (ambient) spawnAmbient(dt);
@@ -202,7 +209,7 @@
         list = next;
         draw();
 
-        if (list.length || ambient) raf = requestAnimationFrame(frame);
+        raf = list.length || ambient ? requestAnimationFrame(frame) : 0;
     }
 
     function draw() {
@@ -255,6 +262,7 @@
     root.DopaParticles = {
         init, resize, confetti, stars, firework, setAmbient, clear,
         setScale(k) { scale = k; },
+        setBudget(k) { budget = k; limit = Math.round(LIMIT * k); },
         setTimeScale(k) { timeScale = k; },
         count() { return list.length; },
         get limit() { return limit; },

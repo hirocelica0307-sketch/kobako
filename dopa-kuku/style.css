@@ -43,23 +43,27 @@ button {
 
 /* =====================================================================
    演出の そう（#stage）
+   かるく うごかす ための きまり
+   - うごかすのは transform と opacity だけ（ブラウザが 絵を かきなおさずに すむ）
+   - filter（hue-rotate など）・mix-blend-mode・大きな SVG の かきかえ は つかわない
+   - 見えて いない そうは visibility:hidden ＋ アニメーション停止
    ===================================================================== */
-#stage { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; transition: filter .15s; }
-.bg { position: absolute; inset: 0; opacity: 0; transition: opacity .6s; }
-.bg-base { opacity: 1; background: radial-gradient(ellipse at 50% 40%, #1c2445 0%, #0b0e1a 72%); }
+#stage { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.bg { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity .6s, visibility 0s .6s; }
+.bg-base { opacity: 1; visibility: visible; background: radial-gradient(ellipse at 50% 40%, #1c2445 0%, #0b0e1a 72%); }
 
-/* Lv3：回転する 光線 */
+/* Lv3：回転する 光線（画面の ななめの 長さ ぶん だけの 大きさ） */
 .bg-rays {
     inset: auto; left: 50%; top: 50%; z-index: 1;
-    width: 260vmax; height: 260vmax; margin: -130vmax 0 0 -130vmax;
+    width: 150vmax; height: 150vmax; margin: -75vmax 0 0 -75vmax;
     background: repeating-conic-gradient(from 0deg, rgba(255,255,255,.08) 0deg 7deg, rgba(255,255,255,0) 7deg 18deg);
     animation: spin 26s linear infinite paused;
 }
-body[data-scr="title"] .bg-rays { opacity: .45; animation-play-state: running; }
-.lv3 .bg-rays { opacity: 1; animation-play-state: running; }
+body[data-scr="title"] .bg-rays { opacity: .45; visibility: visible; transition: opacity .6s; animation-play-state: running; }
+.lv3 .bg-rays { opacity: 1; visibility: visible; transition: opacity .6s; animation-play-state: running; }
 .lv5 .bg-rays { animation-duration: 14s; }
 
-/* Lv5：赤と オレンジの 炎 */
+/* Lv5〜6：赤と オレンジの 炎 */
 .bg-flame { background: radial-gradient(130% 75% at 50% 115%, #ffae00 0%, #ff5a00 24%, #c01018 50%, #3a0008 78%, #14000a 100%); }
 .bg-flame i {
     position: absolute; bottom: -12%; width: 44%; height: 72%;
@@ -71,8 +75,8 @@ body[data-scr="title"] .bg-rays { opacity: .45; animation-play-state: running; }
 .bg-flame i:nth-child(1) { left: -6%; }
 .bg-flame i:nth-child(2) { left: 28%; height: 85%; animation-delay: -.4s; }
 .bg-flame i:nth-child(3) { left: 62%; animation-delay: -.8s; }
-.lv5 .bg-flame { opacity: 1; }
-.lv5 .bg-flame i { animation-play-state: running; }
+.lv5:not(.lv7) .bg-flame { opacity: 1; visibility: visible; transition: opacity .6s; }
+.lv5:not(.lv7) .bg-flame i { animation-play-state: running; }
 
 /* Lv7：金色に かがやく */
 .bg-gold { overflow: hidden; background: radial-gradient(circle at 50% 40%, #fff3b0 0%, #ffc933 22%, #b37a00 55%, #3a2600 85%, #1a1000 100%); }
@@ -81,68 +85,87 @@ body[data-scr="title"] .bg-rays { opacity: .45; animation-play-state: running; }
     background: linear-gradient(115deg, rgba(255,255,255,0) 20%, rgba(255,255,255,.35) 50%, rgba(255,255,255,0) 80%);
     animation: sweep 2.6s linear infinite paused;
 }
-.lv7 .bg-flame { opacity: 0; }
-.lv7 .bg-gold { opacity: 1; }
-.lv7 .bg-gold::after { animation-play-state: running; }
+.lv7:not(.lv8) .bg-gold { opacity: 1; visibility: visible; transition: opacity .6s; }
+.lv7:not(.lv8) .bg-gold::after { animation-play-state: running; }
 
-/* Lv8：画面ぜんたいが 虹色に ゆっくり 色がわり（点滅は しない） */
-.bg-rainbow { background: linear-gradient(125deg, var(--rainbow)); animation: hue 8s linear infinite paused; }
+/* Lv8：画面ぜんたいが 虹色に ゆっくり 色がわり（点滅は しない）
+   虹の 帯を 横に すべらせて 色を かえる（filter を つかわないので かるい） */
+.bg-rainbow { overflow: hidden; }
+.bg-rainbow::before {
+    content: ""; position: absolute; top: -10%; bottom: -10%; left: 0; width: 300%;
+    background: linear-gradient(90deg, var(--rainbow), var(--rainbow), #ff2d6f);   /* ちょうど 半分で くりかえす */
+    animation: slide 9s linear infinite paused;
+}
 .bg-rainbow::after { content: ""; position: absolute; inset: 0; background: rgba(10,0,30,.22); }
-.lv8 .bg-gold { opacity: 0; }
-.lv8 .bg-rainbow, .newrec .bg-rainbow { opacity: 1; animation-play-state: running; }
+.lv8 .bg-rainbow, .newrec .bg-rainbow { opacity: 1; visibility: visible; transition: opacity .6s; }
+.lv8 .bg-rainbow::before, .newrec .bg-rainbow::before { animation-play-state: running; }
 
 /* ゲームオーバー：灰色 */
-.bg-gray { z-index: 2; background: radial-gradient(ellipse at 50% 40%, #6a6e78 0%, #464951 80%); transition: opacity .35s; }
-.over .bg-gray { opacity: 1; }
-.over.newrec .bg-gray { opacity: 0; transition: opacity .7s; }
+.bg-gray { z-index: 2; background: radial-gradient(ellipse at 50% 40%, #6a6e78 0%, #464951 80%); transition: opacity .35s, visibility 0s .35s; }
+.over .bg-gray { opacity: 1; visibility: visible; transition: opacity .35s; }
+.over.newrec .bg-gray { opacity: 0; visibility: hidden; transition: opacity .7s, visibility 0s .7s; }
 
-/* 虹ドパの「ため」 */
-.tame #stage { filter: brightness(.5); }
+/* 虹ドパの「ため」（くらい まくを かぶせる） */
+#stage::after { content: ""; position: absolute; inset: 0; z-index: 5; background: #000; opacity: 0; transition: opacity .15s; }
+.tame #stage::after { opacity: .5; }
 
 #fx, #frame, #fxl { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; }
-#frame { overflow: visible; }
 
-/* ---------- ふちの ライト ---------- */
-#frame rect { fill: none; }
-.f-glow { stroke: transparent; stroke-width: 18; opacity: .28; transition: stroke .5s; }
-.f-base { stroke: transparent; stroke-width: 3; transition: stroke .5s, stroke-width .5s; }
-.f-flow { stroke: transparent; stroke-width: 5; stroke-linecap: round; }
-.f-lap { stroke: #fff; stroke-width: 9; stroke-linecap: round; opacity: 0; }
-.lv1 .f-base { stroke: rgba(255,255,255,.55); stroke-width: 2; }
-.lv2 .f-base, .lv2 .f-glow { stroke: #36a3ff; }
-.lv2 .f-base { stroke-width: 4; }
-.lv4 .f-base, .lv4 .f-glow { stroke: #25d86a; }
-.lv4 .f-flow { stroke: #e2ffec; }
-.lv6 .f-base, .lv6 .f-glow { stroke: #ff2438; }
-.lv6 .f-base { stroke-width: 5; }
-.lv6 .f-flow { stroke: #ffe3e3; }
-.lv8 .f-base, .lv8 .f-glow { stroke: url(#rbw); }
-.lv8 .f-base { stroke-width: 7; }
-.lv8 .f-flow { stroke: #fff; }
-.lv8 #frame { animation: hue 3s linear infinite; }
+/* ---------- ふちの ライト（上・右・下・左の 4本） ---------- */
+#frame { --c: transparent; --f: transparent; --fw: 3px; --spd: .65s; }
+.fe {
+    position: absolute; overflow: hidden; opacity: 0;
+    background: var(--c); box-shadow: 0 0 14px 3px var(--c);
+    transition: opacity .5s;
+}
+.fe-t, .fe-b { left: 0; right: 0; height: var(--fw); }
+.fe-l, .fe-r { top: 0; bottom: 0; width: var(--fw); }
+.fe-t { top: 0; }
+.fe-b { bottom: 0; }
+.fe-l { left: 0; }
+.fe-r { right: 0; }
+/* ながれる ライト（Lv4〜）：もようを transform で すべらせる。時計まわり */
+.fe b { position: absolute; opacity: 0; animation: flowX var(--spd) linear infinite paused; }
+.fe-t b, .fe-b b { top: 0; bottom: 0; left: -40px; right: -40px; background: repeating-linear-gradient(90deg, var(--f) 0 22px, rgba(255,255,255,0) 22px 40px); }
+.fe-l b, .fe-r b { left: 0; right: 0; top: -40px; bottom: -40px; background: repeating-linear-gradient(180deg, var(--f) 0 22px, rgba(255,255,255,0) 22px 40px); animation-name: flowY; }
+.fe-b b, .fe-l b { animation-direction: reverse; }
+/* 1周 ながれる ライト（Lv2〜 の 正解。effects.js が うごかす） */
+.fe s { position: absolute; opacity: 0; }
+.fe-t s, .fe-b s { top: 0; bottom: 0; left: 0; width: 140px; background: linear-gradient(90deg, rgba(255,255,255,0), #fff, rgba(255,255,255,0)); }
+.fe-l s, .fe-r s { left: 0; right: 0; top: 0; height: 140px; background: linear-gradient(180deg, rgba(255,255,255,0), #fff, rgba(255,255,255,0)); }
+
+.lv1 .fe { opacity: 1; }
+.lv1 #frame { --c: rgba(255,255,255,.55); --fw: 2px; }
+.lv2 #frame { --c: #36a3ff; --fw: 4px; }
+.lv4 #frame { --c: #25d86a; --f: #e2ffec; }
+.lv4 .fe b { opacity: 1; animation-play-state: running; }
+.lv6 #frame { --c: #ff2438; --f: #ffe3e3; --fw: 5px; --spd: .24s; }
+.lv8 #frame { --c: #ff4df0; --f: #fff; --fw: 7px; }
+.lv8 .fe-t, .lv8 .fe-b { background: linear-gradient(90deg, var(--rainbow)); }
+.lv8 .fe-l, .lv8 .fe-r { background: linear-gradient(180deg, var(--rainbow)); }
+.calm #frame { --spd: 1.6s; }
 
 /* ---------- その場で 出る 演出（#fxl） ---------- */
 /* Lv4：左右から ライトが クロス */
 .beam {
     position: absolute; top: 50%; width: 130vmax; height: 16vmin; margin-top: -8vmin;
-    opacity: 0; mix-blend-mode: screen;
+    opacity: 0;
 }
 .beam.bl {
     left: 0; transform-origin: 0 50%;
-    background: linear-gradient(90deg, rgba(160,220,255,.95), rgba(160,220,255,.35) 45%, rgba(160,220,255,0) 80%);
+    background: linear-gradient(90deg, rgba(170,225,255,.8), rgba(170,225,255,.3) 45%, rgba(170,225,255,0) 80%);
     animation: beamL .7s ease-out forwards;
 }
 .beam.br {
     right: 0; transform-origin: 100% 50%;
-    background: linear-gradient(270deg, rgba(255,170,240,.95), rgba(255,170,240,.35) 45%, rgba(255,170,240,0) 80%);
+    background: linear-gradient(270deg, rgba(255,180,240,.8), rgba(255,180,240,.3) 45%, rgba(255,180,240,0) 80%);
     animation: beamR .7s ease-out forwards;
 }
 /* Lv6：画面の 四すみから 光線 */
 .corners i {
     position: absolute; width: 120vmax; height: 12vmin; margin-top: -6vmin;
     transform-origin: 0 50%; opacity: 0;
-    background: linear-gradient(90deg, rgba(255,244,190,.95), rgba(255,200,80,.4) 40%, rgba(255,200,80,0) 75%);
-    mix-blend-mode: screen;
+    background: linear-gradient(90deg, rgba(255,244,190,.85), rgba(255,200,80,.35) 40%, rgba(255,200,80,0) 75%);
     animation: corner .6s ease-out forwards;
 }
 .corners i:nth-child(1) { left: 0; top: 0; --r: 32deg; }
@@ -174,10 +197,9 @@ body[data-scr="title"] .bg-rays { opacity: .45; animation-play-state: running; }
 }
 .niji-burst.short { animation-duration: .8s; }
 
-/* ゆれ（ひかえめ では 出さない） */
-.shake-s { animation: shakeS .25s linear; }
-.shake-m { animation: shakeM .35s linear; }
-.shake-l { animation: shakeL .6s linear; }
+/* ---------- 端末が おもい ときの 自動の かるさ（effects.js が つける） ---------- */
+.lite2 .bg-rays, .lite2 .bg-flame i, .lite2 .bg-gold::after, .lite2 .fe b { animation-play-state: paused !important; }
+.lite2 .beam, .lite2 .corners, .lite2 .niji-burst { display: none; }
 
 /* =====================================================================
    画面の わく（#app）
@@ -344,12 +366,11 @@ body[data-scr="title"] .bg-rays { opacity: .45; animation-play-state: running; }
     box-shadow: 0 0 36px 10px rgba(255,210,60,.85);
 }
 .lv6 .qwrap::before { opacity: 1; }
-.lv8 .qwrap::before { box-shadow: 0 0 44px 14px #ff4df0; animation: hue 3s linear infinite; }
-.qwrap::after {
-    content: ""; position: absolute; inset: -8px; border-radius: 34px; pointer-events: none;
+.lv8 .qwrap::before { box-shadow: 0 0 34px 10px rgba(255,77,240,.85), 0 0 70px 22px rgba(0,183,255,.55); }
+.qring {
+    position: absolute; inset: -8px; border-radius: 34px; pointer-events: none;
     border: 5px solid rgba(255,255,255,.9); opacity: 0;
 }
-.qwrap.pulse::after { animation: ring .5s ease-out; }
 .qcard {
     position: relative; display: flex; flex-direction: column; align-items: center; gap: 2vh;
     padding: 2.4vh 3.2vw 3vh; border-radius: 28px;
@@ -376,8 +397,6 @@ body[data-scr="title"] .bg-rays { opacity: .45; animation-play-state: running; }
     text-shadow: 0 0 .18em rgba(40,220,120,.75);
     opacity: 0; pointer-events: none;
 }
-.echo.show { animation: echo .35s ease-out forwards; }
-.echo.show.bounce { animation: echoB .38s ease-out forwards; }
 .gauge { width: 100%; min-width: 5.5em; height: clamp(14px, 3.2vh, 30px); border-radius: 999px; overflow: hidden; background: #e2e6f0; font-size: clamp(46px, min(15vh, 8vw), 170px); }
 .gauge i {
     display: block; height: 100%; border-radius: 999px; transform-origin: 0 50%; will-change: transform;
@@ -423,6 +442,7 @@ body[data-scr="title"] .bg-rays { opacity: .45; animation-play-state: running; }
 /* =====================================================================
    画面D：ゲームオーバー
    ===================================================================== */
+#scrPlay { touch-action: none; }
 .scr-over { align-items: center; justify-content: center; gap: 1.6vh; padding: 2vh 4vw; text-align: center; }
 .over-title { margin: 0; font-family: var(--pop); font-weight: 400; font-size: clamp(32px, min(10vmin, 11vw), 110px); line-height: 1.1; letter-spacing: .06em; white-space: nowrap; text-shadow: 0 .06em 0 rgba(0,0,0,.35); }
 .over-title span { display: inline-block; animation: drop .6s cubic-bezier(.3,1.45,.5,1) both; animation-delay: calc(var(--i) * 45ms); }
@@ -510,7 +530,10 @@ body[data-scr="title"] .bg-rays { opacity: .45; animation-play-state: running; }
    アニメーション
    ===================================================================== */
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes hue { to { filter: hue-rotate(360deg); } }
+@keyframes slide { to { transform: translateX(-50%); } }
+@keyframes flowX { to { transform: translateX(40px); } }
+@keyframes flowY { to { transform: translateY(40px); } }
+@keyframes pulse { 50% { opacity: .55; } }
 @keyframes sweep { to { transform: translateX(200%); } }
 @keyframes flame {
     from { transform: scaleY(.86) scaleX(1.04); }
@@ -519,21 +542,6 @@ body[data-scr="title"] .bg-rays { opacity: .45; animation-play-state: running; }
 @keyframes breathe { 50% { transform: scale(1.045); } }
 @keyframes caret { 50% { opacity: 0; } }
 @keyframes gblink { 50% { opacity: .25; } }
-@keyframes echo {
-    0% { opacity: 1; transform: scale(1); }
-    55% { opacity: 1; }
-    100% { opacity: 0; transform: scale(1.06); }
-}
-@keyframes echoB {
-    0% { opacity: 1; transform: scale(.7); }
-    30% { transform: scale(1.18); }
-    55% { opacity: 1; transform: scale(.96); }
-    100% { opacity: 0; transform: scale(1); }
-}
-@keyframes ring {
-    from { opacity: .95; transform: scale(1); }
-    to { opacity: 0; transform: scale(1.07); }
-}
 @keyframes telop {
     0% { opacity: 0; transform: scale(2.1); }
     16% { opacity: 1; transform: scale(1); }
@@ -601,25 +609,6 @@ body[data-scr="title"] .bg-rays { opacity: .45; animation-play-state: running; }
     22% { opacity: 1; }
     62% { opacity: 1; transform: scale(1) rotate(50deg); }
     100% { opacity: 0; transform: scale(.92) rotate(80deg); }
-}
-@keyframes shakeS {
-    25% { transform: translate(4px, -3px); }
-    50% { transform: translate(-4px, 3px); }
-    75% { transform: translate(3px, 2px); }
-}
-@keyframes shakeM {
-    15% { transform: translate(9px, -6px); }
-    35% { transform: translate(-9px, 5px); }
-    55% { transform: translate(7px, 4px); }
-    75% { transform: translate(-5px, -3px); }
-}
-@keyframes shakeL {
-    10% { transform: translate(18px, -12px); }
-    22% { transform: translate(-18px, 10px); }
-    36% { transform: translate(14px, 8px); }
-    50% { transform: translate(-12px, -8px); }
-    66% { transform: translate(8px, 5px); }
-    82% { transform: translate(-4px, -3px); }
 }
 @keyframes cd {
     0% { opacity: 0; transform: scale(2.2); }
