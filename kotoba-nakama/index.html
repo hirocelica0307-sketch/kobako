@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e2b27c">
+<meta name="description" content="小学2年生 こくご「ことばを まとめよう」。ことばカードを はこに 入れて なかまに まとめ、なかまの なまえを つけて、文を 作る アプリ。">
+<title>ことばの なかま</title>
+<style>
+/* ===== ことばの なかま / style =====
+   Chromebook（1366×768 など よこ長）を メインに 想定。タブレット・たて画面でも くずれません。 */
+:root{
+  --bg:#fbf6ea;
+  --panel:#ffffff;
+  --ink:#33302b;
+  --sub:#7d766c;
+  --line:#e6ddcc;
+  --card-line:#e9906a;
+  --blue:#2f80ed;
+  --blue-d:#1f5fb8;
+  --orange:#ff9330;
+  --orange-d:#d96f12;
+  --green:#22a55e;
+  --red:#e5484d;
+  --yellow:#ffc531;
+  --box:#e2b27c;
+  --box-d:#c98f52;
+  --box-in:#f3dcbc;
+  --card-fs:clamp(18px, 1rem + .7vw, 28px);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{min-height:100%;}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN",'Yu Gothic UI','Zen Maru Gothic',system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-weight:800; letter-spacing:.02em;
+  overscroll-behavior:none; touch-action:manipulation;
+  -webkit-user-select:none; user-select:none;
+  overflow-x:hidden;
+}
+button{font:inherit; color:inherit; border:0; background:none; cursor:pointer;}
+button:focus-visible{outline:3px solid var(--blue); outline-offset:2px;}
+[hidden]{display:none !important;}
+
+.wrap{max-width:1400px; margin:0 auto; padding:max(10px,env(safe-area-inset-top)) 16px calc(10px + env(safe-area-inset-bottom));}
+
+/* ---------- 共通パーツ ---------- */
+.icon-btn{
+  width:52px;height:52px;border-radius:16px;background:var(--panel);
+  font-size:26px;line-height:1;box-shadow:0 4px 0 rgba(0,0,0,.10);
+  display:grid;place-items:center;flex:none;
+}
+.icon-btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.10);}
+.big-btn{
+  min-height:52px; padding:10px 18px;border-radius:18px;background:var(--panel);color:var(--ink);
+  font-size:clamp(16px,1.1rem,21px);box-shadow:0 5px 0 rgba(0,0,0,.12); white-space:nowrap;
+}
+.big-btn.primary{background:var(--orange);color:#fff;box-shadow:0 5px 0 var(--orange-d);}
+.big-btn.blue{background:var(--blue);color:#fff;box-shadow:0 5px 0 var(--blue-d);}
+.big-btn.ghost{background:#f1ece2;color:var(--sub);}
+.big-btn:active{transform:translateY(4px);box-shadow:0 1px 0 rgba(0,0,0,.12);}
+.big-btn:disabled{opacity:.45; transform:none;}
+
+/* ---------- あたま ---------- */
+.top{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+.logo{margin:0; display:flex; align-items:center; gap:10px; font-size:clamp(22px,1.2rem + 1vw,34px); color:var(--orange-d); line-height:1.1;}
+.logo-box{font-size:1.2em;}
+.logo small{display:block; font-size:.5em; color:var(--sub); letter-spacing:.05em;}
+.top-btns{margin-left:auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+
+.guide{display:flex; align-items:center; gap:10px; margin:12px 0 14px; background:var(--panel);
+       border-radius:18px; padding:10px 16px; box-shadow:0 3px 0 rgba(0,0,0,.06); min-height:58px;}
+.guide-face{font-size:32px; flex:none;}
+.guide p{margin:0; font-size:clamp(16px,1rem + .3vw,21px); line-height:1.5;}
+.guide p.pop{animation:gpop .35s ease;}
+@keyframes gpop{0%{transform:scale(.97);opacity:.4;}100%{transform:none;opacity:1;}}
+
+/* ---------- ならべる がめん ---------- */
+.main{display:grid; grid-template-columns:minmax(290px, 36%) 1fr; gap:18px; align-items:start;}
+.pool{
+  position:sticky; top:8px; max-height:calc(100dvh - 16px); overflow:auto;
+  background:#fffdf8; border:3px dashed var(--line); border-radius:22px; padding:12px 12px 16px;
+}
+.pool h2{margin:0 0 10px; font-size:clamp(16px,1rem + .2vw,20px); color:var(--sub); display:flex; align-items:center; gap:8px;}
+.pool h2 b{color:var(--orange-d);}
+.pool-cards{display:flex; flex-wrap:wrap; gap:10px; min-height:70px; align-content:flex-start;}
+.pool-empty{color:var(--sub); font-size:16px; padding:14px 4px; line-height:1.6;}
+.pool.can-drop{border-color:var(--blue); background:#f2f7ff;}
+.pool.over{border-color:var(--blue); background:#e3eeff; border-style:solid;}
+
+.card{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-height:54px; padding:6px 14px; background:#fff; border:3px solid var(--card-line); border-radius:8px;
+  font-size:var(--card-fs); line-height:1.2; letter-spacing:.08em; color:var(--ink);
+  box-shadow:0 3px 0 rgba(0,0,0,.08); touch-action:none; position:relative; cursor:grab;
+}
+.card.hc{border-color:var(--hc); background:color-mix(in srgb, var(--hc) 10%, #fff);}
+.card.sel{border-color:var(--blue); box-shadow:0 0 0 4px rgba(47,128,237,.35), 0 6px 0 rgba(0,0,0,.08); transform:translateY(-3px);}
+.card.src{opacity:.3;}
+.card.pop{animation:cpop .35s ease;}
+@keyframes cpop{0%{transform:scale(.7);}70%{transform:scale(1.08);}100%{transform:none;}}
+.card.odd{border-color:var(--red); animation:wig .5s ease 2;}
+.card.odd::after{
+  content:"？"; position:absolute; top:-13px; right:-11px; width:28px; height:28px; border-radius:50%;
+  background:var(--red); color:#fff; font-size:17px; display:grid; place-items:center; letter-spacing:0;
+}
+@keyframes wig{0%,100%{transform:none;}25%{transform:rotate(-4deg);}75%{transform:rotate(4deg);}}
+.drag-ghost{position:fixed; z-index:500; pointer-events:none; margin:0; transform:rotate(-3deg) scale(1.06);
+       box-shadow:0 12px 24px rgba(0,0,0,.22); cursor:grabbing;}
+
+.boxes{display:grid; grid-template-columns:repeat(auto-fill, minmax(250px,1fr)); gap:26px 18px; padding-top:12px;}
+.box{
+  position:relative; background:var(--box); border-radius:14px 14px 18px 18px; padding:14px 12px 12px;
+  box-shadow:inset 0 -6px 0 rgba(0,0,0,.08), 0 4px 0 rgba(0,0,0,.08);
+  display:flex; flex-direction:column; min-height:220px; transition:transform .12s;
+}
+/* ふた */
+.box::before,.box::after{
+  content:""; position:absolute; top:-12px; height:16px; width:calc(50% - 10px); background:var(--box-d);
+  border-radius:8px 8px 2px 2px;
+}
+.box::before{left:6px; transform:skewX(-18deg);}
+.box::after{right:6px; transform:skewX(18deg);}
+.box-label{
+  align-self:center; min-width:70%; max-width:100%; min-height:52px; padding:6px 16px; margin-bottom:10px;
+  background:#fff; border:3px solid var(--blue); border-radius:6px;
+  font-size:clamp(20px,1.1rem + .6vw,28px); letter-spacing:.1em; overflow-wrap:anywhere;
+}
+.box-label.empty{border-style:dashed; color:var(--sub); font-size:clamp(15px,1rem,18px); letter-spacing:.04em;}
+.box-del{
+  position:absolute; top:6px; right:6px; width:40px; height:40px; border-radius:50%;
+  background:rgba(255,255,255,.55); color:#8a6232; font-size:22px; line-height:1;
+}
+.box-in{
+  flex:1; background:var(--box-in); border-radius:10px; padding:10px; display:flex; flex-wrap:wrap; gap:8px;
+  align-content:flex-start; min-height:110px; border:3px solid transparent;
+}
+.box-hint{color:#a47a4a; font-size:15px; margin:auto; text-align:center; line-height:1.5;}
+.box.can-drop .box-in{border-color:var(--blue); border-style:dashed;}
+.box.over{transform:scale(1.03);}
+.box.over .box-in{border-color:var(--blue); border-style:solid; background:#eaf2ff;}
+.box-msg{margin-top:8px; background:#fff; border-radius:10px; padding:6px 10px; font-size:15px; line-height:1.5;}
+.box-msg:empty{display:none;}
+.box.res-ok .box-in, .box.res-broad .box-in, .box.res-free .box-in{border-color:var(--green);}
+.box.res-mixed .box-in, .box.res-name .box-in{border-color:var(--red);}
+.box.res-noname .box-in{border-color:var(--yellow);}
+.stamp{position:absolute; top:-18px; left:-12px; width:64px; height:64px; pointer-events:none; z-index:2;}
+.stamp:empty{display:none;}
+.stamp svg{width:100%; height:100%; animation:stamp .45s cubic-bezier(.2,1.6,.4,1);}
+.stamp .q{width:52px; height:52px; margin:6px; border-radius:50%; display:grid; place-items:center;
+          font-size:30px; color:#fff; animation:stamp .45s cubic-bezier(.2,1.6,.4,1);}
+@keyframes stamp{0%{transform:scale(2.2);opacity:0;}100%{transform:none;opacity:1;}}
+
+.box-add{
+  min-height:220px; border:4px dashed var(--box); border-radius:18px; color:var(--box-d);
+  font-size:clamp(18px,1rem + .4vw,24px); background:rgba(255,255,255,.4);
+}
+.box-add:active{background:#fff;}
+
+/* ---------- 文を つくる がめん ---------- */
+.bun-grid{display:grid; grid-template-columns:minmax(280px,38%) 1fr; gap:18px; align-items:start;}
+.panel{background:var(--panel); border-radius:22px; padding:14px 16px; box-shadow:0 4px 0 rgba(0,0,0,.06);}
+.panel h3{margin:0 0 10px; font-size:clamp(16px,1rem + .2vw,20px); color:var(--sub);}
+.src-box{border-top:2px dashed var(--line); padding:10px 0;}
+.src-box:first-of-type{border-top:0; padding-top:0;}
+.src-row{display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+.chip-n,.chip-w{min-height:48px; padding:4px 14px; border-radius:8px; font-size:clamp(17px,1rem + .4vw,24px); letter-spacing:.06em;}
+.chip-n{background:#fff; border:3px solid var(--blue); color:var(--blue-d);}
+.chip-w{background:#fff; border:3px solid var(--card-line);}
+.chip-n:active,.chip-w:active{transform:translateY(2px);}
+.src-noname{color:var(--sub); font-size:15px;}
+.src-empty{color:var(--sub); line-height:1.7;}
+
+.seg{display:inline-flex; background:#f1ece2; border-radius:14px; padding:4px; gap:4px; flex-wrap:wrap;}
+.seg button{min-height:44px; padding:6px 14px; border-radius:10px; color:var(--sub); font-size:16px;}
+.seg button.on{background:#fff; color:var(--ink); box-shadow:0 2px 0 rgba(0,0,0,.1);}
+
+.tpl-list{display:flex; flex-direction:column; gap:8px; margin:12px 0;}
+.tpl{text-align:left; padding:10px 14px; border-radius:14px; background:#f7f3ea; border:3px solid transparent; font-size:clamp(15px,1rem + .1vw,19px); line-height:1.5;}
+.tpl.on{border-color:var(--orange); background:#fff5e8;}
+.tpl i{font-style:normal; display:inline-block; min-width:2.6em; border-bottom:2px solid var(--sub); margin:0 2px;}
+.sent-line{
+  display:flex; flex-wrap:wrap; align-items:center; gap:6px 4px; min-height:84px;
+  background:#fff; border:3px solid var(--line); border-radius:16px; padding:12px;
+  font-size:clamp(19px,1.1rem + .5vw,27px); line-height:1.6;
+}
+.slot{min-width:4.2em; min-height:50px; padding:2px 10px; border-radius:8px; border:3px dashed #c9bfae; background:#faf7f0; color:#b8ad9b; font-size:.9em;}
+.slot.n{border-color:#9dc1f3;}
+.slot.w{border-color:#f0b99c;}
+.slot.fill{border-style:solid; background:#fff; color:var(--ink);}
+.slot.fill.n{border-color:var(--blue); color:var(--blue-d);}
+.slot.fill.w{border-color:var(--card-line);}
+.slot.act{box-shadow:0 0 0 4px rgba(255,147,48,.4); border-color:var(--orange);}
+textarea{
+  width:100%; font:inherit; font-size:clamp(19px,1.1rem + .4vw,26px); line-height:1.6; padding:12px;
+  border:3px solid var(--line); border-radius:16px; resize:vertical; color:var(--ink); background:#fff;
+  -webkit-user-select:text; user-select:text;
+}
+textarea:focus{outline:none; border-color:var(--blue);}
+.make-btns{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;}
+.make-btns .primary{margin-left:auto;}
+.make-msg{min-height:1.6em; margin:10px 2px 0; font-size:17px; line-height:1.6;}
+.make-msg.ok{color:var(--green);}
+.make-msg.ng{color:var(--red);}
+.sent-list{margin:6px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:8px;}
+.sent-list li{display:flex; align-items:center; gap:8px; background:#fbf8f1; border-radius:14px; padding:8px 8px 8px 12px;}
+.sent-list .no{color:var(--sub); font-size:15px; flex:none;}
+.sent-list .tx{flex:1; font-size:clamp(17px,1rem + .4vw,24px); line-height:1.5; -webkit-user-select:text; user-select:text;}
+.sent-list .mk{flex:none; font-size:22px; width:30px; text-align:center;}
+.sent-list .mk.ok{color:var(--red);}
+.sent-list .mk.ng{color:var(--orange-d);}
+.sent-list button{width:44px; height:44px; border-radius:12px; background:#fff; font-size:20px; flex:none; box-shadow:0 2px 0 rgba(0,0,0,.08);}
+.sent-none{color:var(--sub); font-size:15px;}
+
+/* ---------- まど（モーダル） ---------- */
+.modal{position:fixed; inset:0; background:rgba(40,30,15,.45); display:grid; place-items:center; z-index:300; padding:16px;}
+.modal-card{background:#fff; border-radius:24px; padding:20px 22px; width:min(640px,100%); max-height:calc(100dvh - 32px); overflow:auto;}
+.modal-card h2{margin:0 0 6px; font-size:clamp(20px,1.1rem + .5vw,28px);}
+.modal-card p{margin:0 0 12px; color:var(--sub); line-height:1.6;}
+.name-input{
+  width:100%; font:inherit; font-size:28px; padding:10px 14px; border:3px solid var(--blue); border-radius:12px;
+  letter-spacing:.1em; color:var(--ink); -webkit-user-select:text; user-select:text;
+}
+.name-input:focus{outline:none; box-shadow:0 0 0 4px rgba(47,128,237,.25);}
+.name-chips{display:flex; flex-wrap:wrap; gap:10px; margin:14px 0 4px;}
+.name-chips button{min-height:52px; padding:4px 16px; border-radius:10px; background:#f4f8ff; border:3px solid #9dc1f3; font-size:22px; letter-spacing:.08em;}
+.name-chips button:active{background:#e3eeff;}
+.name-chips rt{font-size:.5em; letter-spacing:0;}
+.modal-note{font-size:14px; color:var(--sub); margin-top:6px; line-height:1.6;}
+.modal-btns{display:flex; gap:10px; justify-content:flex-end; margin-top:18px; flex-wrap:wrap;}
+.modal-btns .left{margin-right:auto;}
+
+.set-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid #f0ebe0; flex-wrap:wrap;}
+.set-row > span{font-size:17px;}
+.set-row small{display:block; color:var(--sub); font-size:13px; font-weight:700; margin-top:2px;}
+
+.done-card{text-align:center;}
+.done-card .big{font-size:64px; line-height:1.1; margin:4px 0 6px;}
+.done-list{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:12px 0;}
+.done-list span{background:#fff; border:3px solid var(--blue); border-radius:6px; padding:4px 12px; font-size:20px;}
+.done-card .modal-btns{justify-content:center;}
+
+.copy{text-align:center; color:#b7ad9c; font-size:12px; font-weight:700; padding:18px 0 6px;}
+
+/* ---------- せまい 画面 ---------- */
+@media (max-width: 820px){
+  .main,.bun-grid{grid-template-columns:1fr;}
+  .pool{position:static; max-height:none;}
+  .top-btns{margin-left:0; width:100%;}
+  .top-btns .big-btn{flex:1;}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition:none !important;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1 class="logo"><span class="logo-box" aria-hidden="true">📦</span><span>ことばの なかま<small id="setName"></small></span></h1>
+    <div class="top-btns" id="topSort">
+      <button class="big-btn primary" id="btnCheck">✅ たしかめる</button>
+      <button class="big-btn blue" id="btnBun">✏️ 文を つくる</button>
+      <button class="icon-btn" id="btnSet" aria-label="せってい">⚙️</button>
+    </div>
+    <div class="top-btns" id="topBun" hidden>
+      <button class="big-btn ghost" id="btnBack">↩︎ はこに もどる</button>
+    </div>
+  </header>
+
+  <div class="guide" role="status" aria-live="polite">
+    <span class="guide-face" aria-hidden="true">🦉</span>
+    <p id="guide"></p>
+  </div>
+
+  <!-- ========== ならべる ========== -->
+  <main class="main" id="screenSort">
+    <section class="pool" id="pool" data-drop="pool" aria-label="ことばカード">
+      <h2>ことばカード <b id="poolCount"></b></h2>
+      <div class="pool-cards" id="poolCards"></div>
+    </section>
+    <section class="boxes" id="boxes" aria-label="なかまの はこ"></section>
+  </main>
+
+  <!-- ========== 文を つくる ========== -->
+  <main id="screenBun" hidden>
+    <div class="bun-grid">
+      <section class="panel">
+        <h3>あつめた ことば</h3>
+        <div id="srcList"></div>
+      </section>
+      <section class="panel">
+        <div class="seg" id="bunMode">
+          <button data-v="kata">かたを つかう</button>
+          <button data-v="free">じぶんで 書く</button>
+        </div>
+        <div id="kataArea">
+          <div class="tpl-list" id="tplList"></div>
+          <div class="sent-line" id="sentLine"></div>
+        </div>
+        <div id="freeArea" hidden>
+          <p class="modal-note" style="margin:12px 0 8px">ひだりの ことばを タップすると 入ります。キーボードや 手書きでも 書けます。</p>
+          <textarea id="freeText" rows="3" maxlength="80" placeholder="ここに 文を 書こう"></textarea>
+        </div>
+        <div class="make-btns">
+          <button class="big-btn" id="btnSay">🔊 よむ</button>
+          <button class="big-btn ghost" id="btnClear">けす</button>
+          <button class="big-btn primary" id="btnAdd">できた！</button>
+        </div>
+        <p class="make-msg" id="makeMsg"></p>
+        <h3 style="margin-top:14px">できた 文</h3>
+        <ol class="sent-list" id="sentList"></ol>
+      </section>
+    </div>
+  </main>
+
+  <footer class="copy">© Hiroyuki</footer>
+</div>
+
+<!-- ========== はこの なまえ ========== -->
+<div class="modal" id="nameModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="nameTitle">
+    <h2 id="nameTitle">はこの なまえ</h2>
+    <p>はこの ことばを まとめて よぶ ことばを 考えよう。</p>
+    <input class="name-input" id="nameInput" type="text" maxlength="12" autocomplete="off" placeholder="ここに 書こう">
+    <div id="nameChipsWrap">
+      <p class="modal-note">えらんでも いいよ</p>
+      <div class="name-chips" id="nameChips"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="big-btn ghost left" id="btnNameClear">なまえを けす</button>
+      <button class="big-btn ghost" id="btnNameCancel">やめる</button>
+      <button class="big-btn primary" id="btnNameOk">けってい</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== できた！ ========== -->
+<div class="modal" id="doneModal" hidden>
+  <div class="modal-card done-card" role="dialog" aria-modal="true" aria-labelledby="doneTitle">
+    <div class="big" aria-hidden="true">🎉</div>
+    <h2 id="doneTitle">ぜんぶ なかまに まとめられたね！</h2>
+    <div class="done-list" id="doneList"></div>
+    <p>つぎは、あつめた ことばを つかって 文を 作ろう。</p>
+    <div class="modal-btns">
+      <button class="big-btn ghost" id="btnDoneClose">とじる</button>
+      <button class="big-btn blue" id="btnDoneBun">✏️ 文を つくる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== せってい ========== -->
+<div class="modal" id="setModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+    <h2 id="setTitle">せってい</h2>
+    <div class="set-row"><span>ことばの セット</span><div class="seg" data-opt="set" id="segSet"></div></div>
+    <div class="set-row" id="rowExample"><span>れい「くだもの」の はこ<small>きょうかしょの メロン・みかん・いちご</small></span>
+      <div class="seg" data-opt="example"><button data-v="1">出す</button><button data-v="0">出さない</button></div></div>
+    <div class="set-row"><span>はこの なまえの こうほ<small>出さない ときは じぶんで 書きます</small></span>
+      <div class="seg" data-opt="chips"><button data-v="1">出す</button><button data-v="0">出さない</button></div></div>
+    <div class="set-row"><span>なかまの 色（ヒント）<small>おなじ なかまの カードを おなじ 色に します</small></span>
+      <div class="seg" data-opt="color"><button data-v="0">なし</button><button data-v="1">あり</button></div></div>
+    <div class="set-row"><span>カードの ならび<small>「はじめから」の ときに かわります</small></span>
+      <div class="seg" data-opt="shuffle"><button data-v="0">きょうかしょ</button><button data-v="1">まぜる</button></div></div>
+    <div class="set-row"><span>こうかおん</span>
+      <div class="seg" data-opt="sound"><button data-v="1">オン</button><button data-v="0">オフ</button></div></div>
+    <div class="set-row"><span>カードを よみあげる<small>カードを えらんだ ときに こえで よみます</small></span>
+      <div class="seg" data-opt="yomi"><button data-v="0">オフ</button><button data-v="1">オン</button></div></div>
+    <p class="modal-note">
+      先生・おうちのかたへ：ならべた ようすと 作った 文は、この パソコンの ブラウザに のこります。
+      URL の うしろに <code>#set=kurashi</code> などを つけると、その セットで ひらきます。
+    </p>
+    <div class="modal-btns">
+      <button class="big-btn ghost left" id="btnReset">はじめから やりなおす</button>
+      <button class="big-btn primary" id="btnSetClose">とじる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==LOGIC==
+/* 画面を つかわない ぶぶん（tests.js が この ぶぶんだけ とりだして たしかめます） */
+(function (root) {
+    'use strict';
+
+    /* なかまの しゅるい。parents は それを ふくむ 大きな なかま（broad）。
+       alias は はこの なまえとして みとめる 書きかた（ひらがな・カタカナ・漢字は どれでも）。 */
+    const CATS = {
+        yasai:      { label: 'やさい',   alias: ['野さい', '野菜', 'ベジタブル'], parents: ['tabemono', 'shokubutsu'] },
+        kudamono:   { label: 'くだもの', alias: ['果物', 'フルーツ'], parents: ['tabemono', 'shokubutsu'] },
+        hana:       { label: '花', yomi: 'はな', alias: ['はな', 'おはな', 'お花', 'はなばな'], parents: ['shokubutsu'] },
+        ki:         { label: '木', yomi: 'き', alias: ['き', 'じゅもく'], parents: ['shokubutsu'] },
+        doubutsu:   { label: 'どうぶつ', alias: ['動物'], parents: ['ikimono'] },
+        tori:       { label: 'とり', alias: ['鳥'], parents: ['ikimono'] },
+        sakana:     { label: 'さかな', alias: ['魚', 'うお', 'おさかな'], parents: ['ikimono', 'tabemono'] },
+        mushi:      { label: '虫', yomi: 'むし', alias: ['むし', 'こんちゅう', '昆虫'], parents: ['ikimono'] },
+        norimono:   { label: 'のりもの', alias: ['乗りもの', '乗り物'], parents: [] },
+        gakki:      { label: 'がっき', alias: ['楽器'], parents: ['dougu'] },
+        bunbougu:   { label: 'ぶんぼうぐ', alias: ['文ぼうぐ', '文房具', 'がくようひん', '学用品'], parents: ['dougu'] },
+        fuku:       { label: 'ふく', alias: ['服', 'ようふく', '洋服', 'きるもの', '着るもの', '着る物', 'いふく', '衣服'], parents: [] },
+        iro:        { label: 'いろ', alias: ['色'], parents: [] },
+        kisetsu:    { label: 'きせつ', alias: ['季節'], parents: [] },
+        karada:     { label: 'からだ', alias: ['体', 'からだのぶぶん', '体のぶぶん'], parents: [] },
+        tenki:      { label: 'てんき', alias: ['天気', 'おてんき', 'お天気'], parents: [] },
+        kazu:       { label: 'かず', alias: ['数'], parents: [] },
+        ikimono:    { label: 'いきもの', alias: ['生きもの', '生き物'], parents: [], broad: true },
+        tabemono:   { label: 'たべもの', alias: ['食べもの', '食べ物'], parents: [], broad: true },
+        shokubutsu: { label: 'しょくぶつ', alias: ['植物', 'くさばな', '草花'], parents: [], broad: true },
+        dougu:      { label: 'どうぐ', alias: ['道具'], parents: [], broad: true },
+    };
+
+    /* ことばの セット。order は はじめの カードの ならび（きょうかしょの ページの じゅん）。
+       extra は その ことばだけが もつ なかま（さくら・うめ は「木」でも ある）。 */
+    const SETS = {
+        kyokasho: {
+            title: 'きょうかしょ',
+            groups: [
+                { cat: 'yasai',    words: ['だいこん', 'きゅうり', 'さつまいも', 'トマト'] },
+                { cat: 'hana',     words: ['さくら', 'あさがお', 'チューリップ', 'うめ'] },
+                { cat: 'doubutsu', words: ['しまうま', 'パンダ', 'ぞう', 'ライオン'] },
+                { cat: 'sakana',   words: ['いわし', 'さんま', 'さば'] },
+                { cat: 'mushi',    words: ['かぶと虫', 'とんぼ', 'てんとう虫'] },
+            ],
+            extra: { 'さくら': ['ki'], 'うめ': ['ki'] },
+            order: ['だいこん', 'さくら', 'しまうま', 'きゅうり', 'いわし', 'あさがお',
+                    'さんま', 'かぶと虫', 'さつまいも', 'パンダ', 'チューリップ', 'ぞう',
+                    'トマト', 'ライオン', 'うめ', 'とんぼ', 'さば', 'てんとう虫'],
+            example: { cat: 'kudamono', name: 'くだもの', words: ['メロン', 'みかん', 'いちご'] },
+            chips: ['yasai', 'kudamono', 'hana', 'ki', 'doubutsu', 'tori', 'sakana', 'mushi', 'ikimono', 'tabemono'],
+        },
+        kurashi: {
+            title: 'がっこう・くらし',
+            groups: [
+                { cat: 'norimono', words: ['でんしゃ', 'バス', 'ひこうき', 'ふね'] },
+                { cat: 'gakki',    words: ['ピアノ', 'たいこ', 'ふえ', 'カスタネット'] },
+                { cat: 'bunbougu', words: ['えんぴつ', 'けしゴム', 'じょうぎ', 'ノート'] },
+                { cat: 'fuku',     words: ['シャツ', 'ズボン', 'スカート', 'セーター'] },
+            ],
+            extra: {},
+            order: ['でんしゃ', 'ピアノ', 'えんぴつ', 'シャツ', 'バス', 'たいこ', 'けしゴム', 'ズボン',
+                    'ひこうき', 'ふえ', 'じょうぎ', 'スカート', 'ふね', 'カスタネット', 'ノート', 'セーター'],
+            chips: ['norimono', 'gakki', 'bunbougu', 'fuku', 'dougu', 'doubutsu', 'yasai'],
+        },
+        kotoba: {
+            title: 'いろ・きせつ・からだ・てんき',
+            groups: [
+                { cat: 'iro',     words: ['あか', 'あお', 'きいろ', 'みどり'] },
+                { cat: 'kisetsu', words: ['はる', 'なつ', 'あき', 'ふゆ'] },
+                { cat: 'karada',  words: ['あたま', 'うで', 'おなか', 'ひざ'] },
+                { cat: 'tenki',   words: ['はれ', 'くもり', 'あめ', 'ゆき'] },
+            ],
+            extra: {},
+            order: ['あか', 'はる', 'あたま', 'はれ', 'あお', 'なつ', 'うで', 'くもり',
+                    'きいろ', 'あき', 'おなか', 'あめ', 'みどり', 'ふゆ', 'ひざ', 'ゆき'],
+            chips: ['iro', 'kisetsu', 'karada', 'tenki', 'kazu', 'tabemono'],
+        },
+    };
+    const SET_KEYS = Object.keys(SETS);
+    const MAX_BOXES = 8;
+
+    function toHira(s) {
+        return s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+    }
+    /* なまえを くらべやすく する：空白・きごうを とる、カタカナ→ひらがな、「〜の なかま」「〜たち」を とる */
+    function norm(s) {
+        let t = String(s == null ? '' : s).normalize('NFKC');
+        t = t.replace(/[\s「」『』、。,.・!！?？()（）]/g, '');
+        t = toHira(t);
+        t = t.replace(/(の?なかま|たち)$/, '');
+        return t;
+    }
+    const ALIAS = {};
+    for (const k of Object.keys(CATS)) {
+        for (const a of [CATS[k].label, ...CATS[k].alias]) ALIAS[norm(a)] = k;
+    }
+    /* '' … なまえが ない / null … しらない なまえ（じぶんで 考えた なまえ） / それ いがい … なかまの キー */
+    function catOf(name) {
+        const n = norm(name);
+        if (!n) return '';
+        return ALIAS[n] || null;
+    }
+
+    const TAGS = {};
+    function addTags(map, cat, words, extra) {
+        for (const w of words) {
+            const t = [cat, ...((extra && extra[w]) || [])];
+            for (const k of t.slice()) for (const p of CATS[k].parents) if (!t.includes(p)) t.push(p);
+            map[w] = t;
+        }
+    }
+    for (const sk of SET_KEYS) {
+        const s = SETS[sk], m = {};
+        s.groups.forEach(g => addTags(m, g.cat, g.words, s.extra));
+        if (s.example) addTags(m, s.example.cat, s.example.words, s.extra);
+        TAGS[sk] = m;
+    }
+    function tagsOf(setKey, word) { return (TAGS[setKey] && TAGS[setKey][word]) || []; }
+    /* ヒントの 色の ばんごう（グループの じゅん。れいは さいご） */
+    function groupIndex(setKey, word) {
+        const s = SETS[setKey];
+        const i = s.groups.findIndex(g => g.words.includes(word));
+        if (i >= 0) return i;
+        return s.example && s.example.words.includes(word) ? s.groups.length : -1;
+    }
+    function wordsFor(setKey, example) {
+        const s = SETS[setKey];
+        return s.order.concat(example && s.example ? s.example.words : []);
+    }
+
+    function shuffle(a, rand) {
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(rand() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+    }
+    function initialData(setKey, opt, rand) {
+        const s = SETS[setKey];
+        const pool = s.order.slice();
+        if (opt && opt.shuffle) shuffle(pool, rand || Math.random);
+        const boxes = [];
+        let seq = 0;
+        if (opt && opt.example && s.example) {
+            boxes.push({ id: 'b' + (++seq), name: s.example.name, cards: s.example.words.slice(), ex: true });
+        }
+        for (let i = 0; i < 3; i++) boxes.push({ id: 'b' + (++seq), name: '', cards: [] });
+        return { pool, boxes, sentences: [], seq };
+    }
+    /* ほぞんされて いた データを たしかめる：どの ことばも ちょうど 1かいずつ（たりない ものは カードおきばへ） */
+    function sanitize(data, setKey, opt) {
+        if (!data || !Array.isArray(data.boxes) || !Array.isArray(data.pool)) return initialData(setKey, opt);
+        const all = wordsFor(setKey, opt && opt.example);
+        const allowed = new Set(all), seen = new Set();
+        const take = w => allowed.has(w) && !seen.has(w) && (seen.add(w), true);
+        let seq = Number(data.seq) || 0;
+        const ids = new Set();
+        const boxes = data.boxes
+            .filter(b => b && typeof b.id === 'string' && !ids.has(b.id) && (ids.add(b.id), true))
+            .slice(0, MAX_BOXES)
+            .map(b => {
+                const n = parseInt(String(b.id).slice(1), 10);
+                if (n > seq) seq = n;
+                return {
+                    id: b.id,
+                    name: typeof b.name === 'string' ? b.name.slice(0, 12) : '',
+                    cards: (Array.isArray(b.cards) ? b.cards : []).filter(take),
+                    ex: !!b.ex,
+                };
+            });
+        const pool = data.pool.filter(take);
+        for (const w of all) if (!seen.has(w)) pool.push(w);
+        if (!boxes.length) boxes.push({ id: 'b' + (++seq), name: '', cards: [], ex: false });
+        const sentences = (Array.isArray(data.sentences) ? data.sentences : [])
+            .filter(x => x && typeof x.text === 'string' && x.text.trim())
+            .slice(0, 50)
+            .map(x => ({ text: x.text.slice(0, 80), ok: x.ok === true ? true : x.ok === false ? false : null }));
+        return { pool, boxes, sentences, seq };
+    }
+
+    function majority(tagLists) {
+        const cnt = new Map();
+        for (const tl of tagLists) for (const t of tl) if (!CATS[t].broad) cnt.set(t, (cnt.get(t) || 0) + 1);
+        let best = null, bn = 0;
+        for (const [t, n] of cnt) if (n > bn) { best = t; bn = n; }
+        return best || (tagLists[0] && tagLists[0][0]) || null;
+    }
+    /* 1つの はこを しらべる。
+       state: empty / ok（なまえも ぴったり） / broad（大きな なかまの なまえ） / free（じぶんで 考えた なまえ）
+              noname（なかまだけど なまえが ない） / name（なかまだけど なまえが あわない） / mixed（ちがう なかまが まじる）
+       odd:   mixed の とき、なかまに 入らない カードの ばんごう */
+    function judgeBox(tagLists, nameKey) {
+        if (!tagLists.length) return { state: 'empty', odd: [], main: null };
+        let common = tagLists[0].slice();
+        for (const tl of tagLists.slice(1)) common = common.filter(t => tl.includes(t));
+        const fine = common.filter(t => !CATS[t].broad);
+        const mixed = ref => ({
+            state: 'mixed', ref,
+            odd: tagLists.map((tl, i) => (tl.includes(ref) ? -1 : i)).filter(i => i >= 0),
+            main: null,
+        });
+        const named = typeof nameKey === 'string' && nameKey !== '';
+        const someHaveName = named && tagLists.some(tl => tl.includes(nameKey));
+        if (!fine.length && !(named && common.includes(nameKey))) {
+            return mixed(someHaveName ? nameKey : majority(tagLists));
+        }
+        if (nameKey === '') return { state: 'noname', odd: [], main: fine[0] };
+        if (nameKey === null) return { state: 'free', odd: [], main: fine[0] };
+        if (common.includes(nameKey)) return { state: CATS[nameKey].broad ? 'broad' : 'ok', odd: [], main: nameKey };
+        if (someHaveName) return mixed(nameKey);
+        return { state: 'name', odd: [], main: fine[0] };
+    }
+    const GOOD = ['ok', 'broad', 'free'];
+    /* ぜんぶの はこを しらべる。boxes: [{ id, name, cards }] */
+    function judgeAll(setKey, boxes, poolCount) {
+        const results = {};
+        for (const b of boxes) {
+            results[b.id] = judgeBox(b.cards.map(w => tagsOf(setKey, w)), catOf(b.name));
+        }
+        const byKey = {};
+        for (const b of boxes) {
+            const r = results[b.id];
+            if (GOOD.includes(r.state) || r.state === 'noname') (byKey[r.main] = byKey[r.main] || []).push(b.id);
+        }
+        for (const k of Object.keys(byKey)) if (byKey[k].length > 1) for (const id of byKey[k]) results[id].dup = true;
+        const list = boxes.map(b => results[b.id]);
+        const used = list.filter(r => r.state !== 'empty');
+        const done = poolCount === 0 && used.length > 0 && used.every(r => GOOD.includes(r.state) && !r.dup);
+        return {
+            results, done, poolCount,
+            mixed: list.filter(r => r.state === 'mixed' || r.state === 'name').length,
+            noname: list.filter(r => r.state === 'noname').length,
+            dup: list.some(r => r.dup),
+        };
+    }
+    /* はこに 出す しるしと ことば */
+    function boxMessage(r, name) {
+        const dupTx = 'おなじ なかまの はこが ほかにも あるよ。1つに まとめられるかな？';
+        switch (r.state) {
+            case 'ok':     return r.dup ? { mark: '○', text: dupTx } : { mark: '◎', text: 'ぴったり！' };
+            case 'broad':  return { mark: '○', text: r.dup ? dupTx : '大きな なかまだね。もっと こまかく わけられるかな？' };
+            case 'free':   return { mark: '○', text: r.dup ? dupTx : '「' + name + '」の なかまだね。' };
+            case 'noname': return { mark: '！', text: r.dup ? dupTx : 'なかまに なって いるよ。なまえを つけよう！' };
+            case 'name':   return { mark: '？', text: 'ことばは なかまだよ。はこの なまえは これで いいかな？' };
+            case 'mixed':  return { mark: '？', text: 'ちがう なかまが まじって いるかも。？の カードを 見てみよう。' };
+            default:       return { mark: '', text: '' };
+        }
+    }
+
+    /* 文の かた。{ s:'n' } は なかまの なまえ、{ s:'w' } は ことば を 入れる ところ */
+    const TEMPLATES = [
+        [{ s: 'n' }, 'の なかまには、', { s: 'w' }, 'や ', { s: 'w' }, 'が あります。'],
+        [{ s: 'w' }, 'は、', { s: 'n' }, 'の なかまです。'],
+        [{ s: 'w' }, 'と ', { s: 'w' }, 'は、どちらも ', { s: 'n' }, 'です。'],
+    ];
+    function slotsOf(parts) { return parts.filter(p => typeof p !== 'string').map(p => p.s); }
+    function sentenceText(parts, fills) {
+        let i = 0;
+        return parts.map(p => (typeof p === 'string' ? p : (fills[i++] || '＿＿'))).join('');
+    }
+    /* incomplete / same（おなじ ことばが 2かい） / ok / ng（その はこに ない ことば） */
+    function checkSentence(parts, fills, boxes) {
+        const slots = slotsOf(parts);
+        if (slots.some((_, i) => !fills[i])) return 'incomplete';
+        const ws = fills.filter((_, i) => slots[i] === 'w');
+        if (new Set(ws).size !== ws.length) return 'same';
+        const nm = fills[slots.indexOf('n')];
+        const box = boxes.find(b => b.name.trim() === nm);
+        if (!box) return 'ng';
+        return ws.every(w => box.cards.includes(w)) ? 'ok' : 'ng';
+    }
+    /* つぎに 入れる ところ：いま えらんで いる ところが おなじ しゅるいなら そこ、ちがえば あいて いる ところ */
+    function pickSlot(slots, fills, active, type) {
+        if (slots[active] === type) return active;
+        const empty = slots.findIndex((s, i) => s === type && !fills[i]);
+        if (empty >= 0) return empty;
+        return slots.indexOf(type);
+    }
+    function nextEmpty(slots, fills, from) {
+        for (let k = 1; k <= slots.length; k++) {
+            const i = (from + k) % slots.length;
+            if (!fills[i]) return i;
+        }
+        return from;
+    }
+
+    root.NakamaLogic = {
+        CATS, SETS, SET_KEYS, MAX_BOXES, TEMPLATES,
+        norm, catOf, tagsOf, groupIndex, wordsFor, initialData, sanitize,
+        judgeBox, judgeAll, boxMessage, slotsOf, sentenceText, checkSentence, pickSlot, nextEmpty,
+    };
+})(typeof window !== 'undefined' ? window : globalThis);
+// ==/LOGIC==
+</script>
+
+<script>
+(function () {
+    'use strict';
+    const L = window.NakamaLogic;
+    const $ = id => document.getElementById(id);
+    const KEY = 'kotoba-nakama-v1';
+    const COLORS = ['#e5484d', '#f08c00', '#2f9e44', '#1c7ed6', '#ae3ec9', '#0c8599'];
+    const DEF_OPT = { example: true, chips: true, color: false, shuffle: false, sound: true, yomi: false };
+
+    /* ---------- きろく ---------- */
+    function load() {
+        try {
+            const j = JSON.parse(localStorage.getItem(KEY));
+            if (j && j.v === 1) return j;
+        } catch (e) { /* つかえない ときは あたらしく */ }
+        return null;
+    }
+    const st = load() || { v: 1, set: 'kyokasho', opt: {}, data: {} };
+    st.opt = Object.assign({}, DEF_OPT, st.opt);
+    if (!st.data || typeof st.data !== 'object') st.data = {};
+    if (!L.SETS[st.set]) st.set = 'kyokasho';
+    const hs = /(?:^|[#&])set=([a-z]+)/.exec(location.hash);
+    if (hs && L.SETS[hs[1]]) st.set = hs[1];
+
+    function save() {
+        try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { /* ほぞん できなくても つづける */ }
+    }
+    function cur() {
+        st.data[st.set] = L.sanitize(st.data[st.set], st.set, st.opt);
+        return st.data[st.set];
+    }
+    let D = cur();
+
+    /* ---------- おと・こえ ---------- */
+    let ac = null;
+    function tone(f, t0, dur, type, vol) {
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.type = type || 'sine';
+        o.frequency.setValueAtTime(f, ac.currentTime + t0);
+        g.gain.setValueAtTime(0.0001, ac.currentTime + t0);
+        g.gain.exponentialRampToValueAtTime(vol || 0.18, ac.currentTime + t0 + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + t0 + dur);
+        o.connect(g); g.connect(ac.destination);
+        o.start(ac.currentTime + t0); o.stop(ac.currentTime + t0 + dur + 0.05);
+    }
+    function sfx(kind) {
+        if (!st.opt.sound) return;
+        try {
+            ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+            if (ac.state === 'suspended') ac.resume();
+            if (kind === 'pick') tone(660, 0, 0.08, 'triangle', 0.12);
+            else if (kind === 'drop') { tone(520, 0, 0.07, 'triangle', 0.14); tone(780, 0.06, 0.1, 'triangle', 0.14); }
+            else if (kind === 'ok') { tone(988, 0, 0.16, 'sine'); tone(784, 0.17, 0.3, 'sine'); }
+            else if (kind === 'hmm') { tone(392, 0, 0.14, 'triangle', 0.12); tone(349, 0.15, 0.22, 'triangle', 0.12); }
+            else if (kind === 'fan') [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.12, i === 3 ? 0.5 : 0.14, 'triangle', 0.16));
+        } catch (e) { /* おとが 出せなくても つづける */ }
+    }
+    function say(text) {
+        if (!text || !('speechSynthesis' in window)) return;
+        try {
+            speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'ja-JP'; u.rate = 0.9;
+            speechSynthesis.speak(u);
+        } catch (e) { /* よめなくても つづける */ }
+    }
+
+    /* ---------- ようす ---------- */
+    let sel = null;        // えらんで いる カード
+    let check = null;      // たしかめた けっか（なにか かえると けす）
+    let popWord = null;    // いま うごいた カード
+    let screen = 'sort';
+
+    function setGuide(text) {
+        const g = $('guide');
+        if (g.textContent === text) return;
+        g.textContent = text;
+        g.classList.remove('pop'); void g.offsetWidth; g.classList.add('pop');
+    }
+    function defaultGuide() {
+        if (sel) return '「' + sel + '」を どこに 入れる？ はこを タップしてね。';
+        if (!D.pool.length) return 'カードが ぜんぶ はこに 入ったね！ はこに なまえを つけたら「✅ たしかめる」を おそう。';
+        return 'ことばカードを うごかして、なかまの はこに 入れよう。はこには なまえを つけてね。';
+    }
+
+    /* ---------- えがく ---------- */
+    const HANAMARU = '<svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="#e5484d" stroke-width="6" stroke-linecap="round">' +
+        '<path d="M50 20c16 0 27 10 27 26s-12 27-28 27-27-10-27-25 10-24 25-24c11 0 19 7 19 17s-8 17-17 17-15-6-15-13 5-11 11-11"/>' +
+        '<path d="M50 6c10 0 15 7 14 13M78 16c8 6 9 14 5 18M93 45c3 9-1 16-6 18M84 78c-3 9-11 12-16 10M52 95c-9 2-16-3-17-9M20 84c-8-4-10-12-7-17M6 54c-4-8 0-16 5-18M16 20c4-8 13-10 18-7"/></g></svg>';
+
+    function cardHtml(w, container) {
+        const cls = ['card'];
+        let style = '';
+        if (st.opt.color) {
+            const gi = L.groupIndex(st.set, w);
+            if (gi >= 0) { cls.push('hc'); style = ' style="--hc:' + COLORS[gi % COLORS.length] + '"'; }
+        }
+        if (sel === w) cls.push('sel');
+        if (popWord === w) cls.push('pop');
+        if (check && container !== 'pool') {
+            const r = check.results[container];
+            const b = D.boxes.find(x => x.id === container);
+            if (r && r.state === 'mixed' && b && r.odd.includes(b.cards.indexOf(w))) cls.push('odd');
+        }
+        return '<button class="' + cls.join(' ') + '" data-word="' + esc(w) + '"' + style + '>' + esc(w) + '</button>';
+    }
+    function esc(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function renderSort() {
+        $('setName').textContent = L.SETS[st.set].title;
+        $('poolCount').textContent = D.pool.length ? 'のこり ' + D.pool.length + 'まい' : '';
+        $('poolCards').innerHTML = D.pool.length
+            ? D.pool.map(w => cardHtml(w, 'pool')).join('')
+            : '<div class="pool-empty">ぜんぶ はこに 入ったよ。<br>はこから ここへ もどす ことも できるよ。</div>';
+        $('pool').classList.toggle('can-drop', !!sel && !D.pool.includes(sel));
+
+        let h = '';
+        for (const b of D.boxes) {
+            const r = check && check.results[b.id];
+            const m = r ? L.boxMessage(r, b.name.trim()) : { mark: '', text: '' };
+            const cls = ['box'];
+            if (r && r.state !== 'empty') cls.push('res-' + r.state);
+            if (sel && !b.cards.includes(sel)) cls.push('can-drop');
+            let stamp = '';
+            if (m.mark === '◎') stamp = HANAMARU;
+            else if (m.mark) {
+                const bg = m.mark === '？' ? 'var(--red)' : m.mark === '！' ? 'var(--yellow)' : 'var(--green)';
+                stamp = '<div class="q" style="background:' + bg + '">' + m.mark + '</div>';
+            }
+            const nm = b.name.trim();
+            h += '<div class="' + cls.join(' ') + '" data-drop="box" data-id="' + b.id + '">' +
+                '<div class="stamp">' + stamp + '</div>' +
+                '<button class="box-label' + (nm ? '' : ' empty') + '" data-act="name" aria-label="はこの なまえ">' +
+                (nm ? esc(nm) : '✏️ なまえを つける') + '</button>' +
+                '<button class="box-del" data-act="del" aria-label="この はこを かたづける">×</button>' +
+                '<div class="box-in">' +
+                (b.cards.length ? b.cards.map(w => cardHtml(w, b.id)).join('') : '<div class="box-hint">ここに カードを 入れよう</div>') +
+                '</div>' +
+                '<div class="box-msg">' + esc(m.text) + '</div>' +
+                '</div>';
+        }
+        if (D.boxes.length < L.MAX_BOXES) h += '<button class="box-add" id="btnAddBox">＋ はこを ふやす</button>';
+        $('boxes').innerHTML = h;
+        popWord = null;
+    }
+
+    function changed() {
+        check = null;
+        save();
+        renderSort();
+        setGuide(defaultGuide());
+    }
+
+    /* ---------- うごかす ---------- */
+    function whereIs(w) {
+        if (D.pool.includes(w)) return 'pool';
+        const b = D.boxes.find(x => x.cards.includes(w));
+        return b ? b.id : null;
+    }
+    function moveWord(w, to) {
+        const from = whereIs(w);
+        sel = null;
+        if (!from || from === to) { renderSort(); setGuide(defaultGuide()); return; }
+        if (from === 'pool') D.pool.splice(D.pool.indexOf(w), 1);
+        else { const fb = D.boxes.find(x => x.id === from); fb.cards.splice(fb.cards.indexOf(w), 1); }
+        if (to === 'pool') D.pool.push(w);
+        else D.boxes.find(x => x.id === to).cards.push(w);
+        popWord = w;
+        sfx('drop');
+        changed();
+    }
+    function tapCard(w) {
+        // えらんで いる ときに ほかの はこの カードを さわったら、その はこへ 入れる
+        if (sel && sel !== w) {
+            const to = whereIs(w);
+            if (to !== whereIs(sel)) { moveWord(sel, to); return; }
+        }
+        sel = sel === w ? null : w;
+        if (sel) { sfx('pick'); if (st.opt.yomi) say(w); }
+        applySel();
+        setGuide(defaultGuide());
+    }
+    /* えらんだ カードの 見ための だけ かえる（えがきなおさないので、タップの あとの click が おなじ カードに とどく） */
+    function applySel() {
+        document.querySelectorAll('#screenSort .card').forEach(c => c.classList.toggle('sel', c.dataset.word === sel));
+        const from = sel ? whereIs(sel) : null;
+        $('pool').classList.toggle('can-drop', !!sel && from !== 'pool');
+        document.querySelectorAll('.box').forEach(b => b.classList.toggle('can-drop', !!sel && b.dataset.id !== from));
+    }
+
+    /* ドラッグ（マウス・タッチ・ペン どれでも）。うごかさずに はなすと「タップ」 */
+    let drag = null;
+    let lastDrop = -1e9;   // ドラッグで おいた すぐ あとの click を 1かいだけ つかわない（えがきなおしで ねらいが ずれるため）
+    document.addEventListener('pointerdown', e => {
+        if (screen !== 'sort') return;
+        const card = e.target.closest('.card');
+        if (!card || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        const r = card.getBoundingClientRect();
+        drag = { word: card.dataset.word, el: card, pid: e.pointerId, x0: e.clientX, y0: e.clientY,
+                 lx: e.clientX, ly: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, ghost: null, over: null };
+        try { card.setPointerCapture(e.pointerId); } catch (err) { /* なくても うごく */ }
+    });
+    document.addEventListener('pointermove', e => {
+        if (!drag || e.pointerId !== drag.pid) return;
+        drag.lx = e.clientX; drag.ly = e.clientY;
+        if (!drag.ghost) {
+            const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+            if (dx * dx + dy * dy < 81) return;
+            startGhost();
+        }
+        e.preventDefault();
+        placeGhost();
+        updateOver();
+    });
+    document.addEventListener('pointerup', e => {
+        if (!drag || e.pointerId !== drag.pid) return;
+        const d = drag;
+        endDrag();
+        if (d.ghost) {
+            lastDrop = performance.now();
+            if (d.over) moveWord(d.word, d.over);
+            else { renderSort(); setGuide(defaultGuide()); }
+        } else tapCard(d.word);
+    });
+    document.addEventListener('pointercancel', e => {
+        if (!drag || e.pointerId !== drag.pid) return;
+        const had = !!drag.ghost;
+        endDrag();
+        if (had) renderSort();
+    });
+    function startGhost() {
+        const r = drag.el.getBoundingClientRect();
+        const g = drag.el.cloneNode(true);
+        g.classList.remove('sel', 'pop', 'odd');
+        g.classList.add('drag-ghost');
+        g.style.width = r.width + 'px';
+        g.style.height = r.height + 'px';
+        document.body.appendChild(g);
+        drag.ghost = g;
+        drag.el.classList.add('src');
+        sel = null;
+        document.querySelectorAll('.card.sel').forEach(c => c.classList.remove('sel'));
+        const from = whereIs(drag.word);
+        if (from !== 'pool') $('pool').classList.add('can-drop');
+        document.querySelectorAll('.box').forEach(b => b.classList.toggle('can-drop', b.dataset.id !== from));
+        if (st.opt.yomi) say(drag.word);
+        sfx('pick');
+        drag.raf = requestAnimationFrame(autoScroll);
+    }
+    function placeGhost() {
+        drag.ghost.style.left = (drag.lx - drag.ox) + 'px';
+        drag.ghost.style.top = (drag.ly - drag.oy) + 'px';
+    }
+    function updateOver() {
+        const el = document.elementFromPoint(drag.lx, drag.ly);
+        const t = el && el.closest('[data-drop]');
+        const over = t ? (t.dataset.drop === 'pool' ? 'pool' : t.dataset.id) : null;
+        if (over === drag.over) return;
+        document.querySelectorAll('.over').forEach(x => x.classList.remove('over'));
+        if (t) t.classList.add('over');
+        drag.over = over;
+    }
+    function autoScroll() {
+        if (!drag || !drag.ghost) return;
+        const edge = 70, h = window.innerHeight;
+        let dy = 0;
+        if (drag.ly < edge) dy = -Math.ceil((edge - drag.ly) / 4);
+        else if (drag.ly > h - edge) dy = Math.ceil((drag.ly - (h - edge)) / 4);
+        if (dy) { window.scrollBy(0, dy); updateOver(); }
+        drag.raf = requestAnimationFrame(autoScroll);
+    }
+    function endDrag() {
+        if (drag.raf) cancelAnimationFrame(drag.raf);
+        if (drag.ghost) drag.ghost.remove();
+        if (drag.el) drag.el.classList.remove('src');
+        document.querySelectorAll('.over').forEach(x => x.classList.remove('over'));
+        drag = null;
+    }
+
+    /* タップ・クリック */
+    document.addEventListener('click', e => {
+        if (screen !== 'sort' || e.target.closest('.modal')) return;
+        if (e.detail > 0 && performance.now() - lastDrop < 400) { lastDrop = -1e9; return; }
+        const card = e.target.closest('.card');
+        if (card) {
+            if (e.detail === 0) tapCard(card.dataset.word);   // キーボード（Enter・スペース）の とき
+            return;
+        }
+        if (e.target.closest('#btnAddBox')) { addBox(); return; }
+        const box = e.target.closest('.box');
+        if (box) {
+            const act = e.target.closest('[data-act]');
+            if (act && act.dataset.act === 'del') { delBox(box.dataset.id); return; }
+            if (sel) { moveWord(sel, box.dataset.id); return; }
+            if (act && act.dataset.act === 'name') openName(box.dataset.id);
+            return;
+        }
+        if (sel && e.target.closest('#pool')) moveWord(sel, 'pool');
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Escape') return;
+        if (!$('nameModal').hidden) { closeName(); return; }
+        if (!$('setModal').hidden) { $('setModal').hidden = true; return; }
+        if (!$('doneModal').hidden) { $('doneModal').hidden = true; return; }
+        if (sel) { sel = null; renderSort(); setGuide(defaultGuide()); }
+    });
+
+    function addBox() {
+        if (D.boxes.length >= L.MAX_BOXES) return;
+        D.boxes.push({ id: 'b' + (++D.seq), name: '', cards: [], ex: false });
+        sfx('pick');
+        changed();
+    }
+    function delBox(id) {
+        const i = D.boxes.findIndex(b => b.id === id);
+        if (i < 0) return;
+        if (D.boxes.length <= 1) { setGuide('はこは 1つ いじょう いるよ。'); return; }
+        D.pool.push(...D.boxes[i].cards);
+        D.boxes.splice(i, 1);
+        sel = null;
+        changed();
+    }
+
+    /* ---------- はこの なまえ ---------- */
+    let nameId = null;
+    function openName(id) {
+        const b = D.boxes.find(x => x.id === id);
+        if (!b) return;
+        nameId = id;
+        $('nameInput').value = b.name;
+        const s = L.SETS[st.set];
+        $('nameChipsWrap').hidden = !st.opt.chips;
+        $('nameChips').innerHTML = s.chips.map(k => {
+            const c = L.CATS[k];
+            const lb = c.yomi ? '<ruby>' + c.label + '<rt>' + c.yomi + '</rt></ruby>' : c.label;
+            return '<button data-name="' + esc(c.label) + '">' + lb + '</button>';
+        }).join('');
+        $('nameModal').hidden = false;
+        if (!st.opt.chips) setTimeout(() => $('nameInput').focus(), 50);
+    }
+    function closeName() { $('nameModal').hidden = true; nameId = null; }
+    function commitName(v) {
+        const b = D.boxes.find(x => x.id === nameId);
+        closeName();
+        if (!b) return;
+        b.name = String(v).trim().slice(0, 12);
+        if (b.name && st.opt.yomi) say(b.name);
+        sfx('drop');
+        changed();
+    }
+    $('nameChips').addEventListener('click', e => {
+        const c = e.target.closest('[data-name]');
+        if (c) commitName(c.dataset.name);
+    });
+    $('btnNameOk').onclick = () => commitName($('nameInput').value);
+    $('btnNameCancel').onclick = closeName;
+    $('btnNameClear').onclick = () => commitName('');
+    $('nameInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); commitName($('nameInput').value); }
+    });
+    $('nameModal').addEventListener('click', e => { if (e.target.id === 'nameModal') closeName(); });
+
+    /* ---------- たしかめる ---------- */
+    $('btnCheck').onclick = () => {
+        sel = null;
+        const used = D.boxes.filter(b => b.cards.length);
+        if (!used.length) { check = null; renderSort(); setGuide('まず カードを はこに 入れてみよう。'); sfx('hmm'); return; }
+        check = L.judgeAll(st.set, D.boxes, D.pool.length);
+        renderSort();
+        let msg;
+        if (check.done) msg = 'ぜんぶ なかまに まとめられたね！ すごい！';
+        else if (check.mixed) msg = '？が ついた はこを 見なおしてみよう。';
+        else if (check.dup) msg = 'おなじ なかまの はこは 1つに まとめよう。';
+        else if (check.noname) msg = 'なまえの ない はこが あるよ。なかまを まとめて よぶ ことばを 考えよう。';
+        else msg = 'いまの ところ いい かんじ！';
+        if (D.pool.length) msg = 'まだ はこに 入って いない カードが ' + D.pool.length + 'まい あるよ。' + (check.mixed ? ' ？の はこも 見なおそう。' : '');
+        setGuide(msg);
+        if (check.done) {
+            sfx('fan');
+            $('doneList').innerHTML = D.boxes.filter(b => b.cards.length).map(b => '<span>' + esc(b.name.trim()) + '</span>').join('');
+            setTimeout(() => { $('doneModal').hidden = false; }, 700);
+        } else sfx(check.mixed || D.pool.length ? 'hmm' : 'ok');
+    };
+    $('btnDoneClose').onclick = () => { $('doneModal').hidden = true; };
+    $('btnDoneBun').onclick = () => { $('doneModal').hidden = true; showBun(); };
+
+    /* ---------- 文を つくる ---------- */
+    const bun = { mode: 'kata', tpl: 0, fills: [], active: 0 };
+    function namedBoxes() { return D.boxes.filter(b => b.cards.length && b.name.trim()); }
+
+    function showBun() {
+        screen = 'bun';
+        sel = null;
+        $('screenSort').hidden = true; $('topSort').hidden = true;
+        $('screenBun').hidden = false; $('topBun').hidden = false;
+        $('makeMsg').textContent = ''; $('makeMsg').className = 'make-msg';
+        renderBun();
+        setGuide(namedBoxes().length
+            ? 'あつめた ことばを つかって、文を 作りましょう。'
+            : 'さきに カードを はこに 入れて、はこに なまえを つけよう。');
+        window.scrollTo(0, 0);
+    }
+    function showSort() {
+        screen = 'sort';
+        $('screenBun').hidden = true; $('topBun').hidden = true;
+        $('screenSort').hidden = false; $('topSort').hidden = false;
+        renderSort();
+        setGuide(defaultGuide());
+    }
+    $('btnBun').onclick = showBun;
+    $('btnBack').onclick = showSort;
+
+    function renderBun() {
+        const used = D.boxes.filter(b => b.cards.length);
+        $('srcList').innerHTML = used.length ? used.map(b => {
+            const nm = b.name.trim();
+            return '<div class="src-box"><div class="src-row">' +
+                (nm ? '<button class="chip-n" data-n="' + esc(nm) + '">' + esc(nm) + '</button>' : '<span class="src-noname">（なまえが ない はこ）</span>') +
+                '</div><div class="src-row" style="margin-top:8px">' +
+                b.cards.map(w => '<button class="chip-w" data-w="' + esc(w) + '">' + esc(w) + '</button>').join('') +
+                '</div></div>';
+        }).join('') : '<div class="src-empty">まだ はこに ことばが ないよ。<br>「↩︎ はこに もどる」で なかまに まとめよう。</div>';
+
+        document.querySelectorAll('#bunMode button').forEach(b => b.classList.toggle('on', b.dataset.v === bun.mode));
+        $('kataArea').hidden = bun.mode !== 'kata';
+        $('freeArea').hidden = bun.mode !== 'free';
+
+        $('tplList').innerHTML = L.TEMPLATES.map((t, i) =>
+            '<button class="tpl' + (i === bun.tpl ? ' on' : '') + '" data-t="' + i + '">' +
+            t.map(p => (typeof p === 'string' ? esc(p) : '<i>' + (p.s === 'n' ? 'なかま' : 'ことば') + '</i>')).join('') +
+            '</button>').join('');
+        renderLine();
+        renderSentList();
+    }
+    function renderLine() {
+        const parts = L.TEMPLATES[bun.tpl];
+        let i = 0;
+        $('sentLine').innerHTML = parts.map(p => {
+            if (typeof p === 'string') return '<span>' + esc(p) + '</span>';
+            const k = i++, v = bun.fills[k];
+            const cls = 'slot ' + p.s + (v ? ' fill' : '') + (k === bun.active ? ' act' : '');
+            return '<button class="' + cls + '" data-k="' + k + '">' + (v ? esc(v) : (p.s === 'n' ? 'なかま' : 'ことば')) + '</button>';
+        }).join('');
+    }
+    function renderSentList() {
+        $('sentList').innerHTML = D.sentences.length ? D.sentences.map((x, i) =>
+            '<li><span class="no">' + (i + 1) + '</span><span class="tx">' + esc(x.text) + '</span>' +
+            '<span class="mk ' + (x.ok === true ? 'ok' : x.ok === false ? 'ng' : '') + '">' + (x.ok === true ? '◎' : x.ok === false ? '？' : '') + '</span>' +
+            '<button data-say="' + i + '" aria-label="よむ">🔊</button><button data-del="' + i + '" aria-label="けす">🗑</button></li>'
+        ).join('') : '<li class="sent-none">まだ ないよ。</li>';
+    }
+    function msg(text, kind) {
+        $('makeMsg').textContent = text;
+        $('makeMsg').className = 'make-msg' + (kind ? ' ' + kind : '');
+    }
+
+    $('bunMode').addEventListener('click', e => {
+        const b = e.target.closest('[data-v]');
+        if (!b) return;
+        bun.mode = b.dataset.v;
+        msg('');
+        renderBun();
+    });
+    $('tplList').addEventListener('click', e => {
+        const b = e.target.closest('[data-t]');
+        if (!b) return;
+        bun.tpl = +b.dataset.t; bun.fills = []; bun.active = 0;
+        msg('');
+        renderBun();
+    });
+    $('sentLine').addEventListener('click', e => {
+        const b = e.target.closest('[data-k]');
+        if (!b) return;
+        const k = +b.dataset.k;
+        if (bun.active === k && bun.fills[k]) bun.fills[k] = '';
+        bun.active = k;
+        renderLine();
+    });
+    $('srcList').addEventListener('click', e => {
+        const b = e.target.closest('[data-n],[data-w]');
+        if (!b) return;
+        const type = b.dataset.n !== undefined ? 'n' : 'w';
+        const val = type === 'n' ? b.dataset.n : b.dataset.w;
+        if (st.opt.yomi) say(val);
+        if (bun.mode === 'free') {
+            const ta = $('freeText');
+            const a = ta.selectionStart == null ? ta.value.length : ta.selectionStart;
+            const z = ta.selectionEnd == null ? a : ta.selectionEnd;
+            ta.value = (ta.value.slice(0, a) + val + ta.value.slice(z)).slice(0, 80);
+            const p = Math.min(a + val.length, ta.value.length);
+            ta.focus(); ta.setSelectionRange(p, p);
+            return;
+        }
+        const slots = L.slotsOf(L.TEMPLATES[bun.tpl]);
+        const k = L.pickSlot(slots, bun.fills, bun.active, type);
+        if (k < 0) return;
+        bun.fills[k] = val;
+        bun.active = L.nextEmpty(slots, bun.fills, k);
+        sfx('pick');
+        msg('');
+        renderLine();
+    });
+    $('btnSay').onclick = () => {
+        if (bun.mode === 'free') say($('freeText').value.trim());
+        else say(L.sentenceText(L.TEMPLATES[bun.tpl], bun.fills).replace(/＿＿/g, 'なになに'));
+    };
+    $('btnClear').onclick = () => {
+        if (bun.mode === 'free') $('freeText').value = '';
+        else { bun.fills = []; bun.active = 0; renderLine(); }
+        msg('');
+    };
+    $('btnAdd').onclick = () => {
+        if (D.sentences.length >= 50) { msg('文が いっぱいに なったよ。いらない 文を けしてね。', 'ng'); return; }
+        if (bun.mode === 'free') {
+            const t = $('freeText').value.trim();
+            if (!t) { msg('文を 書いてから おしてね。', 'ng'); return; }
+            D.sentences.push({ text: t.slice(0, 80), ok: null });
+            $('freeText').value = '';
+            msg('できたね！', 'ok'); sfx('ok');
+        } else {
+            const parts = L.TEMPLATES[bun.tpl];
+            const res = L.checkSentence(parts, bun.fills, D.boxes);
+            if (res === 'incomplete') { msg('あいて いる ところに ことばを 入れよう。', 'ng'); sfx('hmm'); return; }
+            if (res === 'same') { msg('おなじ ことばが 2かい 入って いるよ。', 'ng'); sfx('hmm'); return; }
+            D.sentences.push({ text: L.sentenceText(parts, bun.fills), ok: res === 'ok' });
+            bun.fills = []; bun.active = 0;
+            if (res === 'ok') { msg('◎ いい 文が できたね！', 'ok'); sfx('ok'); }
+            else { msg('できたよ。でも、ことばと なかまの なまえは あって いるかな？', 'ng'); sfx('hmm'); }
+            renderLine();
+        }
+        save();
+        renderSentList();
+    };
+    $('sentList').addEventListener('click', e => {
+        const s = e.target.closest('[data-say]'), d = e.target.closest('[data-del]');
+        if (s) say(D.sentences[+s.dataset.say].text);
+        if (d) { D.sentences.splice(+d.dataset.del, 1); save(); renderSentList(); }
+    });
+
+    /* ---------- せってい ---------- */
+    $('segSet').innerHTML = L.SET_KEYS.map(k => '<button data-v="' + k + '">' + L.SETS[k].title + '</button>').join('');
+    function renderSettings() {
+        document.querySelectorAll('#setModal .seg').forEach(seg => {
+            const k = seg.dataset.opt;
+            const v = k === 'set' ? st.set : (st.opt[k] ? '1' : '0');
+            seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+        });
+        $('rowExample').hidden = !L.SETS[st.set].example;
+    }
+    $('btnSet').onclick = () => { renderSettings(); $('setModal').hidden = false; };
+    $('btnSetClose').onclick = () => { $('setModal').hidden = true; };
+    $('setModal').addEventListener('click', e => {
+        if (e.target.id === 'setModal') { $('setModal').hidden = true; return; }
+        const b = e.target.closest('.seg button');
+        if (!b) return;
+        const k = b.closest('.seg').dataset.opt, v = b.dataset.v;
+        if (k === 'set') {
+            st.set = v;
+            if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+        } else {
+            const on = v === '1';
+            if (k === 'example' && on !== st.opt.example) toggleExample(on);
+            st.opt[k] = on;
+        }
+        D = cur();
+        sel = null;
+        renderSettings();
+        changed();
+    });
+    /* れいの はこを 出す・しまう（ほかの はこは そのまま） */
+    function toggleExample(on) {
+        for (const sk of L.SET_KEYS) {
+            const s = L.SETS[sk], d = st.data[sk];
+            if (!s.example || !d) continue;
+            if (on) {
+                const have = new Set(d.pool.concat(...d.boxes.map(b => b.cards)));
+                if (s.example.words.some(w => have.has(w))) continue;
+                d.seq = (d.seq || 0) + 1;
+                d.boxes.unshift({ id: 'b' + d.seq, name: s.example.name, cards: s.example.words.slice(), ex: true });
+                if (d.boxes.length > L.MAX_BOXES) {
+                    const k = d.boxes.findIndex(b => !b.ex && !b.cards.length);
+                    if (k >= 0) d.boxes.splice(k, 1);
+                }
+            } else {
+                d.pool = d.pool.filter(w => !s.example.words.includes(w));
+                d.boxes.forEach(b => { b.cards = b.cards.filter(w => !s.example.words.includes(w)); });
+                d.boxes = d.boxes.filter(b => !(b.ex && !b.cards.length));
+            }
+        }
+    }
+    $('btnReset').onclick = () => {
+        if (!confirm('「' + L.SETS[st.set].title + '」を はじめから やりなおしますか？\n（ならべた ようすと 作った 文が きえます）')) return;
+        st.data[st.set] = L.initialData(st.set, st.opt);
+        D = cur();
+        sel = null;
+        $('setModal').hidden = true;
+        if (screen !== 'sort') showSort();
+        changed();
+    };
+
+    /* ---------- はじめ ---------- */
+    save();
+    renderSort();
+    setGuide(defaultGuide());
+})();
+</script>
+</body>
+</html>
