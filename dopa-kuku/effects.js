@@ -9,6 +9,12 @@
    - #stage は #app の うしろ なので、紙吹雪や 光が 問題を かくす ことは ない
    - 1回の 正解演出は 0.8びょう いない。演出中も つぎの 問題が 出て、入力できる
 
+   操作が おもく ならない ための きまり
+   - 正解の しゅんかんは「音」だけ すぐ 鳴らし、画面の 演出は つぎの 問題が 画面に 出た あとで はじめる（afterPaint）
+   - 演出の ために レイアウトを 計算させない（offsetWidth や getBoundingClientRect を 正解ごとに よばない）。
+     うごきは Web Animations（transform・opacity）で つける
+   - 画面の うごきを 見はって、端末が おいつかない ときは 自動で 演出を かるく する（Q.tier。問題・入力は かわらない）
+
    安全の きまり
    - 画面ぜんたいの 強い 明滅は 1びょうに 3回まで（虹色は 点滅させず、色を なめらかに かえる）
    - 粒子は 同時に 800こ（スマホ 400こ）まで（particles.js）
@@ -19,20 +25,70 @@
     const D = window.Dopa, S = window.DopaSound, P = window.DopaParticles;
     const $ = s => document.querySelector(s);
     const body = document.body;
-    const stage = $('#stage'), fxl = $('#fxl'), tz = $('#tz'), qwrap = $('#qwrap'), echoEl = $('#echo');
+    const stage = $('#stage'), fxl = $('#fxl'), tz = $('#tz'), echoEl = $('#echo'), ring = $('#qring');
 
     P.init($('#fx'));
 
     const calm = () => D.fxMode() === 'hikaeme';
     let level = 0;
+    let gen = 0;                  /* ゲームが かわったら ふやす（おくれて 出る 演出を すてる ため） */
     let timers = [];
     const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
     function clearTimers() { timers.forEach(clearTimeout); timers = []; }
 
-    function applyMode() { P.setScale(calm() ? 1 / 3 : 1); }
+    /** つぎの 画面が 出た あとで うごかす（入力と 問題の 表示を さきに すませる） */
+    function afterPaint(fn) {
+        const g = gen;
+        requestAnimationFrame(() => setTimeout(() => { if (g === gen) fn(); }, 0));
+    }
+
+    /* =====================================================================
+       端末に あわせた かるさ（自動）
+       tier 0：ぜんぶ ／ 1：粒子 半分・光の粒なし ／ 2：粒子 4分の1・背景の うごきと 光線を とめる
+       ===================================================================== */
+    const Q = { tier: 0, raf: 0, last: 0, sum: 0, n: 0, bad: 0 };
+    try { Q.tier = Math.min(2, Number(sessionStorage.getItem('dopakuku_lite')) || 0); } catch (e) { /* つかえなくても よい */ }
+
+    function applyMode() {
+        P.setScale(calm() ? 1 / 3 : 1);
+        P.setBudget(Q.tier === 0 ? 1 : Q.tier === 1 ? 0.5 : 0.25);
+        body.classList.toggle('lite1', Q.tier >= 1);
+        body.classList.toggle('lite2', Q.tier >= 2);
+        P.setAmbient(Q.tier === 0 && level >= 7 ? (level >= 8 ? 'rainbow' : 'gold') : null);
+    }
+
+    function setTier(n) {
+        Q.tier = n;
+        try { sessionStorage.setItem('dopakuku_lite', String(n)); } catch (e) { /* つかえなくても よい */ }
+        applyMode();
+    }
+
+    /** プレイ中の 画面の うごき（1びょうに 何回 かきかえられたか）を 見はる */
+    function watch(on) {
+        cancelAnimationFrame(Q.raf);
+        Q.raf = 0;
+        if (!on) return;
+        Q.last = 0; Q.sum = 0; Q.n = 0; Q.bad = 0;
+        const f = t => {
+            if (Q.last) {
+                const d = t - Q.last;
+                if (d < 250) { Q.sum += d; Q.n++; }             /* タブを うらに した ときの 大きな すきまは かぞえない */
+            }
+            Q.last = t;
+            if (Q.n >= 45) {
+                /* 平均 22ミリびょう いじょう（1びょうに 45回 より 少ない）が 3回（約2びょう）つづいたら 1だん かるく。
+                   一瞬の ひっかかりでは かるく しない */
+                Q.bad = Q.sum / Q.n > 22 ? Q.bad + 1 : 0;
+                Q.sum = 0; Q.n = 0;
+                if (Q.bad >= 3 && Q.tier < 2) { Q.bad = 0; setTier(Q.tier + 1); }
+            }
+            Q.raf = requestAnimationFrame(f);
+        };
+        Q.raf = requestAnimationFrame(f);
+    }
 
     /* ---------- 小さな 道具 ---------- */
-    /** しばらく 出して きえる 要素 */
+    /** しばらく 出して きえる 要素（CSS アニメーションで うごく） */
     function spawn(parent, cls, html, ms) {
         const el = document.createElement('div');
         el.className = cls;
@@ -41,76 +97,51 @@
         setTimeout(() => el.remove(), ms || 1000);
         return el;
     }
-    /** CSS アニメーションを はじめから もう1回 */
-    function replay(el, cls) {
-        el.classList.remove(cls);
-        void el.offsetWidth;
-        el.classList.add(cls);
-    }
-    const qRect = () => $('#qcard').getBoundingClientRect();
 
-    /* ---------- 画面の ふち（ライト） ---------- */
-    const frame = $('#frame');
-    const rects = {
-        glow: frame.querySelector('.f-glow'), base: frame.querySelector('.f-base'),
-        flow: frame.querySelector('.f-flow'), lap: frame.querySelector('.f-lap'),
-    };
-    let per = 0, flowAnim = null;
+    /* 問題カードの いち（ゲームの はじめと 画面の 大きさが かわった ときだけ はかる） */
+    let qr = null;
+    const qRect = () => qr || (qr = $('#qcard').getBoundingClientRect());
 
-    function frameSize() {
-        const w = window.innerWidth, h = window.innerHeight, m = 5, r = 18;
-        frame.setAttribute('viewBox', `0 0 ${w} ${h}`);
-        for (const el of Object.values(rects)) {
-            el.setAttribute('x', m);
-            el.setAttribute('y', m);
-            el.setAttribute('width', Math.max(0, w - m * 2));
-            el.setAttribute('height', Math.max(0, h - m * 2));
-            el.setAttribute('rx', r);
-        }
-        per = 2 * (w - m * 2 + h - m * 2) - (8 - 2 * Math.PI) * r;
-        frameFlow();
-    }
+    /* ---------- 画面の ふち：1周 ながれる ライト ---------- */
+    const laps = {};
+    for (const k of ['t', 'r', 'b', 'l']) laps[k] = $(`.fe-${k} s`);
 
-    /** Lv4 から ふちの ライトが ながれる（Lv6 で はやく） */
-    function frameFlow() {
-        if (flowAnim) { flowAnim.cancel(); flowAnim = null; }
-        if (level < 4 || !rects.flow.animate) return;
-        const dash = per / 26;
-        rects.flow.setAttribute('stroke-dasharray', `${dash * 0.55} ${dash * 0.45}`);
-        const cycle = (level >= 6 ? 240 : 650) * (calm() ? 2.5 : 1);
-        flowAnim = rects.flow.animate(
-            [{ strokeDashoffset: '0px' }, { strokeDashoffset: `${-dash}px` }],
-            { duration: cycle, iterations: Infinity });
-    }
-
-    /** ふちを ライトが 1周 ながれる（Lv2 からの 正解） */
     function lap() {
-        if (!rects.lap.animate) return;
-        rects.lap.setAttribute('stroke-dasharray', `${per * 0.14} ${per}`);
-        rects.lap.animate(
-            [{ strokeDashoffset: '0px', opacity: 1 }, { strokeDashoffset: `${-per}px`, opacity: 0.9 }],
-            { duration: 700, easing: 'cubic-bezier(.3,.1,.3,1)' });
+        if (!laps.t.animate) return;
+        const W = window.innerWidth, H = window.innerHeight, per = 2 * (W + H), total = 700, L = 140;
+        let t0 = 0;
+        for (const [k, len, ax, dir] of [['t', W, 'X', 1], ['r', H, 'Y', 1], ['b', W, 'X', -1], ['l', H, 'Y', -1]]) {
+            const d = total * len / per;
+            const from = dir > 0 ? -L : len, to = dir > 0 ? len : -L;
+            laps[k].animate(
+                [{ opacity: 1, transform: `translate${ax}(${from}px)` }, { opacity: 1, transform: `translate${ax}(${to}px)` }],
+                { duration: d, delay: t0 });
+            t0 += d;
+        }
     }
 
-    window.addEventListener('resize', frameSize);
-    frameSize();
+    window.addEventListener('resize', () => { qr = null; });
 
     /* ---------- ドパレベル（つねに 出ている もの） ---------- */
     function setLevel(n) {
         level = n;
         for (let i = 1; i <= 8; i++) body.classList.toggle('lv' + i, i <= n);
-        frameFlow();
-        P.setAmbient(n >= 8 ? 'rainbow' : n >= 7 ? 'gold' : null);
+        applyMode();
         S.bgmLevel(n);
     }
 
-    /* ---------- ゆれ ---------- */
+    /* ---------- ゆれ（transform だけ。ひかえめ では 出さない） ---------- */
+    const SHAKE = {
+        s: [250, [[4, -3], [-4, 3], [3, 2]]],
+        m: [350, [[9, -6], [-9, 5], [7, 4], [-5, -3]]],
+        l: [600, [[18, -12], [-18, 10], [14, 8], [-12, -8], [8, 5], [-4, -3]]],
+    };
     function shake(size) {
-        if (calm()) return;
+        if (calm() || (Q.tier >= 2 && size !== 'l') || !stage.animate) return;
         /* 大きな ゆれ（問題ごと）は タイマーが とまっている 虹ドパの ときだけ */
-        const el = size === 'l' ? body : stage;
-        replay(el, 'shake-' + size);
-        setTimeout(() => el.classList.remove('shake-' + size), size === 'l' ? 700 : 400);
+        const [ms, pts] = SHAKE[size];
+        const frames = [{ transform: 'none' }].concat(pts.map(([x, y]) => ({ transform: `translate(${x}px,${y}px)` })), [{ transform: 'none' }]);
+        (size === 'l' ? body : stage).animate(frames, { duration: ms });
     }
 
     /* ---------- 問題の まわりの 文字（#tz） ---------- */
@@ -132,12 +163,17 @@
         spawn(tz, 'tz-combo', String(n), 600);
     }
 
-    /* ---------- 答えの 数字が 光る（入力欄の 上に 0.45びょう） ---------- */
+    /* ---------- 答えの 数字が 光る（入力欄の 上に 0.35びょう） ---------- */
+    let echoAnim = null;
     function echo(ans, lv) {
+        if (!echoEl.animate) return;
         echoEl.textContent = ans;
-        echoEl.className = 'echo';
-        void echoEl.offsetWidth;
-        echoEl.className = 'echo show' + (lv >= 1 ? ' bounce' : '');
+        if (echoAnim) echoAnim.cancel();
+        echoAnim = echoEl.animate(lv >= 1
+            ? [{ opacity: 1, transform: 'scale(.7)' }, { opacity: 1, transform: 'scale(1.18)', offset: 0.3 },
+                { opacity: 1, transform: 'scale(.96)', offset: 0.55 }, { opacity: 0, transform: 'scale(1)' }]
+            : [{ opacity: 1 }, { opacity: 1, offset: 0.55 }, { opacity: 0, transform: 'scale(1.06)' }],
+        { duration: lv >= 1 ? 380 : 350, easing: 'ease-out' });
     }
 
     /* =====================================================================
@@ -158,7 +194,7 @@
         const lv = e.level, r = qRect(), cx = r.left + r.width / 2;
         if (lv >= 1) {
             P.stars({ x: cx, y: r.top + r.height * 0.35, r: r.width * 0.5, count: 5 });
-            replay(qwrap, 'pulse');
+            if (ring.animate) ring.animate([{ opacity: 0.95, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(1.07)' }], { duration: 500, easing: 'ease-out' });
         }
         if (lv >= 2) {
             P.confetti({ x: cx, y: r.top + 8, count: 30, spread: r.width * 0.42, gold: lv >= 7 });
@@ -168,13 +204,15 @@
             shake('s');
             comboPop(e.combo);
         }
-        if (lv >= 4) {
+        if (lv >= 4 && Q.tier < 2) {
             spawn(fxl, 'beam bl', null, 750);
             spawn(fxl, 'beam br', null, 750);
-            const shots = lv >= 6 ? 3 : 1;
+        }
+        if (lv >= 4) {
+            const shots = lv >= 6 && Q.tier === 0 ? 3 : 1;
             for (let i = 0; i < shots; i++) later(() => P.firework({ gold: lv >= 7 && i === 1 }), i * 110);
         }
-        if (lv >= 6) spawn(fxl, 'corners', '<i></i><i></i><i></i><i></i>', 650);
+        if (lv >= 6 && Q.tier < 2) spawn(fxl, 'corners', '<i></i><i></i><i></i><i></i>', 650);
     }
 
     function words(e) {
@@ -244,34 +282,43 @@
        できごとを うけとる
        ===================================================================== */
     D.bus.on('correct', e => {
-        echo(e.answer, e.level);
-        sound(e);
-        burst(e);
-        words(e);
-        if (e.kakutei === 'niji') niji();
-        else if (e.kakutei === 'hyaku') hyaku();
-        else if (e.kakutei === 'kakutei') kakutei(e);
+        sound(e);                                      /* 音は すぐ（できている 音を 流すだけ なので かるい） */
+        afterPaint(() => {
+            echo(e.answer, e.level);
+            burst(e);
+            words(e);
+            if (e.kakutei === 'niji') niji();
+            else if (e.kakutei === 'hyaku') hyaku();
+            else if (e.kakutei === 'kakutei') kakutei(e);
+        });
     });
 
     D.bus.on('level', e => {
         if (e.level === 8 && e.prev < 8) return;       /* 虹ドパの「ため」の あとで かわる（niji） */
-        setLevel(e.level);
-        if (e.level === 5 && e.prev < 5) dopaTime();
+        afterPaint(() => {
+            setLevel(e.level);
+            if (e.level === 5 && e.prev < 5) dopaTime();
+        });
     });
 
-    D.bus.on('input', () => { echoEl.className = 'echo'; });
+    D.bus.on('input', () => { if (echoAnim) { echoAnim.cancel(); echoAnim = null; } });
 
     D.bus.on('countdown', e => S.count(e.final));
 
-    D.bus.on('start', () => {
+    D.bus.on('question', e => { if (e.index === 1) watch(true); });
+
+    function reset() {
+        gen++;
         clearTimers();
+        watch(false);
         body.classList.remove('over', 'newrec', 'tame');
         tz.innerHTML = '';
         fxl.innerHTML = '';
         P.clear();
-        applyMode();
         setLevel(0);
-    });
+    }
+
+    D.bus.on('start', () => { reset(); qr = null; qRect(); });
 
     /* ゲームオーバー：BGM が とまり 0.3びょう スロー → 灰色 → ポン → （新記録なら 虹色に もどる） */
     function slow(rate) {
@@ -281,7 +328,9 @@
         }
     }
     D.bus.on('gameover', () => {
+        gen++;
         clearTimers();
+        watch(false);
         S.bgmStop();
         P.setTimeScale(0.2);
         slow(0.2);
@@ -308,23 +357,14 @@
         }, 1300);
     });
 
-    D.bus.on('quit', () => {
-        clearTimers();
-        P.clear();
-        setLevel(0);
-    });
+    D.bus.on('quit', reset);
 
     D.bus.on('screen', e => {
         if (e.id === 'play' || e.id === 'over') return;
-        clearTimers();
-        body.classList.remove('over', 'newrec', 'tame');
-        tz.innerHTML = '';
-        fxl.innerHTML = '';
-        P.clear();
-        setLevel(0);
+        reset();
     });
 
-    D.bus.on('settings', () => { applyMode(); frameFlow(); });
+    D.bus.on('settings', applyMode);
 
     applyMode();
 })();
