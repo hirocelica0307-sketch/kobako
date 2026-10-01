@@ -55,6 +55,12 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 .btn:hover { filter: brightness(.96); }
 .btn-print { background: var(--accent); color: #fff; font-size: 16px; }
 .hint { font-size: 12px !important; }
+.kopts { flex-basis: 100%; display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; background: var(--accent-l); border-radius: 12px; }
+.krow { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: flex-end; }
+.klab { font-size: 12px; font-weight: 700; color: var(--sub); align-self: center; margin-right: 2px; }
+.kitems .check { padding: 4px 10px; background: #fff; border-radius: 999px; font-size: 13.5px; }
+.chip { font: 700 13px var(--ui-font); border: 2px solid var(--accent); color: #8a3510; background: #fff; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.chip:hover { background: var(--accent); color: #fff; }
 [hidden] { display: none !important; }
 
 .preview-wrap { display: flex; justify-content: center; }
@@ -113,6 +119,27 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
         </label>
         <label class="check"><input type="checkbox" id="optRuby" checked> ふりがな</label>
         <label class="check"><input type="checkbox" id="optWobble" checked> 手がき ふうの 線</label>
+        <div class="kopts" id="kakariOpts" hidden>
+          <div class="krow">
+            <label class="field">デザイン <select id="kTheme"></select></label>
+            <label class="field">メンバーの 人数 <select id="kMem"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+            <label class="field" id="kTobanWrap">当番表の かたち <select id="kToban"></select></label>
+            <label class="field">係名（いんさつ） <input id="kName" maxlength="10" placeholder="空らん"></label>
+          </div>
+          <div class="krow kitems" id="kItems"><span class="klab">のせる こうもく</span></div>
+          <div class="krow kpresets"><span class="klab">おすすめ</span>
+            <button type="button" class="chip" data-preset="full">当番表あり</button>
+            <button type="button" class="chip" data-preset="notoban">当番表なし（マークつき）</button>
+            <button type="button" class="chip" data-preset="simple">シンプル（3こうもく）</button>
+            <button type="button" class="chip" data-preset="all">ぜんぶ</button>
+          </div>
+        </div>
+        <div class="kopts" id="ichiranOpts" hidden>
+          <div class="krow">
+            <label class="field">係の 数（行） <select id="iRows"><option>6</option><option>8</option><option>10</option><option>12</option><option>14</option></select></label>
+            <label class="field">メンバーの らん <select id="iCols"><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+          </div>
+        </div>
       </form>
       <div class="actions">
         <label class="field">まいすう
@@ -148,7 +175,11 @@ const F_L = "'Zen Maru Gothic','Hiragino Maru Gothic ProN',sans-serif"; // ラ�
 const F_H = "'Klee One','Zen Maru Gothic',sans-serif";          // 手書きふう（学年・組）
 const SW = 0.7;
 
-const S = { nen: '', kumi: '', term: '', ruby: true, wobble: true, cur: 'jiko' };
+const S = {
+  nen: '', kumi: '', term: '', ruby: true, wobble: true, cur: 'jiko',
+  kk: { theme: 'shop', items: { member: 1, meate: 1, work: 1, toban: 1, mark: 0, minna: 1, furi: 0 }, mem: 4, toban: 'youbi', name: '' },
+  ichiran: { rows: 10, cols: 4 },
+};
 
 /* ---------- きほんの 部品 ---------- */
 const n = v => +(+v).toFixed(2);
@@ -879,6 +910,334 @@ function cardShoujou() {
   return wrap(d, t);
 }
 
+/* =========================================================
+   9. 係カード（入れたい こうもくに チェック → くみたて）
+   ========================================================= */
+const K_ITEMS = [
+  { k: 'member', lab: 'メンバー', ui: 'メンバー' },
+  { k: 'meate', lab: 'めあて', ui: 'めあて' },
+  { k: 'work', lab: '{仕事|しごと} {内容|ないよう}', ui: '仕事内容' },
+  { k: 'toban', lab: '{当番表|とうばんひょう}', ui: '当番表' },
+  { k: 'mark', lab: '{係|かかり}の マーク', ui: '係の マーク（絵）' },
+  { k: 'minna', lab: 'クラスの みんなへ', ui: 'クラスの みんなへ' },
+  { k: 'furi', lab: 'ふりかえり', ui: 'ふりかえり（星を ぬる）' },
+];
+const K_THEMES = [
+  { k: 'shop', lab: 'おみせ（やね と かんばん）' },
+  { k: 'company', lab: 'かかり カンパニー（ビル）' },
+  { k: 'train', lab: 'でんしゃ' },
+  { k: 'space', lab: 'うちゅう（ロケット）' },
+  { k: 'board', lab: 'こくばん' },
+];
+const K_TOBAN = [
+  { k: 'youbi', lab: '曜日ごと（月〜金）' },
+  { k: 'week', lab: '週ごと（1〜4しゅうめ）' },
+  { k: 'check', lab: 'できたら ○（4しゅう×5日）' },
+];
+const K_PRESETS = {
+  full: { member: 1, meate: 1, work: 1, toban: 1, mark: 0, minna: 1, furi: 0 },
+  notoban: { member: 1, meate: 1, work: 1, toban: 0, mark: 1, minna: 1, furi: 0 },
+  simple: { member: 1, meate: 1, work: 1, toban: 0, mark: 0, minna: 0, furi: 0 },
+  all: { member: 1, meate: 1, work: 1, toban: 1, mark: 1, minna: 1, furi: 1 },
+};
+
+// 係名の らん（線 ＋ 大きな「係」）
+function kakariName(x1, x2, y, sz = 15) {
+  let t = '';
+  t += L(x1, y + 1.5, x2, y + 1.5, 0.6);
+  if (S.kk.name) t += T((x1 + x2) / 2, y - 0.5, S.kk.name, { size: 10, font: F_H, weight: 600, anchor: 'middle' });
+  t += R(x2 + 2, y + 1, '{係|かかり}', { size: sz, font: F_T, hollow: true, rsize: 2.6 });
+  return t;
+}
+
+/* --- テーマごとの あたま（y 10〜70 くらい） --- */
+const K_HEAD = {
+  shop() {
+    let d = '', t = '';
+    // ひさし
+    d += RR(14, 12, 182, 16, 1, { w: 0.9 });
+    for (let i = 0; i < 14; i++) {
+      const x = 14 + i * 13;
+      d += P(`M${x},28 a6.5,6.5 0 0 0 13,0`, { w: 0.8, fill: i % 2 ? 'HATCH' : '#fff' });
+      if (i) d += L(x, 12, x, 28, 0.6);
+    }
+    for (let i = 0; i < 14; i += 2) d += RR(14 + i * 13 + 0.6, 12.6, 11.8, 14.8, 0, { w: 0, fill: 'HATCH' });
+    d += RR(14, 12, 182, 16, 1, { w: 0.9, fill: 'none' });
+    // かんばん
+    d += L(56, 35, 56, 41, 0.6) + L(154, 35, 154, 41, 0.6);
+    d += RR(40, 40, 130, 27, 4, { w: 1 });
+    d += RR(42.5, 42.5, 125, 22, 2.5, { w: 0.35, fill: 'none', dash: '0.9 0.9' });
+    t += kakariName(50, 134, 60);
+    // うえきばち
+    for (const x of [24, 186]) {
+      d += P(`M${x - 6},58 L${x + 6},58 L${x + 4.5},67 L${x - 4.5},67 Z`, { w: 0.7 });
+      d += E(x, 52, 4, 5.5, { w: 0.6, tf: `rotate(-25 ${x} 52)` }) + E(x, 52, 4, 5.5, { w: 0.6, tf: `rotate(25 ${x} 52)` });
+      d += L(x, 58, x, 50, 0.6);
+    }
+    return { d, t, top: 76 };
+  },
+  company() {
+    let d = '', t = '';
+    d += L(12, 66, 198, 66, 0.8);
+    for (const x of [20, 190]) d += L(x, 66, x, 56, 0.8) + C(x, 50, 7, { w: 0.7 }) + C(x - 3, 48, 2.5, { fill: 'none', w: 0.35 });
+    d += RR(32, 14, 146, 52, 1, { w: 1 });
+    d += RR(29, 11, 152, 5, 1, { w: 0.8 });
+    for (const bx of [36, 156]) for (let r = 0; r < 3; r++) for (let c = 0; c < 2; c++) d += RR(bx + c * 9, 21 + r * 13, 7, 9, 0.8, { w: 0.55 });
+    d += RR(62, 19, 86, 31, 2, { w: 0.9 });
+    t += R(105, 27.5, '{株式会社|かぶしきがいしゃ}', { size: 3.4, anchor: 'middle', rsize: 1.6 });
+    t += kakariName(68, 128, 42, 13);
+    d += RR(95, 52, 20, 14, 1, { w: 0.7 }) + L(105, 52, 105, 66, 0.5);
+    d += C(102.5, 59, 0.6, { fill: '#000', w: 0 }) + C(107.5, 59, 0.6, { fill: '#000', w: 0 });
+    return { d, t, top: 76 };
+  },
+  train() {
+    let d = '', t = '';
+    // けむり
+    d += C(24, 15, 3.4, { w: 0.6 }) + C(31, 12.5, 4.2, { w: 0.6 }) + C(39.5, 14, 3, { w: 0.6 });
+    // きかんしゃ
+    d += RR(25, 20, 6, 9, 1, { w: 0.7 });
+    d += P('M14,56 V36 Q14,28 22,28 H40 V20 H62 V56 Z', { w: 0.9 });
+    d += RR(44, 25, 13, 12, 1.5, { w: 0.7 });
+    d += RR(10, 50, 6, 5, 1, { w: 0.6 });
+    // きゃくしゃ
+    d += L(62, 50, 66, 50, 0.9);
+    d += RR(66, 22, 130, 34, 5, { w: 0.9 });
+    d += RR(66, 22, 130, 5, 2.5, { w: 0.6 });
+    t += kakariName(80, 166, 47, 14);
+    // しゃりん と せんろ
+    for (const x of [22, 46, 80, 106, 154, 180]) d += C(x, 58.5, 4.6, { w: 0.8 }) + C(x, 58.5, 1.3, { w: 0.5 });
+    d += L(10, 63.6, 200, 63.6, 0.8);
+    for (let x = 12; x < 200; x += 8) d += RR(x, 64.2, 4, 2, 0.4, { w: 0.4 });
+    return { d, t, top: 76 };
+  },
+  space() {
+    let d = '', t = '';
+    // ロケット
+    const tf = 'translate(9 2) rotate(35 28 40)';
+    d += P('M24,58 Q28,66 32,58 Z', { w: 0.6, tf });
+    d += P('M22,48 L15,58 L22,55 Z M34,48 L41,58 L34,55 Z', { w: 0.7, tf });
+    d += P('M28,16 C36,24 37,40 34,56 H22 C19,40 20,24 28,16 Z', { w: 0.9, tf });
+    d += C(28, 34, 4.2, { w: 0.7, tf }) + L(22.6, 46, 33.4, 46, 0.5, `transform="${tf}"`);
+    // わくせい
+    d += C(180, 36, 11, { w: 0.9 });
+    d += P('M166,40 C156,46 172,46 192,34 C200,28 197,24 190,27', { fill: 'none', w: 0.8 });
+    d += P('M172,30 q4,-2 8,0 M176,42 q4,2 8,-1', { fill: 'none', w: 0.4 });
+    // ほし
+    for (const [x, y, r] of [[54, 16, 2.4], [160, 16, 2.6], [150, 62, 1.8], [60, 62, 2], [196, 60, 2.2], [104, 14, 1.6]]) d += star(x, y, r, { w: 0.5 });
+    d += sparkle(166, 54, 2.2) + sparkle(46, 30, 1.8);
+    d += RR(50, 25, 108, 30, 15, { w: 1 });
+    d += RR(53, 28, 102, 24, 12, { w: 0.35, fill: 'none', dash: '0.9 0.9' });
+    t += kakariName(64, 128, 46, 14);
+    return { d, t, top: 76 };
+  },
+  board() {
+    let d = '', t = '';
+    d += RR(14, 12, 182, 48, 2, { w: 1 });
+    d += RR(18.5, 16.5, 173, 39, 1, { w: 0.7 });
+    d += RR(22, 60, 166, 4, 1, { w: 0.7 });
+    d += RR(40, 57.6, 9, 2.4, 1, { w: 0.5 }) + RR(54, 57.6, 7, 2.4, 1, { w: 0.5 }) + RR(150, 60.5, 10, 2, 0.8, { w: 0.45 });
+    for (const [x, y] of [[26, 22], [184, 22]]) d += C(x, y, 2.6, { w: 0.6 }) + C(x - 0.7, y - 0.7, 0.7, { fill: 'none', w: 0.3 });
+    t += kakariName(44, 140, 44, 15);
+    d += sparkle(168, 32, 2.4) + star(176, 44, 2, { w: 0.5 });
+    return { d, t, top: 76 };
+  },
+};
+
+/* --- テーマごとの はこ（ラベルの つけかた） --- */
+const K_BOX = {
+  shop(x, y, w, h, lab) {
+    const lw = rtw(lab, 4, F_T) + 10;
+    return { d: RR(x, y, w, h, 3, { w: 0.9 }) + RR(x + 4, y - 4.5, lw, 9, 3, { w: 0.8 }),
+      t: R(x + 9, y + 1.9, lab, { size: 4, font: F_T, rsize: 1.6 }), top: y + 8 };
+  },
+  company(x, y, w, h, lab) {
+    return { d: RR(x, y, w, h, 1.5, { w: 0.9 }) + RR(x, y, w, 9.5, 1.5, { w: 0.9 }) + RR(x + 3, y + 2.8, 4, 4, 0.5, { w: 0.5, fill: 'HATCH' }),
+      t: R(x + 10, y + 7, lab, { size: 4, font: F_T, rsize: 1.5 }), top: y + 11 };
+  },
+  train(x, y, w, h, lab) {
+    const lw = rtw(lab, 4, F_T) + 12;
+    let d = RR(x, y, w, h, 4, { w: 0.9 });
+    d += P(`M${x + 3},${y + 3} H${x + 3 + lw} L${x + 8 + lw},${y + 7.5} L${x + 3 + lw},${y + 12} H${x + 3} Z`, { w: 0.75 });
+    return { d, t: R(x + 8, y + 9.4, lab, { size: 4, font: F_T, rsize: 1.5 }), top: y + 14 };
+  },
+  space(x, y, w, h, lab) {
+    return { d: RR(x, y, w, h, 5, { w: 0.9 }) + star(x + 7.5, y + 7, 3.8, { w: 0.6 }),
+      t: R(x + 13.5, y + 9, lab, { size: 4, font: F_T, rsize: 1.6 }), top: y + 13 };
+  },
+  board(x, y, w, h, lab) {
+    const lw = rtw(lab, 4, F_T);
+    let d = RR(x, y, w, h, 1, { w: 0.9 });
+    d += RR(x - 3, y - 3, 14, 6, 0.5, { w: 0.4, fill: 'DOTS', tf: `rotate(-28 ${x + 4} ${y})` });
+    d += RR(x + w - 11, y - 3, 14, 6, 0.5, { w: 0.4, fill: 'DOTS', tf: `rotate(28 ${x + w - 4} ${y})` });
+    d += L(x + 6, y + 11, x + 8 + lw, y + 11, 0.8);
+    return { d, t: R(x + 7, y + 9.4, lab, { size: 4, font: F_T, rsize: 1.6 }), top: y + 15 };
+  },
+};
+
+/* --- こうもくの なかみ（ラベルの 下の 場所に かく） --- */
+function kLines(x1, x2, y0, y1, gap = 9.5) {
+  let s = '';
+  for (let y = y0 + 7.5; y <= y1 - 3; y += gap) s += dotL(x1, x2, y);
+  return s;
+}
+const K_FILL = {
+  member(x, y, w, b) {
+    const k = S.kk.mem, cols = k <= 4 ? k : 3, cw2 = (w - 8) / cols;
+    let d = '', t = '';
+    for (let i = 0; i < k; i++) {
+      const cx = x + 4 + (i % cols) * cw2, cy = y + 7 + Math.floor(i / cols) * 13;
+      d += faceCircle(cx + 5.5, cy, 4.6);
+      t += dotL(cx + 12, cx + cw2 - 3, cy + 3);
+    }
+    return { d, t };
+  },
+  meate(x, y, w, b) { return { d: '', t: kLines(x + 5, x + w - 5, y, b) }; },
+  minna(x, y, w, b) { return { d: '', t: kLines(x + 5, x + w - 5, y, b) }; },
+  work(x, y, w, b) {
+    let d = '', t = '', i = 0;
+    for (let yy = y + 7.5; yy <= b - 3; yy += 9.5) {
+      d += C(x + 7, yy - 1.6, 2.4, { w: 0.5 });
+      t += T(x + 7, yy - 0.5, String(++i), { size: 2.8, anchor: 'middle', font: F_T });
+      t += dotL(x + 11.5, x + w - 5, yy);
+    }
+    return { d, t };
+  },
+  mark(x, y, w, b) {
+    const r = Math.min(w - 12, b - y - 10) / 2;
+    return { d: C(x + w / 2, y + (b - y - 5) / 2, r, { fill: 'none', w: 0.6, dash: '1.8 1.4' }),
+      t: T(x + w / 2, b - 2.5, 'マークを かこう', { size: 2.6, anchor: 'middle' }) };
+  },
+  furi(x, y, w, b) {
+    let d = '', t = '';
+    t += T(x + 5, y + 6, 'できた ど', { size: 3.4 });
+    for (let i = 0; i < 5; i++) d += star(x + 28 + i * 9, y + 4.6, 3.8, { w: 0.55 });
+    t += kLines(x + 5, x + w - 5, y + 4, b);
+    return { d, t };
+  },
+  toban(x, y, w, b) {
+    let d = '', t = '';
+    const x1 = x + 4, x2 = x + w - 4, y1 = y + 2, y2 = b - 3;
+    const days = ['{月|げつ}', '{火|か}', '{水|すい}', '{木|もく}', '{金|きん}'];
+    if (S.kk.toban === 'check') {
+      const lc = 14, cw3 = (x2 - x1 - lc) / 5, rh = (y2 - y1) / 5;
+      d += RR(x1, y1, x2 - x1, y2 - y1, 1, { w: 0.7 });
+      for (let i = 1; i < 5; i++) d += L(x1, y1 + i * rh, x2, y1 + i * rh, i === 1 ? 0.6 : 0.4);
+      d += L(x1 + lc, y1, x1 + lc, y2, 0.6);
+      for (let j = 1; j < 5; j++) d += L(x1 + lc + j * cw3, y1, x1 + lc + j * cw3, y2, 0.4);
+      days.forEach((dd, j) => { t += R(x1 + lc + (j + 0.5) * cw3, y1 + rh / 2 + 1.4, dd, { size: 3.4, anchor: 'middle', rsize: 1.4 }); });
+      for (let i = 1; i < 5; i++) t += T(x1 + lc / 2, y1 + (i + 0.5) * rh + 1.2, `${i}しゅう`, { size: 2.7, anchor: 'middle' });
+      t += T(x2, b + 0.2, 'できたら ○を かこう', { size: 2.4, anchor: 'end' });
+      return { d, t };
+    }
+    const rows = S.kk.toban === 'week' ? ['1しゅうめ', '2しゅうめ', '3しゅうめ', '4しゅうめ'] : days;
+    const lc = S.kk.toban === 'week' ? 17 : 10;
+    const rh = (y2 - y1) / (rows.length + 1);
+    d += RR(x1, y1, x2 - x1, y2 - y1, 1, { w: 0.7 });
+    for (let i = 1; i <= rows.length; i++) d += L(x1, y1 + i * rh, x2, y1 + i * rh, i === 1 ? 0.6 : 0.4);
+    d += L(x1 + lc, y1, x1 + lc, y2, 0.6);
+    t += T(x1 + lc + (x2 - x1 - lc) / 2, y1 + rh / 2 + 1.3, 'なまえ', { size: 3.2, anchor: 'middle' });
+    rows.forEach((r, i) => {
+      const yy = y1 + (i + 1.5) * rh + 1.3;
+      t += r.includes('{') ? R(x1 + lc / 2, yy, r, { size: 3.4, anchor: 'middle', rsize: 1.4 }) : T(x1 + lc / 2, yy, r, { size: 2.8, anchor: 'middle' });
+    });
+    return { d, t };
+  },
+};
+
+function kMin(k) {
+  if (k === 'member') { const rows = Math.ceil(S.kk.mem / (S.kk.mem <= 4 ? S.kk.mem : 3)); return 15 + rows * 13; }
+  return { meate: 26, work: 34, toban: S.kk.toban === 'check' ? 46 : 52, mark: 44, minna: 26, furi: 38 }[k];
+}
+const K_WEIGHT = { member: 0, meate: 1, work: 2, toban: 1.2, mark: 1, minna: 1, furi: 0.7 };
+
+function cardKakari() {
+  let d = '', t = '';
+  const th = S.kk.theme in K_HEAD ? S.kk.theme : 'shop';
+  d += RR(8, 8, 194, 281, 5, { w: 1 });
+  const head = K_HEAD[th]();
+  d += head.d; t += head.t;
+  const on = k => !!S.kk.items[k];
+  // ならべかた
+  const rows = [];
+  if (on('member')) rows.push(['member']);
+  if (on('meate')) rows.push(['meate']);
+  if (on('work') && on('toban')) rows.push(['work', 'toban']); else if (on('work')) rows.push(['work']); else if (on('toban')) rows.push(['toban']);
+  if (on('mark') && on('minna')) rows.push(['mark', 'minna']); else if (on('mark')) rows.push(['mark']); else if (on('minna')) rows.push(['minna']);
+  if (on('furi')) rows.push(['furi']);
+  if (!rows.length) {
+    t += T(105, 160, 'のせたい こうもくに チェックを いれてね', { size: 5, anchor: 'middle' });
+    return wrap(d, t);
+  }
+  const X0 = 16, W = 178, BOTTOM = 284, GAP = 8;
+  const top = head.top;
+  const mins = rows.map(r => Math.max(...r.map(kMin)));
+  const wts = rows.map(r => Math.max(...r.map(k => K_WEIGHT[k])));
+  const avail = BOTTOM - top - GAP * (rows.length - 1);
+  const extra = Math.max(0, avail - mins.reduce((a, b) => a + b, 0));
+  const wsum = wts.reduce((a, b) => a + b, 0) || 1;
+  let y = top;
+  rows.forEach((r, i) => {
+    const h = mins[i] + extra * wts[i] / wsum;
+    const ratio = r[0] === 'mark' ? 0.36 : 0.56;
+    const parts = r.length === 1 ? [[X0, W]] : [[X0, W * ratio - 3], [X0 + W * ratio + 3, W * (1 - ratio) - 3]];
+    r.forEach((k, j) => {
+      const [bx, bw] = parts[j];
+      const item = K_ITEMS.find(it => it.k === k);
+      const box = K_BOX[th](bx, y, bw, h, item.lab);
+      d += box.d; t += box.t;
+      const f = K_FILL[k](bx, box.top, bw, y + h);
+      d += f.d; t += f.t;
+    });
+    y += h + GAP;
+  });
+  return wrap(d, t);
+}
+
+/* =========================================================
+   10. みんなの かかり（クラスの 係 いちらん表）
+   ========================================================= */
+function cardIchiran() {
+  let d = '', t = '';
+  d += RR(8, 8, 194, 281, 5, { w: 1 });
+  // はた
+  d += L(12, 13, 198, 13, 0.6);
+  for (let i = 0; i < 16; i++) {
+    const x = 15 + i * 11.6;
+    d += POLY([[x, 13], [x + 9, 13], [x + 4.5, 21]], { w: 0.55 });
+  }
+  // えんぴつ と けしゴム
+  d += P('M18,40 L44,34 L46,40 L20,46 Z', { w: 0.7 }) + P('M44,34 L52,35.5 L46,40 Z', { w: 0.6 }) + P('M50.2,35.2 L52,35.5 L50.6,36.8 Z', { fill: '#000', w: 0.3 });
+  d += RR(160, 32, 16, 9, 1.5, { w: 0.7, tf: 'rotate(-12 168 36)' }) + L(166, 31.6, 167.8, 40.4, 0.5, 'transform="rotate(-12 168 36)"');
+  d += star(186, 30, 2.6, { w: 0.5 }) + sparkle(192, 42, 2) + sparkle(58, 28, 2);
+  t += T(105, 40, 'みんなの かかり', { size: 13, font: F_T, hollow: true, anchor: 'middle' });
+  // 年 組
+  let cx = 74;
+  for (const [lab, val] of [['{年|ねん}', S.nen], ['{組|くみ}', S.kumi]]) {
+    t += L(cx, 53.2, cx + 14, 53.2, 0.4);
+    if (val) t += T(cx + 7, 51.8, val, { size: 5, anchor: 'middle', font: F_H, weight: 600 });
+    t += R(cx + 15, 52, lab, { size: 4 });
+    cx += 34;
+  }
+  // ひょう
+  const x1 = 14, x2 = 196, y1 = 58, y2 = 284, hh = 9;
+  const nRow = S.ichiran.rows, nCol = S.ichiran.cols, lc = 52;
+  const rh = (y2 - y1 - hh) / nRow, cw4 = (x2 - x1 - lc) / nCol;
+  d += RR(x1, y1, x2 - x1, y2 - y1, 1.5, { w: 0.9 });
+  d += L(x1, y1 + hh, x2, y1 + hh, 0.7);
+  d += L(x1 + lc, y1, x1 + lc, y2, 0.7);
+  for (let j = 1; j < nCol; j++) d += L(x1 + lc + j * cw4, y1 + hh, x1 + lc + j * cw4, y2, 0.35, 'stroke-dasharray="1 1"');
+  t += R(x1 + lc / 2, y1 + 6.4, '{係|かかり}の なまえ', { size: 3.6, anchor: 'middle', font: F_T, rsize: 1.5 });
+  t += T(x1 + lc + (x2 - x1 - lc) / 2, y1 + 6.4, 'メンバー', { size: 3.6, anchor: 'middle', font: F_T });
+  for (let i = 0; i < nRow; i++) {
+    const ry = y1 + hh + i * rh;
+    if (i) d += L(x1, ry, x2, ry, 0.5);
+    const mr = Math.min(5, rh / 2 - 2);
+    d += C(x1 + 4 + mr, ry + rh / 2, mr, { fill: 'none', w: 0.45, dash: '1 1' });
+    t += R(x1 + lc - 2, ry + rh - 2, '（　　{人|にん}）', { size: 2.6, anchor: 'end', rsize: 1.2 });
+  }
+  return wrap(d, t);
+}
+
 /* ---------- カード いちらん ---------- */
 const CARDS = [
   { id: 'jiko', title: 'じぶん ずかん', when: '新学期の はじめ', draw: cardJiko,
@@ -897,6 +1256,10 @@ const CARDS = [
     desc: 'フィルムの 3コマに 1〜3学期の いちばんの おもいでを かきます。できるように なった こと ベスト3 と、つぎの 学年で やってみたい こと。' },
   { id: 'shoujou', title: 'じぶんに しょうじょう', when: '各学期の おわり', draw: cardShoujou,
     desc: 'がんばった じぶんに おくる しょうじょう。学期を えらぶと「第〇学期」が はいります。おうちの 人・せんせいからの ひとことらん つき。' },
+  { id: 'kakari', title: '係カード', when: '係を きめた とき', draw: cardKakari,
+    desc: 'のせたい こうもく（メンバー・めあて・仕事内容・当番表・係の マーク・クラスの みんなへ・ふりかえり）に チェックを いれると、その こうもくだけで 1まいに くみたてます。デザイン 5しゅるい・当番表 3しゅるい。' },
+  { id: 'ichiran', title: 'みんなの かかり', when: '係を きめた とき', draw: cardIchiran,
+    desc: 'クラスの 係を 1まいに まとめる いちらん表。係の なまえ・マーク・人数と メンバー。行の 数と メンバーの らんの 数を えらべます。' },
 ];
 const byId = id => CARDS.find(c => c.id === id) || CARDS[0];
 
@@ -904,10 +1267,17 @@ const byId = id => CARDS.find(c => c.id === id) || CARDS[0];
 const $ = id => document.getElementById(id);
 
 function saveOpts() {
-  try { localStorage.setItem('mokuhyou-card', JSON.stringify({ nen: S.nen, kumi: S.kumi, term: S.term, ruby: S.ruby, wobble: S.wobble, cur: S.cur })); } catch (e) { /* なくても うごく */ }
+  try { localStorage.setItem('mokuhyou-card', JSON.stringify({ nen: S.nen, kumi: S.kumi, term: S.term, ruby: S.ruby, wobble: S.wobble, cur: S.cur, kk: S.kk, ichiran: S.ichiran })); } catch (e) { /* なくても うごく */ }
 }
 function loadOpts() {
-  try { Object.assign(S, JSON.parse(localStorage.getItem('mokuhyou-card') || '{}')); } catch (e) { /* なくても うごく */ }
+  try {
+    const o = JSON.parse(localStorage.getItem('mokuhyou-card') || '{}');
+    const kk = o.kk || {}, ic = o.ichiran || {};
+    delete o.kk; delete o.ichiran;
+    Object.assign(S, o);
+    Object.assign(S.kk, kk, { items: { ...S.kk.items, ...(kk.items || {}) } });
+    Object.assign(S.ichiran, ic);
+  } catch (e) { /* なくても うごく */ }
   const h = location.hash.slice(1);
   if (h && CARDS.some(c => c.id === h)) S.cur = h;
 }
@@ -925,6 +1295,9 @@ function renderMain() {
   $('pWhen').textContent = c.when;
   $('pDesc').textContent = c.desc;
   $('termWrap').hidden = c.id !== 'shoujou';
+  $('kakariOpts').hidden = c.id !== 'kakari';
+  $('ichiranOpts').hidden = c.id !== 'ichiran';
+  $('kTobanWrap').hidden = !S.kk.items.toban;
   $('view').innerHTML = c.draw();
 }
 function renderAll() { renderList(); renderMain(); }
@@ -940,6 +1313,20 @@ function init() {
   loadOpts();
   $('optNen').value = S.nen; $('optKumi').value = S.kumi; $('optTerm').value = S.term;
   $('optRuby').checked = S.ruby; $('optWobble').checked = S.wobble;
+  $('kTheme').innerHTML = K_THEMES.map(o => `<option value="${o.k}">${esc(o.lab)}</option>`).join('');
+  $('kToban').innerHTML = K_TOBAN.map(o => `<option value="${o.k}">${esc(o.lab)}</option>`).join('');
+  $('kItems').insertAdjacentHTML('beforeend', K_ITEMS.map(it =>
+    `<label class="check"><input type="checkbox" data-item="${it.k}"> ${esc(it.ui)}</label>`).join(''));
+  const syncK = () => {
+    $('kTheme').value = S.kk.theme; $('kMem').value = String(S.kk.mem); $('kToban').value = S.kk.toban; $('kName').value = S.kk.name;
+    document.querySelectorAll('[data-item]').forEach(cb => { cb.checked = !!S.kk.items[cb.dataset.item]; });
+    $('iRows').value = String(S.ichiran.rows); $('iCols').value = String(S.ichiran.cols);
+  };
+  syncK();
+  document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => {
+    S.kk.items = { ...K_PRESETS[b.dataset.preset] };
+    syncK(); saveOpts(); renderAll();
+  }));
 
   $('list').addEventListener('click', e => {
     const b = e.target.closest('.item');
@@ -953,10 +1340,14 @@ function init() {
   const onOpt = () => {
     S.nen = $('optNen').value; S.kumi = $('optKumi').value.trim(); S.term = $('optTerm').value;
     S.ruby = $('optRuby').checked; S.wobble = $('optWobble').checked;
+    S.kk.theme = $('kTheme').value; S.kk.mem = +$('kMem').value; S.kk.toban = $('kToban').value; S.kk.name = $('kName').value.trim();
+    document.querySelectorAll('[data-item]').forEach(cb => { S.kk.items[cb.dataset.item] = cb.checked ? 1 : 0; });
+    S.ichiran.rows = +$('iRows').value; S.ichiran.cols = +$('iCols').value;
     saveOpts(); renderAll();
   };
   $('opts').addEventListener('change', onOpt);
   $('optKumi').addEventListener('input', onOpt);
+  $('kName').addEventListener('input', onOpt);
   $('btnPrint').addEventListener('click', () => {
     const k = +$('copies').value || 1;
     doPrint(Array.from({ length: k }, () => S.cur));
