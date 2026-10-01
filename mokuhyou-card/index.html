@@ -4,44 +4,49 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#f07a4a">
-<meta name="description" content="新学期の じこしょうかい・学期ごとの めあて・運動会・音楽発表会・1年の ふりかえり など、節目に 子どもが 書いて 色を ぬって 完成させる 白黒の カードを A4 で いんさつ。">
+<meta name="description" content="新学期の じこしょうかい・学期ごとの めあて・運動会・音楽発表会・1年の ふりかえり・しょうじょう・係カード など、節目に 子どもが 書いて 色を ぬって 完成させる 白黒の カード（低学年・高学年 各5しゅるい）を A4 で いんさつ。">
 <title>めあてカード こうぼう</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One:wght@600&family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@500;700&display=swap">
 <style>
 :root {
-  --bg: #fff8f1;
-  --ink: #33291f;
-  --sub: #6b5d4f;
-  --line: #eadfce;
-  --accent: #f07a4a;
-  --accent-l: #ffeadf;
+  --bg: #fff8f1; --ink: #33291f; --sub: #6b5d4f; --line: #eadfce;
+  --accent: #f07a4a; --accent-l: #ffeadf; --low: #2f9e6a; --high: #4b63c9;
   --ui-font: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Noto Sans JP", sans-serif;
   --title-font: "Mochiy Pop One", "Zen Maru Gothic", sans-serif;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
-
 .top { background: var(--accent); color: #fff; padding: 10px 18px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
 .logo { margin: 0; font-family: var(--title-font); font-size: 22px; font-weight: normal; letter-spacing: .04em; }
 .lead { margin: 0; font-size: 13px; opacity: .95; }
-
-.layout { display: grid; grid-template-columns: 300px 1fr; min-height: calc(100vh - 52px); }
+.layout { display: grid; grid-template-columns: 210px 1fr; min-height: calc(100vh - 52px); }
 .side { border-right: 1px solid var(--line); background: #fffdf9; padding: 12px; overflow-y: auto; max-height: calc(100vh - 52px); position: sticky; top: 0; }
-.list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.item { display: flex; flex-direction: column; gap: 4px; padding: 6px; border: 2px solid transparent; border-radius: 12px; background: #fff; cursor: pointer; font-family: var(--ui-font); color: var(--ink); text-align: left; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.cats { display: flex; flex-direction: column; gap: 6px; }
+.cat { display: flex; flex-direction: column; gap: 2px; text-align: left; border: 2px solid transparent; border-left: 6px solid var(--accent); background: #fff; border-radius: 10px; padding: 8px 10px; cursor: pointer; font-family: var(--ui-font); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.cat:hover { background: var(--accent-l); }
+.cat.on { border-color: var(--accent); background: var(--accent-l); }
+.cat b { font-size: 15px; }
+.cat small { font-size: 11px; color: var(--sub); font-weight: 700; }
+.main { padding: 14px 18px 40px; min-width: 0; }
+.grades { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+.gbtn { font: 700 14px var(--ui-font); border: 2px solid var(--accent); color: #8a3510; background: #fff; border-radius: 999px; padding: 5px 16px; cursor: pointer; }
+.gbtn.on { background: var(--accent); color: #fff; }
+.gnote { font-size: 12px; color: var(--sub); }
+.strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.item { display: flex; flex-direction: column; gap: 3px; padding: 6px; border: 2px solid transparent; border-radius: 12px; background: #fff; cursor: pointer; font-family: var(--ui-font); color: var(--ink); text-align: left; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 .item:hover { background: var(--accent-l); }
 .item.on { border-color: var(--accent); background: var(--accent-l); }
 .item .thumb { aspect-ratio: 210 / 297; width: 100%; background: #fff; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
 .item .thumb svg { width: 100%; height: 100%; display: block; }
-.item small { font-size: 10.5px; color: var(--accent); font-weight: 700; }
-.item b { font-size: 12.5px; line-height: 1.3; }
-
-.main { padding: 14px 18px 40px; min-width: 0; }
+.item b { font-size: 12px; line-height: 1.3; }
+.gr { align-self: flex-start; font-size: 10.5px; font-weight: 700; color: #fff; border-radius: 999px; padding: 1px 8px; }
+.gr-low { background: var(--low); } .gr-high { background: var(--high); }
+.empty { color: var(--sub); }
 .panel { background: #fff; border-radius: 16px; padding: 14px 16px; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 16px; }
-.panel h2 { margin: 0; font-size: 20px; }
+.panel h2 { margin: 0; font-size: 19px; }
 .panel .when { display: inline-block; margin-left: 8px; font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-l); border-radius: 999px; padding: 2px 10px; vertical-align: middle; }
 .panel p { margin: 4px 0 0; font-size: 13px; color: var(--sub); line-height: 1.6; }
 .opts { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: flex-end; margin: 12px 0 10px; padding: 10px 0; border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); }
@@ -55,18 +60,16 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 .btn:hover { filter: brightness(.96); }
 .btn-print { background: var(--accent); color: #fff; font-size: 16px; }
 .hint { font-size: 12px !important; }
+[hidden] { display: none !important; }
 .kopts { flex-basis: 100%; display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; background: var(--accent-l); border-radius: 12px; }
 .krow { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: flex-end; }
 .klab { font-size: 12px; font-weight: 700; color: var(--sub); align-self: center; margin-right: 2px; }
 .kitems .check { padding: 4px 10px; background: #fff; border-radius: 999px; font-size: 13.5px; }
 .chip { font: 700 13px var(--ui-font); border: 2px solid var(--accent); color: #8a3510; background: #fff; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
 .chip:hover { background: var(--accent); color: #fff; }
-[hidden] { display: none !important; }
-
 .preview-wrap { display: flex; justify-content: center; }
 .sheet-view { width: min(100%, 640px); aspect-ratio: 210 / 297; background: #fff; box-shadow: 0 4px 18px rgba(0,0,0,.14); }
 .sheet-view svg { width: 100%; height: 100%; display: block; }
-
 #print { display: none; }
 @page { size: A4 portrait; margin: 0; }
 @media print {
@@ -80,8 +83,9 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 @media (max-width: 760px) {
   .layout { grid-template-columns: 1fr; }
   .side { position: static; max-height: none; border-right: none; border-bottom: 1px solid var(--line); }
-  .list { grid-template-columns: repeat(4, 1fr); }
-  .item b { font-size: 11px; }
+  .cats { flex-direction: row; flex-wrap: wrap; }
+  .cat { flex: 1 1 140px; }
+  .strip { grid-template-columns: repeat(3, 1fr); }
 }
 </style>
 </head>
@@ -94,13 +98,20 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 
 <div class="layout">
   <aside class="side">
-    <div class="list" id="list"></div>
+    <nav class="cats" id="cats" aria-label="カテゴリ"></nav>
   </aside>
 
   <main class="main">
+    <div class="grades">
+      <button type="button" class="gbtn" data-grade="all">ぜんぶ</button>
+      <button type="button" class="gbtn" data-grade="low">低学年むけ</button>
+      <button type="button" class="gbtn" data-grade="high">高学年むけ</button>
+      <span class="gnote">低学年：ひらがな中心・大きな 文字・広い 行間・絵の 場所 多め ／ 高学年：漢字・こうもく 多め・おとなっぽい デザイン</span>
+    </div>
+    <div class="strip" id="strip"></div>
+
     <div class="panel">
       <h2><span id="pTitle"></span><span class="when" id="pWhen"></span></h2>
-      <p id="pDesc"></p>
       <form class="opts" id="opts" onsubmit="return false">
         <label class="field">学年（いんさつ）
           <select id="optNen">
@@ -117,11 +128,16 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
             <option>1</option><option>2</option><option>3</option>
           </select>
         </label>
-        <label class="check"><input type="checkbox" id="optRuby" checked> ふりがな</label>
+        <label class="field">ふりがな
+          <select id="optRuby">
+            <option value="auto">低学年むけ だけ</option>
+            <option value="on">いつも つける</option>
+            <option value="off">つけない</option>
+          </select>
+        </label>
         <label class="check"><input type="checkbox" id="optWobble" checked> 手がき ふうの 線</label>
         <div class="kopts" id="kakariOpts" hidden>
           <div class="krow">
-            <label class="field">デザイン <select id="kTheme"></select></label>
             <label class="field">メンバーの 人数 <select id="kMem"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
             <label class="field" id="kTobanWrap">当番表の かたち <select id="kToban"></select></label>
             <label class="field">係名（いんさつ） <input id="kName" maxlength="10" placeholder="空らん"></label>
@@ -148,10 +164,10 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
             <option value="10">10まい</option><option value="20">20まい</option><option value="30">30まい</option><option value="35">35まい</option><option value="40">40まい</option>
           </select>
         </label>
-        <button type="button" class="btn btn-print" id="btnPrint">🖨️ この カードを いんさつ</button>
-        <button type="button" class="btn" id="btnAll">🖨️ ぜんぶ 1まいずつ</button>
+        <button type="button" class="btn btn-print" id="btnPrint">🖨️ この デザインを いんさつ</button>
+        <button type="button" class="btn" id="btnCat"></button>
       </div>
-      <p class="hint">いんさつ がめんで <b>よはく「なし」・倍率 100%</b> に すると ぴったり A4 に なります（PDF に ほぞん しても おなじ）。「学年」を えらぶと、アルバムの「〇年生に なったら」も その 学年に なります。</p>
+      <p class="hint">いんさつ がめんで <b>よはく「なし」・倍率 100%</b> に すると ぴったり A4 に なります（PDF に ほぞん しても おなじ）。「学年」を えらぶと、なまえらんに いんさつ されます。</p>
     </div>
 
     <div class="preview-wrap">
@@ -162,1207 +178,13 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 
 <div id="print"></div>
 
-<script>
-'use strict';
-/* =========================================================
-   めあてカード こうぼう
-   1まい ＝ A4（210×297mm）。SVG の 1 単位 ＝ 1mm。
-   線は くろ・ぬりは しろ だけ（子どもが 色を ぬる）。
-   ========================================================= */
-
-const F_T = "'Mochiy Pop One','Zen Maru Gothic',sans-serif";    // タイトル
-const F_L = "'Zen Maru Gothic','Hiragino Maru Gothic ProN',sans-serif"; // ラベル
-const F_H = "'Klee One','Zen Maru Gothic',sans-serif";          // 手書きふう（学年・組）
-const SW = 0.7;
-
-const S = {
-  nen: '', kumi: '', term: '', ruby: true, wobble: true, cur: 'jiko',
-  kk: { theme: 'shop', items: { member: 1, meate: 1, work: 1, toban: 1, mark: 0, minna: 1, furi: 0 }, mem: 4, toban: 'youbi', name: '' },
-  ichiran: { rows: 10, cols: 4 },
-};
-
-/* ---------- きほんの 部品 ---------- */
-const n = v => +(+v).toFixed(2);
-const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-function T(x, y, s, o = {}) {
-  const sz = o.size || 4;
-  let a = `x="${n(x)}" y="${n(y)}" font-size="${sz}" font-family="${o.font || F_L}" font-weight="${o.weight || 700}"`;
-  if (o.anchor && o.anchor !== 'start') a += ` text-anchor="${o.anchor}"`;
-  if (o.hollow) a += ` fill="#fff" stroke="#000" stroke-width="${n(sz * 0.05)}" stroke-linejoin="round"`;
-  if (o.rot) a += ` transform="rotate(${o.rot} ${n(x)} ${n(y)})"`;
-  if (o.ls) a += ` letter-spacing="${o.ls}"`;
-  return `<text ${a}>${esc(String(s).replace(/ /g, '\u00a0'))}</text>`;
-}
-// 文字の はば。ブラウザで じっさいに はかる（はかれない ときは 全角＝1em で みつもる）
-const MC = new Map();
-let CV = null;
-try { CV = document.createElement('canvas').getContext('2d'); } catch (e) { CV = null; }
-function cw(ch, sz) {
-  if (ch === ' ') return sz * 0.3;
-  if (/[\x21-\x7e]/.test(ch)) return sz * 0.62;
-  return sz;
-}
-function tw(str, sz, font = F_L, weight = 700) {
-  str = String(str).replace(/ /g, '\u00a0');
-  if (!CV) return [...str].reduce((a, c) => a + cw(c === '\u00a0' ? ' ' : c, sz), 0);
-  const key = weight + '|' + font + '|' + str;
-  if (!MC.has(key)) { CV.font = `${weight} 100px ${font}`; MC.set(key, CV.measureText(str).width / 100); }
-  return MC.get(key) * sz;
-}
-const plain = src => src.replace(/\{([^|}]+)\|[^}]+\}/g, '$1');
-const rtw = (src, sz, font = F_L, weight = 700) => tw(plain(src), sz, font, weight);
-// ふりがな つき 文字。 '{学期|がっき}の めあて'
-function R(x, y, src, o = {}) {
-  const sz = o.size || 4;
-  const segs = [];
-  src.replace(/\{([^|}]+)\|([^}]+)\}|([^{]+)/g, (m, b, k, p) => { segs.push(b ? { t: b, k } : { t: p }); return m; });
-  const font = o.font || F_L, wt = o.weight || 700;
-  const total = segs.reduce((a, s) => a + tw(s.t, sz, font, wt), 0);
-  let cx = o.anchor === 'middle' ? x - total / 2 : o.anchor === 'end' ? x - total : x;
-  let out = '';
-  for (const s of segs) {
-    const w = tw(s.t, sz, font, wt);
-    out += T(cx, y, s.t, { ...o, anchor: 'start' });
-    if (s.k && S.ruby) {
-      const ks = o.rsize || Math.max(1.6, sz * 0.4);
-      out += T(cx + w / 2, y - sz * (o.hollow ? 0.98 : 0.9), s.k, { size: ks, anchor: 'middle', font: F_L, weight: 700 });
-    }
-    cx += w;
-  }
-  return out;
-}
-
-function attrs(o, defFill = '#fff') {
-  let a = ` fill="${o.fill || defFill}" stroke="${o.stroke || '#000'}" stroke-width="${o.w ?? SW}" stroke-linejoin="round" stroke-linecap="round"`;
-  if (o.dash) a += ` stroke-dasharray="${o.dash}"`;
-  if (o.tf) a += ` transform="${o.tf}"`;
-  return a;
-}
-const P = (d, o = {}) => `<path d="${d}"${attrs(o)}/>`;
-const C = (cx, cy, r, o = {}) => `<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(r)}"${attrs(o)}/>`;
-const E = (cx, cy, rx, ry, o = {}) => `<ellipse cx="${n(cx)}" cy="${n(cy)}" rx="${n(rx)}" ry="${n(ry)}"${attrs(o)}/>`;
-const RR = (x, y, w, h, r, o = {}) => `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" rx="${n(r)}"${attrs(o)}/>`;
-const L = (x1, y1, x2, y2, w = SW, extra = '') => `<line x1="${n(x1)}" y1="${n(y1)}" x2="${n(x2)}" y2="${n(y2)}" stroke="#000" stroke-width="${w}" stroke-linecap="round"${extra ? ' ' + extra : ''}/>`;
-const POLY = (pts, o = {}) => `<polygon points="${pts.map(p => n(p[0]) + ',' + n(p[1])).join(' ')}"${attrs(o)}/>`;
-// 書く 線（点線）
-const dotL = (x1, x2, y) => L(x1, y, x2, y, 0.5, 'stroke-dasharray="0.01 1.5"');
-const wlines = (x1, x2, y0, count, gap) => { let s = ''; for (let i = 0; i < count; i++) s += dotL(x1, x2, y0 + i * gap); return s; };
-
-/* ---------- かざり ---------- */
-function starPts(cx, cy, r, ri = r * 0.45, k = 5, rot = -90) {
-  const pts = [];
-  for (let i = 0; i < k * 2; i++) {
-    const rr = i % 2 ? ri : r, a = (rot + i * 180 / k) * Math.PI / 180;
-    pts.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a)]);
-  }
-  return pts;
-}
-const star = (cx, cy, r, o = {}) => POLY(starPts(cx, cy, r, o.ri || r * 0.45), o);
-const sparkle = (cx, cy, r, o = {}) =>
-  P(`M${n(cx)},${n(cy - r)} Q${n(cx)},${n(cy)} ${n(cx + r)},${n(cy)} Q${n(cx)},${n(cy)} ${n(cx)},${n(cy + r)} Q${n(cx)},${n(cy)} ${n(cx - r)},${n(cy)} Q${n(cx)},${n(cy)} ${n(cx)},${n(cy - r)} Z`, { w: 0.5, ...o });
-const heart = (cx, cy, s, o = {}) =>
-  P(`M${n(cx)},${n(cy + s * 0.9)} C${n(cx - s * 1.4)},${n(cy)} ${n(cx - s * 0.9)},${n(cy - s * 1.1)} ${n(cx)},${n(cy - s * 0.35)} C${n(cx + s * 0.9)},${n(cy - s * 1.1)} ${n(cx + s * 1.4)},${n(cy)} ${n(cx)},${n(cy + s * 0.9)} Z`, { w: 0.5, ...o });
-function note(x, y, s = 1, double = false) {
-  // 8分音符（たま は くろ）
-  let d = E(x, y, 1.7 * s, 1.15 * s, { fill: '#000', w: 0.3, tf: `rotate(-22 ${n(x)} ${n(y)})` });
-  const sx = x + 1.5 * s;
-  d += L(sx, y, sx, y - 8 * s, 0.5);
-  if (double) {
-    const x2 = sx + 5 * s;
-    d += E(x2 - 1.5 * s, y - 1 * s, 1.7 * s, 1.15 * s, { fill: '#000', w: 0.3, tf: `rotate(-22 ${n(x2 - 1.5 * s)} ${n(y - s)})` });
-    d += L(x2, y - s, x2, y - 9 * s, 0.5);
-    d += P(`M${n(sx)},${n(y - 8 * s)} L${n(x2)},${n(y - 9 * s)} L${n(x2)},${n(y - 7.6 * s)} L${n(sx)},${n(y - 6.6 * s)} Z`, { fill: '#000', w: 0.3 });
-  } else {
-    d += P(`M${n(sx)},${n(y - 8 * s)} q${n(3 * s)},${n(2 * s)} ${n(2.6 * s)},${n(5 * s)}`, { fill: 'none', w: 0.5 });
-  }
-  return d;
-}
-function snow(cx, cy, r) {
-  let d = '';
-  for (let i = 0; i < 6; i++) {
-    const a = i * Math.PI / 3, ex = cx + r * Math.cos(a), ey = cy + r * Math.sin(a);
-    d += L(cx, cy, ex, ey, 0.5);
-    const mx = cx + r * 0.55 * Math.cos(a), my = cy + r * 0.55 * Math.sin(a);
-    for (const sgn of [-1, 1]) {
-      const b = a + sgn * 0.7;
-      d += L(mx, my, mx + r * 0.32 * Math.cos(b), my + r * 0.32 * Math.sin(b), 0.45);
-    }
-  }
-  return d;
-}
-function ume(cx, cy, r) {
-  let d = '';
-  for (let i = 0; i < 5; i++) {
-    const a = (-90 + i * 72) * Math.PI / 180;
-    d += C(cx + r * 0.62 * Math.cos(a), cy + r * 0.62 * Math.sin(a), r * 0.5, { w: 0.5 });
-  }
-  d += C(cx, cy, r * 0.3, { w: 0.5 });
-  for (let i = 0; i < 5; i++) {
-    const a = (-54 + i * 72) * Math.PI / 180;
-    d += L(cx, cy, cx + r * 0.55 * Math.cos(a), cy + r * 0.55 * Math.sin(a), 0.35);
-  }
-  return d;
-}
-// さくらの はなびら（ねもと が 0,0、さきが うえ。ながさ およそ 90）
-const PETAL = 'M0,-14 C-14,-22 -34,-48 -26,-72 C-22,-84 -10,-90 -4,-86 L0,-79 L4,-86 C10,-90 22,-84 26,-72 C34,-48 14,-22 0,-14 Z';
-const petal = (x, y, s, rot) => P(PETAL, { w: 0.5 / s, tf: `translate(${n(x)} ${n(y)}) rotate(${rot}) scale(${s}) translate(0 50)` });
-function sakura(cx, cy, r) {
-  let d = '';
-  for (let i = 0; i < 5; i++) d += P(PETAL, { w: 0.5 / (r / 88), tf: `translate(${n(cx)} ${n(cy)}) rotate(${i * 72}) scale(${n(r / 88, 3)})` });
-  d += C(cx, cy, r * 0.17, { w: 0.45 });
-  return d;
-}
-function wave(x, y, w = 4) {
-  return P(`M${n(x)},${n(y)} q${n(w / 2)},${n(-w / 2)} ${n(w)},0 q${n(w / 2)},${n(-w / 2)} ${n(w)},0`, { fill: 'none', w: 0.5 });
-}
-function spiral(x, y, r) {
-  return P(`M${n(x - r)},${n(y)} a${n(r)},${n(r)} 0 1 1 ${n(2 * r)},0 a${n(r * 0.72)},${n(r * 0.72)} 0 1 1 ${n(-r * 1.44)},0 a${n(r * 0.42)},${n(r * 0.42)} 0 1 1 ${n(r * 0.84)},0`, { fill: 'none', w: 0.55 });
-}
-function confetti(list) {
-  let d = '';
-  list.forEach(([x, y, k, rot], i) => {
-    const tf = `rotate(${rot || (i * 37) % 90} ${n(x)} ${n(y)})`;
-    if (k === 0) d += RR(x - 1.4, y - 0.8, 2.8, 1.6, 0.3, { w: 0.4, tf });
-    else if (k === 1) d += C(x, y, 1, { w: 0.4 });
-    else if (k === 2) d += POLY([[x, y - 1.4], [x + 1.3, y + 0.9], [x - 1.3, y + 0.9]], { w: 0.4, tf });
-    else d += P(`M${n(x - 1.6)},${n(y)} q0.8,-1.2 1.6,0 q0.8,1.2 1.6,0`, { fill: 'none', w: 0.45, tf });
-  });
-  return d;
-}
-const screw = (x, y) => C(x, y, 2.2, { w: 0.6 }) + L(x - 1.3, y - 1.3, x + 1.3, y + 1.3, 0.5);
-// かおを かく まる（てんせん）
-const faceCircle = (cx, cy, r) => C(cx, cy, r, { fill: 'none', w: 0.65, dash: '1.8 1.4' });
-
-function cat(cx, cy) {
-  let d = '';
-  d += E(cx, cy + 10, 7.5, 6.5, { w: 0.7 });                        // からだ
-  d += E(cx + 9.5, cy - 2, 2.6, 3.2, { w: 0.6, tf: `rotate(25 ${cx + 9.5} ${cy - 2})` }); // ふる て
-  d += P(`M${cx + 6},${cy + 6} Q${cx + 9},${cy + 2} ${cx + 9},${cy + 1}`, { fill: 'none', w: 0.6 });
-  d += P(`M${cx - 8},${cy - 2} L${cx - 7.2},${cy - 11} L${cx - 1.8},${cy - 6.6} Z`, { w: 0.7 });
-  d += P(`M${cx + 8},${cy - 2} L${cx + 7.2},${cy - 11} L${cx + 1.8},${cy - 6.6} Z`, { w: 0.7 });
-  d += E(cx, cy, 9, 7.4, { w: 0.75 });
-  d += C(cx - 3.3, cy - 0.6, 0.8, { fill: '#000', w: 0 }) + C(cx + 3.3, cy - 0.6, 0.8, { fill: '#000', w: 0 });
-  d += P(`M${cx - 1.6},${cy + 1.8} q0.8,1.2 1.6,0 q0.8,1.2 1.6,0`, { fill: 'none', w: 0.45 });
-  d += L(cx - 6, cy + 1.2, cx - 10, cy + 0.4, 0.35) + L(cx - 6, cy + 2.6, cx - 10, cy + 3.2, 0.35);
-  d += L(cx + 6, cy + 1.2, cx + 10, cy + 0.4, 0.35) + L(cx + 6, cy + 2.6, cx + 10, cy + 3.2, 0.35);
-  return d;
-}
-function randoseru(x, y) {
-  let d = '';
-  d += P(`M${x + 7},${y + 1} Q${x + 11},${y - 5} ${x + 15},${y + 1}`, { fill: 'none', w: 0.9 });
-  d += RR(x, y, 22, 27, 4, { w: 0.8 });
-  d += P(`M${x},${y + 6} Q${x},${y} ${x + 6},${y} H${x + 16} Q${x + 22},${y} ${x + 22},${y + 6} V${y + 17} Q${x + 22},${y + 21} ${x + 18},${y + 21} H${x + 4} Q${x},${y + 21} ${x},${y + 17} Z`, { w: 0.8 });
-  d += P(`M${x + 2.5},${y + 6} Q${x + 2.5},${y + 2.5} ${x + 6},${y + 2.5} H${x + 16} Q${x + 19.5},${y + 2.5} ${x + 19.5},${y + 6} V${y + 16} Q${x + 19.5},${y + 18.5} ${x + 17},${y + 18.5} H${x + 5} Q${x + 2.5},${y + 18.5} ${x + 2.5},${y + 16} Z`, { fill: 'none', w: 0.35, dash: '0.8 0.8' });
-  d += RR(x + 9, y + 18, 4, 6, 1, { w: 0.6 });
-  return d;
-}
-function kite(cx, cy, s = 1, tail = 1) {
-  let d = '';
-  // しっぽ
-  d += P(`M${n(cx)},${n(cy + 12 * s)} c${n(-4 * s)},${n(6 * s)} ${n(4 * s)},${n(8 * s)} 0,${n(14 * s)} c${n(-4 * s * tail)},${n(5 * s)} ${n(3 * s * tail)},${n(7 * s)} ${n(-1 * s)},${n(12 * s)}`, { fill: 'none', w: 0.5 });
-  d += P(`M${n(cx - 2 * s)},${n(cy + 17 * s)} l${n(4 * s)},${n(2 * s)} m0,${n(-2 * s)} l${n(-4 * s)},${n(2 * s)}`, { fill: 'none', w: 0.5 });
-  d += P(`M${n(cx)},${n(cy - 10 * s)} L${n(cx + 8 * s)},${n(cy)} L${n(cx)},${n(cy + 12 * s)} L${n(cx - 8 * s)},${n(cy)} Z`, { w: 0.7 });
-  d += L(cx, cy - 10 * s, cx, cy + 12 * s, 0.4) + L(cx - 8 * s, cy, cx + 8 * s, cy, 0.4);
-  return d;
-}
-function camera(x, y) {
-  let d = '';
-  d += RR(x + 3, y - 2.2, 6, 3, 0.8, { w: 0.6 });
-  d += RR(x, y, 22, 15, 2.5, { w: 0.8 });
-  d += C(x + 11, y + 7.5, 5.2, { w: 0.8 }) + C(x + 11, y + 7.5, 3, { w: 0.5 });
-  d += C(x + 18.3, y + 3.3, 1.2, { w: 0.5 });
-  return d;
-}
-function laurel(cx, cy, r, a0, a1, cnt) {
-  let d = '';
-  const rad = a => a * Math.PI / 180;
-  const p = a => [cx + r * Math.cos(rad(a)), cy + r * Math.sin(rad(a))];
-  const [sx, sy] = p(a0), [ex, ey] = p(a1);
-  const large = Math.abs(a1 - a0) > 180 ? 1 : 0, sweep = a1 > a0 ? 1 : 0;
-  d += P(`M${n(sx)},${n(sy)} A${r},${r} 0 ${large} ${sweep} ${n(ex)},${n(ey)}`, { fill: 'none', w: 0.6 });
-  for (let i = 1; i <= cnt; i++) {
-    const a = a0 + (a1 - a0) * i / (cnt + 0.4);
-    const [x, y] = p(a);
-    const tang = a + (a1 > a0 ? 90 : -90);
-    for (const side of [-1, 1]) {
-      const off = side * 2.6, lx = x + off * Math.cos(rad(a)), ly = y + off * Math.sin(rad(a));
-      d += E(lx, ly, 3.2, 1.35, { w: 0.5, tf: `rotate(${n(tang - side * 28)} ${n(lx)} ${n(ly)})` });
-    }
-  }
-  return d;
-}
-
-/* 年・組・番・なまえ の 行 */
-function nameRow(x, y, w, sz = 3.8) {
-  let s = '', cx = x;
-  const f = (lab, val, ww) => {
-    s += L(cx, y + 1.2, cx + ww, y + 1.2, 0.4);
-    if (val) s += T(cx + ww / 2, y - 0.2, val, { size: sz * 1.35, anchor: 'middle', font: F_H, weight: 600 });
-    cx += ww + 0.8;
-    s += R(cx, y, lab, { size: sz });
-    cx += rtw(lab, sz) + 3;
-  };
-  f('{年|ねん}', S.nen, 9);
-  f('{組|くみ}', S.kumi, 9);
-  f('{番|ばん}', '', 9);
-  s += T(cx, y, 'なまえ', { size: sz });
-  cx += tw('なまえ', sz) + 1.5;
-  s += L(cx, y + 1.2, x + w, y + 1.2, 0.4);
-  return s;
-}
-
-let UID = 0;
-function wrap(deco, text) {
-  const id = ++UID;
-  const fil = S.wobble ? ` filter="url(#wob${id})"` : '';
-  deco = deco.replace(/HATCH/g, `url(#ht${id})`).replace(/DOTS/g, `url(#dt${id})`);
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 297" width="210mm" height="297mm">
-<defs>
-<filter id="wob${id}" x="-2%" y="-2%" width="104%" height="104%"><feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="7" result="nz"/><feDisplacementMap in="SourceGraphic" in2="nz" scale="0.9" xChannelSelector="R" yChannelSelector="G"/></filter>
-<pattern id="ht${id}" patternUnits="userSpaceOnUse" width="1.5" height="1.5" patternTransform="rotate(45)"><rect width="1.5" height="1.5" fill="#fff"/><line x1="0" y1="0" x2="0" y2="1.5" stroke="#000" stroke-width="0.35"/></pattern>
-<pattern id="dt${id}" patternUnits="userSpaceOnUse" width="2" height="2"><rect width="2" height="2" fill="#fff"/><circle cx="1" cy="1" r="0.3" fill="#000"/></pattern>
-</defs>
-<rect width="210" height="297" fill="#fff"/>
-<g${fil}>${deco}</g>
-<g>${text}</g>
-</svg>`;
-}
-
-/* =========================================================
-   1. じぶん ずかん（自己紹介）
-   ========================================================= */
-function cardJiko() {
-  let d = '', t = '';
-  d += RR(8, 8, 194, 281, 6, { w: 1.3 });
-  d += RR(11.5, 11.5, 187, 274, 4, { w: 0.45, fill: 'none' });
-  for (const [x, y] of [[17, 17], [193, 17], [17, 280], [193, 280]]) d += screw(x, y);
-  // あたま の いた
-  d += RR(23, 15, 164, 30, 4, { w: 0.9 });
-  d += RR(25.5, 17.5, 159, 25, 2.5, { w: 0.35, fill: 'none' });
-  t += T(31, 36.5, 'じぶん ずかん', { size: 13, font: F_T, hollow: true });
-  d += sparkle(125, 25, 3.2) + star(135, 34, 2.6) + sparkle(143, 23, 2);
-  t += T(150, 36, 'No.', { size: 5.5, font: F_T });
-  t += L(161, 37, 182, 37, 0.6);
-  t += nameRow(16, 53, 178);
-
-  // え の まど
-  d += RR(16, 59, 92, 101, 4, { w: 1 });
-  d += P('M24,160 C26,136 42,126 62,126 C82,126 98,136 100,160 Z', { w: 0.8 });
-  d += P('M56,115 V126 M68,115 V126', { fill: 'none', w: 0.7 });
-  d += P('M52,126 L62,135 L72,126', { fill: 'none', w: 0.7 });
-  d += faceCircle(62, 97, 19);
-  d += RR(20, 63, 31, 7, 3.5, { w: 0.6 });
-  t += T(35.5, 67.9, 'じぶんの え', { size: 3.2, anchor: 'middle' });
-  d += sparkle(95, 70, 3) + sparkle(28, 118, 2.4) + star(97, 112, 2.2) + heart(29, 104, 1.7);
-
-  // みぎ の らん
-  const fx = 113, fr = 194;
-  const fields = [['ニックネーム', 66], ['{誕生日|たんじょうび}', 85], ['すきな たべもの', 104], ['すきな あそび', 123], ['とくいな こと', 142]];
-  for (const [lab, y] of fields) {
-    d += star(fx + 1.8, y - 1.3, 1.9);
-    t += R(fx + 5, y, lab, { size: 3.8 });
-    if (lab.includes('誕生日')) {
-      t += L(fx, y + 10, fr, y + 10, 0.4);
-      t += R(fx + 36, y + 9, '{月|がつ}', { size: 4 });
-      t += R(fx + 70, y + 9, '{日|にち}', { size: 4 });
-    } else t += dotL(fx, fr, y + 10);
-  }
-
-  // ステータス
-  d += RR(16, 167, 178, 58, 3, { w: 0.9 });
-  d += RR(20, 162.5, 42, 9, 3, { w: 0.8 });
-  t += T(41, 169, 'ステータス', { size: 4.3, font: F_T, anchor: 'middle' });
-  t += T(190, 172, 'じぶんで ぬって みよう！', { size: 3, anchor: 'end' });
-  const stats = ['げんき', 'やさしさ', 'おもしろさ', 'がんばり', ''];
-  stats.forEach((lab, i) => {
-    const y = 181 + i * 9.4;
-    if (lab) t += T(22, y + 1.3, lab, { size: 3.6 });
-    else { d += RR(21, y - 3.4, 36, 6.4, 3.2, { w: 0.45, dash: '0.8 0.8' }); }
-    for (let k = 0; k < 10; k++) d += RR(61 + k * 11.5, y - 3.2, 10.2, 6, 1.2, { w: 0.5 });
-    t += T(186.5, y + 1.3, 'MAX', { size: 3, font: F_T, anchor: 'middle' });
-  });
-
-  // ひとこと
-  d += P('M22,233 H160 Q166,233 166,239 V256 L179,263 L166,268 V277 Q166,283 160,283 H22 Q16,283 16,277 V239 Q16,233 22,233 Z', { w: 0.9 });
-  t += R(22, 242, 'みんなに ひとこと！', { size: 4.2, font: F_T });
-  t += wlines(22, 160, 254, 3, 10.5);
-  d += cat(184, 262);
-  return wrap(d, t);
-}
-
-/* =========================================================
-   2. 1学期の めあて（さくら）
-   ========================================================= */
-function cardSakura() {
-  let d = '', t = '';
-  d += RR(8, 8, 194, 281, 5, { w: 0.9 });
-  // リボン
-  d += P('M26,19 H50 V41 H26 L33,30 Z', { w: 0.8 });
-  d += P('M184,19 H160 V41 H184 L177,30 Z', { w: 0.8 });
-  d += P('M40,38 L50,41 L50,38 Z', { fill: 'HATCH', w: 0.6 });
-  d += P('M170,38 L160,41 L160,38 Z', { fill: 'HATCH', w: 0.6 });
-  d += RR(40, 12, 130, 26, 2, { w: 0.9 });
-  t += R(105, 33, '{1学期|いちがっき}の めあて', { size: 12, font: F_T, hollow: true, anchor: 'middle', rsize: 3.2 });
-  d += sakura(20, 22, 9) + sakura(190, 22, 9);
-  t += nameRow(18, 52, 174);
-
-  // 大きな さくら
-  const cx = 105, cy = 151;
-  for (let i = 0; i < 5; i++) d += P(PETAL, { w: 1, tf: `translate(${cx} ${cy}) rotate(${i * 72})` });
-  for (let i = 0; i < 5; i++) {
-    for (const da of [-11, 0, 11]) {
-      const a = (36 + i * 72 + da - 90) * Math.PI / 180, r2 = da ? 22 : 25;
-      d += L(cx + 15 * Math.cos(a), cy + 15 * Math.sin(a), cx + r2 * Math.cos(a), cy + r2 * Math.sin(a), 0.5);
-      d += C(cx + (r2 + 1.3) * Math.cos(a), cy + (r2 + 1.3) * Math.sin(a), 1.3, { w: 0.5 });
-    }
-  }
-  d += C(cx, cy, 15, { w: 0.9 });
-  d += faceCircle(cx, cy - 1.5, 10.5);
-  t += T(cx, cy + 12.3, 'じぶんの かお', { size: 1.9, anchor: 'middle' });
-  const pets = [
-    { a: 0, r: 54, lab: '{学習|がくしゅう}' },
-    { a: 72, r: 50, lab: 'ともだち' },
-    { a: 144, r: 50, lab: '{運動|うんどう}' },
-    { a: 216, r: 50, lab: '{生活|せいかつ}' },
-    { a: 288, r: 50, lab: 'たのしみな こと' },
-  ];
-  for (const p of pets) {
-    const a = p.a * Math.PI / 180, px = cx + p.r * Math.sin(a), py = cy - p.r * Math.cos(a);
-    t += R(px, py - 11, p.lab, { size: 4.2, font: F_T, anchor: 'middle' });
-    t += wlines(px - 21, px + 21, py - 1, 3, 9);
-  }
-  // ちる はなびら
-  const fall = [[20, 70, 25], [30, 92, -20], [190, 74, 40], [182, 96, 10], [16, 140, 70], [194, 150, -40], [24, 206, 15], [186, 210, -15], [42, 222, 50], [166, 226, -60], [104, 230, 20], [62, 66, -30], [148, 64, 30]];
-  for (const [x, y, r] of fall) d += petal(x, y, 0.09, r);
-
-  // いちばんの めあて
-  d += RR(16, 234, 178, 50, 4, { w: 0.9 });
-  t += R(22, 245, '{1学期|いちがっき}　いちばんの めあては…', { size: 4.2, font: F_T, rsize: 2 });
-  t += dotL(22, 162, 258) + dotL(22, 146, 271);
-  t += T(148, 270, 'です！', { size: 4.2, font: F_T });
-  d += randoseru(167, 248);
-  d += sparkle(166, 242, 2.4) + sparkle(191, 244, 1.8);
-  return wrap(d, t);
-}
-
-/* =========================================================
-   3. 2学期 クエスト（たからの ちず）
-   ========================================================= */
-function cardQuest() {
-  let d = '', t = '';
-  // かみ と まきもの
-  d += P('M16,22 H194 V281 H16 Z', { w: 0.8 });
-  for (const y of [12, 276]) {
-    d += RR(12, y, 186, 12, 6, { w: 0.9 });
-    d += P(`M18,${y + 8} H192`, { fill: 'none', w: 0.35 });
-    d += E(12.5, y + 6, 3, 6, { w: 0.8 }) + E(12.5, y + 6, 1.2, 2.4, { w: 0.5 });
-    d += E(197.5, y + 6, 3, 6, { w: 0.8 }) + E(197.5, y + 6, 1.2, 2.4, { w: 0.5 });
-  }
-  t += R(105, 45, '{2学期|にがっき} クエスト', { size: 13, font: F_T, hollow: true, anchor: 'middle', rsize: 3.2 });
-  // けん
-  for (const sg of [-1, 1]) {
-    const x = 105 + sg * 58;
-    d += P(`M${x},28 L${x + 1.8},31 V44 H${x - 1.8} V31 Z`, { w: 0.6, tf: `rotate(${sg * 20} ${x} 40)` });
-    d += RR(x - 5, 43.5, 10, 2.2, 1, { w: 0.6, tf: `rotate(${sg * 20} ${x} 40)` });
-    d += RR(x - 1, 45.5, 2, 4.5, 0.8, { w: 0.6, tf: `rotate(${sg * 20} ${x} 40)` });
-  }
-  t += nameRow(22, 56, 166);
-
-  // しま
-  d += P('M30,126 C26,98 50,74 82,74 C108,70 128,82 148,72 C168,64 188,76 186,100 C184,124 172,142 158,154 C140,170 104,174 74,172 C46,170 32,152 30,126 Z', { w: 0.9 });
-  d += P('M36,126 C33,102 54,80 82,80 C108,76 128,88 148,78 C166,71 181,82 180,100', { fill: 'none', w: 0.35, dash: '1 1.2' });
-  for (const [x, y] of [[20, 70], [23, 98], [180, 64], [190, 134], [22, 168], [120, 178], [150, 176]]) d += wave(x, y);
-  // やま・き
-  d += P('M48,108 L64,82 L80,108 Z', { w: 0.8 }) + P('M59.5,89.3 L64,82 L68.5,89.3 L66.2,88 L64,90.4 L61.8,88 Z', { w: 0.5 });
-  d += P('M70,110 L82,92 L94,110 Z', { w: 0.8 });
-  for (const [x, y] of [[106, 92], [114, 97], [100, 100]]) d += L(x, y + 3, x, y + 7, 0.6) + C(x, y, 4, { w: 0.7 });
-  // ヤシの木
-  d += P('M46,144 Q44,132 48,122', { fill: 'none', w: 0.9 });
-  for (const a of [-60, -20, 20, 60, 160]) d += E(48 + 5 * Math.cos(a * Math.PI / 180), 122 + 2 * Math.sin(a * Math.PI / 180), 5, 1.6, { w: 0.5, tf: `rotate(${a} ${n(48 + 5 * Math.cos(a * Math.PI / 180))} ${n(122 + 2 * Math.sin(a * Math.PI / 180))})` });
-  // みち
-  d += P('M36,160 C46,152 52,146 60,142 S86,154 96,146 S112,124 122,118 S142,104 152,100 S166,90 170,88', { fill: 'none', w: 0.8, dash: '2 1.6' });
-  // たからばこ
-  d += P('M160,74 V70 Q160,65 165,65 H177 Q182,65 182,70 V74 Z', { w: 0.8 });
-  d += RR(160, 74, 22, 13, 1.5, { w: 0.8 });
-  d += L(166, 65.5, 166, 87, 0.5) + L(176, 65.5, 176, 87, 0.5);
-  d += RR(169, 72, 4, 5, 1, { w: 0.6 });
-  d += sparkle(156, 64, 2.6) + sparkle(186, 62, 2.2) + sparkle(185, 82, 1.6);
-  d += P('M166,90 l6,6 m0,-6 l-6,6', { fill: 'none', w: 1 });
-  t += T(157.5, 84, 'ゴール！', { size: 3.8, font: F_T, anchor: 'end' });
-  // スタート
-  d += RR(17, 160, 23, 8, 2, { w: 0.7 });
-  t += T(28.5, 165.7, 'スタート', { size: 3.6, font: F_T, anchor: 'middle' });
-  // チェックポイント
-  const cps = [[60, 142, '9'], [96, 146, '10'], [122, 118, '11'], [152, 100, '12']];
-  for (const [x, y, m] of cps) {
-    d += L(x, y, x, y - 13, 0.7);
-    d += P(`M${x},${y - 13} L${x + 8},${y - 10.5} L${x},${y - 8} Z`, { w: 0.6 });
-    d += C(x, y, 1.4, { fill: '#000', w: 0 });
-    t += R(x - 1, y + 7.5, m + '{月|がつ}', { size: 3.8, anchor: 'middle' });
-    d += C(x + 10, y + 5.8, 3.4, { w: 0.6 });
-  }
-  // ほういじしん
-  d += C(178, 156, 8.5, { w: 0.7 });
-  d += star(178, 156, 7.5, { ri: 1.8, w: 0.5 });
-  t += T(178, 145.5, 'N', { size: 3, font: F_T, anchor: 'middle' });
-  t += T(105, 184, 'チェックポイントの ○に、ふりかえって ◎・○・△ を かこう', { size: 2.9, anchor: 'middle' });
-
-  // メインクエスト
-  d += RR(20, 194, 170, 36, 3, { w: 0.9 });
-  d += RR(24, 189.5, 50, 9, 3, { w: 0.8 });
-  t += T(49, 195.9, 'メインクエスト', { size: 4.2, font: F_T, anchor: 'middle' });
-  t += T(26, 205, 'いちばん がんばる こと', { size: 3 });
-  t += dotL(26, 154, 215) + dotL(26, 154, 226);
-  d += C(172, 212, 11.5, { fill: 'none', w: 0.6, dash: '1.4 1.2' });
-  t += T(172, 211, 'クリア', { size: 3.4, font: F_T, anchor: 'middle' });
-  t += T(172, 216, 'はんこ', { size: 2.4, anchor: 'middle' });
-  // サブクエスト
-  d += RR(20, 239, 104, 36, 3, { w: 0.9 });
-  d += RR(24, 234.5, 46, 9, 3, { w: 0.8 });
-  t += T(47, 240.9, 'サブクエスト', { size: 4.2, font: F_T, anchor: 'middle' });
-  for (const y of [252, 262, 272]) { d += RR(26, y - 4, 4.2, 4.2, 0.6, { w: 0.55 }); t += dotL(33, 119, y); }
-  // なかまへ
-  d += RR(128, 239, 62, 36, 3, { w: 0.9 });
-  d += RR(132, 234.5, 34, 9, 3, { w: 0.8 });
-  t += T(149, 240.9, 'なかまへ', { size: 4.2, font: F_T, anchor: 'middle' });
-  t += wlines(133, 185, 252, 3, 10);
-  return wrap(d, t);
-}
-
-/* =========================================================
-   4. うんどう会（メダル）
-   ========================================================= */
-function cardUndo() {
-  let d = '', t = '';
-  d += RR(8, 8, 194, 281, 5, { w: 1 });
-  // ガーランド
-  const p0 = [8, 13], p1 = [105, 36], p2 = [202, 13];
-  const B = tt => [(1 - tt) ** 2 * p0[0] + 2 * (1 - tt) * tt * p1[0] + tt * tt * p2[0], (1 - tt) ** 2 * p0[1] + 2 * (1 - tt) * tt * p1[1] + tt * tt * p2[1]];
-  d += P(`M${p0} Q${p1} ${p2}`, { fill: 'none', w: 0.6 });
-  const N = 11;
-  for (let i = 1; i <= N; i++) {
-    const tt = i / (N + 1), a = B(tt - 0.03), b = B(tt + 0.03), m = B(tt);
-    d += POLY([a, b, [m[0], m[1] + 11]], { w: 0.6 });
-    if (i % 3 === 1) d += star(m[0], m[1] + 3.6, 1.8, { w: 0.4 });
-    else if (i % 3 === 2) d += C(m[0], m[1] + 3.6, 1.3, { w: 0.4 });
-    else d += P(`M${n(a[0] + 1.6)},${n(a[1] + 2.4)} L${n(b[0] - 1.6)},${n(b[1] + 2.4)}`, { fill: 'none', w: 0.4 });
-  }
-  t += R(105, 54, 'うんどう{会|かい} めあてカード', { size: 11, font: F_T, hollow: true, anchor: 'middle', rsize: 3 });
-  t += nameRow(18, 66, 174);
-
-  // メダル
-  const mx = 64, my = 140;
-  d += POLY([[38, 72], [52, 72], [72, 110], [58, 110]], { w: 0.8 });
-  d += POLY([[90, 72], [76, 72], [56, 110], [70, 110]], { w: 0.8 });
-  d += L(45, 72, 65, 110, 0.4) + L(83, 72, 63, 110, 0.4);
-  d += POLY(starPts(mx, my, 35, 33, 30), { w: 0.9 });
-  d += C(mx, my, 29, { w: 0.6 });
-  d += C(mx, my, 27, { fill: 'none', w: 0.4, dash: '0.8 0.9' });
-  t += T(mx, my + 22, 'がんばる じぶんを かこう', { size: 2.5, anchor: 'middle' });
-  d += confetti([[18, 84, 0], [24, 98, 2], [16, 118, 1], [22, 160, 3], [17, 176, 0], [102, 92, 1], [104, 118, 0], [100, 170, 2], [30, 178, 1], [96, 182, 3]]);
-  d += sparkle(26, 132, 2.6) + sparkle(104, 144, 2.4);
-
-  // でる しゅもく
-  t += T(114, 80, 'でる しゅもく', { size: 4, font: F_T });
-  t += T(194, 80, '○で かこもう', { size: 2.8, anchor: 'end' });
-  const ev = ['かけっこ', 'リレー', 'ダンス', 'つなひき', 'たまいれ', ''];
-  ev.forEach((e, i) => {
-    const x = 114 + (i % 2) * 41, y = 84 + Math.floor(i / 2) * 10;
-    d += RR(x, y, 38, 7.5, 3.75, { w: 0.6 });
-    if (e) t += T(x + 19, y + 5.2, e, { size: 3.4, anchor: 'middle' });
-    else t += dotL(x + 5, x + 33, y + 5.4);
-  });
-  // めあて
-  d += L(115, 121, 115, 131, 0.6) + P('M115,121 L121,123.2 L115,125.4 Z', { w: 0.5 });
-  t += T(123, 129, 'めあて', { size: 4.2, font: F_T });
-  t += wlines(114, 194, 141, 4, 10.5);
-
-  // おうえん
-  d += RR(16, 186, 178, 28, 3, { w: 0.9 });
-  d += RR(21, 196, 5, 8, 1, { w: 0.6 });
-  d += P('M26,197 L40,190 V210 L26,203 Z', { w: 0.7 });
-  d += P('M43,193 q3,7 0,14 M46.5,190 q4.5,10 0,20', { fill: 'none', w: 0.5 });
-  t += T(54, 196, 'おうえんの ことば', { size: 4, font: F_T });
-  t += dotL(54, 188, 208);
-
-  // ふりかえり
-  d += RR(16, 220, 178, 64, 3, { w: 0.9 });
-  t += T(22, 231, 'ふりかえり', { size: 4.4, font: F_T });
-  t += R(48, 231, '（うんどう{会|かい}の あとに 書こう）', { size: 3 });
-  t += T(22, 243.5, 'できた ど', { size: 3.6 });
-  for (let i = 0; i < 5; i++) d += star(46 + i * 10, 242, 4.3, { w: 0.6 });
-  t += wlines(22, 140, 256, 3, 10.5);
-  // ゴール
-  d += L(150, 246, 150, 282, 1) + L(188, 246, 188, 282, 1);
-  d += C(150, 245, 1.4, { w: 0.6 }) + C(188, 245, 1.4, { w: 0.6 });
-  d += P('M150,260 Q169,265 188,260 L188,262.5 Q169,267.5 150,262.5 Z', { w: 0.5 });
-  d += RR(147, 230, 44, 11, 2.5, { w: 0.7 });
-  t += T(169, 237.9, 'ゴール', { size: 4.6, font: F_T, anchor: 'middle' });
-  d += sparkle(160, 251, 2) + sparkle(178, 274, 2.2);
-  return wrap(d, t);
-}
-
-/* =========================================================
-   5. 音楽発表会（ステージ と チケット）
-   ========================================================= */
-function cardOngaku() {
-  let d = '', t = '';
-  d += RR(8, 8, 194, 281, 4, { w: 1 });
-  // ゆか
-  d += P('M10,140 H200 V154 H10 Z', { w: 0.8 });
-  d += L(10, 144, 200, 144, 0.45);
-  for (let x = 22; x < 200; x += 12) d += L(x, 144, x, 154, 0.35);
-  // スポットライト
-  d += E(105, 140, 34, 4.5, { fill: 'none', w: 0.45, dash: '1 1' });
-  d += L(60, 38, 72, 139, 0.35, 'stroke-dasharray="1.2 1.2"') + L(60, 38, 104, 135.5, 0.35, 'stroke-dasharray="1.2 1.2"');
-  d += L(150, 38, 138, 139, 0.35, 'stroke-dasharray="1.2 1.2"') + L(150, 38, 106, 135.5, 0.35, 'stroke-dasharray="1.2 1.2"');
-  // カーテン
-  const curtain = tf =>
-    P('M10,30 H52 C48,56 38,80 33,96 C42,112 46,128 50,140 H10 Z', { w: 0.9, tf }) +
-    P('M21,30 C23,60 25,84 27,96 C27,112 23,128 21,140 M36,30 C37,54 35,78 31,96 C36,114 37,128 37,140', { fill: 'none', w: 0.45, tf }) +
-    RR(24, 93.5, 12, 5, 2.2, { w: 0.7, tf });
-  d += curtain('') + curtain('translate(210 0) scale(-1 1)');
-  // ライト
-  d += RR(55, 34, 10, 6, 1.5, { w: 0.6, tf: 'rotate(20 60 37)' }) + RR(145, 34, 10, 6, 1.5, { w: 0.6, tf: 'rotate(-20 150 37)' });
-  // まく（うえ）
-  let val = 'M10,10 H200 V29';
-  for (let k = 0; k < 10; k++) val += ' a9.5,7 0 0 1 -19,0';
-  d += P(val + ' Z', { w: 0.9 });
-  for (let k = 0; k < 10; k++) d += C(190.5 - k * 19, 34.6, 0.9, { w: 0.4 });
-  t += R(105, 26, 'おんがく はっぴょう{会|かい}', { size: 10, font: F_T, hollow: true, anchor: 'middle', rsize: 2.6 });
-  t += T(105, 52, 'ステージで えんそう する じぶんを かこう', { size: 3, anchor: 'middle' });
-  d += note(66, 66, 1) + note(140, 60, 1, true) + note(160, 84, 0.9) + note(52, 112, 0.9, true) + note(150, 118, 0.8);
-  d += sparkle(84, 62, 2.2) + sparkle(126, 76, 2);
-  t += nameRow(18, 166, 174);
-
-  // ごせん
-  for (let i = 0; i < 5; i++) d += L(14, 173 + i * 2.2, 196, 173 + i * 2.2, 0.3);
-  d += L(196, 173, 196, 181.8, 0.6) + L(194.6, 173, 194.6, 181.8, 0.3);
-  const heads = [[30, 180.7], [42, 178.5], [54, 176.3], [66, 175.2], [80, 177.4], [92, 179.6], [106, 175.2], [118, 174.1], [134, 176.3], [146, 178.5], [160, 177.4], [174, 179.6]];
-  for (const [x, y] of heads) {
-    d += E(x, y, 1.45, 1, { fill: '#000', w: 0.2, tf: `rotate(-22 ${x} ${y})` });
-    d += L(x + 1.3, y, x + 1.3, y - 6, 0.4);
-  }
-  t += T(18, 182, '♪', { size: 7 });
-
-  // チケット
-  d += P('M14,188 H146 A4,4 0 0 0 154,188 H196 V284 H154 A4,4 0 0 0 146,284 H14 Z', { w: 1 });
-  d += L(150, 193, 150, 279, 0.5, 'stroke-dasharray="1.4 1.4"');
-  d += RR(18, 192, 128, 88, 2, { fill: 'none', w: 0.4, dash: '0.8 1' });
-  d += RR(22, 195, 120, 13, 2, { w: 0.7 });
-  t += T(82, 204, 'わたしの ステージ チケット', { size: 5.2, font: F_T, anchor: 'middle' });
-  d += star(28, 201.5, 2.6) + star(136, 201.5, 2.6);
-  t += R(24, 220, '{曲名|きょくめい}', { size: 3.8 }); t += dotL(42, 142, 221.5);
-  t += T(24, 233, 'パート・がっき', { size: 3.8 }); t += dotL(55, 142, 234.5);
-  t += T(24, 246, 'めあて', { size: 3.8 }); t += dotL(38, 142, 247.5) + dotL(24, 142, 259);
-  t += T(24, 272, 'ここを きいてね！', { size: 3.8 }); t += dotL(60, 142, 273.5);
-  // はしっこ
-  t += R(175, 214, 'S{席|せき}', { size: 13, font: F_T, hollow: true, anchor: 'middle', rsize: 2.6 });
-  t += R(175, 229, 'はっぴょう{日|び}', { size: 3, anchor: 'middle' });
-  t += L(158, 241, 192, 241, 0.4);
-  t += R(171, 240, '{月|がつ}', { size: 3.4 });
-  t += R(188, 240, '{日|にち}', { size: 3.4 });
-  d += star(175, 262, 11, { w: 0.8 });
-  d += sparkle(162, 250, 1.8) + sparkle(190, 276, 2);
-  return wrap(d, t);
-}
-
-/* =========================================================
-   6. 3学期の めあて（だるま と たこ）
-   ========================================================= */
-function cardDaruma() {
-  let d = '', t = '';
-  d += RR(8, 8, 194, 281, 5, { w: 1 });
-  d += RR(11.5, 11.5, 187, 274, 3, { w: 0.4, fill: 'none' });
-  d += kite(25, 27, 1) + kite(185, 27, 1, -1);
-  t += R(105, 36, '{3学期|さんがっき}の めあて', { size: 13, font: F_T, hollow: true, anchor: 'middle', rsize: 3.2 });
-  t += nameRow(40, 50, 130);
-
-  // だるま
-  d += E(105, 198, 52, 3.4, { fill: 'HATCH', w: 0.4 });
-  d += P('M105,58 C142,58 168,88 168,130 C168,172 146,198 105,198 C64,198 42,172 42,130 C42,88 68,58 105,58 Z', { w: 1.2 });
-  d += E(105, 99, 30, 24.5, { w: 0.9 });
-  d += P('M80,89 Q89,82 98,88', { fill: 'none', w: 2 }) + P('M112,88 Q121,82 130,89', { fill: 'none', w: 2 });
-  d += C(91, 99, 6.5, { w: 0.8 }) + C(119, 99, 6.5, { w: 0.8 });
-  d += P('M102.5,104 Q105,107.5 107.5,104', { fill: 'none', w: 0.6 });
-  d += P('M104,110 C98,106.5 91,107.5 88.5,111.5 C87.5,113.6 89.8,115 91.2,113.2', { fill: 'none', w: 1.2 });
-  d += P('M106,110 C112,106.5 119,107.5 121.5,111.5 C122.5,113.6 120.2,115 118.8,113.2', { fill: 'none', w: 1.2 });
-  d += P('M100,117 Q105,120 110,117', { fill: 'none', w: 0.6 });
-  // おなかの らん
-  d += RR(66, 131, 78, 54, 6, { w: 0.9 });
-  t += T(105, 142, 'めあて', { size: 4.4, font: F_T, anchor: 'middle' });
-  t += wlines(72, 138, 154, 3, 10.5);
-  // もよう
-  d += spiral(52, 150, 4.5) + spiral(158, 150, 4.5) + spiral(55, 168, 3.2) + spiral(155, 168, 3.2);
-  // め の せつめい
-  d += RR(150, 58, 46, 15, 3, { w: 0.6 });
-  t += T(173, 64, 'めあてが かなったら', { size: 2.7, anchor: 'middle' });
-  t += T(173, 69.5, 'めを かきこもう！', { size: 2.9, anchor: 'middle', font: F_T });
-  d += P('M160,74 Q150,88 129,95', { fill: 'none', w: 0.5 }) + P('M131.5,91.3 L127.8,95.5 L133.2,96.6', { fill: 'none', w: 0.5 });
-  // ゆき・うめ
-  for (const [x, y, r] of [[22, 80, 4], [188, 94, 3.5], [24, 172, 3], [190, 186, 4], [30, 196, 2.5], [180, 130, 2.5]]) d += snow(x, y, r);
-  d += ume(24, 128, 7) + ume(186, 160, 6.5) + ume(34, 108, 4.5);
-
-  // 3つの らん（たこ つき）
-  const boxes = [[16, '{学習|がくしゅう}'], [78, '{生活|せいかつ}'], [140, 'つぎの {学年|がくねん}へ']];
-  for (const [x, lab] of boxes) {
-    d += RR(x, 214, 54, 70, 3, { w: 0.9 });
-    d += kite(x + 9, 214, 0.55, 1);
-    t += R(x + 30, 226, lab, { size: 3.8, font: F_T, anchor: 'middle', rsize: 1.8 });
-    t += wlines(x + 5, x + 49, 240, 4, 10.5);
-  }
-  return wrap(d, t);
-}
-
-/* =========================================================
-   7. 1年間の アルバム（ふりかえり）
-   ========================================================= */
-function cardAlbum() {
-  let d = '', t = '';
-  d += RR(8, 8, 194, 281, 6, { w: 1.2 });
-  d += RR(12, 12, 186, 273, 3, { w: 0.4, fill: 'none' });
-  d += camera(26, 22);
-  t += R(112, 35, '{1年間|いちねんかん}の アルバム', { size: 12, font: F_T, hollow: true, anchor: 'middle', rsize: 3 });
-  d += sparkle(52, 21, 2.2) + sparkle(178, 24, 3) + star(188, 34, 2.2) + sparkle(170, 36, 1.8);
-  t += nameRow(18, 49, 174);
-
-  // フィルム
-  d += RR(16, 55, 94, 158, 2, { w: 0.9 });
-  for (let y = 58; y < 209; y += 6.2) d += RR(18.3, y, 3.4, 3.8, 0.7, { w: 0.4 }) + RR(104.3, y, 3.4, 3.8, 0.7, { w: 0.4 });
-  const terms = ['{1学期|いちがっき}', '{2学期|にがっき}', '{3学期|さんがっき}'];
-  terms.forEach((lab, i) => {
-    const y = 59 + i * 51.5;
-    d += RR(25, y, 76, 46, 1, { w: 0.8 });
-    d += RR(116, y, 38, 10, 5, { w: 0.7 });
-    t += R(135, y + 7.6, lab, { size: 4, font: F_T, anchor: 'middle', rsize: 1.7 });
-    t += T(158, y + 7, 'いちばんの おもいで', { size: 2.9 });
-    t += wlines(116, 194, y + 20, 3, 10.5);
-  });
-
-  // できるように なった こと
-  d += RR(16, 221, 96, 63, 3, { w: 0.9 });
-  t += T(21, 232, 'できるように なった こと', { size: 3.7, font: F_T });
-  [1, 2, 3].forEach((k, i) => {
-    const y = 245 + i * 13;
-    d += P(`M${23},${y + 1} l-2,5 l2.4,-1 l1,2.2 l1.4,-5.4 Z M${27},${y + 1} l2,5 l-2.4,-1 l-1,2.2 l-1.4,-5.4 Z`, { w: 0.4 });
-    d += C(25, y - 1.5, 4, { w: 0.6 });
-    t += T(25, y, String(k), { size: 4, font: F_T, anchor: 'middle' });
-    t += dotL(32, 106, y + 1);
-  });
-  // つぎの 学年
-  const g = +S.nen;
-  const next = g >= 1 && g <= 5 ? `${g + 1}{年生|ねんせい}に なったら` : g === 6 ? '{中学生|ちゅうがくせい}に なったら' : 'つぎの {学年|がくねん}で';
-  d += RR(116, 221, 78, 63, 3, { w: 0.9 });
-  t += R(121, 232, next, { size: 3.8, font: F_T, rsize: 1.7 });
-  t += T(121, 239.5, 'やってみたい こと', { size: 2.9 });
-  d += P('M172,241 H178 V236 H184 V231 H190 V241 Z', { w: 0.6 });
-  d += L(187, 231, 187, 223.5, 0.5) + P('M187,223.5 L192.5,225.5 L187,227.5 Z', { w: 0.45 });
-  t += wlines(121, 189, 251, 3, 10.5);
-  return wrap(d, t);
-}
-
-/* =========================================================
-   8. じぶんに しょうじょう（学期の おわり）
-   ========================================================= */
-function cardShoujou() {
-  let d = '', t = '';
-  d += RR(10, 10, 190, 277, 0, { w: 1.4 });
-  d += RR(15, 15, 180, 267, 0, { w: 0.5, fill: 'none' });
-  for (let x = 19; x <= 191; x += 6) d += C(x, 12.5, 0.75, { w: 0.35 }) + C(x, 284.5, 0.75, { w: 0.35 });
-  for (let y = 19; y <= 278; y += 6.05) d += C(12.5, y, 0.75, { w: 0.35 }) + C(197.5, y, 0.75, { w: 0.35 });
-  for (const [x, y] of [[15, 15], [195, 15], [15, 282], [195, 282]]) d += C(x, y, 5, { w: 0.8 }) + star(x, y, 3.6, { w: 0.45 });
-  d += RR(21, 21, 168, 255, 3, { fill: 'none', w: 0.45, dash: '0.01 1.3' });
-
-  // ロゼット
-  d += P('M99,58 L90,84 L94.5,81 L97,86 L104,62 Z', { w: 0.7 });
-  d += P('M111,58 L120,84 L115.5,81 L113,86 L106,62 Z', { w: 0.7 });
-  d += POLY(starPts(105, 46, 18, 15.6, 18), { w: 0.8 });
-  d += C(105, 46, 12, { w: 0.7 });
-  d += star(105, 46.5, 8, { w: 0.6 });
-  d += laurel(105, 54, 34, 112, 200, 6) + laurel(105, 54, 34, 68, -20, 6);
-  t += T(105, 106, 'しょうじょう', { size: 17, font: F_T, hollow: true, anchor: 'middle' });
-
-  // 第〇学期 がんばったで賞
-  const sz = 6.2, A = '{第|だい}', B = '{学期|がっき} がんばったで{賞|しょう}', gap = 11;
-  const tot = rtw(A, sz, F_T) + gap + rtw(B, sz, F_T);
-  let x0 = 105 - tot / 2;
-  t += R(x0, 124, A, { size: sz, font: F_T, rsize: 2.4 });
-  x0 += rtw(A, sz, F_T);
-  if (S.term) t += T(x0 + gap / 2, 124, S.term, { size: sz * 1.1, font: F_T, anchor: 'middle' });
-  else t += L(x0 + 1, 125.5, x0 + gap - 1, 125.5, 0.5);
-  t += R(x0 + gap, 124, B, { size: sz, font: F_T, rsize: 2.4 });
-
-  t += L(46, 147, 152, 147, 0.5);
-  t += T(156, 146, 'さん', { size: 6, font: F_T });
-  t += R(30, 164, 'あなたは この {学期|がっき}、', { size: 4.6 });
-  t += wlines(30, 180, 178, 3, 12);
-  t += T(30, 216, 'を とても がんばりました。', { size: 4.6 });
-  t += T(30, 228, 'その がんばりを ここに たたえます。', { size: 4.6 });
-  t += R(180, 242, '{年|ねん}　　　{月|がつ}　　　{日|にち}', { size: 4.2, anchor: 'end' });
-
-  t += R(30, 254, 'おうちの {人|ひと}・せんせいから ひとこと', { size: 3.4 });
-  d += RR(28, 257, 106, 21, 3, { w: 0.7 });
-  t += dotL(33, 129, 267) + dotL(33, 129, 275);
-  d += C(164, 262, 13, { fill: 'none', w: 0.6, dash: '1.4 1.2' });
-  t += T(164, 260.5, 'じぶんの', { size: 2.8, anchor: 'middle' });
-  t += T(164, 265.5, 'サイン', { size: 3.4, anchor: 'middle', font: F_T });
-  return wrap(d, t);
-}
-
-/* =========================================================
-   9. 係カード（入れたい こうもくに チェック → くみたて）
-   ========================================================= */
-const K_ITEMS = [
-  { k: 'member', lab: 'メンバー', ui: 'メンバー' },
-  { k: 'meate', lab: 'めあて', ui: 'めあて' },
-  { k: 'work', lab: '{仕事|しごと} {内容|ないよう}', ui: '仕事内容' },
-  { k: 'toban', lab: '{当番表|とうばんひょう}', ui: '当番表' },
-  { k: 'mark', lab: '{係|かかり}の マーク', ui: '係の マーク（絵）' },
-  { k: 'minna', lab: 'クラスの みんなへ', ui: 'クラスの みんなへ' },
-  { k: 'furi', lab: 'ふりかえり', ui: 'ふりかえり（星を ぬる）' },
-];
-const K_THEMES = [
-  { k: 'shop', lab: 'おみせ（やね と かんばん）' },
-  { k: 'company', lab: 'かかり カンパニー（ビル）' },
-  { k: 'train', lab: 'でんしゃ' },
-  { k: 'space', lab: 'うちゅう（ロケット）' },
-  { k: 'board', lab: 'こくばん' },
-];
-const K_TOBAN = [
-  { k: 'youbi', lab: '曜日ごと（月〜金）' },
-  { k: 'week', lab: '週ごと（1〜4しゅうめ）' },
-  { k: 'check', lab: 'できたら ○（4しゅう×5日）' },
-];
-const K_PRESETS = {
-  full: { member: 1, meate: 1, work: 1, toban: 1, mark: 0, minna: 1, furi: 0 },
-  notoban: { member: 1, meate: 1, work: 1, toban: 0, mark: 1, minna: 1, furi: 0 },
-  simple: { member: 1, meate: 1, work: 1, toban: 0, mark: 0, minna: 0, furi: 0 },
-  all: { member: 1, meate: 1, work: 1, toban: 1, mark: 1, minna: 1, furi: 1 },
-};
-
-// 係名の らん（線 ＋ 大きな「係」）
-function kakariName(x1, x2, y, sz = 15) {
-  let t = '';
-  t += L(x1, y + 1.5, x2, y + 1.5, 0.6);
-  if (S.kk.name) t += T((x1 + x2) / 2, y - 0.5, S.kk.name, { size: 10, font: F_H, weight: 600, anchor: 'middle' });
-  t += R(x2 + 2, y + 1, '{係|かかり}', { size: sz, font: F_T, hollow: true, rsize: 2.6 });
-  return t;
-}
-
-/* --- テーマごとの あたま（y 10〜70 くらい） --- */
-const K_HEAD = {
-  shop() {
-    let d = '', t = '';
-    // ひさし
-    d += RR(14, 12, 182, 16, 1, { w: 0.9 });
-    for (let i = 0; i < 14; i++) {
-      const x = 14 + i * 13;
-      d += P(`M${x},28 a6.5,6.5 0 0 0 13,0`, { w: 0.8, fill: i % 2 ? 'HATCH' : '#fff' });
-      if (i) d += L(x, 12, x, 28, 0.6);
-    }
-    for (let i = 0; i < 14; i += 2) d += RR(14 + i * 13 + 0.6, 12.6, 11.8, 14.8, 0, { w: 0, fill: 'HATCH' });
-    d += RR(14, 12, 182, 16, 1, { w: 0.9, fill: 'none' });
-    // かんばん
-    d += L(56, 35, 56, 41, 0.6) + L(154, 35, 154, 41, 0.6);
-    d += RR(40, 40, 130, 27, 4, { w: 1 });
-    d += RR(42.5, 42.5, 125, 22, 2.5, { w: 0.35, fill: 'none', dash: '0.9 0.9' });
-    t += kakariName(50, 134, 60);
-    // うえきばち
-    for (const x of [24, 186]) {
-      d += P(`M${x - 6},58 L${x + 6},58 L${x + 4.5},67 L${x - 4.5},67 Z`, { w: 0.7 });
-      d += E(x, 52, 4, 5.5, { w: 0.6, tf: `rotate(-25 ${x} 52)` }) + E(x, 52, 4, 5.5, { w: 0.6, tf: `rotate(25 ${x} 52)` });
-      d += L(x, 58, x, 50, 0.6);
-    }
-    return { d, t, top: 76 };
-  },
-  company() {
-    let d = '', t = '';
-    d += L(12, 66, 198, 66, 0.8);
-    for (const x of [20, 190]) d += L(x, 66, x, 56, 0.8) + C(x, 50, 7, { w: 0.7 }) + C(x - 3, 48, 2.5, { fill: 'none', w: 0.35 });
-    d += RR(32, 14, 146, 52, 1, { w: 1 });
-    d += RR(29, 11, 152, 5, 1, { w: 0.8 });
-    for (const bx of [36, 156]) for (let r = 0; r < 3; r++) for (let c = 0; c < 2; c++) d += RR(bx + c * 9, 21 + r * 13, 7, 9, 0.8, { w: 0.55 });
-    d += RR(62, 19, 86, 31, 2, { w: 0.9 });
-    t += R(105, 27.5, '{株式会社|かぶしきがいしゃ}', { size: 3.4, anchor: 'middle', rsize: 1.6 });
-    t += kakariName(68, 128, 42, 13);
-    d += RR(95, 52, 20, 14, 1, { w: 0.7 }) + L(105, 52, 105, 66, 0.5);
-    d += C(102.5, 59, 0.6, { fill: '#000', w: 0 }) + C(107.5, 59, 0.6, { fill: '#000', w: 0 });
-    return { d, t, top: 76 };
-  },
-  train() {
-    let d = '', t = '';
-    // けむり
-    d += C(24, 15, 3.4, { w: 0.6 }) + C(31, 12.5, 4.2, { w: 0.6 }) + C(39.5, 14, 3, { w: 0.6 });
-    // きかんしゃ
-    d += RR(25, 20, 6, 9, 1, { w: 0.7 });
-    d += P('M14,56 V36 Q14,28 22,28 H40 V20 H62 V56 Z', { w: 0.9 });
-    d += RR(44, 25, 13, 12, 1.5, { w: 0.7 });
-    d += RR(10, 50, 6, 5, 1, { w: 0.6 });
-    // きゃくしゃ
-    d += L(62, 50, 66, 50, 0.9);
-    d += RR(66, 22, 130, 34, 5, { w: 0.9 });
-    d += RR(66, 22, 130, 5, 2.5, { w: 0.6 });
-    t += kakariName(80, 166, 47, 14);
-    // しゃりん と せんろ
-    for (const x of [22, 46, 80, 106, 154, 180]) d += C(x, 58.5, 4.6, { w: 0.8 }) + C(x, 58.5, 1.3, { w: 0.5 });
-    d += L(10, 63.6, 200, 63.6, 0.8);
-    for (let x = 12; x < 200; x += 8) d += RR(x, 64.2, 4, 2, 0.4, { w: 0.4 });
-    return { d, t, top: 76 };
-  },
-  space() {
-    let d = '', t = '';
-    // ロケット
-    const tf = 'translate(9 2) rotate(35 28 40)';
-    d += P('M24,58 Q28,66 32,58 Z', { w: 0.6, tf });
-    d += P('M22,48 L15,58 L22,55 Z M34,48 L41,58 L34,55 Z', { w: 0.7, tf });
-    d += P('M28,16 C36,24 37,40 34,56 H22 C19,40 20,24 28,16 Z', { w: 0.9, tf });
-    d += C(28, 34, 4.2, { w: 0.7, tf }) + L(22.6, 46, 33.4, 46, 0.5, `transform="${tf}"`);
-    // わくせい
-    d += C(180, 36, 11, { w: 0.9 });
-    d += P('M166,40 C156,46 172,46 192,34 C200,28 197,24 190,27', { fill: 'none', w: 0.8 });
-    d += P('M172,30 q4,-2 8,0 M176,42 q4,2 8,-1', { fill: 'none', w: 0.4 });
-    // ほし
-    for (const [x, y, r] of [[54, 16, 2.4], [160, 16, 2.6], [150, 62, 1.8], [60, 62, 2], [196, 60, 2.2], [104, 14, 1.6]]) d += star(x, y, r, { w: 0.5 });
-    d += sparkle(166, 54, 2.2) + sparkle(46, 30, 1.8);
-    d += RR(50, 25, 108, 30, 15, { w: 1 });
-    d += RR(53, 28, 102, 24, 12, { w: 0.35, fill: 'none', dash: '0.9 0.9' });
-    t += kakariName(64, 128, 46, 14);
-    return { d, t, top: 76 };
-  },
-  board() {
-    let d = '', t = '';
-    d += RR(14, 12, 182, 48, 2, { w: 1 });
-    d += RR(18.5, 16.5, 173, 39, 1, { w: 0.7 });
-    d += RR(22, 60, 166, 4, 1, { w: 0.7 });
-    d += RR(40, 57.6, 9, 2.4, 1, { w: 0.5 }) + RR(54, 57.6, 7, 2.4, 1, { w: 0.5 }) + RR(150, 60.5, 10, 2, 0.8, { w: 0.45 });
-    for (const [x, y] of [[26, 22], [184, 22]]) d += C(x, y, 2.6, { w: 0.6 }) + C(x - 0.7, y - 0.7, 0.7, { fill: 'none', w: 0.3 });
-    t += kakariName(44, 140, 44, 15);
-    d += sparkle(168, 32, 2.4) + star(176, 44, 2, { w: 0.5 });
-    return { d, t, top: 76 };
-  },
-};
-
-/* --- テーマごとの はこ（ラベルの つけかた） --- */
-const K_BOX = {
-  shop(x, y, w, h, lab) {
-    const lw = rtw(lab, 4, F_T) + 10;
-    return { d: RR(x, y, w, h, 3, { w: 0.9 }) + RR(x + 4, y - 4.5, lw, 9, 3, { w: 0.8 }),
-      t: R(x + 9, y + 1.9, lab, { size: 4, font: F_T, rsize: 1.6 }), top: y + 8 };
-  },
-  company(x, y, w, h, lab) {
-    return { d: RR(x, y, w, h, 1.5, { w: 0.9 }) + RR(x, y, w, 9.5, 1.5, { w: 0.9 }) + RR(x + 3, y + 2.8, 4, 4, 0.5, { w: 0.5, fill: 'HATCH' }),
-      t: R(x + 10, y + 7, lab, { size: 4, font: F_T, rsize: 1.5 }), top: y + 11 };
-  },
-  train(x, y, w, h, lab) {
-    const lw = rtw(lab, 4, F_T) + 12;
-    let d = RR(x, y, w, h, 4, { w: 0.9 });
-    d += P(`M${x + 3},${y + 3} H${x + 3 + lw} L${x + 8 + lw},${y + 7.5} L${x + 3 + lw},${y + 12} H${x + 3} Z`, { w: 0.75 });
-    return { d, t: R(x + 8, y + 9.4, lab, { size: 4, font: F_T, rsize: 1.5 }), top: y + 14 };
-  },
-  space(x, y, w, h, lab) {
-    return { d: RR(x, y, w, h, 5, { w: 0.9 }) + star(x + 7.5, y + 7, 3.8, { w: 0.6 }),
-      t: R(x + 13.5, y + 9, lab, { size: 4, font: F_T, rsize: 1.6 }), top: y + 13 };
-  },
-  board(x, y, w, h, lab) {
-    const lw = rtw(lab, 4, F_T);
-    let d = RR(x, y, w, h, 1, { w: 0.9 });
-    d += RR(x - 3, y - 3, 14, 6, 0.5, { w: 0.4, fill: 'DOTS', tf: `rotate(-28 ${x + 4} ${y})` });
-    d += RR(x + w - 11, y - 3, 14, 6, 0.5, { w: 0.4, fill: 'DOTS', tf: `rotate(28 ${x + w - 4} ${y})` });
-    d += L(x + 6, y + 11, x + 8 + lw, y + 11, 0.8);
-    return { d, t: R(x + 7, y + 9.4, lab, { size: 4, font: F_T, rsize: 1.6 }), top: y + 15 };
-  },
-};
-
-/* --- こうもくの なかみ（ラベルの 下の 場所に かく） --- */
-function kLines(x1, x2, y0, y1, gap = 9.5) {
-  let s = '';
-  for (let y = y0 + 7.5; y <= y1 - 3; y += gap) s += dotL(x1, x2, y);
-  return s;
-}
-const K_FILL = {
-  member(x, y, w, b) {
-    const k = S.kk.mem, cols = k <= 4 ? k : 3, cw2 = (w - 8) / cols;
-    let d = '', t = '';
-    for (let i = 0; i < k; i++) {
-      const cx = x + 4 + (i % cols) * cw2, cy = y + 7 + Math.floor(i / cols) * 13;
-      d += faceCircle(cx + 5.5, cy, 4.6);
-      t += dotL(cx + 12, cx + cw2 - 3, cy + 3);
-    }
-    return { d, t };
-  },
-  meate(x, y, w, b) { return { d: '', t: kLines(x + 5, x + w - 5, y, b) }; },
-  minna(x, y, w, b) { return { d: '', t: kLines(x + 5, x + w - 5, y, b) }; },
-  work(x, y, w, b) {
-    let d = '', t = '', i = 0;
-    for (let yy = y + 7.5; yy <= b - 3; yy += 9.5) {
-      d += C(x + 7, yy - 1.6, 2.4, { w: 0.5 });
-      t += T(x + 7, yy - 0.5, String(++i), { size: 2.8, anchor: 'middle', font: F_T });
-      t += dotL(x + 11.5, x + w - 5, yy);
-    }
-    return { d, t };
-  },
-  mark(x, y, w, b) {
-    const r = Math.min(w - 12, b - y - 10) / 2;
-    return { d: C(x + w / 2, y + (b - y - 5) / 2, r, { fill: 'none', w: 0.6, dash: '1.8 1.4' }),
-      t: T(x + w / 2, b - 2.5, 'マークを かこう', { size: 2.6, anchor: 'middle' }) };
-  },
-  furi(x, y, w, b) {
-    let d = '', t = '';
-    t += T(x + 5, y + 6, 'できた ど', { size: 3.4 });
-    for (let i = 0; i < 5; i++) d += star(x + 28 + i * 9, y + 4.6, 3.8, { w: 0.55 });
-    t += kLines(x + 5, x + w - 5, y + 4, b);
-    return { d, t };
-  },
-  toban(x, y, w, b) {
-    let d = '', t = '';
-    const x1 = x + 4, x2 = x + w - 4, y1 = y + 2, y2 = b - 3;
-    const days = ['{月|げつ}', '{火|か}', '{水|すい}', '{木|もく}', '{金|きん}'];
-    if (S.kk.toban === 'check') {
-      const lc = 14, cw3 = (x2 - x1 - lc) / 5, rh = (y2 - y1) / 5;
-      d += RR(x1, y1, x2 - x1, y2 - y1, 1, { w: 0.7 });
-      for (let i = 1; i < 5; i++) d += L(x1, y1 + i * rh, x2, y1 + i * rh, i === 1 ? 0.6 : 0.4);
-      d += L(x1 + lc, y1, x1 + lc, y2, 0.6);
-      for (let j = 1; j < 5; j++) d += L(x1 + lc + j * cw3, y1, x1 + lc + j * cw3, y2, 0.4);
-      days.forEach((dd, j) => { t += R(x1 + lc + (j + 0.5) * cw3, y1 + rh / 2 + 1.4, dd, { size: 3.4, anchor: 'middle', rsize: 1.4 }); });
-      for (let i = 1; i < 5; i++) t += T(x1 + lc / 2, y1 + (i + 0.5) * rh + 1.2, `${i}しゅう`, { size: 2.7, anchor: 'middle' });
-      t += T(x2, b + 0.2, 'できたら ○を かこう', { size: 2.4, anchor: 'end' });
-      return { d, t };
-    }
-    const rows = S.kk.toban === 'week' ? ['1しゅうめ', '2しゅうめ', '3しゅうめ', '4しゅうめ'] : days;
-    const lc = S.kk.toban === 'week' ? 17 : 10;
-    const rh = (y2 - y1) / (rows.length + 1);
-    d += RR(x1, y1, x2 - x1, y2 - y1, 1, { w: 0.7 });
-    for (let i = 1; i <= rows.length; i++) d += L(x1, y1 + i * rh, x2, y1 + i * rh, i === 1 ? 0.6 : 0.4);
-    d += L(x1 + lc, y1, x1 + lc, y2, 0.6);
-    t += T(x1 + lc + (x2 - x1 - lc) / 2, y1 + rh / 2 + 1.3, 'なまえ', { size: 3.2, anchor: 'middle' });
-    rows.forEach((r, i) => {
-      const yy = y1 + (i + 1.5) * rh + 1.3;
-      t += r.includes('{') ? R(x1 + lc / 2, yy, r, { size: 3.4, anchor: 'middle', rsize: 1.4 }) : T(x1 + lc / 2, yy, r, { size: 2.8, anchor: 'middle' });
-    });
-    return { d, t };
-  },
-};
-
-function kMin(k) {
-  if (k === 'member') { const rows = Math.ceil(S.kk.mem / (S.kk.mem <= 4 ? S.kk.mem : 3)); return 15 + rows * 13; }
-  return { meate: 26, work: 34, toban: S.kk.toban === 'check' ? 46 : 52, mark: 44, minna: 26, furi: 38 }[k];
-}
-const K_WEIGHT = { member: 0, meate: 1, work: 2, toban: 1.2, mark: 1, minna: 1, furi: 0.7 };
-
-function cardKakari() {
-  let d = '', t = '';
-  const th = S.kk.theme in K_HEAD ? S.kk.theme : 'shop';
-  d += RR(8, 8, 194, 281, 5, { w: 1 });
-  const head = K_HEAD[th]();
-  d += head.d; t += head.t;
-  const on = k => !!S.kk.items[k];
-  // ならべかた
-  const rows = [];
-  if (on('member')) rows.push(['member']);
-  if (on('meate')) rows.push(['meate']);
-  if (on('work') && on('toban')) rows.push(['work', 'toban']); else if (on('work')) rows.push(['work']); else if (on('toban')) rows.push(['toban']);
-  if (on('mark') && on('minna')) rows.push(['mark', 'minna']); else if (on('mark')) rows.push(['mark']); else if (on('minna')) rows.push(['minna']);
-  if (on('furi')) rows.push(['furi']);
-  if (!rows.length) {
-    t += T(105, 160, 'のせたい こうもくに チェックを いれてね', { size: 5, anchor: 'middle' });
-    return wrap(d, t);
-  }
-  const X0 = 16, W = 178, BOTTOM = 284, GAP = 8;
-  const top = head.top;
-  const mins = rows.map(r => Math.max(...r.map(kMin)));
-  const wts = rows.map(r => Math.max(...r.map(k => K_WEIGHT[k])));
-  const avail = BOTTOM - top - GAP * (rows.length - 1);
-  const extra = Math.max(0, avail - mins.reduce((a, b) => a + b, 0));
-  const wsum = wts.reduce((a, b) => a + b, 0) || 1;
-  let y = top;
-  rows.forEach((r, i) => {
-    const h = mins[i] + extra * wts[i] / wsum;
-    const ratio = r[0] === 'mark' ? 0.36 : 0.56;
-    const parts = r.length === 1 ? [[X0, W]] : [[X0, W * ratio - 3], [X0 + W * ratio + 3, W * (1 - ratio) - 3]];
-    r.forEach((k, j) => {
-      const [bx, bw] = parts[j];
-      const item = K_ITEMS.find(it => it.k === k);
-      const box = K_BOX[th](bx, y, bw, h, item.lab);
-      d += box.d; t += box.t;
-      const f = K_FILL[k](bx, box.top, bw, y + h);
-      d += f.d; t += f.t;
-    });
-    y += h + GAP;
-  });
-  return wrap(d, t);
-}
-
-/* =========================================================
-   10. みんなの かかり（クラスの 係 いちらん表）
-   ========================================================= */
-function cardIchiran() {
-  let d = '', t = '';
-  d += RR(8, 8, 194, 281, 5, { w: 1 });
-  // はた
-  d += L(12, 13, 198, 13, 0.6);
-  for (let i = 0; i < 16; i++) {
-    const x = 15 + i * 11.6;
-    d += POLY([[x, 13], [x + 9, 13], [x + 4.5, 21]], { w: 0.55 });
-  }
-  // えんぴつ と けしゴム
-  d += P('M18,40 L44,34 L46,40 L20,46 Z', { w: 0.7 }) + P('M44,34 L52,35.5 L46,40 Z', { w: 0.6 }) + P('M50.2,35.2 L52,35.5 L50.6,36.8 Z', { fill: '#000', w: 0.3 });
-  d += RR(160, 32, 16, 9, 1.5, { w: 0.7, tf: 'rotate(-12 168 36)' }) + L(166, 31.6, 167.8, 40.4, 0.5, 'transform="rotate(-12 168 36)"');
-  d += star(186, 30, 2.6, { w: 0.5 }) + sparkle(192, 42, 2) + sparkle(58, 28, 2);
-  t += T(105, 40, 'みんなの かかり', { size: 13, font: F_T, hollow: true, anchor: 'middle' });
-  // 年 組
-  let cx = 74;
-  for (const [lab, val] of [['{年|ねん}', S.nen], ['{組|くみ}', S.kumi]]) {
-    t += L(cx, 53.2, cx + 14, 53.2, 0.4);
-    if (val) t += T(cx + 7, 51.8, val, { size: 5, anchor: 'middle', font: F_H, weight: 600 });
-    t += R(cx + 15, 52, lab, { size: 4 });
-    cx += 34;
-  }
-  // ひょう
-  const x1 = 14, x2 = 196, y1 = 58, y2 = 284, hh = 9;
-  const nRow = S.ichiran.rows, nCol = S.ichiran.cols, lc = 52;
-  const rh = (y2 - y1 - hh) / nRow, cw4 = (x2 - x1 - lc) / nCol;
-  d += RR(x1, y1, x2 - x1, y2 - y1, 1.5, { w: 0.9 });
-  d += L(x1, y1 + hh, x2, y1 + hh, 0.7);
-  d += L(x1 + lc, y1, x1 + lc, y2, 0.7);
-  for (let j = 1; j < nCol; j++) d += L(x1 + lc + j * cw4, y1 + hh, x1 + lc + j * cw4, y2, 0.35, 'stroke-dasharray="1 1"');
-  t += R(x1 + lc / 2, y1 + 6.4, '{係|かかり}の なまえ', { size: 3.6, anchor: 'middle', font: F_T, rsize: 1.5 });
-  t += T(x1 + lc + (x2 - x1 - lc) / 2, y1 + 6.4, 'メンバー', { size: 3.6, anchor: 'middle', font: F_T });
-  for (let i = 0; i < nRow; i++) {
-    const ry = y1 + hh + i * rh;
-    if (i) d += L(x1, ry, x2, ry, 0.5);
-    const mr = Math.min(5, rh / 2 - 2);
-    d += C(x1 + 4 + mr, ry + rh / 2, mr, { fill: 'none', w: 0.45, dash: '1 1' });
-    t += R(x1 + lc - 2, ry + rh - 2, '（　　{人|にん}）', { size: 2.6, anchor: 'end', rsize: 1.2 });
-  }
-  return wrap(d, t);
-}
-
-/* ---------- カード いちらん ---------- */
-const CARDS = [
-  { id: 'jiko', title: 'じぶん ずかん', when: '新学期の はじめ', draw: cardJiko,
-    desc: 'ずかんの 1ページ ふうの じこしょうかい。まどに じぶんの えを かき、ステータスの メーターを じぶんで ぬって「げんき」「やさしさ」などを あらわします。' },
-  { id: 'sakura', title: '1学期の めあて', when: '1学期の はじめ', draw: cardSakura,
-    desc: '大きな さくらの はなびら 5まいに「学習・ともだち・運動・生活・たのしみな こと」を 書きます。まん中に じぶんの かお。' },
-  { id: 'quest', title: '2学期 クエスト', when: '2学期の はじめ', draw: cardQuest,
-    desc: 'たからの ちずの まきもの。メインクエスト（いちばんの めあて）と サブクエストを 書き、9〜12月の チェックポイントで ◎○△ の ふりかえり。' },
-  { id: 'undo', title: 'うんどう会 めあてカード', when: '運動会の まえ・あと', draw: cardUndo,
-    desc: 'ガーランドと メダル。メダルの 中に がんばる じぶんを かきます。でる しゅもく・めあて・おうえんの ことば・あとから 書く ふりかえり（星を ぬる）つき。' },
-  { id: 'ongaku', title: '音楽発表会 カード', when: '音楽・学習発表会', draw: cardOngaku,
-    desc: 'カーテンの ある ステージに えんそう する じぶんを かき、下の チケットに 曲名・パート・めあて・「ここを きいてね！」を 書きます。' },
-  { id: 'daruma', title: '3学期の めあて', when: '3学期の はじめ', draw: cardDaruma,
-    desc: 'だるまの おなかに めあてを 書きます。めあてが かなったら だるまの 目を かきこむ しかけ。たこの らんに 学習・生活・つぎの 学年へ。' },
-  { id: 'album', title: '1年間の アルバム', when: '3学期の おわり', draw: cardAlbum,
-    desc: 'フィルムの 3コマに 1〜3学期の いちばんの おもいでを かきます。できるように なった こと ベスト3 と、つぎの 学年で やってみたい こと。' },
-  { id: 'shoujou', title: 'じぶんに しょうじょう', when: '各学期の おわり', draw: cardShoujou,
-    desc: 'がんばった じぶんに おくる しょうじょう。学期を えらぶと「第〇学期」が はいります。おうちの 人・せんせいからの ひとことらん つき。' },
-  { id: 'kakari', title: '係カード', when: '係を きめた とき', draw: cardKakari,
-    desc: 'のせたい こうもく（メンバー・めあて・仕事内容・当番表・係の マーク・クラスの みんなへ・ふりかえり）に チェックを いれると、その こうもくだけで 1まいに くみたてます。デザイン 5しゅるい・当番表 3しゅるい。' },
-  { id: 'ichiran', title: 'みんなの かかり', when: '係を きめた とき', draw: cardIchiran,
-    desc: 'クラスの 係を 1まいに まとめる いちらん表。係の なまえ・マーク・人数と メンバー。行の 数と メンバーの らんの 数を えらべます。' },
-];
-const byId = id => CARDS.find(c => c.id === id) || CARDS[0];
-
-/* ---------- がめん ---------- */
-const $ = id => document.getElementById(id);
-
-function saveOpts() {
-  try { localStorage.setItem('mokuhyou-card', JSON.stringify({ nen: S.nen, kumi: S.kumi, term: S.term, ruby: S.ruby, wobble: S.wobble, cur: S.cur, kk: S.kk, ichiran: S.ichiran })); } catch (e) { /* なくても うごく */ }
-}
-function loadOpts() {
-  try {
-    const o = JSON.parse(localStorage.getItem('mokuhyou-card') || '{}');
-    const kk = o.kk || {}, ic = o.ichiran || {};
-    delete o.kk; delete o.ichiran;
-    Object.assign(S, o);
-    Object.assign(S.kk, kk, { items: { ...S.kk.items, ...(kk.items || {}) } });
-    Object.assign(S.ichiran, ic);
-  } catch (e) { /* なくても うごく */ }
-  const h = location.hash.slice(1);
-  if (h && CARDS.some(c => c.id === h)) S.cur = h;
-}
-
-function renderList() {
-  $('list').innerHTML = CARDS.map(c =>
-    `<button type="button" class="item${c.id === S.cur ? ' on' : ''}" data-id="${c.id}">
-      <div class="thumb">${c.draw()}</div>
-      <small>${esc(c.when)}</small><b>${esc(c.title)}</b>
-    </button>`).join('');
-}
-function renderMain() {
-  const c = byId(S.cur);
-  $('pTitle').textContent = c.title;
-  $('pWhen').textContent = c.when;
-  $('pDesc').textContent = c.desc;
-  $('termWrap').hidden = c.id !== 'shoujou';
-  $('kakariOpts').hidden = c.id !== 'kakari';
-  $('ichiranOpts').hidden = c.id !== 'ichiran';
-  $('kTobanWrap').hidden = !S.kk.items.toban;
-  $('view').innerHTML = c.draw();
-}
-function renderAll() { renderList(); renderMain(); }
-
-function doPrint(ids) {
-  $('print').innerHTML = ids.map(id => `<div class="sheet">${byId(id).draw()}</div>`).join('');
-  const go = () => window.print();
-  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => setTimeout(go, 60));
-}
-window.addEventListener('afterprint', () => { $('print').innerHTML = ''; });
-
-function init() {
-  loadOpts();
-  $('optNen').value = S.nen; $('optKumi').value = S.kumi; $('optTerm').value = S.term;
-  $('optRuby').checked = S.ruby; $('optWobble').checked = S.wobble;
-  $('kTheme').innerHTML = K_THEMES.map(o => `<option value="${o.k}">${esc(o.lab)}</option>`).join('');
-  $('kToban').innerHTML = K_TOBAN.map(o => `<option value="${o.k}">${esc(o.lab)}</option>`).join('');
-  $('kItems').insertAdjacentHTML('beforeend', K_ITEMS.map(it =>
-    `<label class="check"><input type="checkbox" data-item="${it.k}"> ${esc(it.ui)}</label>`).join(''));
-  const syncK = () => {
-    $('kTheme').value = S.kk.theme; $('kMem').value = String(S.kk.mem); $('kToban').value = S.kk.toban; $('kName').value = S.kk.name;
-    document.querySelectorAll('[data-item]').forEach(cb => { cb.checked = !!S.kk.items[cb.dataset.item]; });
-    $('iRows').value = String(S.ichiran.rows); $('iCols').value = String(S.ichiran.cols);
-  };
-  syncK();
-  document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => {
-    S.kk.items = { ...K_PRESETS[b.dataset.preset] };
-    syncK(); saveOpts(); renderAll();
-  }));
-
-  $('list').addEventListener('click', e => {
-    const b = e.target.closest('.item');
-    if (!b) return;
-    S.cur = b.dataset.id;
-    history.replaceState(null, '', '#' + S.cur);
-    document.querySelectorAll('.item').forEach(x => x.classList.toggle('on', x === b));
-    renderMain(); saveOpts();
-    if (window.innerWidth <= 760) $('view').scrollIntoView({ behavior: 'smooth' });
-  });
-  const onOpt = () => {
-    S.nen = $('optNen').value; S.kumi = $('optKumi').value.trim(); S.term = $('optTerm').value;
-    S.ruby = $('optRuby').checked; S.wobble = $('optWobble').checked;
-    S.kk.theme = $('kTheme').value; S.kk.mem = +$('kMem').value; S.kk.toban = $('kToban').value; S.kk.name = $('kName').value.trim();
-    document.querySelectorAll('[data-item]').forEach(cb => { S.kk.items[cb.dataset.item] = cb.checked ? 1 : 0; });
-    S.ichiran.rows = +$('iRows').value; S.ichiran.cols = +$('iCols').value;
-    saveOpts(); renderAll();
-  };
-  $('opts').addEventListener('change', onOpt);
-  $('optKumi').addEventListener('input', onOpt);
-  $('kName').addEventListener('input', onOpt);
-  $('btnPrint').addEventListener('click', () => {
-    const k = +$('copies').value || 1;
-    doPrint(Array.from({ length: k }, () => S.cur));
-  });
-  $('btnAll').addEventListener('click', () => doPrint(CARDS.map(c => c.id)));
-
-  renderAll();
-  if (document.fonts && document.fonts.load) {
-    const fams = ['700 10px "Zen Maru Gothic"', '10px "Mochiy Pop One"', '600 10px "Klee One"'];
-    Promise.all(fams.map(f => document.fonts.load(f, 'あ亜A').catch(() => null)))
-      .then(() => document.fonts.ready)
-      .then(() => { MC.clear(); renderAll(); });
-  }
-}
-init();
-</script>
+<script src="core.js"></script>
+<script src="themes.js"></script>
+<script src="heroes.js"></script>
+<script src="layout.js"></script>
+<script src="kakari.js"></script>
+<script src="bespoke.js"></script>
+<script src="catalog.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
