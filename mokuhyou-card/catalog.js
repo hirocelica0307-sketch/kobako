@@ -224,6 +224,7 @@ function renderDesign(ds) {
   const cat = CATS[ds.cat];
   if (ds.draw) return ds.draw();
   if (ds.multi) return renderMulti(ds);
+  if (ds.scene) return SCENES[ds.scene](ds);
   if (cat.cert) return renderCert(ds);
   let use = ds;
   if (ds.drop) use = { ...ds, secs: (ds.secs || cat.sec[G]).filter(s => !ds.drop.includes(s.t)) };

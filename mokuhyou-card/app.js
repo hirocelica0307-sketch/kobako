@@ -34,7 +34,8 @@ function loadOpts() {
   if (!cur || cur.cat !== S.cat) S.cur = DESIGNS.find(d => d.cat === S.cat).id;
 }
 
-const visible = () => DESIGNS.filter(d => d.cat === S.cat && (S.grade === 'all' || d.grade === S.grade));
+// ばめんの ある デザインを さきに
+const visible = () => DESIGNS.filter(d => d.cat === S.cat && (S.grade === 'all' || d.grade === S.grade)).sort((a, b) => (b.scene ? 1 : 0) - (a.scene ? 1 : 0));
 
 function renderCats() {
   $('cats').innerHTML = CAT_GROUPS.map(([gname, keys]) => `<h3 class="cgroup">${esc(gname)}</h3>` + keys.map(k => {
