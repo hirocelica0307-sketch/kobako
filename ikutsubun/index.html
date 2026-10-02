@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#41689e">
+<meta name="description" content="2年生の かけ算で、文や 絵から「1つ分の 数」と「いくつ分」を 見つけて、しきを つくる れんしゅうを どんどん する アプリ。">
+<title>いくつ分 しきづくり</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="bar">
+    <button class="btn soft" id="homeBtn" type="button" hidden aria-label="はじめの 画面へ"><span class="i">🏠</span></button>
+    <div class="title" id="barTitle">いくつ分 しきづくり</div>
+    <div class="tag" id="modeTag" hidden></div>
+    <div class="spacer"></div>
+    <div class="count" id="count" hidden><span id="stars"></span><span><b id="solved">0</b> もん</span></div>
+    <button class="btn soft" id="soundBtn" type="button" aria-label="おと"><span class="i" id="soundIcon">🔔</span></button>
+    <button class="btn soft" id="setBtn" type="button" aria-label="せってい"><span class="i">⚙️</span></button>
+</header>
+
+<!-- ===== はじめの 画面 ===== -->
+<main class="home" id="home">
+    <h1>いくつ分 しきづくり</h1>
+    <p class="lead">文や 絵の 中から <span class="ca">1つ分の 数</span> と <span class="cb">いくつ分</span> を 見つけて、かけ算の しきを つくろう。<br>こたえは かかなくて いいよ。</p>
+    <div class="howto" aria-hidden="true">
+        <div class="howto-q">1さらに りんごが <span class="ca">3こずつ</span>、<span class="cb">4さら分</span></div>
+        <div class="howto-arrow">⬇</div>
+        <div class="howto-a"><span class="pill a">3</span> こずつ の <span class="pill b">4</span> さら分 → <span class="pill a">3</span> × <span class="pill b">4</span></div>
+    </div>
+    <div class="modes" id="modes"></div>
+    <p class="record" id="record"></p>
+</main>
+
+<!-- ===== れんしゅうの 画面 ===== -->
+<main class="play" id="play" hidden>
+    <!-- 文・絵の 問題 -->
+    <section class="qpane" id="qpane">
+        <div class="qtools">
+            <span class="qkind" id="qkind"></span>
+            <div class="spacer"></div>
+            <button class="btn soft" id="sayBtn" type="button"><span class="i">🔊</span>よむ</button>
+            <button class="btn soft" id="hintBtn" type="button"><span class="i">💡</span>ヒント</button>
+        </div>
+        <div class="qtext" id="qtext"></div>
+        <div class="pic" id="pic"></div>
+    </section>
+
+    <section class="apane" id="apane">
+        <div class="frame" id="frame">
+            <div class="frow" data-step="full">
+                <span class="lab a">1つ分の 数</span>
+                <button class="box a" type="button" data-k="one"></button>
+                <span class="unit" id="unitA">こずつ</span>
+            </div>
+            <div class="frow" data-step="full">
+                <span class="lab b">いくつ分</span>
+                <button class="box b" type="button" data-k="many"></button>
+                <span class="unit" id="unitB">さら分</span>
+            </div>
+            <div class="frow shiki">
+                <span class="lab">しき</span>
+                <button class="box" type="button" data-k="s1"></button>
+                <span class="op">×</span>
+                <button class="box" type="button" data-k="s2"></button>
+            </div>
+        </div>
+        <div class="msg" id="msg" aria-live="polite"></div>
+        <div class="pad" id="pad"></div>
+        <button class="btn go next" id="nextBtn" type="button" hidden>つぎへ ▶</button>
+    </section>
+
+    <!-- しきから えらぶ -->
+    <section class="erabu" id="erabu" hidden>
+        <div class="eq" id="eq"></div>
+        <div class="cards" id="cards"></div>
+        <div class="emsg-row">
+            <div class="msg" id="emsg" aria-live="polite"></div>
+            <button class="btn go next" id="enextBtn" type="button" hidden>つぎへ ▶</button>
+        </div>
+    </section>
+</main>
+
+<div class="toast" id="toast" hidden></div>
+
+<!-- ===== せってい ===== -->
+<dialog id="setDlg">
+    <form method="dialog" class="set">
+        <h2>せってい</h2>
+        <div class="srow">
+            <div class="sname">こたえかた</div>
+            <div class="sopts" data-set="steps">
+                <button class="btn" type="button" value="full">1つ分・いくつ分・しき</button>
+                <button class="btn" type="button" value="shiki">しきだけ</button>
+            </div>
+        </div>
+        <div class="srow">
+            <div class="sname">色の ヒントを<br>はじめから</div>
+            <div class="sopts" data-set="color">
+                <button class="btn" type="button" value="0">なし</button>
+                <button class="btn" type="button" value="1">あり</button>
+            </div>
+        </div>
+        <div class="srow">
+            <div class="sname">おと</div>
+            <div class="sopts" data-set="sound">
+                <button class="btn" type="button" value="1">あり</button>
+                <button class="btn" type="button" value="0">なし</button>
+            </div>
+        </div>
+        <div class="srow">
+            <div class="sname">リンク</div>
+            <div class="sopts">
+                <button class="btn" type="button" id="copyBtn">いまの せっていの リンクを コピー</button>
+            </div>
+        </div>
+        <p class="snote">こたえた 数は この きかいの ブラウザに だけ のこります。</p>
+        <div class="sclose"><button class="btn go" value="close">とじる</button></div>
+    </form>
+</dialog>
+
+<footer class="copy">© Hiroyuki</footer>
+
+<script src="scenes.js"></script>
+<script src="logic.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
