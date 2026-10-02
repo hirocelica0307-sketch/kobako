@@ -19,9 +19,9 @@ const S = {
 // いま かいて いる カードの 学年むけ（'low' 低学年 ／ 'high' 高学年）
 let G = 'low';
 // ふりがな：auto は 低学年だけ
-const rubyOn = () => S.ruby === 'auto' ? G === 'low' : (S.ruby === 'on' || S.ruby === true);
+const rubyOn = () => S.ruby === 'auto' ? G !== 'high' : (S.ruby === 'on' || S.ruby === true);
 // 書く 線の 間かく
-const LG = () => G === 'low' ? 11 : 8.6;
+const LG = () => G === 'low' ? 11 : G === 'mid' ? 9.8 : 8.6;
 // イラストを 縮小・拡大して おく ときに 線の 太さを そろえる
 let SC = 1;
 function scaled(x, y, s, fn) {
@@ -255,7 +255,7 @@ function nameRow(x, y, w, sz = 3.8) {
   f('{年|ねん}', S.nen, 9);
   f('{組|くみ}', S.kumi, 9);
   f('{番|ばん}', '', 9);
-  const nm = G === 'high' ? '{名前|なまえ}' : 'なまえ';
+  const nm = G !== 'low' ? '{名前|なまえ}' : 'なまえ';
   s += R(cx, y, nm, { size: sz });
   cx += rtw(nm, sz) + 1.5;
   s += L(cx, y + 1.2, x + w, y + 1.2, 0.4);

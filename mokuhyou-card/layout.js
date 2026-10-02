@@ -147,7 +147,7 @@ function secBox(th, s, x, y, w, h) {
   if (s.t === 'draw') return drawBox(th, s, x, y, w, h);
   if (s.t === 'hero') return { d: heroAt(s.key, x + 2, y + 2, w - 4, h - 4), t: '' };
   const box = BOX[s.box || th.box](x, y, w, h, s.lab);
-  const f = SEC[s.t].fill(s, x, box.top, w, y + h);
+  const f = SEC[s.t].fill(s, box.x ?? x, box.top, box.w ?? w, y + h);
   return { d: box.d + f.d, t: box.t + f.t };
 }
 function drawBox(th, s, x, y, w, h) {
@@ -291,7 +291,8 @@ function renderGeneric(ds) {
   const th = THEMES[ds.theme];
   TITLE = { src: ds.title || cat.title[G], en: cat.en, kakari: !!cat.kakari };
   REPORT_NO = 0;
-  LBL = G === 'low' ? 4.5 : 4;
+  CHAT_N = 0;
+  LBL = G === 'low' ? 4.5 : G === 'mid' ? 4.2 : 4;
   let d = th.frame ? th.frame() : frameStd(), t = '';
   const h = th.header();
   d += h.d; t += h.t;

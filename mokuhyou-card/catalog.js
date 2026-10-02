@@ -204,23 +204,26 @@ const DESIGN_SRC = {
 
 // id と なまえを つける
 const DESIGNS = [];
-for (const [cat, list] of Object.entries(DESIGN_SRC)) {
-  const cnt = { low: 0, high: 0 };
+const DCOUNT = {};
+function addDesigns(cat, list) {
+  const cnt = DCOUNT[cat] || (DCOUNT[cat] = { low: 0, mid: 0, high: 0 });
   list.forEach(ds => {
     cnt[ds.grade]++;
     ds.cat = cat;
-    ds.id = `${cat}-${ds.grade === 'low' ? 'L' : 'H'}${cnt[ds.grade]}`;
+    ds.id = `${cat}-${{ low: 'L', mid: 'M', high: 'H' }[ds.grade]}${cnt[ds.grade]}`;
     if (!ds.name) ds.name = ds.theme ? THEMES[ds.theme].name : (CERT[ds.frame] ? ds.frame : '');
     DESIGNS.push(ds);
   });
 }
+for (const [cat, list] of Object.entries(DESIGN_SRC)) addDesigns(cat, list);
 const designById = id => DESIGNS.find(d => d.id === id);
 
 function renderDesign(ds) {
   G = ds.grade;
-  LBL = G === 'low' ? 4.5 : 4;
+  LBL = G === 'low' ? 4.5 : G === 'mid' ? 4.2 : 4;
   const cat = CATS[ds.cat];
   if (ds.draw) return ds.draw();
+  if (ds.multi) return renderMulti(ds);
   if (cat.cert) return renderCert(ds);
   let use = ds;
   if (ds.drop) use = { ...ds, secs: (ds.secs || cat.sec[G]).filter(s => !ds.drop.includes(s.t)) };
