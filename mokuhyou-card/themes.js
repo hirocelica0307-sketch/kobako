@@ -370,7 +370,6 @@ const THEMES = {
       d += RR(40, 12, 130, 26, 2, { w: 0.9 });
       t += drawTitle(105, 32.5, 118, 12);
       d += sakura(20, 22, 9) + sakura(190, 22, 9);
-      for (const [x, y, r] of [[60, 45, 20], [150, 44, -30], [100, 44, 60]]) d += petal(x, y, 0.07, r);
       return { d, t, top: 46 };
     },
   },

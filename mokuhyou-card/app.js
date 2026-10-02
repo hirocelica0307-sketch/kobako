@@ -3,7 +3,14 @@
    がめん（カテゴリ → 学年 → デザイン → いんさつ）
    ========================================================= */
 const $ = id => document.getElementById(id);
-const CAT_ORDER = ['jiko', 'g1', 'g2', 'undo', 'ongaku', 'g3', 'matome', 'shoujou', 'kakari', 'ichiran'];
+const CAT_GROUPS = [
+  ['めあて・ふりかえり', ['jiko', 'g1', 'g2', 'g3', 'matome', 'shoujou']],
+  ['ぎょうじ', ['undo', 'ongaku', 'ensoku', 'natsu']],
+  ['がくしゅう・きろく', ['dokusho', 'ganbari']],
+  ['メッセージ・おいわい', ['arigato', 'tanjoubi', 'seicho', 'sotsugyo']],
+  ['かかり', ['kakari', 'ichiran']],
+];
+const CAT_ORDER = CAT_GROUPS.flatMap(g => g[1]);
 
 function saveOpts() {
   try { localStorage.setItem('mokuhyou-card', JSON.stringify({ nen: S.nen, kumi: S.kumi, term: S.term, ruby: S.ruby, wobble: S.wobble, cat: S.cat, cur: S.cur, grade: S.grade, kk: S.kk, ichiran: S.ichiran })); } catch (e) { /* なくても うごく */ }
@@ -29,10 +36,10 @@ function loadOpts() {
 const visible = () => DESIGNS.filter(d => d.cat === S.cat && (S.grade === 'all' || d.grade === S.grade));
 
 function renderCats() {
-  $('cats').innerHTML = CAT_ORDER.map(k => {
+  $('cats').innerHTML = CAT_GROUPS.map(([gname, keys]) => `<h3 class="cgroup">${esc(gname)}</h3>` + keys.map(k => {
     const c = CATS[k], cnt = DESIGNS.filter(d => d.cat === k).length;
     return `<button type="button" class="cat${k === S.cat ? ' on' : ''}" data-cat="${k}"><b>${esc(c.name)}</b><small>${esc(c.when)}・${cnt}しゅるい</small></button>`;
-  }).join('');
+  }).join('')).join('');
 }
 function renderStrip() {
   const list = visible();
