@@ -45,7 +45,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 .item .thumb svg { width: 100%; height: 100%; display: block; }
 .item b { font-size: 12px; line-height: 1.3; }
 .gr { align-self: flex-start; font-size: 10.5px; font-weight: 700; color: #fff; border-radius: 999px; padding: 1px 8px; }
-.gr-low { background: var(--low); } .gr-high { background: var(--high); }
+.gr-low { background: var(--low); } .gr-mid { background: #c9871b; } .gr-high { background: var(--high); }
 .empty { color: var(--sub); }
 .panel { background: #fff; border-radius: 16px; padding: 14px 16px; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 16px; }
 .panel h2 { margin: 0; font-size: 19px; }
@@ -107,6 +107,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
     <div class="grades">
       <button type="button" class="gbtn" data-grade="all">ぜんぶ</button>
       <button type="button" class="gbtn" data-grade="low">低学年むけ</button>
+      <button type="button" class="gbtn" data-grade="mid" id="gMid" hidden>中学年むけ</button>
       <button type="button" class="gbtn" data-grade="high">高学年むけ</button>
       <span class="gnote">低学年：ひらがな中心・大きな 文字・広い 行間・絵の 場所 多め ／ 高学年：漢字・こうもく 多め・おとなっぽい デザイン</span>
     </div>
@@ -132,7 +133,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
         </label>
         <label class="field">ふりがな
           <select id="optRuby">
-            <option value="auto">低学年むけ だけ</option>
+            <option value="auto">低・中学年むけ だけ</option>
             <option value="on">いつも つける</option>
             <option value="off">つけない</option>
           </select>
@@ -190,6 +191,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 <script src="bespoke.js"></script>
 <script src="catalog.js"></script>
 <script src="extra.js"></script>
+<script src="nawa.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

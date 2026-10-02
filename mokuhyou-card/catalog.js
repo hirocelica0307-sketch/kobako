@@ -206,11 +206,11 @@ const DESIGN_SRC = {
 const DESIGNS = [];
 const DCOUNT = {};
 function addDesigns(cat, list) {
-  const cnt = DCOUNT[cat] || (DCOUNT[cat] = { low: 0, high: 0 });
+  const cnt = DCOUNT[cat] || (DCOUNT[cat] = { low: 0, mid: 0, high: 0 });
   list.forEach(ds => {
     cnt[ds.grade]++;
     ds.cat = cat;
-    ds.id = `${cat}-${ds.grade === 'low' ? 'L' : 'H'}${cnt[ds.grade]}`;
+    ds.id = `${cat}-${{ low: 'L', mid: 'M', high: 'H' }[ds.grade]}${cnt[ds.grade]}`;
     if (!ds.name) ds.name = ds.theme ? THEMES[ds.theme].name : (CERT[ds.frame] ? ds.frame : '');
     DESIGNS.push(ds);
   });
@@ -220,7 +220,7 @@ const designById = id => DESIGNS.find(d => d.id === id);
 
 function renderDesign(ds) {
   G = ds.grade;
-  LBL = G === 'low' ? 4.5 : 4;
+  LBL = G === 'low' ? 4.5 : G === 'mid' ? 4.2 : 4;
   const cat = CATS[ds.cat];
   if (ds.draw) return ds.draw();
   if (ds.multi) return renderMulti(ds);

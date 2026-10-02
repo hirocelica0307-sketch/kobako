@@ -3,10 +3,11 @@
    がめん（カテゴリ → 学年 → デザイン → いんさつ）
    ========================================================= */
 const $ = id => document.getElementById(id);
+const GRADE_NAME = { low: '低学年', mid: '中学年', high: '高学年' };
 const CAT_GROUPS = [
   ['めあて・ふりかえり', ['jiko', 'g1', 'g2', 'g3', 'matome', 'shoujou']],
   ['ぎょうじ', ['undo', 'ongaku', 'ensoku', 'natsu']],
-  ['がくしゅう・きろく', ['dokusho', 'ganbari']],
+  ['がくしゅう・きろく', ['dokusho', 'ganbari', 'nawa']],
   ['メッセージ・おいわい', ['arigato', 'tanjoubi', 'seicho', 'sotsugyo']],
   ['かかり', ['kakari', 'ichiran']],
 ];
@@ -42,11 +43,14 @@ function renderCats() {
   }).join('')).join('');
 }
 function renderStrip() {
+  const hasMid = DESIGNS.some(d => d.cat === S.cat && d.grade === 'mid');
+  $('gMid').hidden = !hasMid;
+  if (!hasMid && S.grade === 'mid') S.grade = 'all';
   const list = visible();
   $('strip').innerHTML = list.map(ds =>
     `<button type="button" class="item${ds.id === S.cur ? ' on' : ''}" data-id="${ds.id}">
       <div class="thumb">${renderDesign(ds)}</div>
-      <span class="gr gr-${ds.grade}">${ds.grade === 'low' ? '低学年' : '高学年'}</span><b>${esc(ds.name)}</b>
+      <span class="gr gr-${ds.grade}">${GRADE_NAME[ds.grade]}</span><b>${esc(ds.name)}</b>
     </button>`).join('') || '<p class="empty">この 学年むけの デザインは ありません</p>';
   document.querySelectorAll('.gbtn').forEach(b => b.classList.toggle('on', b.dataset.grade === S.grade));
 }
@@ -54,7 +58,7 @@ function renderMain() {
   const ds = designById(S.cur);
   const c = CATS[ds.cat];
   $('pTitle').textContent = `${c.name} ― ${ds.name}`;
-  $('pWhen').textContent = `${c.when}・${ds.grade === 'low' ? '低学年むけ' : '高学年むけ'}`;
+  $('pWhen').textContent = `${c.when}・${GRADE_NAME[ds.grade]}むけ`;
   $('termWrap').hidden = ds.cat !== 'shoujou';
   $('kakariOpts').hidden = ds.cat !== 'kakari';
   $('ichiranOpts').hidden = ds.cat !== 'ichiran';

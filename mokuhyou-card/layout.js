@@ -292,7 +292,7 @@ function renderGeneric(ds) {
   TITLE = { src: ds.title || cat.title[G], en: cat.en, kakari: !!cat.kakari };
   REPORT_NO = 0;
   CHAT_N = 0;
-  LBL = G === 'low' ? 4.5 : 4;
+  LBL = G === 'low' ? 4.5 : G === 'mid' ? 4.2 : 4;
   let d = th.frame ? th.frame() : frameStd(), t = '';
   const h = th.header();
   d += h.d; t += h.t;
