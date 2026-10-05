@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// GitHub Pages: https://<user>.github.io/my-app3/
+// kobako の 1フォルダとして置くので、公開URLに依存しない相対パスでビルドする
 export default defineConfig({
-  base: '/my-app3/',
+  base: './',
   plugins: [react()],
 });
