@@ -56,18 +56,36 @@ t('ヒント：だいめいは 2マス あけて かく', J(G.hint(P1, 8, [], { 
 t('ヒント：かいわは 行を かえて かく', J(G.hint(P1, 8, good.slice(0, good.lastIndexOf('newline', good.indexOf('newline', good.indexOf('newline') + 1))), { titleRows: [2, 3] })) !== 'null');
 t('どの きまりの まちがいにも ことばが ある', Object.keys(G.MSG_RULE).every(k => G.MSG[k] && Q.RULE[G.MSG_RULE[k]]));
 
-/* ---------- おてほん ---------- */
+/* ---------- おてほん（10マス） ---------- */
+t('マスは 10マス', Q.N === 10);
+t('おてほんは 30もん いじょう', Q.TEXTS.length >= 30, Q.TEXTS.length);
 for (const d of Q.TEXTS) {
     let ok = true, why = '';
-    for (const N of [8, 10, 12, 15, 20]) {
-        const P = G.parse(d), acts = G.solve(P, N, { titleRows: [2, 3] });
-        if (!acts || J(G.replay(P, N, acts).cols.map(G.colStr)) !== J(G.layout(P, N).map(G.colStr))) { ok = false; why = N + 'マス'; }
+    for (const ti of [2, 3]) {
+        const P = G.parse(d), acts = G.solve(P, Q.N, { titleRows: [ti] });
+        if (!acts || J(G.replay(P, Q.N, acts).cols.map(G.colStr)) !== J(G.layout(P, Q.N, { titleIndent: ti }).map(G.colStr))) { ok = false; why = 'だいめい ' + ti + 'マス'; }
     }
-    t(`おてほん「${d.title}」：どの マスの かずでも きまりどおりに 書ける`, ok, why);
-    t(`おてほん「${d.title}」：だいめいが 8マスでも 1行に 入る`, G.chars(d.title).length <= 6);
+    t(`おてほん「${d.title}」：10マスで きまりどおりに 書ける`, ok, why);
+    t(`おてほん「${d.title}」：だいめいが 1行に 入る`, G.chars(d.title).length <= 6);
     t(`おてほん「${d.title}」：空白が ない`, !/[ 　]/.test(d.body));
 }
 t('おてほんの id が かぶらない', new Set(Q.TEXTS.map(d => d.id)).size === Q.TEXTS.length);
+const lv = Q.TEXTS.map(d => Q.textLevel(d));
+t('★★（行の 上に「。」「、」）の もんだいが 10もん いじょう', lv.filter(x => x === 2).length >= 10, lv.filter(x => x === 2).length);
+t('★★★（かいわ）の もんだいが 10もん いじょう', lv.filter(x => x === 3).length >= 10, lv.filter(x => x === 3).length);
+t('★★ の もんだいは 10マスで「。」「、」が 行の 上に 来る', Q.TEXTS.filter((d, i) => lv[i] === 2).every(d => G.layout(G.parse(d), 10).some(c => c.cells.some(x => x && x.hang))));
+t('かぎが 2つ いじょうの もんだいが 8もん いじょう', Q.TEXTS.filter(d => (d.body.match(/「/g) || []).length >= 2).length >= 8);
+t('「。」」が 行の 上に 来る もんだいが ある', Q.TEXTS.some(d => G.layout(G.parse(d), 10).some(c => c.cells.some(x => x && x.hang && /[。、]」/.test(x.t)))));
+t('かいわが つづく（「…」「…」）もんだいが ある', Q.TEXTS.some(d => /」「/.test(d.body)));
+t('文の とちゅうの「」（思った こと）の もんだいが ある', Q.TEXTS.some(d => /[^。」\n]「/.test(d.body)));
+
+/* ---------- メダル ---------- */
+t('まちがい なし → 金', Q.medalOf(0, false) === 'gold');
+t('まちがい 1つ → 銀', Q.medalOf(1, false) === 'silver');
+t('まちがい 2つ → 銅', Q.medalOf(2, false) === 'bronze');
+t('まちがい 3つ いじょう → ざんねん', Q.medalOf(3, false) === 'zannen' && Q.medalOf(9, false) === 'zannen');
+t('こたえを 見たら → ざんねん', Q.medalOf(0, true) === 'zannen');
+t('いちばん よい メダルが のこる', Q.betterMedal('bronze', 'gold') === 'gold' && Q.betterMedal('gold', 'silver') === 'gold' && Q.betterMedal(undefined, 'zannen') === 'zannen');
 
 /* ---------- クイズ ---------- */
 let bad = [];

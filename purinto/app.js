@@ -157,4 +157,15 @@
     render();
     /* フォントが よみこまれたら もういちど はかる */
     if (document.fonts) document.fonts.ready.then(fit);
+    /* げんこうようしの プリント：句読点・小さい字を フォントに あわせて マスの 右上へ */
+    function fitMarks() {
+        const GK = window.PurintoGenkou;
+        if (!GK) return;
+        let el = document.getElementById('markCss');
+        if (!el) { el = document.createElement('style'); el.id = 'markCss'; document.head.appendChild(el); }
+        try { el.textContent = GK.G.markCss(getComputedStyle(document.documentElement).getPropertyValue('--page-font'), 600, .72); } catch (e) { /* むりなら CSS の ばしょの まま */ }
+    }
+    fitMarks();
+    if (document.fonts && document.fonts.load) document.fonts.load('600 40px "Klee One"', 'あ。、っ').then(fitMarks, () => {});
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitMarks);
 })();
