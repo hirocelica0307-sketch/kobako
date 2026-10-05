@@ -1,0 +1,60 @@
+name: GitHub Pages に公開
+
+# いままでの「ブランチから そのまま公開」と おなじ なかみ（Jekyll で README も ページに なる）を つくり、
+# ビルドが いる アプリ（tetsudou-taipu）だけ ビルドした ものに さしかえて 公開する。
+# つかう まえに Settings → Pages → Source を「GitHub Actions」に かえておくこと。
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: いままでと おなじ 形に そろえる（Jekyll）
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./
+          destination: ./_site
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tetsudou-taipu/package-lock.json
+      - name: 岡山鉄道タイピング：テストと ビルド
+        working-directory: tetsudou-taipu
+        run: |
+          npm ci
+          npm test
+          npm run build
+      - name: 岡山鉄道タイピングを ビルドした ものに さしかえる
+        # Jekyll の _site は root の もちものに なるので sudo で さわる
+        run: |
+          sudo rm -rf _site/tetsudou-taipu
+          sudo cp -r tetsudou-taipu/dist _site/tetsudou-taipu
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

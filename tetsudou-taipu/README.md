@@ -9,6 +9,14 @@
 > **Phase 1（現在）**: 山陽本線 下り（岡山→笠岡）・60秒モードが遊べます。
 > 残り14路線・路線選択画面・音・所見…は Phase 2 以降で追加します。
 
+## ひらきかた
+
+**https://hirocelica0307-sketch.github.io/kobako/tetsudou-taipu/**
+
+Vite ＋ React で 作っているので、このフォルダの `index.html` を そのまま 開いても 動きません。
+main に 入ると `.github/workflows/pages.yml` が ビルドして 上の URL に 公開します。
+（もとは べつの レポジトリ my-app3 で 作っていたものを、履歴ごと うつしました）
+
 ## 遊び方
 
 | キー | 動作 |

@@ -1,19 +1,25 @@
-name: CI
+name: 岡山鉄道タイピング CI
 
 on:
   push:
     branches-ignore: [main]
+    paths: ['tetsudou-taipu/**', '.github/workflows/tetsudou-taipu-ci.yml']
   pull_request:
+    paths: ['tetsudou-taipu/**', '.github/workflows/tetsudou-taipu-ci.yml']
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tetsudou-taipu
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: tetsudou-taipu/package-lock.json
       - run: npm ci
       - name: 型チェック
         run: npx tsc -b
