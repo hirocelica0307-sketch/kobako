@@ -4,11 +4,13 @@
 (function (root) {
     'use strict';
     if (!root.IkutsuLogic && typeof require === 'function') {
+        require('./art.js');
         require('./scenes.js');
         require('./logic.js');
     }
     const L = root.IkutsuLogic;
     const SCENES = root.IkutsuScenes;
+    const ART = root.IkutsuArt;
 
     /** 毎回 おなじ ならびの 乱数（たしかめを くりかえせる ように） */
     function seeded(seed) {
@@ -54,6 +56,16 @@
             [...x].forEach(ch => { if (!okChar(ch)) badKanji.push(s.id + '「' + ch + '」'); });
         }));
         t('漢字は 2年生までに ならう ものだけ', !badKanji.length, [...new Set(badKanji)].join(' '));
+
+        /* ---------- 絵 ---------- */
+        const noArt = SCENES.filter(s => !ART.ART[s.e] || (s.box && !ART.ART[s.box]));
+        t('どの ばめんにも もの と まとまりの 絵が ある', !noArt.length, noArt.map(s => s.id).join(','));
+        const badK = SCENES.filter(s => s.k && !['plate', 'tank', 'skewer', 'shelf', 'soil'].includes(s.k));
+        t('まとまりの かたちは 5しゅるいの どれか', !badK.length, badK.map(s => s.id).join(','));
+        const badSvg = Object.keys(ART.ART).filter(k => [].concat(ART.ART[k]).some(s => !/^<svg [^>]*viewBox='0 0 100 100'>[\s\S]*<\/svg>$/.test(s)));
+        t('絵は ぜんぶ 100×100 の SVG', !badSvg.length, badSvg.join(','));
+        t('絵の data URL', ART.artUrl('apple').startsWith('data:image/svg+xml,') && ART.artUrl('nai') === '');
+        t('色ちがいは じゅんに まわる', ART.artUrl('kid', 0) === ART.artUrl('kid', 4) && ART.artUrl('kid', 0) !== ART.artUrl('kid', 1));
 
         /* ---------- よみかた ---------- */
         t('3ひき → 3びき', L.fixReading('3ひき') === '3びき');
