@@ -1,0 +1,172 @@
+/*
+ * リザルト = 乗車券。
+ * Phase 1 は DOM + CSS で作る（日本語が滲まず、レイアウトも楽）。
+ * 地紋は外部画像を使わず、CSS のストライプと data URI の SVG で作る。
+ */
+.ticket-wrap {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(6, 8, 12, 0.86);
+  padding: 2% 4%;
+}
+
+/* 券面の実寸はここで決める（.ticket を % 指定にすると shrink-to-fit で潰れる）。 */
+.ticket-panel { width: 76%; }
+
+.ticket {
+  position: relative;
+  width: 100%;
+  color: #2a2318;
+  background-color: #f2e9d0;
+  background-image:
+    repeating-linear-gradient(45deg,
+      rgba(120, 100, 60, 0.07) 0 2px,
+      rgba(120, 100, 60, 0) 2px 6px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='20'%3E%3Ctext x='0' y='10' font-family='monospace' font-size='7' fill='%23000' fill-opacity='0.05'%3EOKAYAMA%3C/text%3E%3C/svg%3E");
+  border: 1px solid #b8a97f;
+  box-shadow: 0 calc(var(--scale) * 2px) 0 rgba(0,0,0,0.5);
+  padding: 1em 1.2em 0 1.8em;
+  font-size: calc(var(--scale) * 3.2px);
+  overflow: hidden;
+}
+
+/* 左端の路線カラー帯 */
+.ticket::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 0.55em;
+  background: var(--ticket-color, #0072bc);
+}
+
+.ticket-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(80, 66, 40, 0.35);
+  padding-bottom: 0.3em;
+}
+.ticket-title { font-size: 1.35em; letter-spacing: 0.5em; }
+.ticket-fare { font-family: var(--font-mono); font-size: 2em; font-weight: 700; }
+
+.ticket-route {
+  display: flex;
+  align-items: center;
+  gap: 0.9em;
+  margin: 0.6em 0 0.3em;
+}
+.ticket-stn { text-align: center; }
+.ticket-stn-kanji { font-size: 1.9em; letter-spacing: 0.18em; }
+.ticket-stn-kana { font-size: 0.85em; color: #6b5c3e; letter-spacing: 0.14em; }
+.ticket-arrow { font-family: var(--font-mono); font-size: 1.3em; color: #8a7a52; }
+
+.ticket-via {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95em;
+  color: #4f452f;
+  margin-bottom: 0.5em;
+}
+
+/* 4項目のカード。小学生でも一目で読めるよう大きく見せる。 */
+.ticket-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5em;
+  margin: 0.6em 0 0.2em;
+}
+.tcard {
+  border: 1px solid rgba(80, 66, 40, 0.45);
+  background: rgba(255, 255, 255, 0.35);
+  padding: 0.35em 0.2em 0.45em;
+  text-align: center;
+}
+.tcard-label {
+  font-size: 0.9em;
+  color: #6b5c3e;
+  letter-spacing: 0.08em;
+}
+.tcard-value {
+  font-family: var(--font-mono);
+  font-size: 1.75em;
+  font-weight: 700;
+  line-height: 1.15;
+  margin-top: 0.1em;
+  white-space: nowrap;
+}
+.tcard-value small { font-size: 0.5em; font-weight: 400; margin-left: 0.15em; }
+
+.ticket-sub {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: #6b5c3e;
+  margin-top: 0.2em;
+}
+
+.ticket-praise {
+  font-size: 1.05em;
+  color: #2f5d34;
+  letter-spacing: 0.06em;
+  margin-top: 0.5em;
+}
+
+.ticket-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  white-space: nowrap;
+  font-size: 0.8em;
+  color: #6b5c3e;
+  margin-top: 0.4em;
+  padding-bottom: 0.5em;
+}
+.punch {
+  width: 0.8em; height: 0.8em;
+  border-radius: 50%;
+  background: #0d1016;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.4);
+}
+.ticket-note { margin-left: auto; }
+
+/* 磁気帯 */
+.ticket-magnetic {
+  margin: 0.2em -1.2em 0 -1.8em;
+  height: 1.1em;
+  background: repeating-linear-gradient(90deg, #14120c 0 6px, #1c1a12 6px 12px);
+}
+
+.new-record {
+  position: absolute;
+  right: 4%;
+  top: 24%;
+  transform: rotate(-12deg);
+  color: #c0271c;
+  border: calc(var(--scale) * 0.8px) double #c0271c;
+  padding: 0.2em 0.6em;
+  font-size: calc(var(--scale) * 3.8px);
+  letter-spacing: 0.24em;
+  background: rgba(242, 233, 208, 0.55);
+  animation: stamp 0.28s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+@keyframes stamp {
+  from { transform: rotate(-12deg) scale(2.2); opacity: 0 }
+  to   { transform: rotate(-12deg) scale(1);  opacity: 1 }
+}
+
+.ticket-actions {
+  margin-top: 0.9em;
+  font-family: var(--font-mono);
+  font-size: calc(var(--scale) * 3.2px);
+  color: var(--ink-dim);
+  text-align: center;
+}
+.ticket-actions b { color: var(--accent); }
+.ticket-disclaimer {
+  margin-top: 0.4em;
+  font-size: calc(var(--scale) * 2.6px);
+  color: #5d6773;
+  text-align: center;
+}
+.storage-warn { color: var(--danger); }
