@@ -22,7 +22,7 @@
    ------------------------------------------------------------------ */
 (function () {
     'use strict';
-    const D = window.Dopa, S = window.DopaSound, P = window.DopaParticles;
+    const D = window.Dopa, S = window.DopaSound, P = window.DopaParticles, L = window.DopaLogic;
     const $ = s => document.querySelector(s);
     const body = document.body;
     const stage = $('#stage'), fxl = $('#fxl'), tz = $('#tz'), echoEl = $('#echo'), ring = $('#qring');
@@ -54,7 +54,7 @@
         P.setBudget(Q.tier === 0 ? 1 : Q.tier === 1 ? 0.5 : 0.25);
         body.classList.toggle('lite1', Q.tier >= 1);
         body.classList.toggle('lite2', Q.tier >= 2);
-        P.setAmbient(Q.tier === 0 && level >= 7 ? (level >= 8 ? 'rainbow' : 'gold') : null);
+        P.setAmbient(Q.tier === 0 && level >= 5 ? (level >= 8 ? 'rainbow' : level >= 7 ? 'gold' : 'ember') : null);
     }
 
     function setTier(n) {
@@ -128,6 +128,17 @@
         for (let i = 1; i <= 8; i++) body.classList.toggle('lv' + i, i <= n);
         applyMode();
         S.bgmLevel(n);
+        syncBeat();
+    }
+
+    /* 背景の 光を BGM の 拍に あわせる（BGM が まだ なら テンポだけ あわせる） */
+    const beatEl = $('.bg-beat');
+    function syncBeat() {
+        if (level < 3) return;
+        const b = S.beat();
+        const bpm = b ? b.bpm : level >= 5 ? 152 : 124, len = 60 / bpm;
+        beatEl.style.setProperty('--beat', len.toFixed(3) + 's');
+        beatEl.style.setProperty('--beatdelay', b ? (-(b.phase * len)).toFixed(3) + 's' : '0s');
     }
 
     /* ---------- ゆれ（transform だけ。ひかえめ では 出さない） ---------- */
@@ -188,16 +199,26 @@
         else if (lv >= 1) S.pikon(e.combo - 3);
         else S.pi();
         if (lv >= 3 && !(lv === 5 && e.prevLevel < 5)) S.don(0.45);
+        if (lv >= 7) S.jara(0.05);                     /* Lv7〜 正解ごとに ジャラジャラ */
     }
 
+    /* 衝撃波の 色（レベルごと） */
+    const WAVE = ['#5dff9a', '#ffffff', '#5ab8ff', '#ffe14d', '#5dff9a', '#ff8a3d', '#ff4d6d', '#ffd23f', '#ff7ae6'];
+    const FW_TYPES = ['peony', 'ring', 'willow'];
+
     function burst(e) {
-        const lv = e.level, r = qRect(), cx = r.left + r.width / 2;
+        const lv = e.level, r = qRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        const big = Math.max(r.width, r.height);
+        /* 問題の うしろから 光の 輪が 広がる（Lv0 は 小さく。レベルが 上がるほど 大きく・2重に） */
+        P.shockwave({ x: cx, y: cy, r0: big * 0.4, r1: big * (lv >= 1 ? 1.1 + lv * 0.08 : 0.75), width: 8 + lv * 2, color: WAVE[lv] });
+        if (lv >= 4) later(() => P.shockwave({ x: cx, y: cy, r0: big * 0.45, r1: big * 1.6, width: 10, color: lv >= 8 ? WAVE[(e.combo % 8) + 1] : '#ffffff', life: 0.65 }), 90);
         if (lv >= 1) {
-            P.stars({ x: cx, y: r.top + r.height * 0.35, r: r.width * 0.5, count: 5 });
+            P.stars({ x: cx, y: r.top + r.height * 0.35, r: r.width * 0.5, count: 5 + Math.min(lv, 6) });
             if (ring.animate) ring.animate([{ opacity: 0.95, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(1.07)' }], { duration: 500, easing: 'ease-out' });
+            hudPop(lv);
         }
         if (lv >= 2) {
-            P.confetti({ x: cx, y: r.top + 8, count: 30, spread: r.width * 0.42, gold: lv >= 7 });
+            P.confetti({ x: cx, y: r.top + 8, count: lv >= 5 ? 50 : 36, spread: r.width * 0.42, gold: lv >= 7 });
             lap();
         }
         if (lv >= 3) {
@@ -209,20 +230,89 @@
             spawn(fxl, 'beam br', null, 750);
         }
         if (lv >= 4) {
-            const shots = lv >= 6 && Q.tier === 0 ? 3 : 1;
-            for (let i = 0; i < shots; i++) later(() => P.firework({ gold: lv >= 7 && i === 1 }), i * 110);
+            const shots = Q.tier > 0 ? 1 : lv >= 6 ? 3 : lv >= 5 ? 2 : 1;
+            for (let i = 0; i < shots; i++) {
+                /* 花火の しゅるいは じゅんばんに かわる（Lv6 から 尾を ひく・Lv7 から 金の しだれ柳も） */
+                const type = lv >= 6 ? FW_TYPES[(e.combo + i) % (lv >= 7 ? 3 : 2)] : 'peony';
+                later(() => P.firework({ type, trail: lv >= 6, gold: lv === 7 && i === 1 }), i * 110);
+            }
         }
         if (lv >= 6 && Q.tier < 2) spawn(fxl, 'corners', '<i></i><i></i><i></i><i></i>', 650);
+        if (lv >= 7) P.coins({ x: cx, y: r.top + 4, count: lv >= 8 ? 12 : 8 });
     }
 
+    /* HUD の れんぞく数が ポンッと はねる */
+    const hudN = $('#hudComboN');
+    function hudPop(lv) {
+        if (!hudN.animate) return;
+        const k = 1.25 + Math.min(lv, 8) * 0.06;
+        hudN.animate([{ transform: `scale(${k})` }, { transform: 'scale(1)' }], { duration: 300, easing: 'cubic-bezier(.2,1.6,.4,1)' });
+    }
+
+    /* 正解ごとの かけ声（レベルごとに じゅんばんに かわる。ランダムでは ない） */
+    const SHOUT = {
+        3: ['ドンッ!', 'バンッ!', 'ズドン!'], 4: ['バーン!', 'ドドン!', 'ズバッ!'],
+        5: ['アツい!', 'ドパドパ!', 'ゴォォ!'], 6: ['キュイン!', 'ギュイン!', 'キュイーン!'],
+        7: ['激アツ!!', '金ピカ!!', 'ジャラジャラ!!'], 8: ['神!!', '最強!!', '無敵!!', 'ドパドパ!!'],
+    };
     function words(e) {
         const lv = e.level;
-        if (e.passBest) sub('きろく こえた！', 'best');
-        else if (lv === 7 && e.combo !== 40) sub('激アツ!!', 'atsu');
-        else if (lv >= 6) sub('キュイン！');
-        if (e.kakutei || e.combo === 20) return;       /* 確定演出・ドパタイムは べつの 文字 */
-        if (e.combo === 40) telop('激アツ!!', 'atsu', 1000);
-        else if (e.milestone) telop(`${e.combo}れんぞく!`, lv >= 5 ? 'hot' : '', 1000);
+        if (e.passBest && e.best < 5) sub('きろく こえた！', 'best');
+        else if (lv >= 3 && !BIG[e.combo]) {
+            const list = SHOUT[lv];
+            sub(list[e.combo % list.length], lv === 7 ? 'atsu' : '');
+        }
+        if (e.kakutei || BIG[e.combo]) return;         /* 大演出は べつの 文字 */
+        if (e.milestone) telop(`${e.combo}れんぞく!`, lv >= 5 ? 'hot' : '', 1000);
+    }
+
+    /* ---------- 帯（カットイン） ---------- */
+    function band(text, cls, rev) {
+        S.whoosh();
+        spawn(fxl, 'band ' + (cls || '') + (rev ? ' rev' : ''), `<span>${(text + '　').repeat(3)}</span>`, 900);
+    }
+
+    /* 確定の はんこ */
+    function stamp(text) {
+        S.stamp(0.1);
+        const old = tz.querySelector('.tz-stamp');
+        if (old) old.remove();
+        spawn(tz, 'tz-stamp', text || '確定', 1300);
+    }
+
+    /* 10・30・40・しんきろく の 大演出（20・50・60〜・100 は 下の 専用の 演出） */
+    const BIG = { 10: ten, 30: chodopa, 40: atsu };
+    function ten() {
+        band('10れんぞく!!', 'blue');
+        telop('10れんぞく!!', 'hot', 1000);
+        S.don(1);
+        const r = qRect();
+        P.shockwave({ x: r.left + r.width / 2, y: r.top + r.height / 2, r0: 60, r1: Math.max(innerWidth, innerHeight), width: 22, color: '#5ab8ff', life: 0.8 });
+    }
+    function chodopa() {
+        band('超ドパ!!', 'purple');
+        later(() => band('超ドパ!!', 'purple', true), 120);
+        telop('超ドパ!!', 'cutin', 1100);
+        S.don(1);
+        S.gyuin();
+        for (let i = 0; i < 4; i++) later(() => P.firework({ type: FW_TYPES[i % 3], trail: true }), i * 130);
+        shake('m');
+    }
+    function atsu() {
+        band('激アツ!!', 'gold');
+        telop('激アツ!!', 'atsu', 1100);
+        S.jara();
+        S.fanfare(false, 0.1);
+        P.coins({ count: 70 });
+        for (let i = 0; i < 3; i++) later(() => P.firework({ type: 'willow' }), i * 150);
+        shake('m');
+    }
+    function newRecord() {
+        band('しんきろく!!', 'gold');
+        telop('👑しんきろく!!', 'atsu', 1200, 7);
+        S.fanfare(true);
+        P.coins({ count: 40 });
+        P.confetti({ count: 80, gold: true });
     }
 
     /* ---------- 特別演出 ---------- */
@@ -231,9 +321,12 @@
         S.don(1);
         S.gyuin();
         if (!calm()) spawn(fxl, 'dim', null, 800);
-        spawn(fxl, 'band', '<span>ドパタイム突入!!　ドパタイム突入!!　ドパタイム突入!!</span>', 900);
+        band('ドパタイム突入!!');
         telop('ドパタイム突入!!', 'cutin', 1100);
         shake('m');
+        const r = qRect();
+        P.shockwave({ x: r.left + r.width / 2, y: r.top + r.height / 2, r0: 60, r1: Math.max(innerWidth, innerHeight) * 1.1, width: 26, color: '#ff8a3d', life: 0.8 });
+        for (let i = 0; i < 3; i++) later(() => P.firework({ hue: 20 + i * 15 }), 150 + i * 120);
     }
 
     /** 虹ドパ（50コンボ）：0.3びょうの ため → ふちから 虹が 広がる → キュイン×3 → にじドパ!! → 大ゆれ＋紙吹雪300（約1.5びょう。タイマーは main.js が とめる） */
@@ -244,14 +337,20 @@
             body.classList.remove('tame');
             setLevel(8);
             spawn(fxl, 'niji-burst', null, 1300);
+            band('にじドパ!!', 'rainbow');
             S.kyuinKyuin(3);
             telop('にじドパ!!', 'niji', 1500);
+            const r = qRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+            for (let i = 0; i < 4; i++) later(() => P.shockwave({ x, y, r0: 60, r1: Math.max(innerWidth, innerHeight) * 1.2, width: 20, color: WAVE[i * 2 + 1], life: 0.9 }), i * 120);
         }, 300);
         later(() => {
             shake('l');
+            stamp('確定');
             P.confetti({ count: 300 });
-            P.firework({ hue: 320 });
+            P.coins({ count: 60 });
+            for (let i = 0; i < 4; i++) later(() => P.firework({ type: 'ring', hue: i * 90 }), i * 120);
             S.fanfare(true);
+            S.jara(0.3);
         }, 760);
     }
 
@@ -260,7 +359,11 @@
         S.kyuinKyuin(3);
         S.fanfare(false, 0.15);
         spawn(fxl, 'niji-burst short', null, 900);
+        band(`${e.combo}れんぞく!!`, 'rainbow');
+        stamp('確定');
         P.confetti({ count: 120 });
+        P.coins({ count: 40 });
+        P.firework({ type: 'ring' });
         telop(`${e.combo}れんぞく!`, 'niji short', 1000);
     }
 
@@ -272,9 +375,14 @@
         spawn(fxl, 'niji-burst', null, 1300);
         spawn(fxl, 'corners', '<i></i><i></i><i></i><i></i>', 650);
         telop('100れんぞく!!!', 'hyaku', 1700);
+        band('100れんぞく!!!', 'gold');
+        later(() => band('100れんぞく!!!', 'rainbow', true), 150);
+        stamp('神');
+        S.jara(0.2);
         P.confetti({ count: 250, gold: true });
         P.confetti({ count: 200 });
-        for (let i = 0; i < 5; i++) later(() => P.firework({ gold: i % 2 === 0 }), i * 140);
+        P.coins({ count: 120 });
+        for (let i = 0; i < 6; i++) later(() => P.firework({ type: FW_TYPES[i % 3], trail: true, gold: i % 2 === 0 }), i * 140);
         shake('m');
     }
 
@@ -290,7 +398,50 @@
             if (e.kakutei === 'niji') niji();
             else if (e.kakutei === 'hyaku') hyaku();
             else if (e.kakutei === 'kakutei') kakutei(e);
+            else if (BIG[e.combo]) BIG[e.combo]();
+            /* しんきろく（さいこうが 5 いじょうの とき）。ほかの 大演出と かさなる ときは はんこ だけ */
+            if (e.passBest && e.best >= 5) {
+                if (e.kakutei || BIG[e.combo] || e.combo === 20) stamp('新');
+                else newRecord();
+            }
         });
+    });
+
+    /* ---------- リーチ（つぎの 大演出まで あと 3・2・1問） ---------- */
+    let reachNow = null, reachEl = null;
+    function setReach(rc, combo) {
+        const was = reachNow;
+        reachNow = rc;
+        /* クラスは body では なく 背景と 問題の 上の 部分 だけに つける（画面ぜんたいの 計算しなおしを さける） */
+        for (const el of [stage, tz]) {
+            el.classList.toggle('reach', !!rc);
+            for (const n of [1, 2, 3]) el.classList.toggle('reach' + n, !!rc && rc.left === n);
+        }
+        S.reach(rc ? rc.left : 0);
+        if (!rc) {
+            if (reachEl) { reachEl.remove(); reachEl = null; }
+            return;
+        }
+        if (!reachEl || !reachEl.isConnected) {
+            reachEl = document.createElement('div');
+            reachEl.className = 'tz-reach';
+            tz.appendChild(reachEl);
+        } else if (reachEl.animate) {
+            reachEl.animate([{ transform: 'translateX(-50%) scale(1.3)' }, { transform: 'translateX(-50%) scale(1)' }], { duration: 400, easing: 'cubic-bezier(.2,1.6,.4,1)' });
+        }
+        reachEl.innerHTML = `<i>リーチ!</i>あと<b>${rc.left}</b>問で ${rc.label}`;
+        const quiet = combo != null && (BIG[combo] || combo === 20 || L.kakuteiOf(combo) || L.isMilestone(combo));
+        /* はいった ときは サイレン ＋「リーチ!!」。のこり 1問に なったら 表示が 金わくに なり、心臓の 音が はやく なる */
+        if (!was) {
+            S.siren();
+            if (!quiet) telop('リーチ!!', 'reach', 900);
+        }
+    }
+
+    D.bus.on('reach', e => {
+        const combo = D.game.combo;
+        if (!e.reach) { afterPaint(() => setReach(null)); return; }
+        afterPaint(() => setReach(e.reach, combo));
     });
 
     D.bus.on('level', e => {
@@ -311,6 +462,7 @@
         gen++;
         clearTimers();
         watch(false);
+        setReach(null);
         body.classList.remove('over', 'newrec', 'tame');
         tz.innerHTML = '';
         fxl.innerHTML = '';
@@ -331,6 +483,7 @@
         gen++;
         clearTimers();
         watch(false);
+        setReach(null);
         S.bgmStop();
         P.setTimeScale(0.2);
         slow(0.2);

@@ -11,9 +11,10 @@
      countdown { text, final }            3・2・1・スタート！
      question  { q, index, hold }         問題を 出した（hold ＝ タイマーを とめる ミリびょう）
      input     { text }                   数字を おした・けした
-     correct   { combo, level, prevLevel, q, answer, kakutei, milestone, passBest }
+     correct   { combo, level, prevLevel, q, answer, kakutei, milestone, passBest, best }
+     reach     { reach }                  リーチ（つぎの 大演出まで あと 3問 いない）。null で リーチ おわり
      level     { level, prev, combo }     ドパレベルが かわった
-     gameover  { reason, q, input, combo, best, newRecord, course, limit, level }
+     gameover  { reason, q, input, combo, best, newRecord, course, limit, level, reach }
      overShown { gameover と おなじ }      ゲームオーバー画面を 出した
      quit      { combo }                  とちゅうで やめた
    ------------------------------------------------------------------ */
@@ -181,6 +182,7 @@
         renderAns();
         setGauge(1, '');
         bus.emit('start', { course, limit: g.limit, best: g.best });
+        bus.emit('reach', { reach: null });
 
         /* 3・2・1・スタート！（各 0.7びょう）の あと すぐ 1問め */
         const el = $('#countdown');
@@ -308,9 +310,10 @@
         renderHud();
         bus.emit('correct', {
             combo: g.combo, level: g.level, prevLevel: prev, q, answer,
-            kakutei, milestone: L.isMilestone(g.combo), passBest,
+            kakutei, milestone: L.isMilestone(g.combo), passBest, best: g.best,
         });
         if (g.level !== prev) bus.emit('level', { level: g.level, prev, combo: g.combo });
+        bus.emit('reach', { reach: L.reachOf(g.combo, g.best) });
     }
 
     function gameOver(reason) {
@@ -329,7 +332,7 @@
 
         const info = {
             reason, q, input: g.input, combo: g.combo, best: g.best, newRecord,
-            course: g.course, limit: g.limit, level: g.level,
+            course: g.course, limit: g.limit, level: g.level, reach: L.reachOf(g.combo, g.best),
         };
         bus.emit('gameover', info);
         /* 0.3びょう スローに なってから ゲームオーバー画面へ */
@@ -383,6 +386,10 @@
         $('#overRec').innerHTML = `きろく <b>${o.combo}</b> れんぞく`
             + (o.newRecord ? '' : `<small>（さいこう ${bestNow}）</small>`);
         $('#overNew').hidden = !o.newRecord;
+        /* リーチ中に おわったら「おしい！」（もう1回 やりたく なる） */
+        const oshii = !o.newRecord && o.reach;
+        $('#overOshii').hidden = !oshii;
+        if (oshii) $('#overOshii').innerHTML = `おしい！ あと <b>${o.reach.left}</b>問で ${o.reach.label} だった！`;
     }
 
     /* =====================================================================
