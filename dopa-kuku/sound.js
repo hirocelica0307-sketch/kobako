@@ -154,6 +154,46 @@
             tone('sine', 350, t, 0.25, 0.1, { to: 240, glide: 0.2 });
         },
         count(t) { tone('square', 880, t, 0.12, 0.09); },
+        /* ジャラジャラ（メダルが あふれる 音。毎回 おなじ ならびに なる ように 乱数は たねつき） */
+        jara(t) {
+            let seed = 7;
+            const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+            for (let i = 0; i < 22; i++) {
+                const at = t + i * 0.032 + r() * 0.02, f = 2400 + r() * 2200;
+                tone('triangle', f, at, 0.09, 0.06);
+                tone('square', f * 1.48, at, 0.05, 0.025);
+            }
+            noise(t, 0.75, 0.05, 'highpass', 5000);
+        },
+        /* ウィーン（リーチに はいった ときの サイレン） */
+        siren(t) {
+            tone('sawtooth', 620, t, 0.42, 0.07, { to: 1500, glide: 0.36, lp: 2600, hold: 0.3 });
+            tone('sawtooth', 1500, t + 0.38, 0.45, 0.07, { to: 700, glide: 0.4, lp: 2600, hold: 0.25 });
+            tone('square', 1240, t, 0.4, 0.03, { to: 3000, glide: 0.36, vib: [14, 40], hold: 0.3 });
+        },
+        /* スタンプ（「確定」の はんこ）：ドンッ ＋ チャキーン */
+        stamp(t) {
+            tone('sine', 120, t, 0.32, 0.6, { to: 40, glide: 0.25 });
+            noise(t, 0.1, 0.3, 'lowpass', 1200);
+            [2093, 3136, 4186].forEach((f, i) => tone('triangle', f, t + 0.05, 0.7, 0.07 - i * 0.015, { hold: 0.05 }));
+        },
+        /* シュバッ（帯が 横切る 音） */
+        whoosh(t) {
+            const c = R.c, n = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+            n.buffer = R.noise;
+            f.type = 'bandpass';
+            f.Q.value = 1.2;
+            f.frequency.setValueAtTime(350, t);
+            f.frequency.exponentialRampToValueAtTime(5000, t + 0.32);
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.exponentialRampToValueAtTime(0.35, t + 0.12);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+            n.connect(f);
+            f.connect(g);
+            g.connect(R.dest);
+            n.start(t);
+            n.stop(t + 0.45);
+        },
         countGo(t) {
             tone('square', 1320, t, 0.32, 0.1, { hold: 0.12 });
             tone('square', 1980, t, 0.32, 0.05, { hold: 0.12 });
@@ -202,9 +242,10 @@
         b3: { lv: 3, bpm: 124 },
         b4: { lv: 4, bpm: 124 },
         b5: { lv: 5, bpm: 152 },
+        b6: { lv: 6, bpm: 152 },
         b8: { lv: 8, bpm: 152 },
     };
-    const bgmKeyOf = lv => (lv >= 8 ? 'b8' : lv >= 5 ? 'b5' : lv >= 4 ? 'b4' : 'b3');
+    const bgmKeyOf = lv => (lv >= 8 ? 'b8' : lv >= 6 ? 'b6' : lv >= 5 ? 'b5' : lv >= 4 ? 'b4' : 'b3');
     const stepDur = key => 60 / BGM[key].bpm / 4;
 
     function bgmStep(t, step, dur, lv) {
@@ -221,12 +262,23 @@
                 tone('triangle', mtof(m - 12), t, dur * 1.7, 0.04);
             }
         }
+        if (lv >= 6) {                                                                     /* アルペジオ・シンバル（Lv6〜） */
+            tone('square', mtof(CHORDS[bar][(s * 2) % 3] + 12), t, dur * 0.8, 0.028, { lp: 3500 });
+            if (s === 0) noise(t, 0.6, 0.07, 'highpass', 5000);
+        }
         if (lv >= 8) tone('triangle', mtof(CHORDS[bar][s % 3] + 24), t, dur * 0.9, 0.035);     /* キラキラ */
     }
 
     /* ---------- データ作り（OfflineAudioContext） ---------- */
     const buf = {};
-    const LEN = { gyuin: 1.1, fanfare: 1.2, fanfareBig: 1.9, don: 0.45, kyuin: 0.4 };
+    const LEN = { gyuin: 1.1, fanfare: 1.2, fanfareBig: 1.9, don: 0.45, kyuin: 0.4, jara: 1.0, siren: 0.95, stamp: 0.85, whoosh: 0.5 };
+
+    /* ドクン…ドクン…（リーチの 心臓の 音）。のこり 3・2・1問で だんだん はやく */
+    const HEART = { heart3: 84, heart2: 108, heart1: 138 };
+    function heartAt(t) {
+        tone('sine', 70, t, 0.16, 0.55, { to: 40, glide: 0.12 });
+        tone('sine', 62, t + 0.17, 0.14, 0.38, { to: 38, glide: 0.1 });
+    }
 
     /** recipe を seconds びょうぶんの 音の データに する */
     function renderBuffer(seconds, recipe) {
@@ -248,6 +300,16 @@
     }
 
     const pauseTick = () => new Promise(r => setTimeout(r, 0));
+
+    /** ループの さいごから はみ出した 音を あたまに かさねる */
+    function wrapLoop(b, loopLen) {
+        const n = Math.round(loopLen * b.sampleRate);
+        const src = b.getChannelData(0);
+        const o = ctx.createBuffer(1, n, b.sampleRate);
+        const d = o.getChannelData(0);
+        for (let i = 0; i < src.length; i++) d[i % n] += src[i];
+        return o;
+    }
 
     /** BGM は 1小節ずつ 作って（1回の 処理を みじかく して 画面を とめない）、4小節の ループに つなぐ。
         小節の さいごから はみ出した ひびきは つぎの 小節（4小節めは あたま）に かさねる */
@@ -275,6 +337,12 @@
         for (const name of Object.keys(RECIPE)) {
             const b = await renderBuffer(LEN[name.replace(/\d+$/, '')] || 0.7, RECIPE[name]);
             if (b) buf[name] = b;
+            await pauseTick();
+        }
+        for (const key of Object.keys(HEART)) {
+            const loop = 60 / HEART[key];
+            const b = await renderBuffer(loop + 0.4, t => { heartAt(t); });
+            if (b) buf[key] = wrapLoop(b, loop);
             await pauseTick();
         }
         for (const key of Object.keys(BGM)) {
@@ -319,6 +387,31 @@
     const fanfare = (big, delay) => play(big ? 'fanfareBig' : 'fanfare', delay, 1, true);
     const pon = () => play('pon', 0, 1, true);
     const count = final => play(final ? 'countGo' : 'count', 0, 1, true);
+    const jara = delay => play('jara', delay, 1, true);
+    const siren = () => play('siren', 0, 1, true);
+    const stamp = delay => play('stamp', delay, 1, true);
+    const whoosh = () => play('whoosh', 0, 1, true);
+
+    /* ---------- リーチ：心臓の 音を ループ再生 ＋ BGM を 小さく ---------- */
+    let heartSrc = null, heartKey = null, duck = 1;
+    /** left ＝ のこり 3・2・1問（0 か null で おわり） */
+    function reach(left) {
+        const key = left >= 1 && left <= 3 ? 'heart' + left : null;
+        duck = key ? 0.45 : 1;
+        applyBgmVol();
+        if (key === heartKey) return;
+        if (heartSrc && ctx) { try { heartSrc.stop(ctx.currentTime + 0.02); } catch (e) { /* もう とまって いる */ } }
+        heartSrc = null;
+        heartKey = null;
+        if (!key || !ready() || !buf[key]) return;
+        const s = ctx.createBufferSource();
+        s.buffer = buf[key];
+        s.loop = true;
+        s.connect(sfx);
+        s.start(ctx.currentTime + 0.02);
+        heartSrc = s;
+        heartKey = key;
+    }
 
     /* ---------- BGM（データを ループ再生） ---------- */
     const bgm = { src: null, key: null, startAt: 0, lv: 0, want: null };
@@ -358,7 +451,7 @@
         if (ctx) stopSrc(ctx.currentTime);
     }
 
-    const bgmTarget = () => (soundOn && bgmOn ? BGM_VOL : 0);
+    const bgmTarget = () => (soundOn && bgmOn ? BGM_VOL * duck : 0);
     function applyBgmVol() {
         if (!ctx) return;
         const t = ctx.currentTime;
@@ -387,8 +480,14 @@
 
     root.DopaSound = {
         unlock, setSound, setBgm, pause,
-        pi, pikon, kyuin, kyuinKyuin, gyuin, don, fanfare, pon, count,
-        bgmLevel, bgmStop, hush,
+        pi, pikon, kyuin, kyuinKyuin, gyuin, don, fanfare, pon, count, jara, siren, stamp, whoosh,
+        bgmLevel, bgmStop, hush, reach,
+        /** BGM の テンポと いまの 拍の いち（0〜1）。背景の 光を BGM に あわせる ため */
+        beat() {
+            if (!ctx || !bgm.src || !bgm.key) return null;
+            const bpm = BGM[bgm.key].bpm, len = 60 / bpm;
+            return { bpm, phase: (((ctx.currentTime - bgm.startAt) % len) + len) % len / len };
+        },
         get ready() { return Object.keys(buf).length; },
         /** たしかめ用：作った 音の データの いちばん 大きい 音と 長さ */
         peek(name) {

@@ -83,6 +83,44 @@
         return combo === 5 || (combo >= 10 && combo % 10 === 0);
     }
 
+    /* ---------- リーチ（つぎの 大演出の 予告） ----------
+       大演出まで「あと 3問」から リーチに なる。運では なく、あと 何問かが はっきり 見える。
+       もとに なる 大演出：10・20（ドパタイム）・30（超ドパ）・40（激アツ）・50（にじドパ）・
+       60 70 80 …（確定）・100・しんきろく（いままでの さいこう＋1。さいこうが 5 いじょうの とき） */
+    const REACH_LEN = 3;
+    const REACH_ORDER = ['hyaku', 'niji', 'dopa', 'chodopa', 'atsu', 'kakutei', 'newrec', 'ten'];   /* かさなった ときの 名前の じゅん */
+    const REACH_LABEL = {
+        ten: '10れんぞく', dopa: 'ドパタイム', chodopa: '超ドパ', atsu: '激アツ', niji: 'にじドパ',
+        kakutei: '確定', hyaku: '100れんぞく', newrec: 'しんきろく',
+    };
+
+    /** n れんぞく めに 起きる 大演出の しゅるい（ない ときは 空） */
+    function bigEventsAt(n, best) {
+        const out = [];
+        if (n === 10) out.push('ten');
+        if (n === 20) out.push('dopa');
+        if (n === 30) out.push('chodopa');
+        if (n === 40) out.push('atsu');
+        if (n === 50) out.push('niji');
+        if (n === 100) out.push('hyaku');
+        else if (n > 50 && n % 10 === 0) out.push('kakutei');
+        if (best >= 5 && n === best + 1) out.push('newrec');
+        return out.sort((p, q) => REACH_ORDER.indexOf(p) - REACH_ORDER.indexOf(q));
+    }
+
+    /** いま combo れんぞく。つぎの 大演出まで あと REACH_LEN 問 いないなら リーチ（ちがえば null） */
+    function reachOf(combo, best) {
+        for (let left = 1; left <= REACH_LEN; left++) {
+            const kinds = bigEventsAt(combo + left, best || 0);
+            if (!kinds.length) continue;
+            const kind = kinds[0];
+            const label = kind === 'kakutei' ? `${combo + left}れんぞく` : REACH_LABEL[kind];
+            const extra = kinds.slice(1).map(k => REACH_LABEL[k]).filter(s => s !== label);
+            return { left, target: combo + left, kind, kinds, label: [label].concat(extra).join('＆') };
+        }
+        return null;
+    }
+
     /* ---------- きろく ---------- */
     const bestKey = (courseId, limit) => courseId + '_' + limit;
 
@@ -142,7 +180,7 @@
     root.DopaLogic = {
         COURSES, LEVELS, MAX_LEVEL, LIMITS, NIJI_HOLD,
         courseById, problemsOf, keyOf, avoidCount, pickQuestion, judge,
-        levelOf, kakuteiOf, isMilestone,
+        levelOf, kakuteiOf, isMilestone, REACH_LEN, bigEventsAt, reachOf,
         bestKey, topMiss, sanitizeSettings, sanitizeCounts, kukuReading,
     };
 })(typeof window !== 'undefined' ? window : globalThis);
