@@ -402,6 +402,68 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 .ol-t em { font-style: normal; font-size: 2.5mm; color: #fff; background: #ef8a00; border-radius: 1mm; padding: 0 1mm; vertical-align: middle; }
 
 /* ================= いんさつ ================= */
+/* --- げんこうようしの きまり（まちがい さがし・うつす・たしかめ カード） --- */
+.g-grid { --c: 10mm; display: flex; flex-direction: row-reverse; gap: calc(var(--c) * .14); width: max-content; }
+.g-col { display: flex; flex-direction: column; border: .45mm solid #2f7a5a; background: #fff; }
+.g-cell { width: var(--c); height: var(--c); border-bottom: .2mm solid #9cc9b4; position: relative; display: flex; align-items: center; justify-content: center;
+  font-family: var(--page-font); font-size: calc(var(--c) * .72); line-height: 1; color: #222; }
+.g-cell:last-child { border-bottom: none; }
+.g-cell span { display: block; line-height: 1; }
+.g-rot { transform: rotate(90deg); }
+.g-ro { transform: translateY(-36%) rotate(90deg); }
+.g-rc { transform: translateY(36%) rotate(90deg); }
+.g-tr { transform: translate(44%, -44%); }
+.g-sk { transform: translate(22%, -24%); }
+.g-c { transform: translate(22%, -22%); }
+.g-bl { transform: translate(-14%, 14%); }
+.g-stack { display: flex !important; flex-direction: column; align-items: center; }
+.g-stack span { font-size: .62em; }
+.g-stack .g-tr { transform: translate(34%, 0); }
+.g-stack .g-rc { transform: translate(0, 10%) rotate(90deg); }
+.g-hang .g-tail { position: absolute; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; font-size: .64em; }
+.g-hang .g-tail .g-tr, .g-hang .g-tail .g-sk { transform: none; }
+.g-hang .g-tail .g-rc { transform: rotate(90deg); }
+.g-cell.mk-ans::before { content: ""; position: absolute; inset: -12%; border: .6mm solid #d32f2f; border-radius: 50%; }
+.g-badge { position: absolute; top: -2.6mm; right: -2.6mm; width: 4.4mm; height: 4.4mm; border-radius: 50%; background: #d32f2f; color: #fff;
+  font: 700 3mm/4.4mm var(--ui-font); text-align: center; z-index: 2; }
+.gk-wrap { display: flex; justify-content: center; }
+.gk-count { text-align: center; font-size: 4.6mm; }
+.gk-hint { border: .4mm dashed var(--sc); background: var(--sl); border-radius: 3mm; padding: 1.5mm 4mm; font-size: 3.6mm; line-height: 1.5; }
+.gk-hint ul { columns: 2; margin: .5mm 0 0; padding-left: 5mm; }
+.gk-ans { list-style: none; margin: 0; padding: 0; font-size: 4mm; line-height: 1.55; }
+.gk-ans li { display: flex; gap: 2mm; }
+.gk-no { color: #d32f2f; flex: none; }
+.gk-yoko { border: .4mm solid #ccc; border-radius: 3mm; padding: 2mm 4mm; font-size: 5mm; line-height: 1.75; }
+.gk-yoko b { font-size: 3.8mm; color: var(--sc); }
+.gk-yoko p { margin: 0; padding-left: 5mm; position: relative; }
+.gk-yoko p::before { content: "▶"; position: absolute; left: 0; top: .5em; font-size: 2.6mm; color: #bbb; }
+.gk-yt { font-size: 5.4mm; }
+.page.gk-cards { padding: 8mm; display: grid; gap: 6mm; }
+.page.gk-cards.per1 { grid-template: 1fr / 1fr; }
+.page.gk-cards.per2 { grid-template-rows: 1fr 1fr; }
+.page.gk-cards.per4 { grid-template: 1fr 1fr / 1fr 1fr; padding: 6mm; gap: 4mm; }
+.gk-card { border: .6mm solid var(--sc); border-radius: 4mm; padding: 4mm; display: flex; flex-direction: column; gap: 2.5mm; overflow: hidden; min-height: 0; }
+.gk-ch { display: flex; justify-content: space-between; align-items: baseline; gap: 3mm; flex-wrap: wrap; font-size: 4.4mm; }
+.gk-ch b { font-family: var(--title-font); font-weight: normal; color: var(--sc); font-size: 6mm; }
+.gk-tb { width: 100%; border-collapse: collapse; font-size: 4.3mm; line-height: 1.4; }
+.gk-tb th, .gk-tb td { border: .3mm solid #bbb; padding: 1.4mm 2mm; vertical-align: middle; }
+.gk-tb th { background: var(--sl); font-size: 3.5mm; white-space: nowrap; }
+.gk-n { text-align: center; width: 7mm; color: var(--sc); }
+.gk-box { width: 17mm; text-align: center; }
+.gk-box i { display: inline-block; width: 7mm; height: 7mm; border: .5mm solid #555; border-radius: 1.5mm; vertical-align: middle; }
+.gk-ex { width: 32mm; }
+.gk-ex .g-grid { margin: 0 auto; }
+.gk-foot { margin-top: auto; text-align: right; font-size: 4mm; }
+.per1 .gk-tb { font-size: 5mm; }
+.per1 .gk-tb td { padding: 2mm 3mm; }
+.per4 .gk-ch { font-size: 3.4mm; }
+.per4 .gk-ch b { font-size: 4.4mm; }
+.per4 .gk-tb { font-size: 3.2mm; }
+.per4 .gk-tb th, .per4 .gk-tb td { padding: .8mm 1.2mm; }
+.per4 .gk-box { width: 11mm; }
+.per4 .gk-box i { width: 5.5mm; height: 5.5mm; }
+.per4 .gk-foot { font-size: 3.2mm; }
+
 @page { size: A4 portrait; margin: 0; }
 @page land { size: A4 landscape; margin: 0; }
 @media print {

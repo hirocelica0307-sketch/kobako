@@ -45,8 +45,8 @@ Google ドライブ →「新規」→ Google スプレッドシート。
 
 | Apps Script の ファイル | はる 中身（このリポジトリ） | 大きさ |
 |---|---|---|
-| `コード.gs`（はじめから ある） | `genkou-youshi/gas/Code.gs` | 133行 |
-| `Index`（自分で 作る HTML） | `genkou-youshi/gas/Index.html` | 1296行・52KB |
+| `コード.gs`（はじめから ある） | `genkou-youshi/gas/Code.gs` | 143行 |
+| `Index`（自分で 作る HTML） | `genkou-youshi/gas/Index.html` | 1600行・57KB |
 
 ほかに はる ものは ありません。`index.html` や `style.css`、`app.js` などは
 **すでに `gas/Index.html` の 中に まとめて 入っています**。

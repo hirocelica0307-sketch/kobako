@@ -22,7 +22,8 @@ const el = {
   setKuten:$('setKuten'), setDialogue:$('setDialogue'),
   setDialogueIndent:$('setDialogueIndent'), setAfterQuote:$('setAfterQuote'),
   setBangSpace:$('setBangSpace'), setEllipsis:$('setEllipsis'), setPair:$('setPair'),
-  setPushOpen:$('setPushOpen'), setWrapTitle:$('setWrapTitle'),
+  setPushOpen:$('setPushOpen'), setWrapTitle:$('setWrapTitle'), setPractice:$('setPractice'),
+  warns:$('warns'), modeBadge:$('modeBadge'),
   setCode:$('setCode'), btnCodeOut:$('btnCodeOut'), btnCodeIn:$('btnCodeIn'),
   btnReset:$('btnReset'), setMsg:$('setMsg')
 };
@@ -78,6 +79,7 @@ function sizeCells(){
    ・句読点だけの マス（「。」」）   … 2つとも 小さく たてに ならべる   */
 function fillCell(d, cell){
   const text  = cell.text;
+  if(!text) return;                   // しるしだけの あきマス（れんしゅうモード）
   const chars = Array.from(text);
   const mkSpan = ch => {
     const s = document.createElement('span');
@@ -143,10 +145,12 @@ function render(){
         const d = document.createElement('div');
         d.className = 'cell'
           + (cell && cell.fix  ? ' fix'  : '')
-          + (cell && cell.note ? ' note' : '');
+          + (cell && cell.note ? ' note' : '')
+          + (cell && cell.warn ? ' warn' : '');
         if(cell){
           fillCell(d, cell);
           const why = [];
+          if(cell.warn) why.push('⚠ ' + gyWarnText(cell.warn, cfg));
           if(cell.note) why.push(cell.note);
           if(cell.fix && GY_FIX_LABEL[cell.fix]) why.push(GY_FIX_LABEL[cell.fix]);
           if(why.length) d.title = why.join(' / ');
@@ -169,6 +173,25 @@ function render(){
   el.count.textContent = res.chars + '字・' + pages + 'まい';
   el.note.textContent  = '1まい ' + (cfg.charsPerColumn * cfg.columnsPerPage) + '字（' +
                          cfg.charsPerColumn + '字 × ' + cfg.columnsPerPage + '行）';
+  /* れんしゅうモード … なおす ところ */
+  el.warns.innerHTML = '';
+  if(cfg.practiceMode){
+    const keys = Object.keys(res.warns);
+    const head = document.createElement('div');
+    head.className = 'warn-head';
+    head.textContent = keys.length
+      ? '⚠ なおす ところ（原稿用紙の 赤い マス）'
+      : (el.body.value.trim() ? '◎ 段落・会話の 書き方は きまりどおり！' : '段落の はじめは スペースで あけ、会話は Enter で 行を かえよう');
+    if(!keys.length) head.classList.add('ok');
+    el.warns.appendChild(head);
+    for(const k of keys){
+      const d = document.createElement('div');
+      d.className = 'warn-item';
+      d.textContent = gyWarnText(k, cfg) + '（' + res.warns[k] + 'か所）';
+      el.warns.appendChild(d);
+    }
+  }
+
   el.fixes.innerHTML = '';
   for(const k in res.fixes){
     if(!GY_FIX_LABEL[k]) continue;
@@ -219,6 +242,7 @@ function loadSettingsForm(){
   el.setPair.checked      = !!cfg.keepPairTogether;
   el.setPushOpen.checked  = !!cfg.pushOpenBracket;
   el.setWrapTitle.checked = !!cfg.wrapLongTitle;
+  el.setPractice.checked  = !!cfg.practiceMode;
   bodyGapHint();
 }
 
@@ -255,6 +279,8 @@ function applySettingsForm(){
   cfg.keepPairTogether      = el.setPair.checked;
   cfg.pushOpenBracket       = el.setPushOpen.checked;
   cfg.wrapLongTitle         = el.setWrapTitle.checked;
+  cfg.practiceMode          = el.setPractice.checked;
+  showMode();
 
   el.rowTitle.style.display = cfg.title.enabled ? '' : 'none';
   el.rowName .style.display = cfg.name.enabled  ? '' : 'none';
@@ -299,8 +325,16 @@ el.btnCloseSet.addEventListener('click', () => { el.panel.hidden = true; renderS
   el.setNameOn, el.setNameBottom, el.setNameGap, el.setBodyGap, el.setParaIndent,
   el.setNumbers, el.setDecimal, el.setLatin, el.setHang, el.setHangStyle,
   el.setSmallKana, el.setKuten, el.setDialogue, el.setDialogueIndent, el.setAfterQuote,
-  el.setBangSpace, el.setEllipsis, el.setPair, el.setPushOpen, el.setWrapTitle
+  el.setBangSpace, el.setEllipsis, el.setPair, el.setPushOpen, el.setWrapTitle, el.setPractice
 ].forEach(x => x.addEventListener('change', applySettingsForm));
+
+/* れんしゅうモードの しるしと 入力らんの 説明 */
+const PH_NORMAL = el.body.placeholder;
+const PH_PRACTICE = 'れんしゅうモード\n段落の はじめは スペースで 1マス あけよう。\n会話（「　」）は Enter で 行を かえて 書こう。\n会話の あとも Enter で 行を かえよう。';
+function showMode(){
+  el.modeBadge.hidden = !cfg.practiceMode;
+  el.body.placeholder = cfg.practiceMode ? PH_PRACTICE : PH_NORMAL;
+}
 
 el.btnCodeOut.addEventListener('click', () => {
   try{
@@ -316,6 +350,7 @@ el.btnCodeIn.addEventListener('click', () => {
     cfg = gyUpgradeSettings(obj);
     gyStore.setSettings(cfg);
     loadSettingsForm();
+    showMode();
     el.rowTitle.style.display = cfg.title.enabled ? '' : 'none';
     el.rowName .style.display = cfg.name.enabled  ? '' : 'none';
     renderSoon();
@@ -326,6 +361,7 @@ el.btnReset.addEventListener('click', () => {
   if(!confirm('きまりを はじめの ものに もどしますか。書いた 文章は のこります。')) return;
   cfg = gyStore.resetSettings();
   loadSettingsForm();
+  showMode();
   el.rowTitle.style.display = cfg.title.enabled ? '' : 'none';
   el.rowName .style.display = cfg.name.enabled  ? '' : 'none';
   renderSoon();
@@ -347,6 +383,7 @@ gyStore.init(function(){
   el.rowTitle.style.display = cfg.title.enabled ? '' : 'none';
   el.rowName .style.display = cfg.name.enabled  ? '' : 'none';
   loadSettingsForm();
+  showMode();
   render();
 });
 

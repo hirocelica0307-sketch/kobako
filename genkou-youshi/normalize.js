@@ -12,6 +12,22 @@ const GY_FIX_LABEL = {
   space : 'よけいな 空白を とりました'
 };
 
+/* れんしゅうモードで しるしを つける りゆう（cfg で ことばが かわる ものは 関数） */
+const GY_WARN_LABEL = {
+  indent    : cfg => '段落の はじめは ' + cfg.paragraphIndent + 'マス あけよう（スペースを おす）',
+  indentMany: cfg => 'あけすぎ だよ。段落の はじめは ' + cfg.paragraphIndent + 'マスだけ あけよう',
+  midBreak  : () => '文の とちゅうで 行を かえないよ。前の 行に つづけて 書こう',
+  dlgBreak  : () => '会話文は 行を かえて 書こう（「 の 前で Enter）',
+  dlgIndent : () => '会話の 「 は 行の いちばん 上から 書こう（スペースは いらない）',
+  afterDlg  : () => '会話の あとは 行を かえよう（」の あとで Enter）',
+  space     : () => 'ことばの あいだは あけないよ',
+  bang      : () => '！ や ？ の あとは 1マス あけよう'
+};
+function gyWarnText(code, cfg){
+  const f = GY_WARN_LABEL[code];
+  return f ? f(cfg || GY_DEFAULTS) : '';
+}
+
 const GY_D_KANJI = '〇一二三四五六七八九';
 
 /* 位取り（十二 / 三百五十 / 二千二十六） */
@@ -72,11 +88,15 @@ const GY_PUNCT_MAP = { ',':'、', '.':'。', '!':'！', '?':'？', '，':'、', 
 /* --- 本体 ---
    src : 児童が 打った 文章（よこ書き・改行は \n）
    cfg : きまり
-   もどり値 : { paragraphs:[{units:[{c,fix}], dialogue:bool}], fixes:{りゆう:かず} } */
+   もどり値 : { paragraphs:[{units:[{c,fix,warn}], dialogue:bool}], fixes:{りゆう:かず}, warns:{りゆう:かず} }
+   れんしゅうモード（cfg.practiceMode）では 1行が そのまま 原稿用紙の 1行に なり、
+   行の はじめの スペースは あきマスに なります（段落・会話の 行がえは 児童が 自分で する）。 */
 function gyNormalize(src, cfg){
   cfg = cfg || GY_DEFAULTS;
-  const fixes = {};
+  const practice = !!cfg.practiceMode;
+  const fixes = {}, warns = {};
   const addFix = k => { if(k) fixes[k] = (fixes[k] || 0) + 1; };
+  const warn = (u, k) => { if(u && !u.warn){ u.warn = k; warns[k] = (warns[k] || 0) + 1; } };
 
   const rawParas = String(src == null ? '' : src)
     .replace(/\r\n?/g, '\n')
@@ -84,7 +104,8 @@ function gyNormalize(src, cfg){
 
   const paragraphs = [];
   for(const raw of rawParas){
-    const line = raw.replace(/^[ 　\t]+/, m => { if(m) addFix('space'); return ''; })
+    let lead = 0;
+    const line = raw.replace(/^[ 　\t]+/, m => { if(practice) lead = m.length; else if(m) addFix('space'); return ''; })
                     .replace(/[ 　\t]+$/, '');
     if(line === ''){ continue; }                 // 空行は とばす
     const chars = Array.from(line);
@@ -138,8 +159,18 @@ function gyNormalize(src, cfg){
         continue;
       }
 
-      /* 空白 ― 原稿用紙では ことばの あいだを あけないので とる */
+      /* 空白 ― 原稿用紙では ことばの あいだを あけないので とる
+         （れんしゅうモードでは あきマスに して しるしを つける。！？の あとは まる） */
       if(c === ' ' || c === '　' || c === '\t'){
+        if(practice){
+          const pv = units[units.length - 1];
+          const okBang = cfg.spaceAfterBangQuestion && pv && (pv.c === '！' || pv.c === '？');
+          const u = { c:'　', fix:'', blank:true };
+          units.push(u);
+          if(!okBang && !(pv && pv.blank && pv.warn)) warn(u, 'space');
+          else if(!okBang) u.warn = 'space';
+          continue;
+        }
         addFix('space');
         continue;
       }
@@ -164,7 +195,12 @@ function gyNormalize(src, cfg){
       units.push({ c:z, fix: z === c ? '' : 'zen' });
       if(z !== c) addFix('zen');
     }
-    if(units.length) paragraphs.push({ units, dialogue:false });
+    if(units.length) paragraphs.push({ units, dialogue:false, practice, lead });
+  }
+
+  if(practice){
+    gyPracticeWarn(paragraphs, cfg, warn);
+    return { paragraphs, fixes, warns };
   }
 
   /* 会話文の ところで 行を かえる
@@ -207,5 +243,64 @@ function gyNormalize(src, cfg){
     flush(false);
   }
 
-  return { paragraphs: out, fixes };
+  return { paragraphs: out, fixes, warns };
+}
+
+/* れんしゅうモード ― 児童が 打った 行を そのまま つかい、
+   きまりと ちがう ところに しるし（warn）を つける */
+function gyPracticeWarn(paragraphs, cfg, warn){
+  const OPEN = '「『', CLOSE = '」』', ENDS = '。！？';
+  const lastOf = units => { for(let i = units.length - 1; i >= 0; i--) if(!units[i].blank) return units[i]; return null; };
+  const qMode = cfg.quoteNewline || 'dialogue';
+  let prev = null;
+  for(const p of paragraphs){
+    const u = p.units;
+    const head = u[0];
+    /* 行の はじめ */
+    if(OPEN.indexOf(head.c) >= 0){
+      const okIndent = cfg.dialogueParagraphIndent && p.lead === cfg.paragraphIndent;
+      if(p.lead > 0 && !okIndent) warn(head, 'dlgIndent');
+    }else{
+      const pe = prev ? lastOf(prev.units) : null;
+      const afterDlg = pe && CLOSE.indexOf(pe.c) >= 0 && qMode !== 'never';
+      if(p.lead === 0){
+        if(afterDlg){ /* 会話の あとの 文は 1マス目から で よい */ }
+        else if(pe && ENDS.indexOf(pe.c) < 0 && CLOSE.indexOf(pe.c) < 0) warn(head, 'midBreak');
+        else if(cfg.paragraphIndent > 0) warn(head, 'indent');
+      }
+      else if(p.lead > cfg.paragraphIndent) warn(head, 'indentMany');
+      else if(p.lead < cfg.paragraphIndent && !afterDlg) warn(head, 'indent');
+    }
+    /* 行の 中 */
+    let dlgOpen = false, closedDlg = false;
+    for(let i = 0; i < u.length; i++){
+      const c = u[i].c;
+      if(u[i].blank) continue;
+      let pv = null;
+      for(let j = i - 1; j >= 0; j--) if(!u[j].blank){ pv = u[j]; break; }
+      if(OPEN.indexOf(c) >= 0){
+        const atStart = !pv || ENDS.indexOf(pv.c) >= 0 || closedDlg;
+        if(atStart){
+          dlgOpen = true;
+          if(pv && cfg.dialogueNewline) warn(u[i], 'dlgBreak');
+        }
+        closedDlg = false;
+        continue;
+      }
+      if(CLOSE.indexOf(c) >= 0){
+        const wasDlg = dlgOpen;
+        dlgOpen = false;
+        closedDlg = wasDlg;
+        const nx = u[i + 1];
+        if(nx && !nx.blank && OPEN.indexOf(nx.c) < 0 && (qMode === 'always' || (qMode === 'dialogue' && wasDlg))) warn(nx, 'afterDlg');
+        continue;
+      }
+      closedDlg = false;
+      if(cfg.spaceAfterBangQuestion && (c === '！' || c === '？')){
+        const nx = u[i + 1];
+        if(nx && !nx.blank && '」』）！？'.indexOf(nx.c) < 0) warn(nx, 'bang');
+      }
+    }
+    prev = p;
+  }
 }

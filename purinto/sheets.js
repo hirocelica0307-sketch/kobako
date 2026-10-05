@@ -11,6 +11,7 @@
     const G = root.PurintoGen || require('./gen.js');
     const D = root.PurintoData || require('./data.js');
     const K = root.PurintoSakubun || require('./sakubun.js');
+    const GK = root.PurintoGenkou || require('./genkou.js');
 
     const SUBJECTS = {
         kokugo: { label: 'こくご', icon: '📖' },
@@ -861,10 +862,130 @@
         },
     };
 
+    /* ================================================================
+       げんこうようしの きまり（まちがい さがし・うつす・たしかめ カード）
+       ================================================================ */
+
+    /** たて書きの 原稿用紙（cell … 1マスの mm） */
+    function gkGrid(cols, N, cell, o) {
+        return GK.G.gridHtml(cols, N, o).replace('class="g-grid', `style="--c:${cell.toFixed(2)}mm" class="g-grid`);
+    }
+    const GK_KAIWA = GK.TEXTS.filter(t => t.body.includes('「'));
+    const GK_PLAIN = GK.TEXTS.filter(t => !t.body.includes('「'));
+    const gkTextChoices = [['random', 'くじで きめる'], ['plain', 'くじ（かいわ なし）'], ['kaiwa', 'くじ（かいわ あり）'], ...GK.TEXTS.map(t => [t.id, `${t.title}${t.body.includes('「') ? '（かいわ）' : ''}`])];
+    function gkPickText(v, rng) {
+        if (v === 'plain') return rng.pick(GK_PLAIN);
+        if (v === 'kaiwa') return rng.pick(GK_KAIWA);
+        return GK.TEXTS.find(t => t.id === v) || rng.pick(GK.TEXTS);
+    }
+    /** 行の かずと たかさに あう マスの 大きさ */
+    const gkCell = (nCols, N, w, h, max) => Math.min(max || 13, h / N, w / (nCols * 1.14 + .6));
+    const GK_RULES_SHORT = ['だいめいは 上を 2〜3マス あける', 'なまえは 2行目の 下', 'だんらくの はじめは 1マス あける', '「。」「、」は マスの 右上',
+        '行の 上に「。」「、」を 書かない', '小さい 字も 1マス', 'かいわは 行を かえて 1マス目から', '「。」」は 1マスに', 'かいわの あとも 行を かえる', 'ことばの あいだは あけない'];
+
+    /* ---------- げんこうようし まちがい さがし ---------- */
+    const genkouMachigai = {
+        id: 'genkou-machigai', title: 'げんこうようし まちがい さがし', icon: '🔍',
+        desc: '原稿用紙の 書き方の まちがいを さがして 赤で なおす。だんらくの 1マス・「。」の ばしょ・かいわの 行がえ など。こたえ つき。',
+        options: [
+            { key: 'text', label: '文', type: 'select', def: 'random', choices: gkTextChoices },
+            { key: 'n', label: 'まちがいの かず', type: 'select', def: '5', choices: [['3', '3こ'], ['5', '5こ'], ['7', '7こ']] },
+            { key: 'masu', label: '1行の マス', type: 'select', def: '15', choices: [['10', '10マス'], ['12', '12マス'], ['15', '15マス'], ['20', '20マス']] },
+            { key: 'hint', label: 'きまりの ヒントを のせる', type: 'check', def: true },
+        ],
+        build(opt, rng) {
+            const t = gkPickText(opt.text, rng), N = +opt.masu || 15, n = +opt.n || 5;
+            const r = GK.makeMistakes(t, N, n, rng, { name: rng.pick(GK.NAMES) });
+            const nCols = r.cols.length;
+            const cell = gkCell(nCols, N, 186, opt.hint ? 150 : 178);
+            const ans = {}, badge = {};
+            r.items.forEach((it, i) => { ans[it.c + ',' + it.r] = 'mk-ans'; badge[it.c + ',' + it.r] = MARU[i]; });
+            const hint = opt.hint ? `<div class="gk-hint"><b>きまりの ヒント</b><ul>${GK_RULES_SHORT.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '';
+            const count = `<div class="gk-count">まちがいは <b>${r.items.length}こ</b>。見つけた かず（　　　）こ</div>`;
+            const q = `<div class="gk-wrap">${gkGrid(r.cols, N, cell)}</div>${count}${hint}`;
+            const list = `<ol class="gk-ans">${r.items.map((it, i) => `<li><span class="gk-no">${MARU[i]}</span><span>${it.c + 1}行目：${esc(it.text)}</span></li>`).join('')}</ol>`;
+            const a = `<div class="gk-wrap">${gkGrid(r.cols, N, cell, { mark: ans, badge })}</div>${list}`;
+            return both({
+                subject: 'kokugo', catchline: 'げんこうようしの きまりを 見つけよう！', title: 'げんこうようし まちがい さがし', icon: '🔍',
+                rules: [`げんこうようしの 書き方が まちがって いる ところが <b>${r.items.length}こ</b> あるよ。`, 'まちがいを 見つけたら、赤えんぴつで ○を つけよう。', 'どう なおせば よいか、マスの よこに 書いて みよう。'],
+            }, q, a);
+        },
+    };
+
+    /* ---------- げんこうようしに うつそう ---------- */
+    const genkouShisha = {
+        id: 'genkou-shisha', title: 'げんこうようしに うつそう', icon: '✍️',
+        desc: 'おてほんの 文を、きまりどおりに 原稿用紙へ うつす（視写）。「よこ書きの 文」に すると、どこを あけるか 自分で 考える。',
+        options: [
+            { key: 'text', label: '文', type: 'select', def: 'random', choices: gkTextChoices },
+            { key: 'mode', label: 'おてほん', type: 'select', def: 'grid', choices: [['grid', 'げんこうようしの おてほん（やさしい）'], ['yoko', 'よこ書きの 文（むずかしい）']] },
+            { key: 'masu', label: '1行の マス', type: 'select', def: '10', choices: [['8', '8マス'], ['10', '10マス'], ['12', '12マス']] },
+            { key: 'name', label: 'なまえの 行を つくる', type: 'check', def: true },
+        ],
+        build(opt, rng) {
+            const t = gkPickText(opt.text, rng), N = +opt.masu || 10;
+            const P = GK.G.parse(t);
+            const model = GK.G.layout(P, N, { name: opt.name ? 'なまえ' : '' });
+            /* おてほんの「なまえ」は 字を 出さずに わくだけ */
+            const ni = model.findIndex(c => c.role === 'name');
+            if (ni >= 0) model[ni].cells = model[ni].cells.map(() => null);
+            const blank = Array.from({ length: model.length + 1 }, () => ({ cells: new Array(N).fill(null) }));
+            const yoko = opt.mode === 'yoko';
+            const nameNote = opt.name ? 'なまえは 2行目の 下の ほうに、じぶんの なまえを 書こう。' : '';
+            if (!yoko) {
+                const cell = gkCell(model.length + 1, N, 186, 84, 11);
+                const q = `<div class="sub-h">おてほん</div><div class="gk-wrap">${gkGrid(model, N, cell)}</div>
+                  <div class="sub-h">ここに うつそう</div><div class="gk-wrap">${gkGrid(blank, N, cell)}</div>`;
+                return both({
+                    subject: 'kokugo', catchline: '1マス 1字、ていねいに！', title: 'げんこうようしに うつそう', icon: '✍️',
+                    rules: ['おてほんと おなじ マスに、1字ずつ うつそう。', 'あいて いる マスも、おなじように あけよう。' + nameNote, 'うつしたら、おてほんと 1行ずつ くらべて たしかめよう。'],
+                }, q, null);
+            }
+            const lines = [t.title ? `<div class="gk-yt">${esc(t.title)}</div>` : ''].concat(t.body.split('\n').map(l => `<p>${esc(l)}</p>`)).join('');
+            const cell = gkCell(model.length + 2, N, 186, 150, 12);
+            const big = Array.from({ length: model.length + 2 }, () => ({ cells: new Array(N).fill(null) }));
+            const q = `<div class="gk-yoko"><b>おてほん</b>${lines}</div><div class="gk-wrap">${gkGrid(big, N, cell)}</div>`;
+            const a = `<div class="sub-h">こたえ（きまりどおりに 書くと こう なるよ）</div><div class="gk-wrap">${gkGrid(GK.G.layout(P, N, { name: opt.name ? 'なまえ' : '' }), N, cell)}</div>`;
+            return both({
+                subject: 'kokugo', catchline: 'どこを あける？ どこで 行を かえる？', title: 'げんこうようしに うつそう', icon: '✍️',
+                rules: ['よこ書きの 文を、たて書きの げんこうようしに 書こう。', 'だいめいは 上を 2〜3マス あける。' + nameNote, 'だんらくの はじめは 1マス あける。かいわは 行を かえて 1マス目から 書こう。'],
+            }, q, a);
+        },
+    };
+
+    /* ---------- 書いたら たしかめ カード ---------- */
+    const genkouCheck = {
+        id: 'genkou-check', title: '書いたら たしかめ カード', icon: '✅',
+        desc: '作文を 書いた あとに、げんこうようしの きまりを 自分で（ともだちと）たしかめる カード。1まいに 1・2・4まい。',
+        options: [
+            { key: 'per', label: '1まいに', type: 'select', def: '2', choices: [['1', '1まい（大きく・けいじにも）'], ['2', '2まい'], ['4', '4まい']] },
+            { key: 'kaiwa', label: 'かいわの こうもくも のせる', type: 'check', def: true },
+            { key: 'friend', label: 'ともだち チェックの らん', type: 'check', def: true },
+            { key: 'ex', label: 'ただしい 書き方の れい（1まいの とき）', type: 'check', def: true },
+        ],
+        build(opt) {
+            const per = +opt.per || 2;
+            const items = GK.CHECK_ITEMS.filter(it => opt.kaiwa || !it.kaiwa);
+            const showEx = opt.ex && per === 1, exCell = 4.8;
+            const card = () => `<div class="gk-card per${per}">
+                <div class="gk-ch"><b>✅ 書いたら たしかめ カード</b><span>なまえ（　　　　　　　　）</span></div>
+                <table class="gk-tb"><thead><tr><th></th><th>げんこうようしの きまり</th>${showEx ? '<th>れい</th>' : ''}<th>じぶん</th>${opt.friend ? '<th>ともだち</th>' : ''}</tr></thead><tbody>
+                ${items.map((it, i) => {
+                    const ex = showEx ? (() => { const g = GK.checkExample(it.id); return `<td class="gk-ex">${g ? gkGrid(g.cols, g.N, exCell) : ''}</td>`; })() : '';
+                    return `<tr><td class="gk-n">${i + 1}</td><td>${esc(it.text)}</td>${ex}<td class="gk-box"><i></i></td>${opt.friend ? '<td class="gk-box"><i></i></td>' : ''}</tr>`;
+                }).join('')}
+                </tbody></table>
+                <div class="gk-foot">ぜんぶに ✓が ついたら、せんせいに 出そう。</div></div>`;
+            const cards = Array.from({ length: per }, card).join('');
+            return { page: `<section class="page subj-kokugo gk-cards per${per}">${cards}</section>`, answer: null };
+        },
+    };
+
     /* ---------- ならび ---------- */
 
     const SHEETS = { kaidan, storymaze: storyMaze, wordsearch: wordSearch, kanjiadd: kanjiAdd, anagram, headquiz: headQuiz, acrostic, dicestory: diceStory,
-        calcmaze: calcMaze, magic, pyramid, sudoku, symbols: symbolSearch, dotcopy: dotCopy, diffs, halfpic: halfPic, doodle, bingo, feelings, sugoroku, anone, odailist: odaiList };
+        calcmaze: calcMaze, magic, pyramid, sudoku, symbols: symbolSearch, dotcopy: dotCopy, diffs, halfpic: halfPic, doodle, bingo, feelings, sugoroku, anone, odailist: odaiList,
+        'genkou-machigai': genkouMachigai, 'genkou-shisha': genkouShisha, 'genkou-check': genkouCheck };
 
     /** メニュー（id は URL に のる ので かえない） */
     const CATALOG = [
@@ -879,6 +1000,9 @@
         { id: 'anone', sheet: 'anone', subject: 'kokugo', title: 'あのね にっき（1・2ねん）', desc: '① かんがえを ひろげる → ② かいてみる → ③ ふりかえる。お題に あわせた ヒントと たて書きの マス。' },
         { id: 'anone-mid', sheet: 'anone', subject: 'kokugo', title: 'あのね日記（3・4ねん）', desc: '① 考えを広げる → ② 図にする → ③ 書いてみる → ④ ふりかえる。お題の なかまごとに 組み立て図が かわる。', defaults: { grade: 'mid', guide: false } },
         { id: 'odailist', sheet: 'odailist', subject: 'kokugo' },
+        { id: 'genkou-machigai', sheet: 'genkou-machigai', subject: 'kokugo' },
+        { id: 'genkou-shisha', sheet: 'genkou-shisha', subject: 'kokugo' },
+        { id: 'genkou-check', sheet: 'genkou-check', subject: 'kokugo' },
         { id: 'calcmaze', sheet: 'calcmaze', subject: 'sansu' },
         { id: 'pyramid', sheet: 'pyramid', subject: 'sansu' },
         { id: 'magic', sheet: 'magic', subject: 'sansu' },
