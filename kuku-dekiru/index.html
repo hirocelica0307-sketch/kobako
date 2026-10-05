@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f3c443">
+<meta name="description" content="2年生の 九九づくりで、ボタンを おすたびに ブロックの まとまりが 1つずつ ふえて、九九の 表が できあがっていく 提示用アプリ。">
+<title>くくが できるまで</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=M+PLUS+Rounded+1c:wght@500;800&display=swap">
+<style>
+/* くくが できるまで ── 見ため
+   ------------------------------------------------------------------
+   教科書の ページと おなじ 色の やくそく：
+     かけられる数（1つ分の数）＝ きいろ、かける数（いくつ分）＝ みずいろ、
+     ブロックは しろい ますに だいだいの まる。
+   左が ブロックの ぶたい、右が 九九の 表。電子黒板（1920×1080）と
+   Chromebook（1366×768）では スクロールしない。スマホでは たてに ならぶ。
+   クラスの 画面で 見やすい ように、明るい 1しゅるいの 見ため だけに している。
+   ------------------------------------------------------------------ */
+:root{
+    --bg:      #f7f5ef;
+    --panel:   #ffffff;
+    --band:    #fdf3cf;   /* 教科書の きいろい おび */
+    --ink:     #2d3140;
+    --thin:    #7a7466;
+    --line:    #e4dccb;
+    --yellow:  #f3c443;   /* かけられる数 */
+    --yellow-s:#fbe7a6;
+    --blue:    #9cc4e6;   /* かける数 */
+    --blue-s:  #dcebf8;
+    --blue-d:  #2f6aa8;
+    --dot:     #e8643a;   /* ブロックの まる */
+    --red:     #d9483b;   /* ふえる の やじるし */
+    --frame:   #ebe3d2;
+    --frame-d: #b9ab92;
+    --round: "M PLUS Rounded 1c","Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Noto Sans JP","Noto Sans CJK JP","Yu Gothic",sans-serif;
+    --pop:   "Mochiy Pop One","M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Noto Sans JP",sans-serif;
+    --radius: 14px;
+    --late: 0ms;          /* あたらしい まとまりが おちおわるまでの 時間（JS が いれる） */
+}
+html{ font-size:clamp(15px, calc(.85vw + .6vh), 26px); height:100%; }
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body{
+    margin:0; height:100%; overflow:hidden;
+    display:flex; flex-direction:column; gap:.6rem;
+    padding:.6rem max(16px, .9rem);
+    background:var(--bg); color:var(--ink);
+    font-family:var(--round); font-weight:800;
+    -webkit-user-select:none; user-select:none;
+}
+button{ font:inherit; color:inherit; cursor:pointer; }
+button:focus-visible{ outline:3px solid var(--blue-d); outline-offset:2px; }
+[hidden]{ display:none !important; }
+
+.btn{
+    min-height:max(48px, 2.9rem); min-width:48px; padding:.25rem .9rem;
+    display:inline-flex; align-items:center; justify-content:center; gap:.35rem;
+    border:2px solid var(--line); border-radius:var(--radius);
+    background:var(--panel); font-size:1rem; line-height:1.15;
+    transition:transform .08s, background .15s, border-color .15s;
+}
+.btn:active{ transform:scale(.95); }
+.btn:disabled{ opacity:.35; cursor:default; transform:none; }
+.btn .i{ font-size:1.2em; line-height:1; }
+.btn.on{ background:var(--blue-s); border-color:var(--blue-d); box-shadow:0 0 0 2px var(--blue-d) inset; }
+
+/* ---------- うえ ---------- */
+.top{ display:flex; align-items:center; gap:.6rem 1rem; flex-wrap:wrap; }
+.logo{
+    margin:0; font-family:var(--pop); font-weight:400; font-size:1.45rem; letter-spacing:.04em;
+    white-space:nowrap;
+}
+.logo small{ font-family:var(--round); font-size:.55em; color:var(--thin); margin-left:.3em; letter-spacing:0; }
+.dans{ display:flex; align-items:center; gap:.3rem; flex-wrap:wrap; }
+.dans .lbl{ color:var(--thin); font-size:.85rem; margin-right:.1rem; }
+.dan{
+    width:max(48px, 2.7rem); height:max(48px, 2.7rem); padding:0;
+    border:2px solid var(--line); border-radius:50%; background:var(--panel);
+    font-size:1.15rem; font-variant-numeric:tabular-nums;
+}
+.dan.on{ background:var(--yellow); border-color:#c99a17; box-shadow:0 3px 0 #c99a17; }
+.opts{ margin-left:auto; display:flex; gap:.35rem; flex-wrap:wrap; }
+.opts .btn{ font-size:.85rem; padding:.2rem .65rem; }
+
+/* ---------- まんなか ---------- */
+.main{
+    flex:1; min-height:0;
+    display:grid; grid-template-columns:minmax(0, 1.75fr) minmax(0, 1fr); gap:.8rem;
+}
+.stage, .table{
+    min-height:0; min-width:0;
+    background:var(--panel); border:2px solid var(--line); border-radius:20px;
+}
+.stage{ display:flex; flex-direction:column; padding:.8rem 1rem .6rem; position:relative; cursor:pointer; }
+
+.say{ text-align:center; font-size:1.15rem; color:var(--thin); min-height:1.6em; }
+.say b{ color:var(--ink); }
+.say .y{ background:var(--yellow-s); padding:0 .3em; border-radius:6px; }
+.say .bl{ background:var(--blue-s); padding:0 .3em; border-radius:6px; }
+
+.bigeq{
+    display:flex; align-items:center; justify-content:center; gap:.35em;
+    font-size:2.6rem; line-height:1.15; min-height:1.5em; font-variant-numeric:tabular-nums;
+}
+.bigeq .hint{ font-size:1.05rem; color:var(--thin); display:flex; align-items:center; gap:.5em; }
+.bigeq .hint kbd{
+    font:inherit; background:var(--yellow); border-radius:10px; padding:.15em .6em; color:var(--ink);
+    box-shadow:0 3px 0 #c99a17;
+}
+.chip{ display:inline-block; min-width:1.15em; padding:0 .18em; text-align:center; border-radius:.16em; }
+.chip.a{ background:var(--yellow); }
+.chip.b{ background:var(--blue); }
+.box{
+    display:inline-block; min-width:2.1em; padding:0 .25em; text-align:center;
+    border:3px solid var(--frame-d); border-radius:.18em; background:var(--panel);
+}
+.box.q{ color:var(--thin); background:#f4f1ea; }
+
+/* ブロックの ぶたい */
+.field{ flex:1; min-height:0; display:flex; align-items:center; justify-content:center; padding-top:.4rem; --b:40px; }
+.sticks{
+    display:flex; align-items:flex-end; gap:calc(var(--b) * .55);
+    width:calc(var(--b) * 15.6); max-width:100%;
+}
+.slot{ display:flex; flex-direction:column; align-items:center; gap:calc(var(--b) * .18); width:calc(var(--b) * 1.24); flex:none; }
+.cum{
+    font-size:calc(var(--b) * .5); line-height:1; padding:.25em .4em; border-radius:.5em;
+    background:var(--ink); color:#fff; font-variant-numeric:tabular-nums; white-space:nowrap;
+    visibility:hidden;
+}
+.slot.counted .cum{ visibility:visible; animation:pop .3s both; }
+.stick{
+    display:flex; flex-direction:column; gap:calc(var(--b) * .06);
+    padding:calc(var(--b) * .1); border-radius:calc(var(--b) * .22);
+    background:var(--frame); border:2px solid var(--frame-d);
+    transition:box-shadow .25s, border-color .25s, background .25s;
+}
+.slot.new .stick{ border-color:#c99a17; background:var(--yellow-s); box-shadow:0 0 0 calc(var(--b) * .08) var(--yellow); }
+.slot.lit .stick{ border-color:var(--blue-d); background:var(--blue-s); box-shadow:0 0 0 calc(var(--b) * .08) var(--blue); }
+.blk{
+    width:var(--b); height:var(--b); border-radius:calc(var(--b) * .14);
+    background:#fff; border:1.5px solid #cfc4b0; display:grid; place-items:center;
+}
+.blk::after{ content:""; width:68%; height:68%; border-radius:50%; background:var(--dot); }
+.blk.gap{ margin-top:calc(var(--b) * .28); }
+.num{
+    width:calc(var(--b) * .9); height:calc(var(--b) * .9); border-radius:50%;
+    display:grid; place-items:center; font-size:calc(var(--b) * .5);
+    background:var(--blue); font-variant-numeric:tabular-nums;
+}
+.slot.pop .stick{ animation:fadein .25s both; }
+.slot.pop .blk{ animation:drop .32s cubic-bezier(.3,1.4,.5,1) both; animation-delay:calc(var(--i) * 70ms); }
+.slot.pop .num{ animation:pop .3s both; animation-delay:var(--late); }
+@keyframes drop{ from{ transform:translateY(calc(var(--b) * -1.4)) scale(.5); opacity:0; } to{ transform:none; opacity:1; } }
+@keyframes fadein{ from{ opacity:0; } to{ opacity:1; } }
+@keyframes pop{ 0%{ transform:scale(.4); opacity:0; } 70%{ transform:scale(1.12); opacity:1; } 100%{ transform:scale(1); } }
+.fresh{ animation:pop .35s both; animation-delay:var(--late); }
+
+.say .done{
+    display:inline-block; background:var(--yellow); color:var(--ink); border-radius:12px; padding:.1em .8em;
+    box-shadow:0 3px 0 #c99a17;
+}
+
+/* 九九の 表 */
+.table{ display:flex; flex-direction:column; padding:.7rem .8rem .7rem 1rem; }
+.table h2{ margin:0 0 .35rem; font-family:var(--pop); font-weight:400; font-size:1.15rem; letter-spacing:.03em; }
+.rows{
+    flex:1; min-height:0; margin:0; padding:0; list-style:none;
+    display:grid; grid-template-rows:repeat(9, minmax(0, 1fr));
+}
+.row{
+    display:grid; grid-template-columns:auto auto minmax(0, 1fr) 4.6em; align-items:center; gap:.45em;
+    font-size:1.25rem; font-variant-numeric:tabular-nums; border-radius:10px; padding:0 .3em;
+    transition:background .2s, opacity .2s;
+}
+.row .eq{ white-space:nowrap; }
+.row .eq .chip{ font-size:1em; }
+.row .ans{
+    min-width:2.4em; height:1.6em; line-height:1.45em; text-align:center;
+    border:2px solid #9fb3b0; border-radius:8px; background:var(--panel);
+}
+.row .yomi{ font-size:.72em; color:var(--thin); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.row .plus{ position:relative; height:100%; }
+.row .plus > span{
+    position:absolute; left:0; top:0; transform:translateY(-50%);
+    display:flex; align-items:center; gap:.2em; font-size:.7em; color:var(--red); white-space:nowrap;
+}
+.row .plus svg{ width:1.1em; height:2.2em; flex:none; }
+.row .plus b{ border:2px solid var(--red); border-radius:6px; padding:0 .25em; background:var(--panel); }
+.row.future{ opacity:.33; }
+.row.future .ans{ color:transparent; }
+.row.wait .ans{ color:var(--thin); }
+.row.now{ background:var(--band); }
+.row.chant{ background:var(--yellow); }
+
+/* ---------- した ---------- */
+.ctrl{ display:flex; align-items:center; justify-content:center; gap:.5rem; flex-wrap:wrap; }
+.ctrl .next{
+    min-width:9rem; font-size:1.3rem; background:var(--yellow); border-color:#c99a17; box-shadow:0 4px 0 #c99a17;
+}
+.ctrl .next:active{ transform:translateY(3px); box-shadow:0 1px 0 #c99a17; }
+.ctrl .sep{ width:1px; align-self:stretch; background:var(--line); margin:0 .3rem; }
+
+/* スマホ：たてに ならべて、ページを スクロールできる ように */
+@media (max-width: 760px){
+    body{ height:auto; min-height:100%; overflow:auto; }
+    .main{ display:contents; }
+    .stage{ order:1; min-height:56vh; }
+    .ctrl{ order:2; }
+    .table{ order:3; }
+    .rows{ grid-template-rows:none; gap:.2rem; }
+    .row{ min-height:2.4rem; }
+    .opts{ margin-left:0; }
+    .ctrl .sep{ display:none; }
+}
+@media (prefers-reduced-motion: reduce){
+    *, *::before, *::after{ animation-duration:.01ms !important; animation-delay:0ms !important; transition:none !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1 class="logo">くくが できるまで<small>（仮称）</small></h1>
+  <div class="dans" id="dans" role="group" aria-label="だんを えらぶ"><span class="lbl">だん</span></div>
+  <div class="opts">
+    <button class="btn" id="optHide" aria-pressed="false" title="ブロックが ふえたあと、もう いちど おすと こたえが 出ます"><span class="i">❓</span>こたえは あとで</button>
+    <button class="btn on" id="optFive" aria-pressed="true" title="6こ いじょうの とき、5こ めの あとに すきまを あけます"><span class="i">🖐️</span>5で くぎる</button>
+    <button class="btn" id="optVoice" aria-pressed="false"><span class="i">🔈</span>よみあげ</button>
+    <button class="btn" id="optFull" aria-label="画面 いっぱい" title="画面 いっぱい（F）"><span class="i">⛶</span></button>
+  </div>
+</header>
+
+<main class="main">
+  <section class="stage" id="stage" aria-label="ブロック">
+    <div class="say" id="say"></div>
+    <div class="bigeq" id="bigEq" aria-live="polite"></div>
+    <div class="field" id="field"><div class="sticks" id="sticks"></div></div>
+  </section>
+
+  <aside class="table" aria-label="九九の 表">
+    <h2 id="tableTitle">5のだんの 九九</h2>
+    <ol class="rows" id="rows"></ol>
+  </aside>
+</main>
+
+<footer class="ctrl">
+  <button class="btn" id="btnReset" title="はじめから（Home）"><span class="i">⏮</span>はじめから</button>
+  <button class="btn" id="btnBack" title="1つ もどす（←）"><span class="i">◀</span>もどる</button>
+  <button class="btn next" id="btnNext" title="つぎ（→・スペース）">つぎ <span class="i">▶</span></button>
+  <button class="btn" id="btnAuto" aria-pressed="false" title="じどうで すすむ"><span class="i">⏩</span>じどう</button>
+  <span class="sep"></span>
+  <button class="btn" id="btnCount" title="まとまりごとに かぞえる"><span class="i">👆</span>まとまりで かぞえる</button>
+  <button class="btn" id="btnChant" title="できた 九九を じゅんに となえる"><span class="i">🗣️</span>となえる</button>
+</footer>
+
+<script>
+'use strict';
+
+/* 九九の となえかた（教科書の「五一が 5」「五二 10」…の よみ） */
+const YOMI = [null,
+    ['いんいちが いち','いんにが に','いんさんが さん','いんしが し','いんごが ご','いんろくが ろく','いんしちが しち','いんはちが はち','いんくが く'],
+    ['にいちが に','ににんが し','にさんが ろく','にしが はち','にご じゅう','にろく じゅうに','にしち じゅうし','にはち じゅうろく','にく じゅうはち'],
+    ['さんいちが さん','さんにが ろく','さざんが く','さんし じゅうに','さんご じゅうご','さぶろく じゅうはち','さんしち にじゅういち','さんぱ にじゅうし','さんく にじゅうしち'],
+    ['しいちが し','しにが はち','しさん じゅうに','しし じゅうろく','しご にじゅう','しろく にじゅうし','ししち にじゅうはち','しは さんじゅうに','しく さんじゅうろく'],
+    ['ごいちが ご','ごに じゅう','ごさん じゅうご','ごし にじゅう','ごご にじゅうご','ごろく さんじゅう','ごしち さんじゅうご','ごは しじゅう','ごっく しじゅうご'],
+    ['ろくいちが ろく','ろくに じゅうに','ろくさん じゅうはち','ろくし にじゅうし','ろくご さんじゅう','ろくろく さんじゅうろく','ろくしち しじゅうに','ろくは しじゅうはち','ろっく ごじゅうし'],
+    ['しちいちが しち','しちに じゅうし','しちさん にじゅういち','しちし にじゅうはち','しちご さんじゅうご','しちろく しじゅうに','しちしち しじゅうく','しちは ごじゅうろく','しちく ろくじゅうさん'],
+    ['はちいちが はち','はちに じゅうろく','はちさん にじゅうし','はちし さんじゅうに','はちご しじゅう','はちろく しじゅうはち','はちしち ごじゅうろく','はっぱ ろくじゅうし','はっく しちじゅうに'],
+    ['くいちが く','くに じゅうはち','くさん にじゅうしち','くし さんじゅうろく','くご しじゅうご','くろく ごじゅうし','くしち ろくじゅうさん','くは しちじゅうに','くく はちじゅういち'],
+];
+const MAX = 9;
+
+/* じょうたい
+   count    … いま ならんでいる まとまりの 数（0〜9）
+   revealed … いちばん あたらしい 九九の こたえが 出ているか（「こたえは あとで」の とき だけ false に なる） */
+const S = { dan: 5, count: 0, revealed: true, hide: false, five: true, voice: false };
+let fresh = false;      // いま 1つ ふえた ところか（アニメーションを つけるか）
+let freshAns = false;   // いま こたえが 出た ところか
+let autoTimer = null, playTimer = null;
+
+const $ = id => document.getElementById(id);
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+
+/* ---------- せってい の きおく（つかえない ときは そのまま） ---------- */
+const KEY = 'kuku-dekiru:v1';
+try {
+    const s = JSON.parse(localStorage.getItem(KEY) || '{}');
+    ['hide', 'five', 'voice'].forEach(k => { if (typeof s[k] === 'boolean') S[k] = s[k]; });
+    if (s.dan >= 1 && s.dan <= 9) S.dan = s.dan;
+} catch (e) {}
+const h = parseInt(location.hash.slice(1), 10);
+if (h >= 1 && h <= 9) S.dan = h;
+function save(){ try { localStorage.setItem(KEY, JSON.stringify({ dan: S.dan, hide: S.hide, five: S.five, voice: S.voice })); } catch (e) {} }
+
+/* ---------- よみあげ ---------- */
+function speak(text, rate){
+    if (!S.voice || !('speechSynthesis' in window)) return;
+    try {
+        speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'ja-JP'; u.rate = rate || .9;
+        speechSynthesis.speak(u);
+    } catch (e) {}
+}
+
+/* ---------- だんの ボタン ---------- */
+for (let d = 1; d <= 9; d++){
+    const b = el('button', 'dan', String(d));
+    b.dataset.dan = d;
+    b.setAttribute('aria-label', d + 'のだん');
+    b.addEventListener('click', () => setDan(d));
+    $('dans').appendChild(b);
+}
+
+function setDan(d){
+    stopPlay(); stopAuto();
+    S.dan = d; S.count = 0; S.revealed = true; fresh = freshAns = false;
+    try { history.replaceState(null, '', '#' + d); } catch (e) {}
+    save(); buildTable(); fit(); render();
+}
+
+/* ---------- 九九の 表 を つくる ---------- */
+function buildTable(){
+    const d = S.dan;
+    $('tableTitle').textContent = d + 'のだんの 九九';
+    const ol = $('rows'); ol.innerHTML = '';
+    for (let k = 1; k <= MAX; k++){
+        const li = el('li', 'row');
+        li.dataset.k = k;
+        li.innerHTML =
+            `<span class="eq"><span class="chip a">${d}</span> × <span class="chip b">${k}</span> =</span>` +
+            `<span class="ans">${d * k}</span>` +
+            `<span class="yomi">${YOMI[d][k - 1]}</span>` +
+            `<span class="plus">${k > 1 ? `<span><svg viewBox="0 0 22 44" aria-hidden="true"><path d="M6 3 C 18 12, 18 30, 8 38" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M3 33 L 8 39 L 14 35" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><b>+${d}</b>ふえる</span>` : ''}</span>`;
+        ol.appendChild(li);
+    }
+}
+
+/* ---------- ブロックの 大きさを 画面に あわせる（9つ ならんでも はいる 大きさに 先に きめておく） ---------- */
+function fit(){
+    const f = $('field');
+    const w = f.clientWidth, hgt = f.clientHeight;
+    const n = S.dan;
+    const tall = n + (S.five && n > 5 ? .28 : 0) + n * .06 + .3 + 2.4;   // ブロック＋すきま＋わく＋かず・番号
+    const b = Math.max(10, Math.min(w / 15.7, hgt / tall, 84));
+    f.style.setProperty('--b', b.toFixed(1) + 'px');
+}
+
+/* ---------- がめんを いまの じょうたいに する ---------- */
+function render(){
+    const d = S.dan, c = S.count;
+    const late = fresh ? (d * 70 + 280) : 0;
+    document.documentElement.style.setProperty('--late', late + 'ms');
+    document.querySelectorAll('.dan').forEach(b => b.classList.toggle('on', +b.dataset.dan === d));
+
+    /* ブロック */
+    const box = $('sticks'); box.innerHTML = '';
+    for (let k = 1; k <= c; k++){
+        const slot = el('div', 'slot');
+        if (k === c && c > 0) slot.classList.add('new');
+        if (k === c && fresh) slot.classList.add('pop');
+        const stick = el('div', 'stick');
+        for (let i = 0; i < d; i++){
+            const b = el('div', 'blk' + (S.five && d > 5 && i === 5 ? ' gap' : ''));
+            b.style.setProperty('--i', i);
+            stick.appendChild(b);
+        }
+        slot.append(el('div', 'cum', String(d * k)), stick, el('div', 'num', String(k)));
+        slot.addEventListener('click', ev => { ev.stopPropagation(); countTo(k); });
+        box.appendChild(slot);
+    }
+
+    /* ことば と しき */
+    const showAns = c > 0 && S.revealed;
+    const complete = c === MAX && S.revealed;
+    $('say').innerHTML = c === 0
+        ? `<b class="y">${d}こ</b> ずつの まとまりを ならべて いきます`
+        : complete
+        ? `<b class="done${fresh || freshAns ? ' fresh' : ''}">${d}のだんの 九九が できた！ こたえが ${d}ずつ ふえて いくね</b>`
+        : `<b class="y">${d}こ</b> の まとまりが <b class="bl">${c}つ</b> 分`;
+    $('bigEq').innerHTML = c === 0
+        ? `<span class="hint"><kbd>つぎ ▶</kbd> を おすと、${d}この まとまりが 1つ ふえます</span>`
+        : `<span class="chip a">${d}</span><span>×</span><span class="chip b">${c}</span><span>=</span>` +
+          (showAns ? `<span class="box${fresh || freshAns ? ' fresh' : ''}">${d * c}</span>` : `<span class="box q">？</span>`);
+
+    /* 九九の 表 */
+    document.querySelectorAll('.row').forEach(li => {
+        const k = +li.dataset.k;
+        const shown = k < c || (k === c && showAns);
+        li.classList.toggle('future', k > c);
+        li.classList.toggle('now', k === c);
+        li.classList.toggle('wait', k === c && !showAns);
+        li.classList.remove('chant');
+        const ans = li.querySelector('.ans'), yomi = li.querySelector('.yomi'), plus = li.querySelector('.plus > span');
+        ans.textContent = shown ? d * k : (k === c ? '？' : d * k);
+        yomi.style.visibility = shown ? 'visible' : 'hidden';
+        if (plus) plus.style.visibility = shown ? 'visible' : 'hidden';
+        const isFresh = k === c && shown && (fresh || freshAns);
+        [ans, yomi, plus].forEach(x => x && x.classList.toggle('fresh', isFresh));
+    });
+
+    $('btnBack').disabled = c === 0;
+    $('btnReset').disabled = c === 0;
+    $('btnNext').disabled = complete;
+    $('btnCount').disabled = c === 0;
+    $('btnChant').disabled = !(c > 1 || showAns);
+
+    if (showAns && (fresh || freshAns)){
+        const text = YOMI[d][c - 1];
+        setTimeout(() => speak(text), late);
+    }
+    fresh = freshAns = false;
+}
+
+/* ---------- すすむ・もどる ---------- */
+function next(){
+    stopPlay();
+    if (S.count > 0 && !S.revealed){ S.revealed = true; freshAns = true; render(); return true; }
+    if (S.count >= MAX) return false;
+    S.count++; S.revealed = !S.hide; fresh = true;
+    render();
+    return true;
+}
+function back(){
+    stopPlay(); stopAuto();
+    if (S.count === 0) return;
+    if (S.hide && S.revealed) S.revealed = false;
+    else { S.count--; S.revealed = true; }
+    render();
+}
+function reset(){ stopPlay(); stopAuto(); S.count = 0; S.revealed = true; render(); }
+
+/* じどう：2.6びょう ごとに つぎへ */
+function stopAuto(){
+    if (autoTimer){ clearInterval(autoTimer); autoTimer = null; }
+    $('btnAuto').classList.remove('on'); $('btnAuto').setAttribute('aria-pressed', 'false');
+}
+function toggleAuto(){
+    if (autoTimer){ stopAuto(); return; }
+    if (S.count === MAX && S.revealed) reset();
+    $('btnAuto').classList.add('on'); $('btnAuto').setAttribute('aria-pressed', 'true');
+    next();
+    autoTimer = setInterval(() => { if (!next()) stopAuto(); else if (S.count === MAX && S.revealed) stopAuto(); }, 2600);
+}
+
+/* ---------- まとまりで かぞえる（5、10、15 …） ---------- */
+function stopPlay(){
+    if (playTimer){ clearTimeout(playTimer); playTimer = null; }
+    document.querySelectorAll('.slot.lit, .slot.counted').forEach(s => s.classList.remove('lit', 'counted'));
+    document.querySelectorAll('.row.chant').forEach(r => r.classList.remove('chant'));
+}
+function countTo(last){
+    stopPlay(); stopAuto();
+    const slots = [...document.querySelectorAll('.slot')].slice(0, last);
+    let i = 0;
+    const step = () => {
+        slots.forEach(s => s.classList.remove('lit'));
+        if (i >= slots.length){ playTimer = null; return; }
+        slots[i].classList.add('lit', 'counted');
+        speak(String(S.dan * (i + 1)), 1);
+        i++;
+        playTimer = setTimeout(step, 800);
+    };
+    step();
+}
+
+/* ---------- となえる（できた 九九を 上から じゅんに） ---------- */
+function chant(){
+    stopPlay(); stopAuto();
+    const upto = S.revealed ? S.count : S.count - 1;
+    const rows = [...document.querySelectorAll('.row')].slice(0, upto);
+    let i = 0;
+    const step = () => {
+        rows.forEach(r => r.classList.remove('chant'));
+        if (i >= rows.length){ playTimer = null; return; }
+        rows[i].classList.add('chant');
+        speak(YOMI[S.dan][i]);
+        i++;
+        playTimer = setTimeout(step, 1700);
+    };
+    step();
+}
+
+/* ---------- せってい ---------- */
+function setToggle(id, on){ $(id).classList.toggle('on', on); $(id).setAttribute('aria-pressed', String(on)); }
+function syncOpts(){ setToggle('optHide', S.hide); setToggle('optFive', S.five); setToggle('optVoice', S.voice); }
+$('optHide').addEventListener('click', () => { S.hide = !S.hide; S.revealed = true; syncOpts(); save(); render(); });
+$('optFive').addEventListener('click', () => { S.five = !S.five; syncOpts(); save(); fit(); render(); });
+$('optVoice').addEventListener('click', () => {
+    S.voice = !S.voice; syncOpts(); save();
+    if (S.voice) speak('よみあげ オン');
+    else try { speechSynthesis.cancel(); } catch (e) {}
+});
+$('optFull').addEventListener('click', toggleFull);
+function toggleFull(){
+    try {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else document.documentElement.requestFullscreen().catch(() => {});
+    } catch (e) {}
+}
+
+/* ---------- ボタン・キー ---------- */
+$('btnNext').addEventListener('click', () => { stopAuto(); next(); });
+$('btnBack').addEventListener('click', back);
+$('btnReset').addEventListener('click', reset);
+$('btnAuto').addEventListener('click', toggleAuto);
+$('btnCount').addEventListener('click', () => countTo(S.count));
+$('btnChant').addEventListener('click', chant);
+$('stage').addEventListener('click', () => { stopAuto(); next(); });   // ぶたいを タップしても つぎへ（電子黒板で つかいやすく）
+
+document.addEventListener('keydown', e => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const k = e.key;
+    if (k === 'ArrowRight' || k === ' ' || k === 'Enter' || k === 'PageDown'){
+        if ((k === ' ' || k === 'Enter') && e.target.closest && e.target.closest('button')) return;  // ボタンの うえでは ボタンが うごく
+        e.preventDefault(); stopAuto(); next();
+    } else if (k === 'ArrowLeft' || k === 'PageUp'){ e.preventDefault(); back(); }
+    else if (k === 'Home'){ e.preventDefault(); reset(); }
+    else if (/^[1-9]$/.test(k)) setDan(+k);
+    else if (k === 'f' || k === 'F') toggleFull();
+});
+window.addEventListener('resize', fit);
+window.addEventListener('hashchange', () => { const d = parseInt(location.hash.slice(1), 10); if (d >= 1 && d <= 9 && d !== S.dan) setDan(d); });
+
+syncOpts(); buildTable(); fit(); render();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+</script>
+</body>
+</html>
