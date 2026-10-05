@@ -4,6 +4,7 @@
     'use strict';
     const L = window.IkutsuLogic;
     const SCENES = window.IkutsuScenes;
+    const ART = window.IkutsuArt;
     const byId = Object.fromEntries(SCENES.map(s => [s.id, s]));
     const $ = id => document.getElementById(id);
     const el = (tag, cls, text) => {
@@ -213,16 +214,23 @@
     function drawPic(box, sc, groups, mini) {
         box.textContent = '';
         box.className = 'pic' + (sc.row ? ' rows' : '');
+        const img = (cls, url) => {
+            const e = el(url ? 'img' : 'span', cls + (url ? '' : ' dot'));
+            if (url) {
+                e.src = url;
+                e.alt = '';
+                e.draggable = false;
+            }
+            return e;
+        };
         groups.forEach((n, gi) => {
-            const g = el('div', 'grp' + (gi === 0 ? ' first' : ''));
-            if (sc.box && !sc.row) g.append(el('div', 'hd', sc.box));
+            const g = el('div', 'grp' + (sc.k ? ' k-' + sc.k : '') + (gi === 0 ? ' first' : ''));
+            /* まとまりの 絵（子ども・はた・車は まとまりごとに 色ちがい） */
+            if (sc.box) g.append(img('hd', ART.artUrl(sc.box, gi)));
             const its = el('div', 'its');
             const cols = sc.row ? n : n <= 3 ? n : n === 4 ? 2 : 3;
             its.style.setProperty('--cols', Math.max(1, cols));
-            for (let i = 0; i < n; i++) {
-                const it = el('span', 'it' + (sc.e ? '' : ' dot'), sc.e || '');
-                its.append(it);
-            }
+            for (let i = 0; i < n; i++) its.append(img('it', ART.artUrl(sc.e, i + gi)));
             g.append(its, el('span', 'no', String(gi + 1)), el('span', 'one', '1つ分'));
             box.append(g);
         });
@@ -231,13 +239,18 @@
     /** 絵が はみ出さない 大きさに する */
     function fitPic(box, mini) {
         requestAnimationFrame(() => {
-            let size = mini ? 2.2 : 3.2;
-            const min = mini ? .7 : .9;
-            box.style.setProperty('--isz', size + 'rem');
-            while (size > min && (box.scrollHeight > box.clientHeight + 2 || box.scrollWidth > box.clientWidth + 2)) {
-                size = Math.round((size - .1) * 100) / 100;
-                box.style.setProperty('--isz', size + 'rem');
+            /* はみ出さない いちばん 大きい 大きさを さがす（2ぶんさがし） */
+            let lo = mini ? .6 : .8, hi = mini ? 4.6 : 5.6;
+            const fits = s => {
+                box.style.setProperty('--isz', s + 'rem');
+                return box.scrollHeight <= box.clientHeight + 2 && box.scrollWidth <= box.clientWidth + 2;
+            };
+            if (fits(hi)) return;
+            for (let k = 0; k < 9; k++) {
+                const mid = (lo + hi) / 2;
+                if (fits(mid)) lo = mid; else hi = mid;
             }
+            box.style.setProperty('--isz', (Math.floor(lo * 100) / 100) + 'rem');
         });
     }
     let fitTimer = 0;
