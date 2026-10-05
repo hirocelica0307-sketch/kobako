@@ -4,7 +4,7 @@
 
 /* 1つの行を 文字列に する。␣＝あきマス、{ }＝1マスに 2字以上 */
 function gyColStr(col){
-  return col.cells.map(c => !c ? '␣'
+  return col.cells.map(c => !c || !c.text ? '␣'
     : (Array.from(c.text).length > 1 ? '{' + c.text + '}' : c.text)).join('');
 }
 
@@ -161,7 +161,39 @@ function gyTestCases(){
 
     { rule:'よけいな 空白は とる',
       cfg:C({}), input:{body:'　　あ い'},
-      col:0, want:'␣あい␣␣␣␣␣␣␣' }
+      col:0, want:'␣あい␣␣␣␣␣␣␣' },
+
+    /* ---- れんしゅうモード ---- */
+    { rule:'れんしゅう：段落の 1マスを 自動で あけない（しるしを つける）',
+      cfg:C({practiceMode:true}), input:{body:'　あい。\nうえ'},
+      col:1, want:'うえ␣␣␣␣␣␣␣␣', warns:{indent:1} },
+    { rule:'れんしゅう：スペースで あけた 1マスは そのまま',
+      cfg:C({practiceMode:true}), input:{body:'　あい'},
+      col:0, want:'␣あい␣␣␣␣␣␣␣', warns:{} },
+    { rule:'れんしゅう：会話の 前後で 行を かえないと しるし',
+      cfg:C({practiceMode:true}), input:{body:'　あ。「い。」と。'},
+      col:0, want:'␣あ。「い{。」}と。␣␣', warns:{dlgBreak:1, afterDlg:1} },
+    { rule:'れんしゅう：Enter で 行を かえた 会話は まる',
+      cfg:C({practiceMode:true}), input:{body:'　あ。\n「い。」\nと。'},
+      col:1, want:'「い{。」}␣␣␣␣␣␣␣', warns:{} },
+    { rule:'れんしゅう：会話の「の 前に スペースを 入れると しるし',
+      cfg:C({practiceMode:true}), input:{body:'　「い。」'},
+      col:0, want:'␣「い{。」}␣␣␣␣␣␣', warns:{dlgIndent:1} },
+    { rule:'れんしゅう：2マス あけると しるし',
+      cfg:C({practiceMode:true}), input:{body:'　　あ'},
+      col:0, want:'␣␣あ␣␣␣␣␣␣␣', warns:{indentMany:1} },
+    { rule:'れんしゅう：文の とちゅうで 行を かえると しるし',
+      cfg:C({practiceMode:true}), input:{body:'　あい\nう。'},
+      col:1, want:'う。␣␣␣␣␣␣␣␣', warns:{midBreak:1} },
+    { rule:'れんしゅう：ことばの あいだの 空白は あきマスに して しるし',
+      cfg:C({practiceMode:true}), input:{body:'　あ い'},
+      col:0, want:'␣あ␣い␣␣␣␣␣␣', warns:{space:1} },
+    { rule:'れんしゅう：！の あとの 1マスも 自分で あける',
+      cfg:C({practiceMode:true}), input:{body:'　あ！い'},
+      col:0, want:'␣あ！い␣␣␣␣␣␣', warns:{bang:1} },
+    { rule:'れんしゅう：行の 上の「。」は これまでどおり 自動で 前の マスへ',
+      cfg:C({practiceMode:true}), input:{body:'　あいうえおかきくけ。'},
+      col:0, want:'␣あいうえおかきく{け。}', warns:{} }
   ];
 }
 
@@ -179,9 +211,15 @@ function gyRunTests(){
         for(const pg of res.pages) for(const c of pg.columns) cols.push(c);
         got = cols[t.col] ? gyColStr(cols[t.col]) : '（行が ありません）';
         ok = (got === t.want);
+        if(t.warns !== undefined){
+          const w = JSON.stringify(res.warns, Object.keys(res.warns).sort());
+          const want = JSON.stringify(t.warns, Object.keys(t.warns).sort());
+          got += '　しるし ' + w;
+          if(w !== want) ok = false;
+        }
       }
     }catch(e){ err = String(e && e.message || e); }
-    out.push({ rule:t.rule, want:(t.pages !== undefined ? t.pages + 'まい' : t.want), got, ok, err });
+    out.push({ rule:t.rule, want:(t.pages !== undefined ? t.pages + 'まい' : t.want + (t.warns ? '　しるし ' + JSON.stringify(t.warns, Object.keys(t.warns).sort()) : '')), got, ok, err });
   }
   return out;
 }

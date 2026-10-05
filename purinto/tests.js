@@ -6,6 +6,7 @@
     const D = root.PurintoData || require('./data.js');
     const S = root.PurintoSheets || require('./sheets.js');
     const K = root.PurintoSakubun || require('./sakubun.js');
+    const GK = root.PurintoGenkou || require('./genkou.js');
 
     function runTests() {
         const rows = [];
@@ -187,6 +188,39 @@
         t('ふりがな なしでは <ruby> を つかわない', !S.buildSheet(anm, { odai: 'B1', furi: false }, 1).page.includes('<ruby>'));
         const ol = S.buildSheet(S.CATALOG.find(c => c.id === 'odailist'), {}, 1).page;
         t('お題 いちらんに ぜんぶの お題が のる', allOdai.every(o => ol.includes(`>${o.id}<`)));
+
+        /* げんこうようしの きまり */
+        const GG = GK.G, J = x => JSON.stringify(x);
+        t('げんこうようし：だんらくは 1マス・「。」は 前の マスへ', J(GG.layout(GG.parse({ body: 'あいうえ。\nか' }), 5).map(GG.colStr)) === J(['␣あいう{え。}', '␣か␣␣␣']));
+        t('げんこうようし：かいわは 行を かえて 1マス目から・「。」」は 1マス', J(GG.layout(GG.parse({ body: 'あ。「い。」と。' }), 4).map(GG.colStr)) === J(['␣あ。␣', '「い{。」}␣', 'と。␣␣']));
+        let mOk = true, mWhy = '';
+        for (const d of GK.TEXTS) for (const N of [10, 12, 15, 20]) for (const n of [3, 5, 7]) {
+            const r = GK.makeMistakes(d, N, n, G.makeRng(N * 7 + n), { name: 'やまだ はなこ' });
+            const want = Math.min(n, 3);
+            if (r.items.length < want) { mOk = false; mWhy = `${d.id} ${N}マス ${n}こ → ${r.items.length}こ`; }
+            for (const it of r.items) {
+                const cell = r.cols[it.c] && r.cols[it.c].cells[it.r];
+                if (!cell || !it.text) { mOk = false; mWhy = `${d.id} ${it.type} の マスが ない`; }
+            }
+            if (new Set(r.items.map(it => it.c + ',' + it.r)).size !== r.items.length) { mOk = false; mWhy = `${d.id} おなじ マスに 2つ`; }
+            if (J(r.cols.map(GG.colStr)) === J(r.answer.map(GG.colStr)) && r.items.every(it => !['kuten', 'nobasu'].includes(it.type))) { mOk = false; mWhy = `${d.id} まちがいが 見えない`; }
+        }
+        t('まちがい さがし：どの 文・マスでも まちがいが 3こ いじょう 入り、こたえの マスが ある', mOk, mWhy);
+        const m5 = GK.TEXTS.map(d => GK.makeMistakes(d, 15, 5, G.makeRng(1), { name: 'やまだ はなこ' }).items.length);
+        t('まちがい さがし：15マス・5こ なら どの 文でも 5こ', m5.every(x => x === 5), m5.join(','));
+        t('たしかめ カード：どの こうもくにも れいが ある', GK.CHECK_ITEMS.every(it => { const g = GK.checkExample(it.id); return g && g.cols.length; }));
+        t('おてほんの 文：だいめいは 6字まで・空白なし', GK.TEXTS.every(d => GG.chars(d.title).length <= 6 && !/[ 　]/.test(d.body)));
+        for (const id of ['genkou-machigai', 'genkou-shisha', 'genkou-check']) {
+            const e = S.CATALOG.find(c => c.id === id);
+            let ok = !!e;
+            const opts = id === 'genkou-shisha' ? [{ mode: 'grid' }, { mode: 'yoko' }, { mode: 'yoko', masu: '8', name: false }]
+                : id === 'genkou-check' ? [{ per: '1' }, { per: '2', kaiwa: false }, { per: '4', friend: false }] : [{ n: '3', masu: '10' }, { n: '7', masu: '20', hint: false }, { text: 'kaiwa' }];
+            for (const o of opts) for (let seed = 1; seed <= 5 && e; seed++) {
+                const r = S.buildSheet(e, o, seed);
+                if (/undefined|NaN/.test(r.page + (r.answer || '')) || !r.page.includes('g-grid') && id !== 'genkou-check') ok = false;
+            }
+            t(`プリント「${e ? e.title : id}」：せっていを かえても できる`, ok);
+        }
 
         /* ぜんぶの プリント */
         for (const e of S.CATALOG) {

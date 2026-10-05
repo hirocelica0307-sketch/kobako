@@ -52,7 +52,12 @@ const GY_DEFAULTS = {
   ellipsisTwoCells     : true,  // …… —— は 2マス つかう
   keepPairTogether     : true,  // …… —— の 2マス目が 行頭に 来ないように する
   pushOpenBracket      : true,  // 行の おわりに 来た 「 は つぎの行へ おくる
-  wrapLongTitle        : true   // 1行に 入りきらない 題名は つぎの行へ 分ける
+  wrapLongTitle        : true,  // 1行に 入りきらない 題名は つぎの行へ 分ける
+
+  /* ---- れんしゅうモード ---- */
+  practiceMode         : false  // true … 段落の 1マスあけ・会話の 改行・！？の あとの 1マスを 自動で しない。
+                                //        児童が 自分で スペースと Enter を 打ち、ちがう ところには しるしが つく
+                                //        （行頭の 句読点・「。」」・数字などは これまでどおり 自動）
 };
 
 /* 設定を 1つに まぜあわせる（あさい ものだけ 上書き） */

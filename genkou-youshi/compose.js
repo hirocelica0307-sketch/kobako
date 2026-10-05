@@ -47,13 +47,17 @@ function gyBuildItems(paragraphs, cfg){
   for(const p of paragraphs){
     /* 会話文は 1マス目から。ただし 新しい 段落が 会話から はじまる ときは
        設定に よって 1マス あけて 2マス目からに できる。 */
-    const indent = p.dialogue
+    const indent = p.practice ? p.lead          // れんしゅうモード … 児童が 打った スペースの かず
+      : p.dialogue
       ? ((cfg.dialogueParagraphIndent && p.paraHead) ? cfg.paragraphIndent : 0)
       : cfg.paragraphIndent;
     items.push({ t:'newpara', indent: indent });
     const u = p.units;
     for(let i = 0; i < u.length; i++){
       const c = u[i].c, nx = u[i+1], pv = u[i-1];
+
+      /* れんしゅうモードで 打った 空白 … あきマス */
+      if(u[i].blank){ items.push({ t:'blank', warn: u[i].warn || '' }); continue; }
 
       /* アルファベット ― 大文字だけの ことばは 1マス1字、
          小文字を ふくむ ことばは 1マスに 2字（よこ向き）    */
@@ -77,16 +81,16 @@ function gyBuildItems(paragraphs, cfg){
 
       /* 「。」」を 1マスに */
       if(cfg.combineKutenBracket && (c === '。' || c === '、') && nx && GY_CLOSE.indexOf(nx.c) >= 0){
-        items.push({ t:'cell', text: c + nx.c, fix: u[i].fix || nx.fix || '', cls:'multi', note: GY_NOTE.kuten });
+        items.push({ t:'cell', text: c + nx.c, fix: u[i].fix || nx.fix || '', cls:'multi', note: GY_NOTE.kuten, warn: u[i].warn || nx.warn || '' });
         i++; continue;
       }
 
       /* …… —— の 2マス目は 行の はじめに 来ないように する */
       const isPairTail = (c === '…' || c === '—') && pv && pv.c === c;
-      items.push({ t:'cell', text:c, fix:u[i].fix || '', cls: gyCls(c), noStart: isPairTail });
+      items.push({ t:'cell', text:c, fix:u[i].fix || '', cls: gyCls(c), noStart: isPairTail, warn: u[i].warn || '' });
 
-      /* ！ ？ の あとは 1マス あける */
-      if(cfg.spaceAfterBangQuestion && (c === '！' || c === '？')){
+      /* ！ ？ の あとは 1マス あける（れんしゅうモードでは 児童が 自分で あける） */
+      if(cfg.spaceAfterBangQuestion && !p.practice && (c === '！' || c === '？')){
         const after = nx ? nx.c : '';
         if(after && GY_NO_LINE_START.indexOf(after) < 0) items.push({ t:'blank' });
       }
@@ -112,7 +116,15 @@ function gyPlace(items, cfg){
 
   for(const it of items){
     if(it.t === 'newpara'){ startCol(); pos = Math.min(it.indent, N); continue; }
-    if(it.t === 'blank'){ if(pos < N - 1) pos++; continue; }
+    if(it.t === 'blank'){
+      if(it.warn){                       // しるしの ある あきマス（れんしゅうモード）
+        if(pos >= N) startCol();
+        cur.cells[pos++] = { text:'', fix:'', cls:'', note:'', warn: it.warn };
+        continue;
+      }
+      if(pos < N - 1) pos++;
+      continue;
+    }
 
     if(pos >= N){
       const prev = lastCell();
@@ -124,6 +136,7 @@ function gyPlace(items, cfg){
         prev.cls = 'multi';
         prev.note = GY_NOTE.hang;
         if(it.fix && !prev.fix) prev.fix = it.fix;
+        if(it.warn && !prev.warn) prev.warn = it.warn;
         continue;
       }
       startCol();
@@ -138,7 +151,7 @@ function gyPlace(items, cfg){
       }
     }
 
-    cur.cells[pos++] = { text: it.text, fix: it.fix || '', cls: it.cls || '', note: it.note || '' };
+    cur.cells[pos++] = { text: it.text, fix: it.fix || '', cls: it.cls || '', note: it.note || '', warn: it.warn || '' };
   }
   return cols;
 }
@@ -202,7 +215,7 @@ function gyHeadColumns(title, name, cfg){
 /* --- 本体 ---
    input : { title, name, body }
    cfg   : きまり
-   もどり値 : { pages, columns, chars, fixes }
+   もどり値 : { pages, columns, chars, fixes, warns }
    まい数は きめません。書いた ぶんだけ 1まいずつ ふえます。 */
 function gyCompose(input, cfg){
   cfg = cfg || GY_DEFAULTS;
@@ -230,5 +243,5 @@ function gyCompose(input, cfg){
     chars += last + 1;
   }
 
-  return { pages, columns: all.length, chars, fixes: norm.fixes };
+  return { pages, columns: all.length, chars, fixes: norm.fixes, warns: norm.warns || {} };
 }

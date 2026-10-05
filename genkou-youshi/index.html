@@ -17,6 +17,7 @@
 
     <div class="bar-mid">
       <div class="count" id="count">0字</div>
+      <div class="mode-badge" id="modeBadge" hidden title="段落の 1マスと 会話の 行がえを 自分で する モード">✏️ れんしゅうモード</div>
     </div>
 
     <div class="bar-right">
@@ -45,6 +46,7 @@
 
       <textarea id="inBody" placeholder="ここに 本文を うちます。&#10;行を かえると 段落に なります。&#10;&#10;「かぎかっこ」や 数字は、原稿用紙の きまりどおりに 右がわで なおります。"></textarea>
 
+      <div class="warns" id="warns"></div>
       <div class="fixes" id="fixes"></div>
     </section>
 
@@ -141,6 +143,15 @@
           <label class="set-row"><span>行末の 「 を つぎの行へ 送る</span><input type="checkbox" id="setPushOpen"></label>
           <label class="set-row"><span>長い 題名を つぎの行へ 分ける</span><input type="checkbox" id="setWrapTitle"></label>
           <p class="hint">きまりの くわしい 説明は <code>docs/RULES.md</code> に あります。</p>
+        </div>
+
+        <div class="set-group">
+          <h3>れんしゅうモード</h3>
+          <label class="set-row"><span>段落の 1マスと 会話の 行がえを 児童が 自分で する</span><input type="checkbox" id="setPractice"></label>
+          <p class="hint">オンに すると、段落の はじめの 1マスあけ・会話文の 前後の 行がえ・！？の あとの 1マスを
+             自動で しなく なります。児童は <b>スペース</b>で マスを あけ、<b>Enter</b>で 行を かえます。
+             きまりと ちがう ところは 原稿用紙に <b>赤い しるし</b>が つき、左に「なおす ところ」が 出ます（いんさつには 出ません）。
+             行の はじめの「。」・「。」」・数字などは これまでどおり 自動で なおします。</p>
         </div>
 
         <div class="set-group">
