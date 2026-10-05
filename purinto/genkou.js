@@ -297,7 +297,11 @@
     function cellInner(cell) {
         if (!cell || !cell.t) return '';
         const cs = chars(cell.t).map(c => cell.v === 'big' ? BIG[c] || c : c);
-        const sp = (c, more) => { const k = [charClass(c, cell.v), more].filter(Boolean).join(' '); return `<span${k ? ` class="${k}"` : ''}>${esc(c)}</span>`; };
+        const sp = (c, more) => {
+            const k = [charClass(c, cell.v), more].filter(Boolean).join(' ');
+            const d = /g-(tr|sk|c|bl)\b/.test(k) ? ` data-ch="${esc(c)}"` : '';
+            return `<span${k ? ` class="${k}"` : ''}${d}>${esc(c)}</span>`;
+        };
         if (cs.length === 1) return sp(cs[0]);
         if (NO_START.includes(cs[0])) return `<span class="g-stack">${cs.map(c => sp(c)).join('')}</span>`;
         return sp(cs[0], 'g-main') + `<span class="g-tail">${cs.slice(1).map(c => sp(c)).join('')}</span>`;
@@ -315,7 +319,37 @@
             }).join('')}</div>`).join('')}</div>`;
     }
 
-    const api = { NO_START, SMALL, chars, esc, parse, layout, where, colStr, replay, check, hint, solve, MSG, MSG_RULE, charClass, cellInner, gridHtml };
+    /** 句読点・小さい字を、マスの 右上に きちんと おく ための <style> を つくる。
+        フォントで 字の かたちの ばしょが ちがうので、canvas で インク（じっさいに かかれる ところ）の はんいを はかって きめる。
+        family・weight … マスの 字の フォント ／ fs … マスに たいする 字の 大きさ（.g-cell の font-size ÷ マス） */
+    function markCss(family, weight, fs) {
+        if (typeof document === 'undefined') return '';
+        const cv = document.createElement('canvas').getContext('2d');
+        if (!cv) return '';
+        const F = 200, cell = 1 / fs;              // マスの 大きさ（em）
+        cv.font = `${weight} ${F}px ${family}`;
+        const rules = [];
+        const put = (ch, cls, where, margin) => {
+            const m = cv.measureText(ch);
+            if (!m.width || m.fontBoundingBoxAscent == null) return;
+            const A = m.fontBoundingBoxAscent / F, D = m.fontBoundingBoxDescent / F, w = m.width / F;
+            const base = (1 - (A + D)) / 2 + A;    // line-height:1 の とき、上から ベースラインまで
+            const x0 = (cell - w) / 2, y0 = (cell - 1) / 2;
+            const l = x0 - m.actualBoundingBoxLeft / F, r = x0 + m.actualBoundingBoxRight / F;
+            const t = y0 + base - m.actualBoundingBoxAscent / F, b = y0 + base + m.actualBoundingBoxDescent / F;
+            const g = margin * cell;
+            let dx, dy;
+            if (where === 'tr') { dx = cell - g - r; dy = g - t; }
+            else if (where === 'bl') { dx = g - l; dy = cell - g - b; }
+            else { dx = cell / 2 - (l + r) / 2; dy = cell / 2 - (t + b) / 2; }
+            rules.push(`.g-cell span.${cls}[data-ch="${ch}"]{transform:translate(${dx.toFixed(3)}em,${dy.toFixed(3)}em)}`);
+        };
+        for (const ch of '。、') { put(ch, 'g-tr', 'tr', .1); put(ch, 'g-c', 'c', 0); put(ch, 'g-bl', 'bl', .1); }
+        for (const ch of SMALL) { put(ch, 'g-sk', 'tr', .09); put(ch, 'g-c', 'c', 0); put(ch, 'g-bl', 'bl', .09); }
+        return rules.join('\n');
+    }
+
+    const api = { NO_START, SMALL, chars, esc, parse, layout, where, colStr, replay, check, hint, solve, MSG, MSG_RULE, charClass, cellInner, gridHtml, markCss };
     root.GenkouRules = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -327,18 +361,41 @@
 
     /* おてほんの 文（genkou-renshuu と おなじ もの）。1行＝1だんらく、かいわは そのまま つづけて 書く */
     const TEXTS = [
+        // ---- ★ だんらく・「。」「、」 ----
         { id: 'asagao', title: 'あさがお', body: 'なつやすみに、あさがおの花がさきました。むらさき色の大きな花です。\nつぎの日は、三つもさきました。とてもうれしかったです。' },
-        { id: 'zarigani', title: 'ザリガニ', body: '学校のちかくの池で、ザリガニを見つけました。せなかは赤くて、はさみが大きかったです。\nそっとつかまえて、水そうに入れました。毎日、えさをあげています。' },
-        { id: 'tomato', title: 'ミニトマト', body: 'ミニトマトの実が、みどり色から赤色にかわりました。さわってみると、つるつるしていました。\nあしたは、たくさんとれるといいな。' },
-        { id: 'onigokko', title: 'おにごっこ', body: '中休みに、ともだちとおにごっこをしました。わたしはおにになって、いっしょうけんめい走りました。\nさいごに、ゆうきさんをつかまえました。チャイムがなるまで、たくさんあそびました。' },
         { id: 'kyushoku', title: 'きゅうしょく', body: 'きょうのきゅうしょくは、カレーライスでした。ぼくの大すきなメニューです。\nおかわりをして、ぜんぶたべました。' },
-        { id: 'neko', title: 'ねこのミー', body: 'わたしのいえには、ミーというねこがいます。ミーは、ひなたでねるのが大すきです。\nきのう、ボールであそんであげました。ミーは、いっしょうけんめいおいかけていました。' },
-        { id: 'pool', title: 'プール', body: 'なつやすみに、プールへ行きました。はじめは、水がつめたくてびっくりしました。\nけのびのれんしゅうをしました。すこしだけ、とおくまですすめるようになりました。' },
+        { id: 'tomato', title: 'ミニトマト', body: 'ミニトマトの実が、みどり色から赤色にかわりました。さわってみると、つるつるしていました。\nあしたは、たくさんとれるといいな。' },
+        { id: 'tegami', title: 'てがみ', body: 'おばあちゃんに、てがみを書きました。字をていねいに書きました。\nはやく、へんじがくるといいな。' },
+        { id: 'nawatobi', title: 'なわとび', body: 'まい日、なわとびのれんしゅうをしています。\nきょうは、二十回もつづけてとべました。' },
+        { id: 'otouto', title: 'おとうと', body: 'わたしには、三さいのおとうとがいます。\nきのう、いっしょにつみきであそびました。高いおしろができました。' },
+        { id: 'kasa', title: 'かさ', body: 'あたらしいかさを買ってもらいました。水色のかさです。\nはやく雨がふらないかな。' },
+        { id: 'donguri', title: 'どんぐり', body: 'こうえんで、どんぐりを十こひろいました。\nいちばん大きいのを、先生に見せました。' },
+        // ---- ★★ 行の 上に「。」「、」が 来る ----
+        { id: 'zarigani', title: 'ザリガニ', body: '学校のちかくの池で、ザリガニを見つけました。せなかは赤くて、はさみが大きかったです。\nそっとつかまえて、水そうに入れました。毎日、えさをあげています。' },
+        { id: 'onigokko', title: 'おにごっこ', body: '中休みに、ともだちとおにごっこをしました。わたしはおにになって、いっしょうけんめい走りました。\nさいごに、ゆうきさんをつかまえました。チャイムがなるまで、たくさんあそびました。' },
+        { id: 'neko', title: 'ねこのミー', body: 'わたしのいえに、ミーというねこがいます。ミーは、ひなたでねるのが大すきです。\nきのう、ボールであそんであげました。ミーは、いっしょうけんめいおいかけていました。' },
+        { id: 'pool', title: 'プール', body: 'なつやすみに、プールへ行きました。はじめは、水がつめたくて、びっくりしました。\nけのびのれんしゅうをしました。すこしだけ、とおくまですすめるようになりました。' },
+        { id: 'usagi', title: 'うさぎ', body: '学校で、うさぎをかっています。名前はミミです。まっ白で、耳がながいです。\nきょうは、にんじんをあげました。おいしそうにたべていました。' },
+        { id: 'ensoku', title: 'えんそく', body: 'えんそくで、どうぶつ園に行きました。ぞうやきりんを見ました。\nおひるは、みんなでおべんとうをたべました。たまごやきがおいしかったです。' },
+        { id: 'tanabata', title: 'たなばた', body: 'たなばたのたんざくに、ねがいごとを書きました。\n「サッカーがうまくなりますように」と書きました。\nほしがきれいに見えるといいな。' },
+        { id: 'yuki', title: 'ゆきあそび', body: 'あさおきると、外がまっ白でした。雪がつもっていました。\nおにいちゃんと、雪だるまをつくりました。目は、小石でつけました。' },
+        { id: 'mushi', title: 'むしとり', body: '日よう日に、お父さんとむしとりに行きました。セミを三びきつかまえました。\nかえるときに、ぜんぶにがしてあげました。' },
+        { id: 'kami', title: 'かみひこうき', body: 'ともだちと、かみひこうきをつくりました。先をとがらせると、よくとびました。\nどちらが、とおくまでとぶか、きょうそうしました。' },
+        // ---- ★★★ かいわ・かぎが いくつも ----
         { id: 'otsukai', title: 'おつかい', body: '日よう日に、はじめておつかいに行きました。「にんじんを三本ください。」と、お店の人に言いました。\n「えらいね。」と、ほめてもらいました。とてもうれしかったです。' },
         { id: 'ame', title: '雨の日', body: 'あさから、雨がふっていました。「長ぐつをはいて行きなさい。」と、お母さんが言いました。\n水たまりを、ぴちゃぴちゃあるいて学校へ行きました。' },
         { id: 'ochiba', title: 'おちば', body: 'こうえんで、赤や黄色のおちばをひろいました。\n「きれいだね。」と、ともだちが言いました。\nわたしは、いちばん大きなはっぱを、本にはさんで帰りました。' },
         { id: 'tosho', title: 'としょかん', body: 'としょかんで、きょうりゅうの本をかりました。「この本、おもしろそう。」と、ともだちが言いました。\nいっしょに、さいごまでよみました。' },
         { id: 'undokai', title: 'うんどうかい', body: 'うんどうかいで、つなひきをしました。「がんばれ。」「まけるな。」と、みんなでこえを出しました。\nさいごは、赤ぐみがかちました。みんなで、ばんざいをしました。' },
+        { id: 'denwa', title: 'でんわ', body: '夜、おじいちゃんからでんわがありました。「元気かい。」「うん、元気だよ。」と、ぼくはこたえました。\nなつやすみに、あいに行くやくそくをしました。' },
+        { id: 'aisatsu', title: 'あいさつ', body: '朝、校門で先生に会いました。「おはようございます。」「おはよう。今日も元気だね。」先生は、にっこりわらいました。' },
+        { id: 'kakurenbo', title: 'かくれんぼ', body: '「もういいかい。」「まあだだよ。」\nみんなで、かくれんぼをしました。わたしは、大きな木のうしろにかくれました。\n「見つけた。」と言われて、びっくりしました。' },
+        { id: 'cake', title: 'ケーキ', body: 'たんじょう日に、ケーキをつくりました。「じょうずにできたね。」と、お母さんが言いました。「ありがとう。」と、わたしは言いました。' },
+        { id: 'happyo', title: 'はっぴょう', body: 'こくごの時間に、はっぴょうをしました。「みんな、聞いてください。」と、大きなこえで言いました。\nさいごまで言えて、ほっとしました。' },
+        { id: 'maigo', title: 'まいご', body: 'デパートで、小さな子がないていました。「ママがいないの。」と言っていました。\n「いっしょにさがそう。」と、わたしは言いました。すぐにママが見つかりました。' },
+        { id: 'suika', title: 'すいか', body: '「すいかを切ったよ。」と、おばあちゃんがよびました。\n「わあ、大きい。」「あまいね。」と、みんなでたべました。' },
+        { id: 'shukudai', title: 'しゅくだい', body: 'しゅくだいがたくさんありました。ぼくは「早くおわらせよう」と思いました。\n「ぜんぶできたよ。」と言うと、お父さんがほめてくれました。' },
+        { id: 'hanabi', title: 'はなび', body: '夏まつりで、はなびを見ました。ドーンと大きな音がしました。\n「きれい。」「あっ、またあがった。」と、おとうとと空を見上げました。' },
     ];
 
     const NAMES = ['やまだ はなこ', 'たなか けん', 'すずき ゆい', 'さとう りく', 'こばやし あい', 'いとう そら'];

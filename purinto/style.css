@@ -410,19 +410,19 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 .g-cell:last-child { border-bottom: none; }
 .g-cell span { display: block; line-height: 1; }
 .g-rot { transform: rotate(90deg); }
-.g-ro { transform: translateY(-36%) rotate(90deg); }
-.g-rc { transform: translateY(36%) rotate(90deg); }
+.g-ro { transform: translateY(-.36em) rotate(90deg); }
+.g-rc { transform: translateY(.36em) rotate(90deg); }
 .g-tr { transform: translate(44%, -44%); }
 .g-sk { transform: translate(22%, -24%); }
 .g-c { transform: translate(22%, -22%); }
 .g-bl { transform: translate(-14%, 14%); }
-.g-stack { display: flex !important; flex-direction: column; align-items: center; }
-.g-stack span { font-size: .62em; }
-.g-stack .g-tr { transform: translate(34%, 0); }
-.g-stack .g-rc { transform: translate(0, 10%) rotate(90deg); }
+/* 「。」」… 2つとも ふつうの 大きさで 1マスに かさねる */
+.g-stack { position: absolute; inset: 0; }
+.g-stack > span { position: absolute; left: 50%; top: 50%; width: 1em; height: 1em; margin: -.5em 0 0 -.5em; text-align: center; }
 .g-hang .g-tail { position: absolute; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; font-size: .64em; }
-.g-hang .g-tail .g-tr, .g-hang .g-tail .g-sk { transform: none; }
-.g-hang .g-tail .g-rc { transform: rotate(90deg); }
+.g-hang .g-tail span { transform: none !important; }
+.g-hang .g-tail .g-tr { transform: translate(.42em, -.05em) !important; }
+.g-hang .g-tail .g-rc { transform: translateX(.2em) rotate(90deg) !important; }
 .g-cell.mk-ans::before { content: ""; position: absolute; inset: -12%; border: .6mm solid #d32f2f; border-radius: 50%; }
 .g-badge { position: absolute; top: -2.6mm; right: -2.6mm; width: 4.4mm; height: 4.4mm; border-radius: 50%; background: #d32f2f; color: #fff;
   font: 700 3mm/4.4mm var(--ui-font); text-align: center; z-index: 2; }

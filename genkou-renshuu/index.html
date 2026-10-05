@@ -85,20 +85,18 @@ button:focus-visible{outline:3px solid var(--blue); outline-offset:2px;}
 .g-cell:last-child{border-bottom:none;}
 .g-cell span{display:block; line-height:1;}
 .g-rot{transform:rotate(90deg);}
-.g-ro{transform:translateY(-36%) rotate(90deg);}
-.g-rc{transform:translateY(36%) rotate(90deg);}
+.g-ro{transform:translateY(-.36em) rotate(90deg);}
+.g-rc{transform:translateY(.36em) rotate(90deg);}
 .g-tr{transform:translate(44%,-44%);}
 .g-sk{transform:translate(22%,-24%);}
 .g-c{transform:translate(22%,-22%);}
 .g-bl{transform:translate(-14%,14%);}
-.g-stack{display:flex !important; flex-direction:column; align-items:center;}
-.g-stack span{font-size:.62em;}
-.g-stack .g-tr{transform:translate(34%,0);}
-.g-stack .g-rc{transform:translate(0,10%) rotate(90deg);}
+.g-stack{position:absolute; inset:0;}
+.g-stack > span{position:absolute; left:50%; top:50%; width:1em; height:1em; margin:-.5em 0 0 -.5em; text-align:center;}
 .g-hang .g-tail{position:absolute; right:0; bottom:0; display:flex; flex-direction:column; align-items:center; font-size:.64em;}
-.g-hang .g-tail .g-tr{transform:none;}
-.g-hang .g-tail .g-rc{transform:rotate(90deg);}
-.g-hang .g-tail .g-sk{transform:none;}
+.g-hang .g-tail span{transform:none !important;}
+.g-hang .g-tail .g-tr{transform:translate(.42em,-.05em) !important;}
+.g-hang .g-tail .g-rc{transform:translateX(.2em) rotate(90deg) !important;}
 /* しるし */
 .g-cell.mk-ok{background:#d9f5e4; box-shadow:inset 0 0 0 3px var(--ok);}
 .g-cell.mk-ng{background:#ffe1e1; box-shadow:inset 0 0 0 3px var(--red);}
@@ -150,7 +148,37 @@ button:focus-visible{outline:3px solid var(--blue); outline-offset:2px;}
 
 /* ---------- おてほん えらび ---------- */
 .texts{display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:14px;}
-.tcard{background:#fff; border-radius:20px; padding:14px 16px; box-shadow:0 5px 0 rgba(0,0,0,.08); text-align:left; display:flex; flex-direction:column; gap:6px; border:3px solid transparent;}
+.lvh{margin:18px 0 10px; font-size:20px; color:var(--green-d); display:flex; align-items:baseline; gap:10px;}
+.lvh small{font-size:14px; color:var(--sub);}
+.tcard{background:#fff; border-radius:20px; padding:14px 16px; box-shadow:0 5px 0 rgba(0,0,0,.08); text-align:left; display:flex; flex-direction:column; gap:6px; border:3px solid transparent; position:relative;}
+.tcard .no{font-size:13px; color:var(--sub);}
+.tcard .tmedal{position:absolute; top:10px; right:12px;}
+.tcard.cleared{background:#fffdf3;}
+.tcard .when{font-size:12px; color:var(--sub); font-weight:500;}
+/* メダル */
+.medal{--m1:#ffe27a; --m2:#e0a800; --mt:#6b4e00; width:58px; height:58px; border-radius:50%; display:grid; place-items:center; position:relative;
+  background:radial-gradient(circle at 35% 30%, #fff8 0 18%, transparent 19%), linear-gradient(145deg,var(--m1),var(--m2)); box-shadow:0 0 0 3px #fff, 0 3px 6px rgba(0,0,0,.25);
+  color:var(--mt); font:900 15px/1 var(--ui); text-align:center;}
+.medal::before{content:""; position:absolute; top:-12px; left:50%; width:26px; height:16px; transform:translateX(-50%); z-index:-1;
+  background:linear-gradient(90deg,#e5484d 0 50%,#2f80ed 50%); clip-path:polygon(0 0,100% 0,80% 100%,20% 100%);}
+.medal.silver{--m1:#f4f6f8; --m2:#a9b2bc; --mt:#4a535c;}
+.medal.bronze{--m1:#f3c39a; --m2:#b8723c; --mt:#5a2f0c;}
+.medal.zannen{--m1:#eceff1; --m2:#c3cbd0; --mt:#6f7d75; font-size:11px; box-shadow:0 0 0 3px #fff, 0 2px 4px rgba(0,0,0,.15);}
+.medal.zannen::before{background:#c3cbd0;}
+.medal.big{width:110px; height:110px; font-size:28px;}
+.medal.big.zannen{font-size:20px;}
+.medal.big::before{top:-22px; width:48px; height:30px;}
+.medal.none{background:#f1f5f2; box-shadow:inset 0 0 0 3px #e2e9e4; color:#b5c2ba; font-size:12px;}
+.medal.none::before{display:none;}
+.medalbar{display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; background:#fff; border-radius:18px; padding:10px 16px; box-shadow:0 3px 0 rgba(0,0,0,.06);}
+.medalbar .mcount{display:flex; align-items:center; gap:8px; font-size:18px;}
+.medalbar .medal{width:40px; height:40px; font-size:12px;}
+.medalbar .medal.zannen{font-size:9px;}
+.medalbar .medal::before{top:-9px; width:18px; height:11px;}
+.medalbar .prog{font-size:18px;}
+.medalbar .prog b{font-size:24px; color:var(--green-d);}
+.clearbox{display:flex; align-items:center; gap:18px; padding-top:18px;}
+.clearbox p{margin:0;}
 .tcard:hover{border-color:var(--green);}
 .tcard b{font-size:22px;}
 .tcard .lv{color:#f2a000; font-size:18px; letter-spacing:2px;}
@@ -300,12 +328,9 @@ dialog::backdrop{background:rgba(20,40,30,.45);}
 
   <!-- ===== おてほん えらび ===== -->
   <section id="pick" hidden>
-    <div class="guide"><span class="guide-face">✏️</span><p>どの 文を 書く？ ★が ふえると むずかしく なるよ。（★★★は かいわ あり）</p></div>
-    <div class="pickbar">
-      <span>1行の マス</span>
-      <div class="seg" id="segN"></div>
-    </div>
-    <div class="texts" id="texts"></div>
+    <div class="guide"><span class="guide-face">✏️</span><p>どの 文を 書く？ まちがえずに 書けたら 金メダル！（1行は 10マス）</p></div>
+    <div class="medalbar" id="medalSum"></div>
+    <div id="texts"></div>
   </section>
 
   <!-- ===== マスに 書く ===== -->
@@ -358,12 +383,18 @@ dialog::backdrop{background:rgba(20,40,30,.45);}
     </div>
     <div class="set-g">
       <h4>✏️ マスに 書いて みよう</h4>
-      <label class="set-row">1行の マスの かず <select id="sN"></select></label>
       <label class="set-row">まちがいを おしえる とき
         <select id="sTiming"><option value="end">「たしかめる」を おした とき・さいごまで 書いた とき</option><option value="each">1字 書く たびに（まちがえたら もどる）</option></select></label>
       <label class="set-row">字の 入れかた
         <select id="sInput"><option value="button">ボタンで おく（つぎの 字が じゅんに 出る）</option><option value="key">キーボードで うつ（タイピングの れんしゅうにも）</option></select></label>
       <label class="set-row"><input type="checkbox" id="sHint"> 「ヒント」と「こたえを 見る」を 出す</label>
+      <p class="hint-t">1行は 10マスです。</p>
+    </div>
+    <div class="set-g">
+      <h4>🏅 メダル</h4>
+      <p class="hint-t">さいごまで 書けたら メダルが つきます。<b>🥇 金</b>：まちがい なし ／ <b>🥈 銀</b>：まちがい 1つ（なおして クリア）／ <b>🥉 銅</b>：まちがい 2つ ／ <b>ざんねん</b>：3つ いじょう・「こたえを 見る」を つかった。
+        「ヒント」を つかうと まちがい 1つと かぞえます。1つの 文で いちばん よい メダルが のこり、「マスに 書いて みよう」の 一覧で 見られます（この パソコンに のこります）。</p>
+      <div class="set-row"><button class="big-btn" id="btnMedalReset">メダルの きろくを けす</button></div>
     </div>
     <div class="set-g">
       <h4>📏 学校の きまりに あわせる</h4>
@@ -684,7 +715,11 @@ dialog::backdrop{background:rgba(20,40,30,.45);}
     function cellInner(cell) {
         if (!cell || !cell.t) return '';
         const cs = chars(cell.t).map(c => cell.v === 'big' ? BIG[c] || c : c);
-        const sp = (c, more) => { const k = [charClass(c, cell.v), more].filter(Boolean).join(' '); return `<span${k ? ` class="${k}"` : ''}>${esc(c)}</span>`; };
+        const sp = (c, more) => {
+            const k = [charClass(c, cell.v), more].filter(Boolean).join(' ');
+            const d = /g-(tr|sk|c|bl)\b/.test(k) ? ` data-ch="${esc(c)}"` : '';
+            return `<span${k ? ` class="${k}"` : ''}${d}>${esc(c)}</span>`;
+        };
         if (cs.length === 1) return sp(cs[0]);
         if (NO_START.includes(cs[0])) return `<span class="g-stack">${cs.map(c => sp(c)).join('')}</span>`;
         return sp(cs[0], 'g-main') + `<span class="g-tail">${cs.slice(1).map(c => sp(c)).join('')}</span>`;
@@ -702,7 +737,37 @@ dialog::backdrop{background:rgba(20,40,30,.45);}
             }).join('')}</div>`).join('')}</div>`;
     }
 
-    const api = { NO_START, SMALL, chars, esc, parse, layout, where, colStr, replay, check, hint, solve, MSG, MSG_RULE, charClass, cellInner, gridHtml };
+    /** 句読点・小さい字を、マスの 右上に きちんと おく ための <style> を つくる。
+        フォントで 字の かたちの ばしょが ちがうので、canvas で インク（じっさいに かかれる ところ）の はんいを はかって きめる。
+        family・weight … マスの 字の フォント ／ fs … マスに たいする 字の 大きさ（.g-cell の font-size ÷ マス） */
+    function markCss(family, weight, fs) {
+        if (typeof document === 'undefined') return '';
+        const cv = document.createElement('canvas').getContext('2d');
+        if (!cv) return '';
+        const F = 200, cell = 1 / fs;              // マスの 大きさ（em）
+        cv.font = `${weight} ${F}px ${family}`;
+        const rules = [];
+        const put = (ch, cls, where, margin) => {
+            const m = cv.measureText(ch);
+            if (!m.width || m.fontBoundingBoxAscent == null) return;
+            const A = m.fontBoundingBoxAscent / F, D = m.fontBoundingBoxDescent / F, w = m.width / F;
+            const base = (1 - (A + D)) / 2 + A;    // line-height:1 の とき、上から ベースラインまで
+            const x0 = (cell - w) / 2, y0 = (cell - 1) / 2;
+            const l = x0 - m.actualBoundingBoxLeft / F, r = x0 + m.actualBoundingBoxRight / F;
+            const t = y0 + base - m.actualBoundingBoxAscent / F, b = y0 + base + m.actualBoundingBoxDescent / F;
+            const g = margin * cell;
+            let dx, dy;
+            if (where === 'tr') { dx = cell - g - r; dy = g - t; }
+            else if (where === 'bl') { dx = g - l; dy = cell - g - b; }
+            else { dx = cell / 2 - (l + r) / 2; dy = cell / 2 - (t + b) / 2; }
+            rules.push(`.g-cell span.${cls}[data-ch="${ch}"]{transform:translate(${dx.toFixed(3)}em,${dy.toFixed(3)}em)}`);
+        };
+        for (const ch of '。、') { put(ch, 'g-tr', 'tr', .1); put(ch, 'g-c', 'c', 0); put(ch, 'g-bl', 'bl', .1); }
+        for (const ch of SMALL) { put(ch, 'g-sk', 'tr', .09); put(ch, 'g-c', 'c', 0); put(ch, 'g-bl', 'bl', .09); }
+        return rules.join('\n');
+    }
+
+    const api = { NO_START, SMALL, chars, esc, parse, layout, where, colStr, replay, check, hint, solve, MSG, MSG_RULE, charClass, cellInner, gridHtml, markCss };
     root.GenkouRules = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -730,7 +795,7 @@ dialog::backdrop{background:rgba(20,40,30,.45);}
         { id: 'chiisai', icon: '🔹', name: '小さい 字', text: '小さい「っ」「ゃ」「ゅ」「ょ」も 1マス つかって、マスの 右上に 書きます。' },
         { id: 'nobasu', icon: '〰️', name: 'のばす 音「ー」', text: 'たて書きでは、のばす 音の「ー」は、たての ぼうで 書きます。' },
         { id: 'kagi', icon: '🔲', name: 'かぎ「　」の むき', text: 'たて書きの かぎは、はじめが「﹁」、おわりが「﹂」の むきです。' },
-        { id: 'kaiwa', icon: '💬', name: 'かいわの 文', text: 'かいわ（はなした ことば）は、行を かえて、いちばん 上の マスから 書きます。かいわの あとの 文も、行を かえて 書きます。' },
+        { id: 'kaiwa', icon: '💬', name: 'かいわの 文', text: 'かいわ（はなした ことば）は、行を かえて、いちばん 上の マスから 書きます。かいわの あとの 文も、行を かえて 書きます。文の とちゅうの「　」（思った こと）は、行を かえません。' },
         { id: 'kakko', icon: '🤝', name: '「。」」は いっしょに', text: 'かいわの さいごの「。」と「」」は、1つの マスに いっしょに 書きます。' },
         { id: 'daimei', icon: '🏷️', name: 'だいめいと なまえ', text: 'だいめいは 1行目に、上を {ti}マス あけて 書きます。なまえは 2行目の 下の ほうに、下を 1マス あけて 書きます。' },
     ];
@@ -932,20 +997,45 @@ dialog::backdrop{background:rgba(20,40,30,.45);}
     };
 
     /* ---------- おてほんの 文（マスに 書く れんしゅう） ----------
-       1行が 1つの だんらく。かいわは そのまま つづけて 書く（行を かえるのは 子どもの しごと）。 */
+       1行が 1つの だんらく。かいわは そのまま つづけて 書く（行を かえるのは 子どもの しごと）。
+       マスは 10マス。★★ の 文は、10マスで 書くと「。」「、」が 行の いちばん 上に 来る ように して あります。 */
+    const N = 10;
     const TEXTS = [
+        // ---- ★ だんらく・「。」「、」 ----
         { id: 'asagao', title: 'あさがお', body: 'なつやすみに、あさがおの花がさきました。むらさき色の大きな花です。\nつぎの日は、三つもさきました。とてもうれしかったです。' },
-        { id: 'zarigani', title: 'ザリガニ', body: '学校のちかくの池で、ザリガニを見つけました。せなかは赤くて、はさみが大きかったです。\nそっとつかまえて、水そうに入れました。毎日、えさをあげています。' },
-        { id: 'tomato', title: 'ミニトマト', body: 'ミニトマトの実が、みどり色から赤色にかわりました。さわってみると、つるつるしていました。\nあしたは、たくさんとれるといいな。' },
-        { id: 'onigokko', title: 'おにごっこ', body: '中休みに、ともだちとおにごっこをしました。わたしはおにになって、いっしょうけんめい走りました。\nさいごに、ゆうきさんをつかまえました。チャイムがなるまで、たくさんあそびました。' },
         { id: 'kyushoku', title: 'きゅうしょく', body: 'きょうのきゅうしょくは、カレーライスでした。ぼくの大すきなメニューです。\nおかわりをして、ぜんぶたべました。' },
-        { id: 'neko', title: 'ねこのミー', body: 'わたしのいえには、ミーというねこがいます。ミーは、ひなたでねるのが大すきです。\nきのう、ボールであそんであげました。ミーは、いっしょうけんめいおいかけていました。' },
-        { id: 'pool', title: 'プール', body: 'なつやすみに、プールへ行きました。はじめは、水がつめたくてびっくりしました。\nけのびのれんしゅうをしました。すこしだけ、とおくまですすめるようになりました。' },
+        { id: 'tomato', title: 'ミニトマト', body: 'ミニトマトの実が、みどり色から赤色にかわりました。さわってみると、つるつるしていました。\nあしたは、たくさんとれるといいな。' },
+        { id: 'tegami', title: 'てがみ', body: 'おばあちゃんに、てがみを書きました。字をていねいに書きました。\nはやく、へんじがくるといいな。' },
+        { id: 'nawatobi', title: 'なわとび', body: 'まい日、なわとびのれんしゅうをしています。\nきょうは、二十回もつづけてとべました。' },
+        { id: 'otouto', title: 'おとうと', body: 'わたしには、三さいのおとうとがいます。\nきのう、いっしょにつみきであそびました。高いおしろができました。' },
+        { id: 'kasa', title: 'かさ', body: 'あたらしいかさを買ってもらいました。水色のかさです。\nはやく雨がふらないかな。' },
+        { id: 'donguri', title: 'どんぐり', body: 'こうえんで、どんぐりを十こひろいました。\nいちばん大きいのを、先生に見せました。' },
+        // ---- ★★ 行の 上に「。」「、」が 来る ----
+        { id: 'zarigani', title: 'ザリガニ', body: '学校のちかくの池で、ザリガニを見つけました。せなかは赤くて、はさみが大きかったです。\nそっとつかまえて、水そうに入れました。毎日、えさをあげています。' },
+        { id: 'onigokko', title: 'おにごっこ', body: '中休みに、ともだちとおにごっこをしました。わたしはおにになって、いっしょうけんめい走りました。\nさいごに、ゆうきさんをつかまえました。チャイムがなるまで、たくさんあそびました。' },
+        { id: 'neko', title: 'ねこのミー', body: 'わたしのいえに、ミーというねこがいます。ミーは、ひなたでねるのが大すきです。\nきのう、ボールであそんであげました。ミーは、いっしょうけんめいおいかけていました。' },
+        { id: 'pool', title: 'プール', body: 'なつやすみに、プールへ行きました。はじめは、水がつめたくて、びっくりしました。\nけのびのれんしゅうをしました。すこしだけ、とおくまですすめるようになりました。' },
+        { id: 'usagi', title: 'うさぎ', body: '学校で、うさぎをかっています。名前はミミです。まっ白で、耳がながいです。\nきょうは、にんじんをあげました。おいしそうにたべていました。' },
+        { id: 'ensoku', title: 'えんそく', body: 'えんそくで、どうぶつ園に行きました。ぞうやきりんを見ました。\nおひるは、みんなでおべんとうをたべました。たまごやきがおいしかったです。' },
+        { id: 'tanabata', title: 'たなばた', body: 'たなばたのたんざくに、ねがいごとを書きました。\n「サッカーがうまくなりますように」と書きました。\nほしがきれいに見えるといいな。' },
+        { id: 'yuki', title: 'ゆきあそび', body: 'あさおきると、外がまっ白でした。雪がつもっていました。\nおにいちゃんと、雪だるまをつくりました。目は、小石でつけました。' },
+        { id: 'mushi', title: 'むしとり', body: '日よう日に、お父さんとむしとりに行きました。セミを三びきつかまえました。\nかえるときに、ぜんぶにがしてあげました。' },
+        { id: 'kami', title: 'かみひこうき', body: 'ともだちと、かみひこうきをつくりました。先をとがらせると、よくとびました。\nどちらが、とおくまでとぶか、きょうそうしました。' },
+        // ---- ★★★ かいわ・かぎが いくつも ----
         { id: 'otsukai', title: 'おつかい', body: '日よう日に、はじめておつかいに行きました。「にんじんを三本ください。」と、お店の人に言いました。\n「えらいね。」と、ほめてもらいました。とてもうれしかったです。' },
         { id: 'ame', title: '雨の日', body: 'あさから、雨がふっていました。「長ぐつをはいて行きなさい。」と、お母さんが言いました。\n水たまりを、ぴちゃぴちゃあるいて学校へ行きました。' },
         { id: 'ochiba', title: 'おちば', body: 'こうえんで、赤や黄色のおちばをひろいました。\n「きれいだね。」と、ともだちが言いました。\nわたしは、いちばん大きなはっぱを、本にはさんで帰りました。' },
         { id: 'tosho', title: 'としょかん', body: 'としょかんで、きょうりゅうの本をかりました。「この本、おもしろそう。」と、ともだちが言いました。\nいっしょに、さいごまでよみました。' },
         { id: 'undokai', title: 'うんどうかい', body: 'うんどうかいで、つなひきをしました。「がんばれ。」「まけるな。」と、みんなでこえを出しました。\nさいごは、赤ぐみがかちました。みんなで、ばんざいをしました。' },
+        { id: 'denwa', title: 'でんわ', body: '夜、おじいちゃんからでんわがありました。「元気かい。」「うん、元気だよ。」と、ぼくはこたえました。\nなつやすみに、あいに行くやくそくをしました。' },
+        { id: 'aisatsu', title: 'あいさつ', body: '朝、校門で先生に会いました。「おはようございます。」「おはよう。今日も元気だね。」先生は、にっこりわらいました。' },
+        { id: 'kakurenbo', title: 'かくれんぼ', body: '「もういいかい。」「まあだだよ。」\nみんなで、かくれんぼをしました。わたしは、大きな木のうしろにかくれました。\n「見つけた。」と言われて、びっくりしました。' },
+        { id: 'cake', title: 'ケーキ', body: 'たんじょう日に、ケーキをつくりました。「じょうずにできたね。」と、お母さんが言いました。「ありがとう。」と、わたしは言いました。' },
+        { id: 'happyo', title: 'はっぴょう', body: 'こくごの時間に、はっぴょうをしました。「みんな、聞いてください。」と、大きなこえで言いました。\nさいごまで言えて、ほっとしました。' },
+        { id: 'maigo', title: 'まいご', body: 'デパートで、小さな子がないていました。「ママがいないの。」と言っていました。\n「いっしょにさがそう。」と、わたしは言いました。すぐにママが見つかりました。' },
+        { id: 'suika', title: 'すいか', body: '「すいかを切ったよ。」と、おばあちゃんがよびました。\n「わあ、大きい。」「あまいね。」と、みんなでたべました。' },
+        { id: 'shukudai', title: 'しゅくだい', body: 'しゅくだいがたくさんありました。ぼくは「早くおわらせよう」と思いました。\n「ぜんぶできたよ。」と言うと、お父さんがほめてくれました。' },
+        { id: 'hanabi', title: 'はなび', body: '夏まつりで、はなびを見ました。ドーンと大きな音がしました。\n「きれい。」「あっ、またあがった。」と、おとうとと空を見上げました。' },
     ];
 
     /** おてほんで つかう きまり（マスの かずで「行の 上の『。』」が 出るか どうかが かわる） */
@@ -961,12 +1051,28 @@ dialog::backdrop{background:rgba(20,40,30,.45);}
         if (P.segs.some(s => s.kind === 'dlg')) out.push('kaiwa', 'kakko');
         return out;
     }
-    /** むずかしさ（★1 みじかい ／ ★2 ながい ／ ★3 かいわ あり） */
-    function textLevel(doc) {
+    /** むずかしさ（★1 だんらく・「。」「、」／ ★2 行の 上に「。」「、」が 来る ／ ★3 かいわ・かぎ） */
+    function textLevel(doc, opt) {
         const P = G.parse(doc);
-        if (P.segs.some(s => s.kind === 'dlg')) return 3;
-        return P.units.length > 70 ? 2 : 1;
+        if (P.segs.some(s => s.kind === 'dlg') || P.units.some(u => u.c === '「')) return 3;
+        return G.layout(P, N, opt).some(c => c.cells.some(x => x && x.hang)) ? 2 : 1;
     }
+    const LEVELS = { 1: '★ だんらく・「。」「、」', 2: '★★ 行の 上に「。」「、」が 来る', 3: '★★★ かいわ・かぎ「　」が いくつも' };
+
+    /* ---------- メダル ----------
+       まちがい 0 … 金 ／ 1 … 銀 ／ 2 … 銅 ／ 3いじょう・こたえを 見た … ざんねん
+       （ヒントを つかった ときも まちがい 1つと かぞえる） */
+    const MEDALS = {
+        gold: { rank: 4, label: '金メダル', short: 'きん' },
+        silver: { rank: 3, label: '銀メダル', short: 'ぎん' },
+        bronze: { rank: 2, label: '銅メダル', short: 'どう' },
+        zannen: { rank: 1, label: 'ざんねんメダル', short: 'ざんねん' },
+    };
+    function medalOf(miss, peeked) {
+        if (peeked) return 'zannen';
+        return miss <= 0 ? 'gold' : miss === 1 ? 'silver' : miss === 2 ? 'bronze' : 'zannen';
+    }
+    const betterMedal = (a, b) => !a ? b : !b ? a : (MEDALS[a].rank >= MEDALS[b].rank ? a : b);
 
     /** クイズを つくる。rules … きまりの id、n … もんだいの かず */
     function makeQuiz(rules, n, seed, opt) {
@@ -986,7 +1092,7 @@ dialog::backdrop{background:rgba(20,40,30,.45);}
         return out;
     }
 
-    const api = { makeRng, RULES, RULE, POOL, MAKERS, makeQuiz, TEXTS, textRules, textLevel, tiRows, tiText, tiIndent, ruleText };
+    const api = { makeRng, RULES, RULE, POOL, MAKERS, makeQuiz, N, TEXTS, textRules, textLevel, LEVELS, MEDALS, medalOf, betterMedal, tiRows, tiText, tiIndent, ruleText };
     root.GenkouQuiz = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -1003,14 +1109,12 @@ const esc = G.esc;
 /* ---------- せってい ---------- */
 const KEY = 'genkou-renshuu/v1';
 const ALL_RULES = Q.RULES.map(r => r.id);
-const DEF = { qn: 5, rules: ALL_RULES.slice(), N: 10, timing: 'end', input: 'button', hint: true, ti: '23', sound: true, cTitle: '', cBody: '' };
-const N_CHOICES = [8, 10, 12, 15, 20];
+const DEF = { qn: 5, rules: ALL_RULES.slice(), timing: 'end', input: 'button', hint: true, ti: '23', sound: true, cTitle: '', cBody: '' };
 function clean(o) {
     const s = Object.assign({}, DEF);
     if (!o || typeof o !== 'object') return s;
     if ([5, 10, 15].includes(+o.qn)) s.qn = +o.qn;
     if (Array.isArray(o.rules)) { const r = o.rules.filter(x => ALL_RULES.includes(x)); if (r.length) s.rules = r; }
-    if (N_CHOICES.includes(+o.N)) s.N = +o.N;
     if (o.timing === 'each' || o.timing === 'end') s.timing = o.timing;
     if (o.input === 'key' || o.input === 'button') s.input = o.input;
     if (typeof o.hint === 'boolean') s.hint = o.hint;
@@ -1032,6 +1136,22 @@ function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e
 save();
 const titleRows = () => Q.tiRows(S.ti);
 const msgOf = code => code === 'title-indent' ? `だいめいは 上を ${Q.tiText(S.ti)}マス あけて 書こう。` : G.MSG[code];
+
+/* ---------- メダルの きろく（この パソコンに のこす） ---------- */
+const MKEY = 'genkou-renshuu/medals';
+function loadMedals() { try { const m = JSON.parse(localStorage.getItem(MKEY) || '{}'); return m && typeof m === 'object' ? m : {}; } catch (e) { return {}; } }
+function saveMedals(m) { try { localStorage.setItem(MKEY, JSON.stringify(m)); } catch (e) { /* のこせなくても うごく */ } }
+/** せんせいの おてほんは 文が かわったら べつの もんだい */
+function docKey(doc) {
+    if (doc.id !== 'custom') return doc.id;
+    let h = 0;
+    for (const c of doc.title + '|' + doc.body) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return 'custom-' + h.toString(36);
+}
+function medalHtml(kind, big) {
+    if (!kind) return `<span class="medal none${big ? ' big' : ''}">まだ</span>`;
+    return `<span class="medal ${kind}${big ? ' big' : ''}" title="${Q.MEDALS[kind].label}">${Q.MEDALS[kind].short}</span>`;
+}
 
 /* ---------- おと ---------- */
 let ac = null;
@@ -1191,27 +1311,44 @@ $('btnRetry').onclick = () => startQuiz(quiz.rules);
 /* ================= マスに 書く ================= */
 function customDoc() { return S.cBody.trim() ? { id: 'custom', title: S.cTitle.trim(), body: S.cBody } : null; }
 function renderPick() {
-    $('segN').innerHTML = N_CHOICES.map(n => `<button class="${n === S.N ? 'on' : ''}" data-n="${n}">${n}マス</button>`).join('');
-    $('segN').querySelectorAll('button').forEach(b => b.onclick = () => { S.N = +b.dataset.n; save(); renderPick(); });
+    const lopt = { titleIndent: Q.tiIndent(S.ti) };
     const list = (customDoc() ? [customDoc()] : []).concat(Q.TEXTS);
-    $('texts').innerHTML = list.map((t, i) => {
-        const P = G.parse(t);
-        const rules = Q.textRules(t, S.N, { titleIndent: Q.tiIndent(S.ti) }).filter(r => !['daimei', 'dan', 'kuten'].includes(r));
-        return `<button class="tcard${t.id === 'custom' ? ' custom' : ''}" data-i="${i}">
-          <span class="lv">${'★'.repeat(Q.textLevel(t))}${t.id === 'custom' ? ' <small>せんせいの おてほん</small>' : ''}</span>
+    const medals = loadMedals();
+    const card = (t, i, no) => {
+        const P = G.parse(t), rec = medals[docKey(t)];
+        const rules = Q.textRules(t, Q.N, lopt).filter(r => !['daimei', 'dan', 'kuten'].includes(r));
+        const when = rec && rec.at ? new Date(rec.at) : null;
+        return `<button class="tcard${t.id === 'custom' ? ' custom' : ''}${rec ? ' cleared' : ''}" data-i="${i}">
+          <span class="tmedal">${medalHtml(rec && rec.best)}</span>
+          <span class="no">${t.id === 'custom' ? 'せんせいの おてほん' : 'もんだい ' + no}</span>
           <b>${esc(t.title || '（だいめい なし）')}</b>
           <span class="pre">${esc(t.body.replace(/\n/g, ' '))}</span>
           <span class="chips">${rules.map(r => `<span class="chip">${Q.RULE[r].icon} ${esc(Q.RULE[r].name)}</span>`).join('')}</span>
-          <small style="color:var(--sub);font-weight:500">${P.units.length}字</small></button>`;
-    }).join('');
+          <small class="when">${P.units.length}字${rec ? `　クリア ${rec.n}かい（${when ? (when.getMonth() + 1) + '/' + when.getDate() : ''}）` : ''}</small></button>`;
+    };
+    /* むずかしさごとに ならべる */
+    const groups = { 1: [], 2: [], 3: [] };
+    list.forEach((t, i) => { if (t.id !== 'custom') groups[Q.textLevel(t, lopt)].push(i); });
+    let no = 0, html = '';
+    if (customDoc()) html += `<div class="texts">${card(list[0], 0, 0)}</div>`;
+    for (const lv of [1, 2, 3]) {
+        if (!groups[lv].length) continue;
+        html += `<h3 class="lvh">${esc(Q.LEVELS[lv])}<small>${groups[lv].length}もん</small></h3><div class="texts">${groups[lv].map(i => card(list[i], i, ++no)).join('')}</div>`;
+    }
+    $('texts').innerHTML = html;
     $('texts').querySelectorAll('.tcard').forEach(b => b.onclick = () => { beep('tap'); startWrite(list[+b.dataset.i]); });
+    /* メダルの かず（せんせいが 見て わかる ように） */
+    const keys = list.map(docKey), got = keys.map(k => medals[k] && medals[k].best).filter(Boolean);
+    const cnt = k => got.filter(x => x === k).length;
+    $('medalSum').innerHTML = `<span class="prog">クリア <b>${got.length}</b> ／ ${list.length}もん</span>`
+        + ['gold', 'silver', 'bronze', 'zannen'].map(k => `<span class="mcount">${medalHtml(k)}× ${cnt(k)}</span>`).join('');
 }
 
 let W = null;   // { doc, P, N, acts:[], errs:[], armed:false, done:false }
 function startWrite(doc) {
     const P = G.parse(doc);
     if (!P.units.length) return;
-    W = { doc, P, N: S.N, acts: [], errs: [], armed: false, finished: false };
+    W = { doc, P, N: Q.N, acts: [], errs: [], armed: false, finished: false, miss: new Set(), peeked: false, cleared: false };
     W.answer = G.layout(P, W.N, { titleIndent: Q.tiIndent(S.ti) });
     show('write');
     $('wTitle').textContent = doc.title || '（だいめい なし）';
@@ -1294,6 +1431,7 @@ function afterPlace() {
     if (S.timing === 'each') {
         const e = G.check(W.P, st.cols, W.N, { titleRows: titleRows(), only: u });
         if (e.length) {
+            countMiss(e);
             beep('ng');
             say('ng', `⚠️ ${esc(msgOf(e[0].code))}<br><small>もういちど やって みよう。</small>`);
             W.acts = cutAfter(u - 1);
@@ -1304,14 +1442,34 @@ function afterPlace() {
     }
     if (st.done) finish();
 }
+/** まちがいを かぞえる（おなじ 字の おなじ まちがいは 1つ） */
+function countMiss(errs) { errs.forEach(e => W.miss.add(e.u + ':' + e.code)); }
 function finish() {
     const st = G.replay(W.P, W.N, W.acts);
     W.errs = G.check(W.P, st.cols, W.N, { titleRows: titleRows() });
     W.finished = true;
-    if (!W.errs.length) { beep('clear'); say('ok', '🌟 さいごまで きまりどおりに 書けたね！ すばらしい！ つぎは かみの げんこうようしに 書いて みよう。'); }
+    if (!W.errs.length) clear();
     else showErrs(true);
 }
+/** クリア … メダルを きめて のこす */
+function clear() {
+    if (W.cleared) { say('ok', W.clearHtml); return; }
+    W.cleared = true;
+    const miss = W.miss.size, kind = Q.medalOf(miss, W.peeked);
+    const all = loadMedals(), key = docKey(W.doc), rec = all[key] || { n: 0 };
+    rec.best = Q.betterMedal(rec.best, kind);
+    rec.last = kind; rec.n = (rec.n || 0) + 1; rec.at = new Date().toISOString();
+    all[key] = rec;
+    saveMedals(all);
+    beep('clear');
+    const why = W.peeked ? 'こたえを 見たので、こんどは 見ないで ちょうせん しよう。'
+        : miss === 0 ? 'まちがい なし！ すばらしい！' : `まちがいは ${miss}つ。なおして さいごまで 書けたね。`;
+    const next = kind === 'gold' ? 'つぎは かみの げんこうようしに 書いて みよう。' : 'もういちど ちょうせん すると、金メダルが ねらえるよ。';
+    W.clearHtml = `<div class="clearbox">${medalHtml(kind, true)}<div><p><b style="font-size:22px">${Q.MEDALS[kind].label}！</b></p><p>${why}</p><p>${next}</p></div></div>`;
+    say('ok', W.clearHtml);
+}
 function showErrs(end) {
+    countMiss(W.errs);
     beep('ng');
     const list = W.errs.slice(0, 6).map(e => `<li>${esc(W.P.units[e.u].c)} … ${esc(msgOf(e.code))}</li>`).join('');
     say('ng', `${end ? 'さいごまで 書けたね！ でも、' : ''}<b>${W.errs.length}か所</b> きまりと ちがう ところが あるよ（<span style="color:var(--red)">赤い マス</span>）。<ul>${list}</ul>
@@ -1329,7 +1487,8 @@ $('btnCheck').onclick = () => {
     if (!st.next) { say('hint', 'まだ 1字も 書いて いないよ。'); return; }
     W.errs = G.check(W.P, st.cols, W.N, { titleRows: titleRows() });
     if (W.errs.length) showErrs(false);
-    else { beep('ok'); say('ok', st.done ? '🌟 ぜんぶ きまりどおり！' : `👍 ここまで（${st.next}字）は きまりどおり！ この ちょうしで つづけよう。`); }
+    else if (st.done) { clear(); }
+    else { beep('ok'); say('ok', `👍 ここまで（${st.next}字）は きまりどおり！ この ちょうしで つづけよう。`); }
     renderWrite('.mk-err');
 };
 const ACT_LABEL = { put: '✏️ かく', together: '🤝 まえの マスに いっしょに', blank: '⬜ 1マス あける', newline: '↩️ 行を かえる' };
@@ -1338,10 +1497,11 @@ $('btnHint').onclick = () => {
     const st = G.replay(W.P, W.N, W.acts);
     if (st.done) return;
     const prev = st.next ? G.check(W.P, st.cols, W.N, { titleRows: titleRows() }) : [];
-    if (prev.length) { say('hint', `💡 まえに 書いた ところに まちがいが あるよ。「もどす」で なおそう。（${esc(msgOf(prev[0].code))}）`); W.errs = prev; renderWrite('.mk-err'); return; }
+    if (prev.length) { countMiss(prev); say('hint', `💡 まえに 書いた ところに まちがいが あるよ。「もどす」で なおそう。（${esc(msgOf(prev[0].code))}）`); W.errs = prev; renderWrite('.mk-err'); return; }
     let h = G.hint(W.P, W.N, W.acts, { titleRows: titleRows() });
     /* いまの ところに 1マス あけすぎ・行の かえすぎが ある とき */
     if (!h) { say('hint', '💡 「もどす」で 1つ もどって みよう。'); return; }
+    W.miss.add(st.next + ':hint');   // ヒントも まちがい 1つと かぞえる
     if (S.input === 'key') h = h.map(a => a === 'put' ? 'type' : a);
     const lb = Object.assign({ type: `⌨️「${W.P.units[st.next].c}」を うつ` }, ACT_LABEL);
     say('hint', `💡 「${esc(W.P.units[st.next].c)}」は … <span class="seq">${h.map(a => `<span>${lb[a]}</span>`).join('→')}</span>`);
@@ -1350,6 +1510,8 @@ $('btnHint').onclick = () => {
 };
 $('btnAnswer').onclick = () => {
     if (!W) return;
+    if (!W.cleared && !confirm('こたえを 見ると、メダルは「ざんねんメダル」に なるよ。見る？')) return;
+    if (!W.cleared) W.peeked = true;
     const sz = sizeFor(W.N, Math.min(560, window.innerHeight - 200), 40);
     $('ansGrid').innerHTML = grid({ cols: W.answer, N: W.N }, { size: sz });
     $('ansDlg').showModal();
@@ -1411,7 +1573,6 @@ function takeTyped() {
 function openSettings() {
     $('sQn').value = String(S.qn);
     $('sRules').innerHTML = Q.RULES.map(r => `<label><input type="checkbox" value="${r.id}"${S.rules.includes(r.id) ? ' checked' : ''}> ${r.icon} ${esc(r.name)}</label>`).join('');
-    $('sN').innerHTML = N_CHOICES.map(n => `<option value="${n}"${n === S.N ? ' selected' : ''}>${n}マス</option>`).join('');
     $('sTiming').value = S.timing;
     $('sInput').value = S.input;
     $('sHint').checked = S.hint;
@@ -1424,11 +1585,17 @@ function openSettings() {
 }
 function readSettings() {
     const rules = [...$('sRules').querySelectorAll('input:checked')].map(x => x.value);
-    S = clean({ qn: $('sQn').value, rules: rules.length ? rules : ALL_RULES, N: $('sN').value, timing: $('sTiming').value, input: $('sInput').value,
+    S = clean({ qn: $('sQn').value, rules: rules.length ? rules : ALL_RULES, timing: $('sTiming').value, input: $('sInput').value,
         hint: $('sHint').checked, ti: $('sTi').value, cTitle: $('sCTitle').value, cBody: $('sCBody').value, sound: $('sSound').checked });
     save();
 }
 $('btnSet').onclick = openSettings;
+$('btnMedalReset').onclick = () => {
+    if (!confirm('この パソコンの メダルの きろくを ぜんぶ けしますか？')) return;
+    saveMedals({});
+    if (screen === 'pick') renderPick();
+    $('shareMsg').textContent = '';
+};
 $('setDlg').addEventListener('change', readSettings);
 $('setDlg').addEventListener('input', e => { if (e.target.id === 'sCTitle' || e.target.id === 'sCBody') readSettings(); });
 $('setDlg').addEventListener('close', () => {
@@ -1447,6 +1614,15 @@ $('btnShare').onclick = async () => {
 window.addEventListener('resize', () => {
     if (screen === 'write' && W) renderWrite();
 });
+/* 句読点・小さい字の ばしょを フォントに あわせる（フォントが よみこまれて から） */
+function fitMarks() {
+    let el = document.getElementById('markCss');
+    if (!el) { el = document.createElement('style'); el.id = 'markCss'; document.head.appendChild(el); }
+    try { el.textContent = G.markCss(getComputedStyle(document.documentElement).getPropertyValue('--kaku'), 600, .74); } catch (e) { /* むりなら CSS の ばしょの まま */ }
+}
+fitMarks();
+if (document.fonts && document.fonts.load) document.fonts.load('600 40px "Klee One"', 'あ。、っ').then(fitMarks, () => {});
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitMarks);
 go('home');
 })();
 </script>
