@@ -1,0 +1,102 @@
+/*
+ * 画面下の JIS キーボード。
+ *
+ * 幅はステージの 62%。キー1個ぶん（--u）を CSS 変数で持ち、
+ * 各キーは自分の u 数を掛けた幅になる。こうすると段ごとの
+ * 修飾キーの幅（shift 2.25u など）を実物どおりに並べられる。
+ *
+ * **高さは canvas.ts の KEYBOARD_RESERVE と連動している。**
+ * ここの 0.62 や段の高さを変えたら、あちらも計算し直すこと。
+ * 合っていないとステージが縦にはみ出す。
+ */
+.kbd {
+  --kbd-w: calc(var(--stage-w, 960px) * 0.62);
+  --u: calc(var(--kbd-w) / 15);
+  width: var(--kbd-w);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 0.06);
+  padding: calc(var(--u) * 0.16);
+  background: #1a2029;
+  border: 1px solid #2c3541;
+  border-radius: calc(var(--u) * 0.22);
+  box-shadow: 0 2px 0 #05070a, 0 6px 18px rgba(0, 0, 0, 0.45);
+  user-select: none;
+}
+
+.kbd-row {
+  display: flex;
+  gap: calc(var(--u) * 0.06);
+}
+
+.kbd-key {
+  /* --u はキー1個ぶん、--span はそのキーが何個ぶんの幅か（shift なら 2.25）。 */
+  flex: 0 0 calc(var(--u) * var(--span, 1));
+  height: calc(var(--u) * 0.62);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: calc(var(--u) * 0.30);
+  line-height: 1;
+  color: #cfd8e3;
+  background: linear-gradient(180deg, #333c49, #262d38);
+  border: 1px solid #434e5d;
+  border-radius: calc(var(--u) * 0.12);
+  box-shadow: 0 calc(var(--u) * 0.04) 0 #12171e;
+  overflow: hidden;
+  transition: background 90ms linear, color 90ms linear, transform 90ms ease-out;
+}
+
+/* Shift で出る文字。実物と同じくキートップの上に小さく載せる。 */
+.kbd-shifted {
+  font-size: 0.66em;
+  color: #7c8a9c;
+  line-height: 1;
+}
+.kbd-key.lit .kbd-shifted { color: #2f5a1c; }
+
+/* 修飾キーは打たないので、控えめに。日本語ラベルは日本語書体で。 */
+.kbd-mod {
+  color: #6d7b8c;
+  background: linear-gradient(180deg, #262d38, #1f252e);
+  font-family: var(--font-jp);
+  font-size: calc(var(--u) * 0.22);
+}
+
+/* ホームポジションの突起（f と j）。指を置く場所を覚えるための目印。 */
+.kbd-home::after {
+  content: '';
+  position: absolute;
+  width: calc(var(--u) * 0.26);
+  height: calc(var(--u) * 0.05);
+  background: #6d7b8c;
+  border-radius: 999px;
+  transform: translateY(calc(var(--u) * 0.17));
+}
+.kbd-home { position: relative; }
+
+/* 次に押せるキー。複数あるときは全部光る（si でも shi でもよい、が分かる）。 */
+.kbd-key.lit {
+  color: #16210f;
+  background: linear-gradient(180deg, #a8ef7a, #6fd046);
+  border-color: #dcffc4;
+  box-shadow: 0 0 calc(var(--u) * 0.3) rgba(140, 240, 110, 0.7),
+    0 calc(var(--u) * 0.04) 0 #2d5a1c;
+  transform: translateY(calc(var(--u) * 0.02));
+  font-weight: 700;
+}
+
+/* ミスした瞬間だけ枠を赤くする。どこで間違えたか分からないと直せない。 */
+.kbd-miss {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger), 0 2px 0 #05070a;
+}
+
+/* キーボードを消しているときの案内。消せることが分からないと戻せない。 */
+.kbd-off {
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+  letter-spacing: 0.08em;
+}
