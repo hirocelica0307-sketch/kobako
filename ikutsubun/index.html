@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#41689e">
-<meta name="description" content="2年生の かけ算で、文や 絵から「1つ分の 数」と「いくつ分」を 見つけて、しきを つくる れんしゅうを どんどん する アプリ。">
+<meta name="description" content="2年生の かけ算で、文や 絵から「1つ分の 数」と「いくつ分」を 見つけて、しきを つくる れんしゅうを どんどん する アプリ。しきと 答え・かけ算の きまり・ミニテストも。">
 <title>いくつ分 しきづくり</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,8 +32,12 @@
         <div class="howto-arrow">⬇</div>
         <div class="howto-a"><span class="pill a">3</span> こずつ の <span class="pill b">4</span> さら分 → <span class="pill a">3</span> × <span class="pill b">4</span></div>
     </div>
+    <h2 class="sec">れんしゅう</h2>
     <div class="modes" id="modes"></div>
+    <h2 class="sec">レベルアップ <small>かけ算の テストに むけて</small></h2>
+    <div class="modes" id="lvmodes"></div>
     <p class="record" id="record"></p>
+    <button class="btn soft printbtn" id="printBtn" type="button"><span class="i">🖨️</span>ミニテストの 用紙を いんさつ（答えつき）</button>
 </main>
 
 <!-- ===== れんしゅうの 画面 ===== -->
@@ -69,6 +73,7 @@
                 <button class="box" type="button" data-k="s2"></button>
             </div>
         </div>
+        <div class="lframe" id="lframe" hidden></div>
         <div class="msg" id="msg" aria-live="polite"></div>
         <div class="pad" id="pad"></div>
         <button class="btn go next" id="nextBtn" type="button" hidden>つぎへ ▶</button>
@@ -86,6 +91,12 @@
 </main>
 
 <div class="toast" id="toast" hidden></div>
+
+<!-- ミニテストの けっか -->
+<main class="result" id="result" hidden></main>
+
+<!-- いんさつ用（画面には 出ない） -->
+<div class="print-area" id="printArea"></div>
 
 <!-- ===== せってい ===== -->
 <dialog id="setDlg">
@@ -128,6 +139,8 @@
 <script src="art.js"></script>
 <script src="scenes.js"></script>
 <script src="logic.js"></script>
+<script src="levelup.js"></script>
 <script src="app.js"></script>
+<script src="lvapp.js"></script>
 </body>
 </html>

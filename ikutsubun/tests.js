@@ -7,10 +7,12 @@
         require('./art.js');
         require('./scenes.js');
         require('./logic.js');
+        require('./levelup.js');
     }
     const L = root.IkutsuLogic;
     const SCENES = root.IkutsuScenes;
     const ART = root.IkutsuArt;
+    const V = root.IkutsuLevel;
 
     /** 毎回 おなじ ならびの 乱数（たしかめを くりかえせる ように） */
     function seeded(seed) {
@@ -177,6 +179,120 @@
         t('URL を つくる', L.makeHash({ m: 'gyaku', steps: 'shiki', color: true }) === '#m=gyaku&s=shiki&c=1');
         t('しらない モードは つかわない', L.parseHash('#m=xxx').m === '');
         t('なにも ない ときは はじめの せってい', L.parseHash('').steps === 'full' && L.makeHash({ steps: 'full' }) === '');
+
+
+        /* ================= レベルアップ（levelup.js） ================= */
+        t('レベルアップは 5しゅるい（ミニテスト つき）', V.LV_IDS.join() === 'kotae,iranai,enzan,kimari,test');
+        t('URL で レベルアップを ひらける', L.parseHash('#m=kimari').m === 'kimari' && L.parseHash('#m=test').m === 'test');
+        t('2けたの よみ：13ひき・20ひき', L.fixReading('13ひき 20ひき 16ひき') === '13びき 20ぴき 16ぴき');
+        const sg = V.renderLv('(#Cこ)[#Aこずつ]{#B人}<のこりは>', { A: 3, B: 4, C: 7 });
+        t('文：いらない 文は x、合図の ことばは w', sg.map(s => s.k + ':' + s.text).join('|') === 'x:7こ|a:3こずつ|b:4人|w:のこりは');
+        t('問いの ことば', V.askWord('りんごは ぜんぶで 何こ ありますか。') === '何こ' && V.askWord('耳は ぜんぶで いくつ ですか。') === 'いくつ');
+        const noEx = SCENES.filter(s => !V.extrasFor(s).length);
+        t('どの ばめんにも いらない 文が つかえる', !noEx.length, noEx.map(s => s.id).join(','));
+        const exBad = [];
+        SCENES.forEach(s => V.extrasFor(s).forEach(x => {
+            if (x.u === s.ua || x.u === s.ub || ((s.ua === '人' || s.ub === '人') && x.u === '人')) exBad.push(s.id + '/' + x.u);
+        }));
+        t('いらない 文の たんいは 問いと まぎらわしく ない', !exBad.length, exBad.join(','));
+        const lvKanji = [];
+        [...V.EXTRA.map(x => x.t), ...V.ADD, ...V.SUB, ...V.LV_TYPES.map(x => x.name + x.sub)].forEach(x => {
+            [...x].forEach(ch => { if (!okChar(ch) && !/[＋−×○□＝（）<>()]/.test(ch)) lvKanji.push(ch); });
+        });
+        t('レベルアップの 文も 2年生までの 漢字', !lvKanji.length, [...new Set(lvKanji)].join(''));
+        const tplBad = [...V.ADD, ...V.SUB].filter(x => !x.includes('#X') || !x.includes('#Y') || !/<[^>]+>/.test(x));
+        t('たし算・ひき算の 文に #X・#Y・合図の ことば', !tplBad.length, tplBad.join(' / '));
+
+        /* 出題 */
+        const lg = V.makeLvGen(SCENES, seeded(21));
+        let ko = 0, koBad = [];
+        for (let i = 0; i < 400; i++) {
+            const p = lg.next(i % 2 ? 'kotae' : 'iranai');
+            const sc = SCENES.find(s => s.id === p.sid);
+            const txt = L.plain(p.segs);
+            if (p.ans.p !== p.a * p.b || p.ans.n !== p.a * p.b || p.ans.u !== sc.ua) koBad.push('ans ' + p.sid);
+            if (new Set(p.units).size !== 3 || !p.units.includes(sc.ua)) koBad.push('units ' + p.sid);
+            if (!sc.a && (p.a < 2 || p.b < 2)) koBad.push('x1 ' + p.sid);
+            if (/[#[\]{}()<>]/.test(txt)) koBad.push('mark ' + txt);
+            if (p.type === 'iranai') {
+                if (p.c === p.a || p.c === p.b || !p.segs.some(s => s.k === 'x')) koBad.push('extra ' + p.sid);
+                ko++;
+            }
+        }
+        t('しきと 答え・いらない 数：答えと たんいが あう（400もん）', !koBad.length, koBad.slice(0, 5).join(' / '));
+        const ops = { '×': 0, '＋': 0, '−': 0 }, enBad = [];
+        for (let i = 0; i < 400; i++) {
+            const p = lg.next('enzan');
+            ops[p.op]++;
+            if (p.op === '−' && !(p.X > p.Y)) enBad.push('sub ' + p.X + '-' + p.Y);
+            if (p.op !== '×' && (p.X > 99 || p.Y > 99)) enBad.push('2けた');
+            if (/[#[\]{}()<>]/.test(L.plain(p.segs))) enBad.push('mark');
+            if (p.op !== '×' && !p.segs.some(s => s.k === 'w')) enBad.push('w');
+        }
+        t('＋−×：3つとも 出る・ひき算は 大きい 数から', !enBad.length && ops['×'] > 100 && ops['＋'] > 50 && ops['−'] > 50, JSON.stringify(ops) + enBad.slice(0, 3));
+
+        /* かけ算の きまり：□に せいかいを 入れると ほんとうに なりたつ */
+        const evalSide = s => s.replace(/×/g, '*').replace(/＋/g, '+').replace(/\s/g, '');
+        const kmBad = [], subsSeen = new Set();
+        for (let i = 0; i < 700; i++) {
+            const p = lg.next('kimari');
+            subsSeen.add(p.sub);
+            if (p.sub === 'same') {
+                const opts = p.rows[0][0].opts;
+                const prod = s => s.split(' × ').reduce((x, y) => x * y, 1);
+                if (!p.ans.m.every(s => prod(s) === p.P) || opts.filter(s => prod(s) === p.P).length !== p.ans.m.length
+                    || p.ans.m.length !== V.pairsOf(p.P).length || opts.length < 6 || new Set(opts).size !== opts.length) kmBad.push('same ' + p.P);
+                continue;
+            }
+            const vals = p.rows.flat().filter(x => x.box).map(x => p.ans[x.box]);
+            let k = 0;
+            const s = V.rowsText(p).replace(/□/g, () => vals[k++]);
+            let ok;
+            if (s.includes('＝')) {
+                const [l, r] = s.split('＝');
+                ok = Function('return ' + evalSide(l))() === Function('return ' + evalSide(r))();
+            } else if (p.sub === 'up' || p.sub === 'down') {
+                const m = s.match(/(\d) × (\d) の 答えは、 (\d) × (\d) の 答えより (\d) (大きい|小さい)/);
+                ok = m && (m[6] === '大きい' ? m[1] * m[2] - m[3] * m[4] : m[3] * m[4] - m[1] * m[2]) === Number(m[5]);
+            } else if (p.sub === 'words') ok = p.ans.x === p.a && p.ans.y === p.b && p.a !== p.b;
+            if (!ok) kmBad.push(p.sub + ':' + s);
+            if (vals.some(v => v < 1 || v > 9)) kmBad.push('1〜9 ' + s);
+        }
+        t('かけ算の きまり：□に 入る 数で しきが なりたつ（700もん）', !kmBad.length, kmBad.slice(0, 4).join(' / '));
+        t('かけ算の きまり：7しゅるい ぜんぶ 出る', subsSeen.size === 7, [...subsSeen].join(','));
+
+        /* はんてい・点数 */
+        const kp = { type: 'kotae', a: 3, b: 4, ans: { s1: 3, s2: 4, p: 12, n: 12, u: 'こ' } };
+        let lr = V.checkLv(kp, { s1: 3, s2: 4, p: 12, n: 12, u: 'こ' });
+        t('しきと 答え：せいかいは 10点', lr.ok && lr.score === 10);
+        lr = V.checkLv(kp, { s1: 4, s2: 3, p: 12, n: 12, u: 'こ' });
+        t('しきの じゅんばんが ぎゃく：しきは 0点・答えは 5点', !lr.ok && lr.why === 'order' && lr.score === 5);
+        lr = V.checkLv(kp, { s1: 3, s2: 4, p: 12, n: 12, u: 'さら' });
+        t('たんいが ちがう：5点', !lr.ok && lr.why === 'unit' && lr.score === 5 && lr.bad.join() === 'u');
+        lr = V.checkLv(kp, { s1: 3, s2: 4, p: 14, n: 14, u: 'こ' });
+        t('九九の 答えが ちがう', !lr.ok && lr.why === 'prod' && lr.score === 0);
+        lr = V.checkLv(Object.assign({}, kp, { type: 'iranai', c: 7 }), { s1: 3, s2: 7, p: 21, n: 21, u: 'こ' });
+        t('いらない 数を つかった', !lr.ok && lr.why === 'extra');
+        const ep = { type: 'enzan', ans: { x: 12, y: 5, op: '＋' } };
+        t('たし算は 入れかえても せいかい', V.checkLv(ep, { x: 5, op: '＋', y: 12 }).ok && V.checkLv(ep, { x: 12, op: '＋', y: 5 }).ok);
+        t('計算の しゅるいが ちがう', V.checkLv(ep, { x: 12, op: '×', y: 5 }).why === 'op');
+        t('ひき算の じゅんばんが ぎゃく', V.checkLv({ type: 'enzan', ans: { x: 12, y: 5, op: '−' } }, { x: 5, op: '−', y: 12 }).why === 'subOrder');
+        t('かけ算の じゅんばんが ぎゃく', V.checkLv({ type: 'enzan', ans: { x: 3, y: 5, op: '×' } }, { x: 5, op: '×', y: 3 }).why === 'order');
+        const sp = { type: 'kimari', sub: 'same', P: 12, ans: { m: ['2 × 6', '3 × 4', '4 × 3', '6 × 2'] } };
+        t('おなじ 答え：ぜんぶ えらぶと せいかい', V.checkLv(sp, { m: ['6 × 2', '2 × 6', '4 × 3', '3 × 4'] }).ok);
+        t('おなじ 答え：たりない', V.checkLv(sp, { m: ['2 × 6', '3 × 4'] }).why === 'fewer');
+        t('おなじ 答え：ちがう ものを えらんだ', V.checkLv(sp, { m: ['2 × 6', '3 × 4', '4 × 3', '6 × 2', '3 × 5'] }).why === 'wrongPick');
+        const wp = { type: 'kimari', sub: 'words', a: 7, b: 3, ans: { x: 7, y: 3 } };
+        t('かけられる数・かける数を 入れかえた', V.checkLv(wp, { x: 3, y: 7 }).why === 'order');
+        t('うまって いるか', !V.filled({ rows: [[{ box: 'x', d: 1 }, { chips: 'u', opts: ['こ'] }]] }, { x: 3 })
+            && V.filled({ rows: [[{ box: 'x', d: 1 }, { chips: 'u', opts: ['こ'] }]] }, { x: 3, u: 'こ' }));
+
+        /* ミニテスト */
+        const tl = V.makeTest(V.makeLvGen(SCENES, seeded(5)));
+        t('ミニテストは 10もん（しきと答え3・いらない2・計算えらび2・きまり3）', tl.map(p => p.type).join() === V.TEST_PLAN.join());
+        const full = tl.map(p => V.checkLv(p, JSON.parse(JSON.stringify(p.ans))));
+        t('ぜんぶ せいかいで 100点', V.testScore(full) === 100, V.testScore(full));
+        t('にがてな しゅるいを かぞえる', JSON.stringify(V.weakTypes(tl, full.map((r, i) => i < 2 ? { ok: false } : r))) === '{"kotae":2}');
 
         return rows;
     }
