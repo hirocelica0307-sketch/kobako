@@ -301,7 +301,7 @@ dialog::backdrop{ background:rgba(30,30,40,.4); }
 /* ---------- レベルアップ：こたえる ところ ---------- */
 .lframe{ flex:none; display:flex; flex-direction:column; gap:.55rem; }
 .lrow{ display:flex; align-items:center; flex-wrap:wrap; gap:.45rem; font-size:1.3rem; }
-.lrow .lt{ white-space:nowrap; }
+.lrow .lt{ word-break:keep-all; }
 .lrow .lt.small{ font-size:.8rem; color:var(--thin); }
 .lbox.w2{ width:4.6rem; }
 .lframe.big .lrow{ font-size:1.75rem; }
@@ -319,6 +319,57 @@ dialog::backdrop{ background:rgba(30,30,40,.4); }
 .lframe.done .chip.on{ border-color:var(--go); background:#e6f4ec; box-shadow:none; }
 .lframe.done .chip.right:not(.on){ border-style:dashed; border-color:var(--go); }
 .play.testing .qkind{ background:#fff8e3; border-color:#e6b84a; color:#6d5310; }
+
+/* 数を 書かない 問題（えらぶ だけ）は 数字カードを かくす */
+.pad.lv.nobox .btn:not(.check){ display:none; }
+.pad.lv.nobox .check{ grid-column:1 / -1; grid-row:4; min-height:4rem; font-size:1.3rem; }
+.chips.wide{ flex-direction:column; align-items:stretch; width:100%; }
+.chips.wide .chip{ text-align:left; font-size:1.05rem; line-height:1.4; padding:.35rem .7rem; }
+
+/* ---------- 図（テープ・●の 図） ---------- */
+.pic.fig{ display:flex; align-items:center; justify-content:center; padding:.4rem; }
+.tape{ width:100%; display:flex; flex-direction:column; gap:.7rem; font-size:1.1rem; }
+.trow{ display:flex; align-items:center; gap:.6rem; }
+.tlab{ flex:none; width:4.2em; text-align:right; font-size:.95rem; color:var(--thin); }
+.tbar{ flex:1; display:flex; position:relative; }
+.tseg{
+    height:2.6rem; display:flex; align-items:center; justify-content:center;
+    border:3px solid var(--ink); margin-right:-3px; font-size:1.05rem;
+}
+.trow.base .tseg{ background:var(--ca-bg); color:var(--ca); border-color:var(--ca); border-radius:.3rem; }
+.trow.long .tseg{ background:#fff7d6; }
+.trow.long .tseg:first-child{ border-radius:.3rem 0 0 .3rem; }
+.trow.long .tseg:last-child{ border-radius:0 .3rem .3rem 0; }
+.trow.long.open .tseg{ background:var(--cb-bg); color:var(--cb); border-color:var(--cb); font-weight:800; }
+.trow.brace .tbr{
+    width:100%; text-align:center; padding-top:.4rem; font-size:1.1rem;
+    border-top:3px solid var(--thin); border-left:3px solid var(--thin); border-right:3px solid var(--thin); border-radius:.6rem .6rem 0 0;
+}
+.zuwrap{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; container-type:size; }
+.zu{
+    position:relative; display:grid; grid-template-columns:repeat(var(--w), 1fr);
+    aspect-ratio:var(--w) / var(--h);
+    width:min(100cqw, calc(100cqh * var(--w) / var(--h)));
+}
+.zu .zd, .zu .ze{ aspect-ratio:1; display:flex; align-items:center; justify-content:center; }
+.zu .zd::before{ content:""; width:62%; height:62%; border-radius:50%; background:#4d3b32; }
+.zr{ position:absolute; border:4px solid var(--ca); background:rgba(47,111,208,.12); border-radius:.6rem; display:flex; align-items:flex-start; justify-content:flex-end; }
+.zr.c1{ border-color:var(--cb); background:rgba(217,115,13,.12); }
+.zr.c2{ border-color:#2f8f5b; background:rgba(47,143,91,.12); }
+.zr.minus{ border:4px dashed var(--warn); background:rgba(200,70,59,.18); }
+.zlab{ margin:.15rem; padding:0 .35rem; border-radius:.4rem; background:#fff; font-size:.85rem; }
+
+/* ---------- もんだいづくり ---------- */
+.tsk{ display:block; margin-top:.4rem; font-size:1.05em; line-height:2.3; font-weight:500; }
+.slot{
+    display:inline-block; min-width:3.2em; text-align:center; padding:0 .4em; margin:0 .15em;
+    border:3px dashed #b8ad98; border-radius:.5em; color:var(--thin); line-height:1.6;
+}
+.slot.filled{ border-style:solid; color:var(--ink); font-weight:800; }
+.slot.sA.filled{ border-color:var(--ca); background:var(--ca-bg); color:var(--ca); }
+.slot.sB.filled{ border-color:var(--cb); background:var(--cb-bg); color:var(--cb); }
+.slot.sQ.filled{ border-color:#e6b84a; background:#fff7d6; }
+.slot.bad{ border-color:var(--warn); background:#fdecea; color:var(--warn); }
 
 /* ---------- ミニテストの けっか ---------- */
 .result{
@@ -351,7 +402,9 @@ dialog::backdrop{ background:rgba(30,30,40,.4); }
     @page{ size:A4; margin:12mm; }
     html, body{ height:auto; overflow:visible; background:#fff; font-size:11pt; }
     body > *:not(.print-area){ display:none !important; }
-    .print-area{ display:block; color:#000; }
+    .print-area{ display:block; color:#000; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    /* 色を いんさつ しない せっていでも ●が 出る ように、●は ふちで かく */
+    .print-area .zu .zd::before{ width:0; height:0; border:2.2mm solid #000; background:none; }
     .psheet{ break-after:page; }
     .psheet:last-child{ break-after:auto; }
     .phead{ border-bottom:2px solid #000; margin-bottom:4mm; padding-bottom:2mm; }
@@ -364,6 +417,12 @@ dialog::backdrop{ background:rgba(30,30,40,.4); }
     .pline{ margin-top:2mm; font-size:12pt; letter-spacing:.05em; }
     .pans{ margin-top:1mm; font-size:12pt; color:#c8463b; }
     .pbox{ display:inline-block; width:11mm; height:9mm; border:1.5px solid #000; vertical-align:middle; margin:0 1.5mm; }
+    .pline.small{ font-size:10.5pt; margin-top:1mm; }
+    .print-area .tape{ width:150mm; margin:2mm 0; font-size:10pt; gap:2mm; }
+    .print-area .tseg{ height:8mm; border-width:1.5px; margin-right:-1.5px; }
+    .print-area .zuwrap{ width:auto; height:auto; display:block; container-type:normal; margin:2mm 0; }
+    .print-area .zu{ width:calc(var(--w) * 7mm); }
+    .print-area .zr{ border-width:2px; }
     .pfoot{ margin-top:4mm; font-size:8pt; color:#666; text-align:right; }
 }
 

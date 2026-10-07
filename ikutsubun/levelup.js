@@ -8,7 +8,10 @@
      iranai  いらない 数が まじった 文章題（kotae と おなじ こたえかた）
      enzan   ＋・−・× の どれかを えらんで しきを つくる
      kimari  かけ算の きまり（啓林館「かけ算の きまり」の ことばに あわせて います）
-     test    ミニテスト（上の 4つから 10もん・100点）
+     bai     なんばい（テープの 図。「2cm の 3つ分を 2cm の 3ばい と いいます」）
+     zu      ●の 図を くふうして（L・凸の 形。わけかたを えらんで、ぜんぶの 数を 書く）
+     tsukuru しきに あう もんだいを つくろう（ア・イ・ウに ことばカードを 入れる）
+     test    ミニテスト（上の 7つから 10もん・100点）
 
    こたえる ところ（rows）は 画面に たよらない 形で かえします。
      { t:'文字' } / { box:'名前', d:けた数 } / { chips:'名前', opts:[…] } / { multi:'名前', opts:[…] }
@@ -22,11 +25,14 @@
         { id: 'iranai', name: 'いらない 数に 気をつけて', sub: 'つかう 数は どれ？', icon: '🚫' },
         { id: 'enzan', name: '＋ − × どれかな？', sub: 'たし算・ひき算・かけ算', icon: '➕' },
         { id: 'kimari', name: 'かけ算の きまり', sub: '□に 入る 数', icon: '📏' },
+        { id: 'bai', name: 'なんばい', sub: 'テープの 図で 考えよう', icon: '📐' },
+        { id: 'zu', name: '●の 図を くふうして', sub: 'わけて・ひいて 数えよう', icon: '🔷' },
+        { id: 'tsukuru', name: 'しきに あう もんだいを つくろう', sub: 'ことばカードを 入れよう', icon: '🧩' },
         { id: 'test', name: 'ミニテスト', sub: '10もん・100点', icon: '📝' },
     ];
     const LV_IDS = LV_TYPES.map(t => t.id);
     /* ミニテストの ならび（テストと おなじ ように しゅるいごとに まとめる） */
-    const TEST_PLAN = ['kotae', 'kotae', 'kotae', 'iranai', 'iranai', 'enzan', 'enzan', 'kimari', 'kimari', 'kimari'];
+    const TEST_PLAN = ['kotae', 'kotae', 'iranai', 'bai', 'enzan', 'enzan', 'kimari', 'kimari', 'zu', 'tsukuru'];
 
     const ri = (rnd, lo, hi) => lo + Math.floor(rnd() * (hi - lo + 1));
     const pick = (rnd, arr) => arr[Math.floor(rnd() * arr.length) % arr.length];
@@ -194,6 +200,132 @@
         return p;
     }
 
+    /* ---------- ④ なんばい ---------- */
+    /* テープの 長さ（cm）・もの の 数。#A が もとの 数、#B が 何ばい */
+    const BAI_TEXT = [
+        { t: '#Acm の #Bばいの 長さは 何cm ですか。', u: 'cm' },
+        { t: '赤い テープの 長さは #Acm です。青い テープの 長さは、赤い テープの #Bばい です。青い テープは 何cm ですか。', u: 'cm' },
+        { t: 'ひもを #Acm ずつ #B本 つなぎます。ぜんぶの 長さは、#Acm の 何ばい ですか。また、何cm ですか。', u: 'cm', k: 1 },
+        { t: 'みかんが #Aこ あります。りんごは みかんの #Bばい あります。りんごは 何こ ありますか。', u: 'こ' },
+        { t: 'わたしは シールを #Aまい もって います。おねえさんは わたしの #Bばい もって います。おねえさんの シールは 何まい ですか。', u: 'まい' },
+        { t: '1年生が かだんに 花を #A本 うえました。2年生は その #Bばい うえました。2年生が うえた 花は 何本 ですか。', u: '本' },
+    ];
+    function makeBai(rnd, sub) {
+        const a = ri(rnd, 2, 9), b = ri(rnd, 2, 9);
+        sub = sub || (rnd() < .45 ? 'tape' : 'text');
+        const p = { type: 'bai', sub, a, b, u: 'cm' };
+        const shiki = [{ t: 'しき' }, { box: 's1', d: 1 }, { t: '×' }, { box: 's2', d: 1 }, { t: '＝' }, { box: 'p', d: 2 }];
+        if (sub === 'tape') {
+            p.text = '下の テープの 長さは、' + a + 'cm の 何ばい ですか。また、何cm ですか。';
+            p.rows = [[{ t: a + 'cm の' }, { box: 'k', d: 1 }, { t: 'ばい' }], shiki, [{ t: '答え' }, { box: 'n', d: 2 }, { t: 'cm' }]];
+            p.ans = { k: b, s1: a, s2: b, p: a * b, n: a * b };
+        } else {
+            const x = pick(rnd, BAI_TEXT);
+            p.u = x.u;
+            p.text = L.fixReading(x.t.replace(/#A/g, a).replace(/#B/g, b));
+            p.rows = (x.k ? [[{ t: a + 'cm の' }, { box: 'k', d: 1 }, { t: 'ばい' }]] : []).concat([shiki, [{ t: '答え' }, { box: 'n', d: 2 }, { t: x.u }]]);
+            p.ans = { s1: a, s2: b, p: a * b, n: a * b };
+            if (x.k) p.ans.k = b;
+        }
+        return p;
+    }
+
+    /* ---------- ⑥ ●の 図を くふうして ----------
+       図は よこ W・たて H の ます。1つ分は よこ 1れつ（「よこに 4こずつ 3れつ」→ 4×3）。
+       わけかた（opts）は ことばと、図に 色を つける 四角（x,y,w,h, -1 は ひく）を もつ。 */
+    const mul = (w, h) => w + '×' + h;
+    function shapeCells(W, H, holes) {
+        const cells = [];
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+            if (!holes.some(r => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h)) cells.push([x, y]);
+        }
+        return cells;
+    }
+    function makeZu(rnd, sub) {
+        sub = sub || (rnd() < .6 ? 'L' : 'totsu');
+        let W, H, holes, good, badOpts;
+        if (sub === 'L') {
+            /* 右上（か 左上）が かけた 形 */
+            W = ri(rnd, 4, 7); H = ri(rnd, 3, 6);
+            const w = ri(rnd, 1, W - 2), h = ri(rnd, 1, H - 2);
+            const left = rnd() < .5;           // かけて いるのが 左上
+            const cx = left ? 0 : W - w;       // かけた ところの x
+            const keepX = left ? w : 0;        // 上の だんで のこる ところの x
+            holes = [{ x: cx, y: 0, w, h }];
+            good = [
+                { text: '上の ' + mul(W - w, h) + ' と 下の ' + mul(W, H - h) + ' を たす', parts: [{ x: keepX, y: 0, w: W - w, h }, { x: 0, y: h, w: W, h: H - h }] },
+                { text: (left ? '右の ' : '左の ') + mul(W - w, H) + ' と ' + (left ? '左の ' : '右の ') + mul(w, H - h) + ' を たす', parts: [{ x: keepX, y: 0, w: W - w, h: H }, { x: cx, y: h, w, h: H - h }] },
+                { text: mul(W, H) + ' から ' + mul(w, h) + ' を ひく', parts: [{ x: 0, y: 0, w: W, h: H }, { x: cx, y: 0, w, h, s: -1 }] },
+            ];
+            badOpts = [
+                { text: mul(W, H) + ' と ' + mul(w, h) + ' を たす', v: W * H + w * h, parts: [{ x: 0, y: 0, w: W, h: H }, { x: cx, y: 0, w, h }] },
+                { text: '上の ' + mul(W - w, h) + ' と 下の ' + mul(W, H) + ' を たす', v: (W - w) * h + W * H },
+                { text: mul(W, H) + ' から ' + mul(w, H - h) + ' を ひく', v: W * H - w * (H - h), parts: [{ x: 0, y: 0, w: W, h: H }, { x: cx, y: 0, w, h: H - h, s: -1 }] },
+                { text: '上の ' + mul(W, h) + ' と 下の ' + mul(W, H - h) + ' を たす', v: W * H, parts: [{ x: 0, y: 0, w: W, h }, { x: 0, y: h, w: W, h: H - h }] },
+            ];
+        } else {
+            /* 凸：下の 長方形の 上に でっぱり */
+            W = ri(rnd, 5, 7);
+            const H1 = ri(rnd, 2, 4), hb = ri(rnd, 1, 3), wb = ri(rnd, 1, W - 3), ox = ri(rnd, 1, W - wb - 1);
+            H = H1 + hb;
+            holes = [{ x: 0, y: 0, w: ox, h: hb }, { x: ox + wb, y: 0, w: W - ox - wb, h: hb }];
+            good = [
+                { text: '上の ' + mul(wb, hb) + ' と 下の ' + mul(W, H1) + ' を たす', parts: [{ x: ox, y: 0, w: wb, h: hb }, { x: 0, y: hb, w: W, h: H1 }] },
+                { text: '左の ' + mul(ox, H1) + ' と まん中の ' + mul(wb, H) + ' と 右の ' + mul(W - ox - wb, H1) + ' を たす',
+                    parts: [{ x: 0, y: hb, w: ox, h: H1 }, { x: ox, y: 0, w: wb, h: H }, { x: ox + wb, y: hb, w: W - ox - wb, h: H1 }] },
+            ];
+            badOpts = [
+                { text: '上の ' + mul(wb, hb) + ' と 下の ' + mul(W, H) + ' を たす', v: wb * hb + W * H },
+                { text: mul(W, H) + ' と ' + mul(wb, hb) + ' を たす', v: W * H + wb * hb, parts: [{ x: 0, y: 0, w: W, h: H }, { x: ox, y: 0, w: wb, h: hb }] },
+                { text: '上の ' + mul(wb, H1) + ' と 下の ' + mul(W, H1) + ' を たす', v: wb * H1 + W * H1 },
+                { text: mul(W, H) + ' を 計算する', v: W * H, parts: [{ x: 0, y: 0, w: W, h: H }] },
+            ];
+        }
+        const cells = shapeCells(W, H, holes);
+        const n = cells.length;
+        const goods = L.shuffle(good, rnd).slice(0, 2).map(o => Object.assign(o, { ok: true }));
+        const bads = L.shuffle(badOpts.filter(o => o.v !== n), rnd).slice(0, 2).map(o => ({ text: o.text, parts: o.parts }));
+        const opts = L.shuffle(goods.concat(bads), rnd);
+        const p = {
+            type: 'zu', sub, W, H, cells, opts, n,
+            text: '●は ぜんぶで 何こ ありますか。くふうして もとめましょう。',
+            rows: [
+                [{ t: 'あって いる もとめかたを ぜんぶ えらぼう' }],
+                [{ multi: 'm', opts: opts.map(o => o.text), wide: true }],
+                [{ t: '●は ぜんぶで' }, { box: 'n', d: 2 }, { t: 'こ' }],
+            ],
+        };
+        p.ans = { m: goods.map(o => o.text).sort(), n };
+        return p;
+    }
+
+    /* ---------- ⑦ しきに あう もんだいを つくろう ---------- */
+    /** 文の [ ] と { } を ア・イ に、問いを ウ に して、ことばカードを つくる */
+    function makeTsukuru(scene, ti, a, b, rnd) {
+        const tpl = scene.t[ti];
+        const segOf = (k, x, y) => renderLv(tpl, { A: x, B: y }).find(s => s.k === k).text;
+        const w = askWord(scene.q) || '何こ';
+        const parts = renderLv(tpl, { A: a, B: b }).map(s => (s.k ? { slot: s.k === 'a' ? 'A' : 'B' } : { text: s.text }));
+        parts.push({ slot: 'Q' });
+        const qs = [scene.q, 'のこりは ' + w + ' ですか。', 'ちがいは ' + w + ' ですか。'];
+        const p = {
+            type: 'tsukuru', sid: scene.id, ti, a, b, parts,
+            text: 'しきが ' + a + ' × ' + b + ' に なる もんだいを つくろう。ア・イ・ウに 入る ことばを えらびましょう。',
+            cards: { A: L.shuffle([segOf('a', a, b), segOf('a', b, a)], rnd), B: L.shuffle([segOf('b', a, b), segOf('b', b, a)], rnd), Q: L.shuffle(qs, rnd) },
+        };
+        p.rows = [
+            [{ t: 'ア' }, { chips: 'A', opts: p.cards.A }],
+            [{ t: 'イ' }, { chips: 'B', opts: p.cards.B }],
+            [{ t: 'ウ' }, { chips: 'Q', opts: p.cards.Q, wide: true }],
+        ];
+        p.ans = { A: segOf('a', a, b), B: segOf('b', a, b), Q: scene.q };
+        return p;
+    }
+    /** ア・イ・ウに 入れた 文（入って いない ところは ［ア］など） */
+    function tsukuruText(p, ans) {
+        return p.parts.map(x => (x.text !== undefined ? x.text : ans && ans[x.slot] ? ans[x.slot] : '［' + { A: 'ア', B: 'イ', Q: 'ウ' }[x.slot] + '］')).join('');
+    }
+
     /* ---------- 出題 ---------- */
     function makeLvGen(scenes, rnd) {
         rnd = rnd || Math.random;
@@ -269,9 +401,26 @@
             return p;
         }
 
+        function tsukuru() {
+            /* 1つ分が きまって いる ばめん（たこの 足・5円玉 など）は「3本」「4円玉」の ような カードに なるので のぞく */
+            const d = draw('tsukuru', x => !scenes[x.si].a);
+            const sc = scenes[d.si];
+            let a, b, n = 0;
+            do {
+                a = sc.a ? pick(rnd, sc.a) : ri(rnd, 2, 9);
+                b = ri(rnd, 2, 9);
+            } while ((a === b || a + 'x' + b === lastKey) && ++n < 50);
+            if (a === b) b = a === 9 ? 8 : a + 1;
+            lastKey = a + 'x' + b;
+            return makeTsukuru(sc, d.ti, a, b, rnd);
+        }
+
         function next(type) {
             if (type === 'kotae' || type === 'iranai') return kotae(type);
             if (type === 'enzan') return enzan();
+            if (type === 'bai') return makeBai(rnd);
+            if (type === 'zu') return makeZu(rnd);
+            if (type === 'tsukuru') return tsukuru();
             return makeKimari(rnd);
         }
         return { next };
@@ -322,6 +471,35 @@
             }
             return { ok: !bad.length, bad, why, score: bad.length ? 0 : 10 };
         }
+        if (p.type === 'bai') {
+            const A = p.ans;
+            let shikiOk = true, kotaeOk = true;
+            if (A.k !== undefined && !eq('k', A.k)) { bad.push('k'); shikiOk = false; why = 'kai'; }
+            if (!eq('s1', A.s1) || !eq('s2', A.s2)) {
+                shikiOk = false;
+                if (eq('s1', A.s2) && eq('s2', A.s1) && A.s1 !== A.s2) { bad.push('s1', 's2'); why = why || 'order'; }
+                else {
+                    if (!eq('s1', A.s1)) bad.push('s1');
+                    if (!eq('s2', A.s2)) bad.push('s2');
+                    why = why || 'shiki';
+                }
+            }
+            if (!eq('p', A.p)) { bad.push('p'); shikiOk = false; why = why || 'prod'; }
+            if (!eq('n', A.n)) { bad.push('n'); kotaeOk = false; why = why || 'n'; }
+            return { ok: !bad.length, bad, why, score: (shikiOk ? 5 : 0) + (kotaeOk ? 5 : 0) };
+        }
+        if (p.type === 'zu') {
+            const got = (ans.m || []).slice().sort();
+            const mOk = got.length === p.ans.m.length && got.every((v, i) => v === p.ans.m[i]);
+            if (!mOk) { bad.push('m'); why = got.some(v => !p.ans.m.includes(v)) ? 'wrongPick' : 'fewer'; }
+            if (!eq('n', p.ans.n)) { bad.push('n'); why = why || 'count'; }
+            return { ok: !bad.length, bad, why, score: (mOk ? 5 : 0) + (eq('n', p.ans.n) ? 5 : 0) };
+        }
+        if (p.type === 'tsukuru') {
+            ['A', 'B', 'Q'].forEach(k => { if (!eq(k, p.ans[k])) bad.push(k); });
+            why = bad.includes('A') && bad.includes('B') ? 'swap' : bad.includes('A') ? 'A' : bad.includes('B') ? 'B' : bad.length ? 'Q' : '';
+            return { ok: !bad.length, bad, why, score: bad.length ? 0 : 10 };
+        }
         /* kimari */
         if (p.sub === 'same') {
             const got = (ans.m || []).slice().sort();
@@ -351,6 +529,11 @@
             return 'しき ' + A.s1 + ' × ' + A.s2 + ' ＝ ' + A.p + '　答え ' + L.fixReading(A.n + A.u);
         }
         if (p.type === 'enzan') return 'しき ' + A.x + ' ' + A.op + ' ' + A.y;
+        if (p.type === 'bai') {
+            return (A.k !== undefined ? p.a + 'cm の ' + A.k + 'ばい　' : '') + 'しき ' + A.s1 + ' × ' + A.s2 + ' ＝ ' + A.p + '　答え ' + A.n + p.u;
+        }
+        if (p.type === 'zu') return A.m.join('／') + '　→　' + A.n + 'こ';
+        if (p.type === 'tsukuru') return tsukuruText(p, A);
         if (p.sub === 'same') return A.m.join('、');
         return p.rows.map(r => r.map(tk => tk.t !== undefined ? tk.t : tk.box ? '［' + A[tk.box] + '］' : '').join(' ')).join(' ');
     }
@@ -372,8 +555,8 @@
     }
 
     const api = {
-        LV_TYPES, LV_IDS, TEST_PLAN, EXTRA, ADD, SUB, OPS, SAME_P, UNIT_POOL,
-        renderLv, askWord, unitOpts, extrasFor, pairsOf, makeKimari, makeLvGen, makeTest,
+        LV_TYPES, LV_IDS, TEST_PLAN, EXTRA, ADD, SUB, OPS, SAME_P, UNIT_POOL, BAI_TEXT,
+        renderLv, askWord, unitOpts, extrasFor, pairsOf, makeKimari, makeBai, makeZu, makeTsukuru, tsukuruText, makeLvGen, makeTest,
         checkLv, filled, answerText, rowsText, testScore, weakTypes,
     };
     root.IkutsuLevel = api;
