@@ -227,7 +227,7 @@
     }
 
     /* レベルアップ（levelup.js）の モードも URL で ひらける */
-    const MODES = ['mix', 'kihon', 'gyaku', 'e', 'erabu', 'kotae', 'iranai', 'enzan', 'kimari', 'test'];
+    const MODES = ['mix', 'kihon', 'gyaku', 'e', 'erabu', 'kotae', 'iranai', 'enzan', 'kimari', 'bai', 'zu', 'tsukuru', 'test'];
     function parseHash(h) {
         const o = {};
         String(h || '').replace(/^#/, '').split('&').forEach(kv => {

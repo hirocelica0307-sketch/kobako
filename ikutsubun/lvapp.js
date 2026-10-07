@@ -22,6 +22,7 @@
         solved: false,
         test: null,       // ミニテスト { list, i, answers, results, t0 }
         queue: [],        // やりなおす 問題
+        preview: '',      // ●の 図で さいごに えらんだ もとめかた
         weak: '',         // やりなおしの あとに 多めに 出す しゅるい
     };
     const info = id => V.LV_TYPES.find(t => t.id === id);
@@ -95,16 +96,23 @@
         const q = $('qtext');
         q.textContent = '';
         q.className = 'qtext' + (p.type === 'kimari' ? ' kimari' : '');
-        if (p.segs) {
+        lv.preview = '';
+        if (p.type === 'tsukuru') {
+            q.append(el('span', 'note', p.text), el('div', 'tsk'));
+            drawTsk();
+        } else if (p.segs) {
             p.segs.forEach(s => q.append(el('span', s.k ? 'seg ' + s.k : '', s.text)));
             if (p.q) q.append(el('span', 'q', p.q));
             q.append(el('span', 'note', p.type === 'enzan' ? '＋・−・× の どれかを えらんで、しきを 書こう。' : 'しきと 答えを 書こう。'));
         } else {
             q.append(el('span', 'q', p.text));
+            if (p.type === 'bai') q.append(el('span', 'note', 'しきと 答えを 書こう。'));
         }
         const pic = $('pic');
         pic.textContent = '';
         pic.className = 'pic';
+        if (p.type === 'bai' && p.sub === 'tape') figure(tapeEl(p, false));
+        if (p.type === 'zu') figure(zuEl(p, []));
         if (A.set.color && !lv.test && p.segs) lv.hint = 1;
         applyHint();
     }
@@ -119,9 +127,87 @@
             pic.classList.add('show');
         }
         if (lv.hint >= 1 && p.type === 'kimari' && !pic.childElementCount) drawKimariPic();
+        if (p.type === 'bai' && (lv.hint >= 1 || lv.solved)) figure(tapeEl(p, true));
+        if (p.type === 'zu') {
+            /* こたえた あと・ヒント：あって いる もとめかた ／ れんしゅう中：さいごに えらんだ もとめかた */
+            const show = lv.solved || lv.hint >= 1 ? p.opts.find(o => o.ok) : p.opts.find(o => o.text === lv.preview);
+            figure(zuEl(p, show && show.parts ? show.parts : []));
+        }
+        if (p.type === 'tsukuru') drawTsk();
         $('hintBtn').disabled = lv.solved || lv.hint >= maxHint();
     }
     const maxHint = () => (lv.p.type === 'kotae' || lv.p.type === 'iranai') && lv.p.sid ? 2 : 1;
+
+    /* ---------- 図（テープ・●の 図）：画面と いんさつで つかう ---------- */
+    function figure(node) {
+        const pic = $('pic');
+        pic.textContent = '';
+        pic.className = 'pic fig';
+        pic.append(node);
+    }
+
+    /** テープの 図。open：1つ分ごとの ばんごうと ぜんぶの 長さ を 見せる */
+    function tapeEl(p, open) {
+        const u = p.u || 'cm';
+        const t = el('div', 'tape');
+        const bar = (cls, n, label) => {
+            const row = el('div', 'trow ' + cls);
+            row.append(el('span', 'tlab', label));
+            const b = el('div', 'tbar');
+            for (let i = 0; i < n; i++) {
+                const seg = el('div', 'tseg');
+                seg.style.width = 'calc(100% / ' + p.b + ')';
+                seg.textContent = cls === 'base' ? p.a + u : open ? String(i + 1) : '';
+                b.append(seg);
+            }
+            row.append(b);
+            return row;
+        };
+        t.append(bar('base', 1, '1つ分'), bar('long' + (open ? ' open' : ''), p.b, p.sub === 'tape' && !open ? 'あ' : p.b + 'ばい'));
+        const br = el('div', 'trow brace');
+        br.append(el('span', 'tlab', ''));
+        const bb = el('div', 'tbar');
+        bb.append(el('div', 'tbr', open && lv.solved ? p.a * p.b + u : '？' + u));
+        br.append(bb);
+        t.append(br);
+        return t;
+    }
+
+    /** ●の 図。parts：色を つける 四角（s:-1 は ひく ところ） */
+    function zuEl(p, parts) {
+        const wrap = el('div', 'zuwrap');
+        const z = el('div', 'zu');
+        z.style.setProperty('--w', p.W);
+        z.style.setProperty('--h', p.H);
+        const on = new Set(p.cells.map(c => c[0] + ',' + c[1]));
+        for (let y = 0; y < p.H; y++) for (let x = 0; x < p.W; x++) z.append(el('span', on.has(x + ',' + y) ? 'zd' : 'ze'));
+        parts.forEach((r, i) => {
+            const o = el('div', 'zr c' + i + (r.s < 0 ? ' minus' : ''));
+            o.style.left = (r.x / p.W * 100) + '%';
+            o.style.top = (r.y / p.H * 100) + '%';
+            o.style.width = (r.w / p.W * 100) + '%';
+            o.style.height = (r.h / p.H * 100) + '%';
+            o.append(el('span', 'zlab', r.w + '×' + r.h));
+            z.append(o);
+        });
+        wrap.append(z);
+        return wrap;
+    }
+
+    /** もんだいづくりの 文（ア・イ・ウ の ところ） */
+    function drawTsk() {
+        const box = $('qtext').querySelector('.tsk');
+        if (!box) return;
+        const p = lv.p;
+        box.textContent = '';
+        p.parts.forEach(x => {
+            if (x.text !== undefined) { box.append(el('span', '', x.text)); return; }
+            const v = lv.ans[x.slot];
+            const s = el('span', 'slot s' + x.slot + (v ? ' filled' : '') + (lv.bad.includes(x.slot) ? ' bad' : ''),
+                v || { A: 'ア', B: 'イ', Q: 'ウ' }[x.slot]);
+            box.append(s);
+        });
+    }
 
     /** かけ算の きまりの ●の 図（ふえた・へった 1つ分を だいだい色に） */
     function drawKimariPic() {
@@ -138,6 +224,13 @@
     function hintMsg() {
         const p = lv.p, sc = p.sid && byId[p.sid];
         if (p.type === 'kimari') return kimariWhy(p.sub === 'same' ? 'fewer' : p.sub);
+        if (p.type === 'bai') {
+            return p.a + (p.u || 'cm') + ' の いくつ分 かな？ 「' + p.a + (p.u || 'cm') + ' の □つ分」の ことを 「' + p.a + (p.u || 'cm') + ' の □ばい」と いうよ。テープの ばんごうを 見てみよう。';
+        }
+        if (p.type === 'zu') return 'もとめかたの 1つを、図に 色で 見せるよ。ほかの もとめかたも あるかな？';
+        if (p.type === 'tsukuru') {
+            return 'しきの 前の 数（' + p.a + '）は 1つ分の 数で アに、うしろの 数（' + p.b + '）は いくつ分で イに 入るよ。かけ算で もとめるのは ぜんぶの 数 だよ。';
+        }
         if (p.type === 'enzan') {
             if (p.op === '×') return '<b class="ca">青い ところ</b>と <b class="cb">だいだいの ところ</b>を 見てみよう。おなじ 数ずつ かな？';
             return '<b class="cw">きいろの ことば</b>が 合図だよ。ふえる？ へる？ ちがいを くらべる？';
@@ -170,7 +263,7 @@
                     row.append(b);
                 } else {
                     const k = tk.chips || tk.multi;
-                    const g = el('div', 'chips' + (tk.inline ? ' inline' : '') + (tk.multi ? ' multi' : ''));
+                    const g = el('div', 'chips' + (tk.inline ? ' inline' : '') + (tk.multi ? ' multi' : '') + (tk.wide ? ' wide' : ''));
                     g.classList.toggle('bad', lv.bad.includes(k));
                     tk.opts.forEach(o => {
                         const c = el('button', 'chip', o);
@@ -182,13 +275,15 @@
                         if (lv.solved && tk.multi) c.classList.toggle('right', p.ans[k].includes(o));
                         g.append(c);
                     });
-                    if (tk.chips && !tk.inline) row.append(el('span', 'lt small', 'たんい'));
+                    if (tk.chips === 'u') row.append(el('span', 'lt small', 'たんい'));
                     row.append(g);
                 }
             });
             box.append(row);
         });
         $('checkBtn').disabled = lv.solved;
+        /* 数を 書く わくが ない 問題は 数字カードを かくす */
+        $('pad').classList.toggle('nobox', !boxKeys(p).length);
     }
 
     $('lframe').addEventListener('click', ev => {
@@ -206,8 +301,10 @@
         A.SND.tap();
         if (tk.multi) {
             const s = new Set(lv.ans[k] || []);
-            if (s.has(v)) s.delete(v); else s.add(v);
+            if (s.has(v)) { s.delete(v); lv.preview = ''; } else { s.add(v); lv.preview = v; }
             lv.ans[k] = [...s];
+            /* ●の 図：えらんだ もとめかたを 図に 色で 見せる（テストの ときは 見せない） */
+            if (lv.p.type === 'zu' && !lv.test) applyHint();
         } else {
             lv.ans[k] = v;
             /* ＋−× を えらんだら つぎの わくへ */
@@ -215,6 +312,7 @@
         }
         lv.bad = lv.bad.filter(x => x !== k);
         drawRows();
+        if (lv.p.type === 'tsukuru') drawTsk();
     });
 
     function input(n) {
@@ -326,6 +424,31 @@
                 unit: (w && w !== 'いくつ' ? 'きいて いるのは「' + w + '」だから、' : '') + 'たんいは「' + p.ans.u + '」だよ。何を かぞえて いるかな？',
             }[why] || '';
         }
+        if (p.type === 'bai') {
+            const u = p.u || 'cm', a = p.a, b = p.b;
+            return {
+                kai: a + u + ' の テープが いくつ分 あるかな？ 1つずつ かぞえよう。',
+                order: a + u + ' の ' + b + 'ばい は、' + a + ' × ' + b + ' と 書くよ。（' + a + u + ' の ' + b + 'つ分）',
+                shiki: 'もとの 数（' + a + u + '）× 何ばい の しきに なるよ。',
+                prod: a + ' × ' + b + ' の 答えを たしかめよう。' + a + 'の だん：' + dan(a, b) + '…',
+                n: '答えの 数は、しきの 答えと おなじ だよ。',
+            }[why] || '';
+        }
+        if (p.type === 'zu') {
+            return {
+                wrongPick: 'えらんだ 中に、図と あわない もとめかたが あるよ。えらぶと 図に 色が つくので、たしかめよう。',
+                fewer: 'あって いる もとめかたは 2つ あるよ。',
+                count: '●の 数が ちがうよ。えらんだ もとめかたで 計算して、たしかめよう。',
+            }[why] || '';
+        }
+        if (p.type === 'tsukuru') {
+            return {
+                swap: p.a + ' × ' + p.b + ' の ' + p.a + ' は 1つ分の 数（アに 入る）、' + p.b + ' は いくつ分（イに 入る）だよ。',
+                A: 'アには 1つ分の 数（' + p.a + '）が 入るよ。',
+                B: 'イには いくつ分（' + p.b + '）が 入るよ。',
+                Q: 'かけ算で もとめるのは、ぜんぶの 数 だよ。',
+            }[why] || '';
+        }
         if (p.type === 'enzan') {
             const w = (p.segs.find(s => s.k === 'w') || {}).text;
             return {
@@ -383,10 +506,15 @@
         if (!ans) return '';
         if (p.type === 'kotae' || p.type === 'iranai') return ans.s1 + '×' + ans.s2 + '＝' + ans.p + '　' + L.fixReading(ans.n + (ans.u || ''));
         if (p.type === 'enzan') return ans.x + ' ' + ans.op + ' ' + ans.y;
+        if (p.type === 'bai') return (ans.k !== undefined ? ans.k + 'ばい　' : '') + ans.s1 + '×' + ans.s2 + '＝' + ans.p + '　' + ans.n + (p.u || 'cm');
+        if (p.type === 'zu') return (ans.m || []).join('／') + '　' + ans.n + 'こ';
+        if (p.type === 'tsukuru') return V.tsukuruText(p, ans);
         if (p.sub === 'same') return (ans.m || []).join('、');
         return Object.keys(p.ans).map(k => ans[k]).join('・');
     }
     function qSummary(p) {
+        if (p.type === 'tsukuru') return p.text + '　' + V.tsukuruText(p, {});
+        if (p.type === 'zu' || p.type === 'bai') return p.text;
         return p.segs ? L.plain(p.segs) + (p.q || '') : p.text + '　' + V.rowsText(p);
     }
 
@@ -468,6 +596,26 @@
                     if (withAns) body.append(el('div', 'pans', V.answerText(p)));
                     else if (p.type === 'enzan') body.append(el('div', 'pline', 'しき（　　　　　　　　　　　）'));
                     else body.append(el('div', 'pline', 'しき（　　　　　　　　　　　）　答え（　　　　　　）'));
+                } else if (p.type === 'bai') {
+                    body.append(el('div', 'ptext', p.text));
+                    if (p.sub === 'tape') body.append(tapeEl(p, withAns));
+                    if (withAns) body.append(el('div', 'pans', V.answerText(p)));
+                    else body.append(el('div', 'pline', (p.ans.k !== undefined ? p.a + 'cm の（　　）ばい　　' : '') + 'しき（　　　　　　　　　　　）　答え（　　　　　　）'));
+                } else if (p.type === 'zu') {
+                    body.append(el('div', 'ptext', p.text));
+                    body.append(zuEl(p, withAns ? p.opts.find(o => o.ok).parts : []));
+                    if (withAns) body.append(el('div', 'pans', V.answerText(p)));
+                    else {
+                        body.append(el('div', 'pline small', 'あって いる もとめかたに ○を つけよう。'));
+                        p.opts.forEach(o => body.append(el('div', 'pline small', '（　）' + o.text)));
+                        body.append(el('div', 'pline', '●は ぜんぶで（　　　　）こ'));
+                    }
+                } else if (p.type === 'tsukuru') {
+                    body.append(el('div', 'ptext', p.text));
+                    body.append(el('div', 'pline', withAns ? V.tsukuruText(p, p.ans) : V.tsukuruText(p, {})));
+                    if (!withAns) {
+                        ['A', 'B', 'Q'].forEach(k => body.append(el('div', 'pline small', { A: 'ア', B: 'イ', Q: 'ウ' }[k] + '：' + p.cards[k].join('　／　'))));
+                    }
                 } else {
                     body.append(el('div', 'ptext', p.text));
                     if (p.sub === 'same') {
@@ -515,6 +663,7 @@
     }
     function sayText() {
         const p = lv.p;
+        if (p.type === 'tsukuru') return (p.text + '　' + V.tsukuruText(p, lv.ans)).replace(/［ア］/g, ' ア ').replace(/［イ］/g, ' イ ').replace(/［ウ］/g, ' ウ ');
         return (p.segs ? L.plain(p.segs) + (p.q || '') : p.text + '　' + V.rowsText(p))
             .replace(/□/g, ' しかく ').replace(/○/g, ' まる ').replace(/＝/g, ' は ').replace(/＋/g, ' たす ');
     }

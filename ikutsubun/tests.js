@@ -182,7 +182,7 @@
 
 
         /* ================= レベルアップ（levelup.js） ================= */
-        t('レベルアップは 5しゅるい（ミニテスト つき）', V.LV_IDS.join() === 'kotae,iranai,enzan,kimari,test');
+        t('レベルアップは 8しゅるい（ミニテスト つき）', V.LV_IDS.join() === 'kotae,iranai,enzan,kimari,bai,zu,tsukuru,test');
         t('URL で レベルアップを ひらける', L.parseHash('#m=kimari').m === 'kimari' && L.parseHash('#m=test').m === 'test');
         t('2けたの よみ：13ひき・20ひき', L.fixReading('13ひき 20ひき 16ひき') === '13びき 20ぴき 16ぴき');
         const sg = V.renderLv('(#Cこ)[#Aこずつ]{#B人}<のこりは>', { A: 3, B: 4, C: 7 });
@@ -196,8 +196,8 @@
         }));
         t('いらない 文の たんいは 問いと まぎらわしく ない', !exBad.length, exBad.join(','));
         const lvKanji = [];
-        [...V.EXTRA.map(x => x.t), ...V.ADD, ...V.SUB, ...V.LV_TYPES.map(x => x.name + x.sub)].forEach(x => {
-            [...x].forEach(ch => { if (!okChar(ch) && !/[＋−×○□＝（）<>()]/.test(ch)) lvKanji.push(ch); });
+        [...V.EXTRA.map(x => x.t), ...V.ADD, ...V.SUB, ...V.BAI_TEXT.map(x => x.t), ...V.LV_TYPES.map(x => x.name + x.sub)].forEach(x => {
+            [...x].forEach(ch => { if (!okChar(ch) && !/[＋−×○□＝（）<>()●]/.test(ch)) lvKanji.push(ch); });
         });
         t('レベルアップの 文も 2年生までの 漢字', !lvKanji.length, [...new Set(lvKanji)].join(''));
         const tplBad = [...V.ADD, ...V.SUB].filter(x => !x.includes('#X') || !x.includes('#Y') || !/<[^>]+>/.test(x));
@@ -287,12 +287,93 @@
         t('うまって いるか', !V.filled({ rows: [[{ box: 'x', d: 1 }, { chips: 'u', opts: ['こ'] }]] }, { x: 3 })
             && V.filled({ rows: [[{ box: 'x', d: 1 }, { chips: 'u', opts: ['こ'] }]] }, { x: 3, u: 'こ' }));
 
+
+        /* ④ なんばい */
+        const bg = V.makeLvGen(SCENES, seeded(33));
+        const baiBad = [], baiSub = new Set();
+        for (let i = 0; i < 300; i++) {
+            const p = bg.next('bai');
+            baiSub.add(p.sub);
+            if (p.ans.p !== p.a * p.b || p.ans.n !== p.a * p.b || p.ans.s1 !== p.a || p.ans.s2 !== p.b) baiBad.push('ans');
+            if (p.a < 2 || p.b < 2 || p.a > 9 || p.b > 9) baiBad.push('2〜9');
+            if (/#|undefined/.test(p.text + V.rowsText(p))) baiBad.push('text ' + p.text);
+            if (p.sub === 'tape' && p.ans.k !== p.b) baiBad.push('k');
+            if (!p.text.includes(p.a + (p.u === 'cm' ? 'cm' : ''))) baiBad.push('a ' + p.text);
+            if (!V.checkLv(p, JSON.parse(JSON.stringify(p.ans))).ok) baiBad.push('ok');
+        }
+        t('なんばい：答えが あう・テープの 図と 文の 2しゅるい（300もん）', !baiBad.length && baiSub.size === 2, baiBad.slice(0, 3).join(' / '));
+        const bp = V.makeBai(seeded(1), 'tape');
+        let br = V.checkLv(bp, Object.assign({}, bp.ans, { k: bp.b === 9 ? 8 : bp.b + 1 }));
+        t('なんばい：ばいの 数が ちがう', !br.ok && br.why === 'kai' && br.score === 5);
+        br = V.checkLv(bp, Object.assign({}, bp.ans, { s1: bp.ans.s2, s2: bp.ans.s1 }));
+        t('なんばい：しきの じゅんばん', bp.a === bp.b || (!br.ok && br.why === 'order'));
+
+        /* ⑥ ●の 図 */
+        const zBad = [], zSub = new Set();
+        for (let i = 0; i < 400; i++) {
+            const p = bg.next('zu');
+            zSub.add(p.sub);
+            const cells = new Set(p.cells.map(c => c.join(',')));
+            if (p.n !== p.cells.length || p.n > 99 || p.n < 5) zBad.push('n ' + p.n);
+            const goods = p.opts.filter(o => o.ok), bads = p.opts.filter(o => !o.ok);
+            if (goods.length !== 2 || bads.length !== 2 || p.opts.length !== 4 || new Set(p.opts.map(o => o.text)).size !== 4) zBad.push('opts');
+            if (p.ans.m.join() !== goods.map(o => o.text).sort().join()) zBad.push('ans');
+            /* ただしい もとめかた：四角の ●を たす・ひく と、図の ●と ぴったり おなじに なる */
+            goods.forEach(o => {
+                const cnt = {};
+                o.parts.forEach(r => {
+                    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) cnt[x + ',' + y] = (cnt[x + ',' + y] || 0) + (r.s || 1);
+                });
+                const keys = Object.keys(cnt).filter(k => cnt[k] !== 0);
+                if (keys.length !== cells.size || keys.some(k => cnt[k] !== 1 || !cells.has(k))) zBad.push('parts ' + o.text);
+                const val = o.parts.reduce((s, r) => s + (r.s || 1) * r.w * r.h, 0);
+                const nums = o.text.match(/\d+×\d+/g).map(m => m.split('×').map(Number));
+                if (val !== p.n || nums.length !== o.parts.length || nums.some(([w, h], j) => w !== o.parts[j].w || h !== o.parts[j].h)) zBad.push('text ' + o.text);
+            });
+            /* まちがいの もとめかたは 答えが ちがう */
+            bads.forEach(o => {
+                const nums = o.text.match(/\d+×\d+/g).map(m => m.split('×').reduce((x, y) => x * y, 1));
+                const v = o.text.includes('ひく') ? nums[0] - nums[1] : nums.reduce((x, y) => x + y, 0);
+                if (v === p.n) zBad.push('bad=n ' + o.text);
+            });
+        }
+        t('●の 図：ただしい もとめかたは 図と ぴったり・まちがいは 数が ちがう（400もん）', !zBad.length && zSub.size === 2, zBad.slice(0, 3).join(' / '));
+        const zp = V.makeZu(seeded(2), 'L');
+        let zr = V.checkLv(zp, { m: zp.ans.m.slice(0, 1), n: zp.n });
+        t('●の 図：もとめかたが たりない（5点）', !zr.ok && zr.why === 'fewer' && zr.score === 5);
+        zr = V.checkLv(zp, { m: zp.ans.m.slice(), n: zp.n + 1 });
+        t('●の 図：●の 数が ちがう（5点）', !zr.ok && zr.why === 'count' && zr.score === 5);
+        zr = V.checkLv(zp, { m: zp.opts.map(o => o.text), n: zp.n });
+        t('●の 図：まちがいも えらんだ', !zr.ok && zr.why === 'wrongPick');
+
+        /* ⑦ もんだいづくり */
+        const tBad = [];
+        for (let i = 0; i < 300; i++) {
+            const p = bg.next('tsukuru');
+            const sc = SCENES.find(s => s.id === p.sid);
+            if (p.a === p.b) tBad.push('a=b');
+            if (sc.a) tBad.push('fixed ' + sc.id);
+            ['A', 'B', 'Q'].forEach(k => {
+                if (!p.cards[k].includes(p.ans[k]) || new Set(p.cards[k]).size !== p.cards[k].length) tBad.push('cards ' + k + ' ' + p.sid);
+            });
+            const full = V.tsukuruText(p, p.ans);
+            const direct = L.plain(L.render(sc.t[p.ti], p.a, p.b)) + sc.q;
+            if (full !== direct) tBad.push('text ' + full + ' ≠ ' + direct);
+            if (!V.tsukuruText(p, {}).includes('［ア］') || !V.tsukuruText(p, {}).includes('［ウ］')) tBad.push('slots');
+        }
+        t('もんだいづくり：せいかいの カードで もとの 文に もどる（300もん）', !tBad.length, tBad.slice(0, 3).join(' / '));
+        const tp = V.makeTsukuru(SCENES.find(s => s.id === 'ringo'), 0, 3, 4, seeded(4));
+        t('もんだいづくり：ア・イ を いれかえた', V.checkLv(tp, { A: '4こずつ', B: '3さら分', Q: tp.ans.Q }).why === 'swap');
+        t('もんだいづくり：問いが ちがう', V.checkLv(tp, { A: '3こずつ', B: '4さら分', Q: 'のこりは 何こ ですか。' }).why === 'Q');
+        t('もんだいづくり：せいかい', V.checkLv(tp, { A: '3こずつ', B: '4さら分', Q: tp.ans.Q }).ok);
+
         /* ミニテスト */
         const tl = V.makeTest(V.makeLvGen(SCENES, seeded(5)));
-        t('ミニテストは 10もん（しきと答え3・いらない2・計算えらび2・きまり3）', tl.map(p => p.type).join() === V.TEST_PLAN.join());
+        t('ミニテストは 10もん（しきと答え2・いらない1・ばい1・計算えらび2・きまり2・図1・もんだいづくり1）', tl.map(p => p.type).join() === V.TEST_PLAN.join()
+            && V.TEST_PLAN.length === 10 && new Set(V.TEST_PLAN).size === 7);
         const full = tl.map(p => V.checkLv(p, JSON.parse(JSON.stringify(p.ans))));
         t('ぜんぶ せいかいで 100点', V.testScore(full) === 100, V.testScore(full));
-        t('にがてな しゅるいを かぞえる', JSON.stringify(V.weakTypes(tl, full.map((r, i) => i < 2 ? { ok: false } : r))) === '{"kotae":2}');
+        t('にがてな しゅるいを かぞえる', JSON.stringify(V.weakTypes(tl, full.map((r, i) => i < 3 ? { ok: false } : r))) === '{"kotae":2,"iranai":1}');
 
         return rows;
     }
