@@ -17,11 +17,12 @@
     /* ---------- よみかたの なおし ---------- */
     /* 3びき・6ぴき・1ぱい など、数で よみかたが かわる たんい */
     const SOUND = {
-        'ひき': { 1: 'ぴき', 3: 'びき', 6: 'ぴき', 8: 'ぴき', 10: 'ぴき', '何': 'びき' },
-        'はい': { 1: 'ぱい', 3: 'ばい', 6: 'ぱい', 8: 'ぱい', 10: 'ぱい', '何': 'ばい' },
+        'ひき': { 0: 'ぴき', 1: 'ぴき', 3: 'びき', 6: 'ぴき', 8: 'ぴき', '何': 'びき' },
+        'はい': { 0: 'ぱい', 1: 'ぱい', 3: 'ばい', 6: 'ぱい', 8: 'ぱい', '何': 'ばい' },
     };
+    /* 2けたは 下の けたで きまる（13びき・20ぴき） */
     function fixReading(s) {
-        return String(s).replace(/(10|[0-9]|何)(ひき|はい)/g, (m, n, u) => n + (SOUND[u][n] || u));
+        return String(s).replace(/([0-9]|何)(ひき|はい)/g, (m, n, u) => n + (SOUND[u][n] || u));
     }
 
     /* ---------- 文の くみたて ----------
@@ -225,7 +226,8 @@
         return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
     }
 
-    const MODES = ['mix', 'kihon', 'gyaku', 'e', 'erabu'];
+    /* レベルアップ（levelup.js）の モードも URL で ひらける */
+    const MODES = ['mix', 'kihon', 'gyaku', 'e', 'erabu', 'kotae', 'iranai', 'enzan', 'kimari', 'test'];
     function parseHash(h) {
         const o = {};
         String(h || '').replace(/^#/, '').split('&').forEach(kv => {

@@ -5,6 +5,10 @@
     const L = window.IkutsuLogic;
     const SCENES = window.IkutsuScenes;
     const ART = window.IkutsuArt;
+    const LV = window.IkutsuLevel;
+    /* レベルアップの モードは lvapp.js が うごかす */
+    const isLv = m => LV.LV_IDS.includes(m === undefined ? st.mode : m);
+    const Lv = () => window.IkutsuLvApp;
     const byId = Object.fromEntries(SCENES.map(s => [s.id, s]));
     const $ = id => document.getElementById(id);
     const el = (tag, cls, text) => {
@@ -19,7 +23,7 @@
     const saved = (() => {
         try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; }
     })();
-    const rec = { total: saved.total || 0, days: saved.days || {} };
+    const rec = { total: saved.total || 0, days: saved.days || {}, best: saved.best || 0, tests: saved.tests || [] };
     const set = {
         steps: saved.steps === 'shiki' ? 'shiki' : 'full',
         color: !!saved.color,
@@ -30,7 +34,8 @@
             /* 日の きろくは さいきんの 60日分 だけ */
             const keys = Object.keys(rec.days).sort();
             keys.slice(0, Math.max(0, keys.length - 60)).forEach(k => delete rec.days[k]);
-            localStorage.setItem(STORE, JSON.stringify({ total: rec.total, days: rec.days, ...set }));
+            rec.tests = rec.tests.slice(-30);
+            localStorage.setItem(STORE, JSON.stringify({ total: rec.total, days: rec.days, best: rec.best, tests: rec.tests, ...set }));
         } catch (e) { /* のこせなくても つづける */ }
     }
     const today = () => L.dayKey(new Date());
@@ -101,35 +106,41 @@
 
     /* ---------- はじめの 画面 ---------- */
     const MODE_INFO = {
-        mix: { icon: '🌈', name: 'ぜんぶ まぜる', sub: 'いろいろな 問題が まざって 出るよ（おすすめ）' },
+        mix: { icon: '🌈', name: 'ぜんぶ まぜる', sub: 'いろいろな もんだいが まざって 出るよ（おすすめ）' },
     };
     L.TYPES.forEach(t => { MODE_INFO[t.id] = { icon: t.icon, name: t.name, sub: t.sub }; });
+    LV.LV_TYPES.forEach(t => { MODE_INFO[t.id] = { icon: t.icon, name: t.name, sub: t.sub }; });
 
     function buildHome() {
-        const box = $('modes');
-        box.textContent = '';
-        ['mix', 'kihon', 'gyaku', 'e', 'erabu'].forEach(id => {
-            const m = MODE_INFO[id];
-            const b = el('button', 'btn mode' + (id === 'mix' ? ' rec' : ''));
-            b.type = 'button';
-            b.append(el('span', 'i', m.icon), el('span', '', m.name), el('small', '', m.sub));
-            b.addEventListener('click', () => start(id));
-            box.append(b);
-        });
+        const fill = (box, ids, recId) => {
+            box.textContent = '';
+            ids.forEach(id => {
+                const m = MODE_INFO[id];
+                const b = el('button', 'btn mode' + (id === recId ? ' rec' : ''));
+                b.type = 'button';
+                b.append(el('span', 'i', m.icon), el('span', '', m.name), el('small', '', m.sub));
+                b.addEventListener('click', () => start(id));
+                box.append(b);
+            });
+        };
+        fill($('modes'), ['mix', 'kihon', 'gyaku', 'e', 'erabu'], 'mix');
+        fill($('lvmodes'), ['test', 'kotae', 'iranai', 'enzan', 'kimari'], 'test');
         showRecord();
     }
     function showRecord() {
         const d = rec.days[today()] || 0;
-        $('record').textContent = rec.total
+        $('record').textContent = (rec.total
             ? 'きょう ' + d + 'もん ／ これまで ぜんぶで ' + rec.total + 'もん'
-            : '';
+            : '') + (rec.tests.length ? '　📝 ミニテスト さいこう ' + rec.best + '点' : '');
     }
 
     function goHome() {
         try { window.speechSynthesis && speechSynthesis.cancel(); } catch (e) { /* */ }
+        if (isLv()) Lv().stop();
         st.mode = '';
         $('home').hidden = false;
         $('play').hidden = true;
+        $('result').hidden = true;
         $('homeBtn').hidden = true;
         $('modeTag').hidden = true;
         $('count').hidden = true;
@@ -154,7 +165,8 @@
         $('modeTag').textContent = MODE_INFO[mode].icon + ' ' + MODE_INFO[mode].name;
         updateCount();
         writeHash();
-        nextProblem();
+        if (isLv(mode)) Lv().start(mode);
+        else nextProblem();
     }
 
     function writeHash() {
@@ -179,6 +191,10 @@
         st.hint = 0;
         st.solved = false;
         st.act = keys()[0];
+        $('frame').hidden = false;
+        $('lframe').hidden = true;
+        $('pad').classList.remove('lv');
+        $('hintBtn').hidden = false;
         if (p.type === 'erabu') return showErabu();
         $('qpane').hidden = false;
         $('apane').hidden = false;
@@ -306,6 +322,8 @@
     }
 
     function input(n) {
+        if (isLv()) return Lv().input(n);
+        if (n === 0) return;
         if (st.solved || !st.p || st.p.type === 'erabu') return;
         const ks = keys();
         if (!ks.includes(st.act)) st.act = ks[0];
@@ -322,6 +340,7 @@
     }
 
     function erase() {
+        if (isLv()) return Lv().erase();
         if (st.solved || !st.p || st.p.type === 'erabu') return;
         const ks = keys();
         if (!st.ans[st.act]) {
@@ -543,7 +562,15 @@
         const d = el('button', 'btn soft del', '⌫ けす');
         d.type = 'button';
         d.addEventListener('click', erase);
-        pad.append(d);
+        /* 0 と こたえあわせ は レベルアップの ときだけ 出る */
+        const z = el('button', 'btn zero', '0');
+        z.type = 'button';
+        z.addEventListener('click', () => input(0));
+        const c = el('button', 'btn go check', '✔ こたえあわせ');
+        c.type = 'button';
+        c.id = 'checkBtn';
+        c.addEventListener('click', () => Lv().check());
+        pad.append(d, z, c);
     }
     $('frame').addEventListener('click', ev => {
         const b = ev.target.closest('.box');
@@ -551,22 +578,25 @@
         st.act = b.dataset.k;
         drawFrame();
     });
-    $('nextBtn').addEventListener('click', nextProblem);
+    $('nextBtn').addEventListener('click', () => (isLv() ? Lv().next() : nextProblem()));
     $('enextBtn').addEventListener('click', nextProblem);
     $('homeBtn').addEventListener('click', goHome);
     $('hintBtn').addEventListener('click', () => {
+        if (isLv()) return Lv().hint();
         if (st.solved) return;
         st.hint = Math.min(st.p.type === 'e' ? 1 : 2, st.hint + 1);
         applyHint();
         setMsg('hint', '<span class="big">💡</span>' + hintMsg());
     });
     $('sayBtn').addEventListener('click', () => {
+        if (isLv()) return say(Lv().sayText());
         const p = st.p, sc = byId[p.sid];
         say(p.type === 'e' ? 'えを 見て、しきを つくろう。' + sc.q : L.plain(p.segs) + sc.q);
     });
 
     document.addEventListener('keydown', ev => {
         if (!st.mode || $('setDlg').open || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+        if (isLv()) return Lv().key(ev);
         const p = st.p;
         if (st.solved && (ev.key === 'Enter' || ev.key === ' ')) {
             ev.preventDefault();
@@ -588,9 +618,16 @@
         }
     });
 
+    /* lvapp.js が つかう もの */
+    window.IkutsuApp = {
+        $, el, SND, say, drawPic, toast, setMsg, countUp, updateCount, writeHash, save, rec, st, set, byId, goHome, start,
+    };
+    $('printBtn').addEventListener('click', () => Lv().printNew());
+
     /* ---------- はじめる ---------- */
     buildPad();
     buildHome();
     syncSettings();
-    if (fromHash.m) start(fromHash.m);
+    /* lvapp.js が 読みこまれてから はじめる */
+    window.addEventListener('DOMContentLoaded', () => { if (fromHash.m) start(fromHash.m); });
 })();
