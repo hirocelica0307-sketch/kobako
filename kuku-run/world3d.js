@@ -6,9 +6,12 @@
    - かげは 計算しない（足もとに まるい かげの 板を おくだけ）。ライトは 2つ・Lambert（かるい 材質）
    - 木・ブロック・道の 点線・かけら・スピード線は InstancedMesh（なんこ あっても 1回で かく）
    - まわりの けしきは グループごと うごかし、うしろへ ぬけた ものだけ 前へ もどす
-   - ゲートは 4つを つかいまわす。数字の 絵（canvas）は 問題が かわった ときだけ かきなおす
+   - ゲートは 4つを つかいまわす
+   - 数字は さいしょに 1まいだけ つくった 字の 絵（0〜9・×・＝・？）を 組みあわせて 出す。
+     あそんでいる 間は 絵を かきなおさず、GPU に 絵を おくりなおさない（一瞬 止まる 原因に なるため）
+   - あそぶ まえに ぜんぶの 材質を いちど じゅんびする（はじめて 出た ときに 止まらない ように）
    - ループの 中では あたらしい オブジェクトを つくらない
-   - 画面の こまかさ（pixelRatio）は 1.5 まで。おそい 端末では じどうで さげる */
+   - 画面の こまかさ（pixelRatio）は 1.5 まで。おそい 端末では さげる だけ（上げ下げを くりかえすと 止まるので もどさない） */
 (function (root) {
     'use strict';
     const T = root.THREE;
@@ -28,79 +31,48 @@
         dash: 0x2747c9,
         post: 0x2747c9,
         divider: 0xf4f4f4,
-        panel: '#f7c331',
-        panelEdge: '#d18f00',
-        panelText: '#1c2445',
-        reviewPanel: '#ffb3c7',
-        reviewEdge: '#e0457b',
     };
 
     function rnd(a, b) { return a + Math.random() * (b - a); }
 
-    /* ---------- canvas の 文字 ---------- */
+    /* ---------- canvas ---------- */
     function makeCanvas(w, h) {
         const c = document.createElement('canvas');
         c.width = w; c.height = h;
         return c;
     }
-    function roundRect(g, x, y, w, h, r) {
-        g.beginPath();
-        g.moveTo(x + r, y);
-        g.arcTo(x + w, y, x + w, y + h, r);
-        g.arcTo(x + w, y + h, x, y + h, r);
-        g.arcTo(x, y + h, x, y, r);
-        g.arcTo(x, y, x + w, y, r);
-        g.closePath();
-    }
-    function canvasTexture(canvas, renderer) {
-        const tx = new T.CanvasTexture(canvas);
-        tx.colorSpace = T.SRGBColorSpace;
-        tx.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
-        tx.generateMipmaps = true;
-        tx.minFilter = T.LinearMipmapLinearFilter;
-        return tx;
-    }
-
-    /** こたえの パネルの 絵（state：'normal' ・ 'review' ・ 'good'（正解を 見せる）） */
-    function drawPanel(canvas, value, state) {
-        const g = canvas.getContext('2d');
-        const W = canvas.width, H = canvas.height;
-        g.clearRect(0, 0, W, H);
-        const face = state === 'good' ? '#7be07b' : state === 'review' ? COL.reviewPanel : COL.panel;
-        const edge = state === 'good' ? '#1f9a3e' : state === 'review' ? COL.reviewEdge : COL.panelEdge;
-        g.fillStyle = edge;
-        roundRect(g, 0, 0, W, H, 26); g.fill();
-        g.fillStyle = face;
-        roundRect(g, 12, 12, W - 24, H - 24, 18); g.fill();
-        const s = String(value);
-        g.fillStyle = COL.panelText;
+    /* ---------- 字の 絵（アトラス） ----------
+       0〜9・×・＝・？ の 13この 字を 1まいの canvas に 1回だけ かく。
+       パネルや ゲートの 数字は この 絵の 一部を はった 板を ならべて つくる */
+    const GLYPHS = '0123456789×=?';
+    const CELL = 128, COLS = 8;
+    const atlasCanvas = makeCanvas(CELL * COLS, CELL * 2);
+    const glyphW = {};     /* 字の はば（0〜1。セルの はばに たいして） */
+    function drawAtlas() {
+        const g = atlasCanvas.getContext('2d');
+        g.clearRect(0, 0, atlasCanvas.width, atlasCanvas.height);
+        g.fillStyle = '#ffffff';
         g.textAlign = 'center';
         g.textBaseline = 'middle';
-        const size = s.length >= 2 ? 150 : 170;
-        g.font = `800 ${size}px ${FONT}`;
-        g.fillText(s, W / 2, H / 2 + size * 0.06);
-    }
-
-    /** ゲートの 上の 問題の 絵 */
-    function drawBanner(canvas, q, review) {
-        const g = canvas.getContext('2d');
-        const W = canvas.width, H = canvas.height;
-        g.clearRect(0, 0, W, H);
-        g.fillStyle = review ? '#ff7aa2' : '#ffffff';
-        g.fillRect(0, 0, W, H);
-        g.textAlign = 'center';
-        g.textBaseline = 'middle';
-        if (review) {
-            g.fillStyle = '#ffffff';
-            g.font = `800 34px ${FONT}`;
-            g.fillText('もういちど！', W / 2, 26);
-            g.font = `800 66px ${FONT}`;
-            g.fillText(`${q.a} × ${q.b} = ?`, W / 2, H / 2 + 22);
-        } else {
-            g.fillStyle = COL.panelText;
-            g.font = `800 76px ${FONT}`;
-            g.fillText(`${q.a} × ${q.b} = ?`, W / 2, H / 2 + 6);
+        g.font = `800 112px ${FONT}`;
+        for (let i = 0; i < GLYPHS.length; i++) {
+            const ch = GLYPHS[i];
+            const cx = (i % COLS) * CELL + CELL / 2, cy = Math.floor(i / COLS) * CELL + CELL / 2;
+            g.fillText(ch, cx, cy + 8);
+            glyphW[ch] = Math.min(1, (g.measureText(ch).width + 6) / CELL);
         }
+    }
+
+    /** 「もういちど！」の 札（1まいだけ） */
+    function labelTexture() {
+        const c = makeCanvas(512, 96);
+        const g = c.getContext('2d');
+        g.fillStyle = '#ffffff';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.font = `800 64px ${FONT}`;
+        g.fillText('もういちど！', 256, 52);
+        return c;
     }
 
     function blobTexture() {
@@ -145,6 +117,48 @@
 
         const lambert = color => new T.MeshLambertMaterial({ color });
         const box = new T.BoxGeometry(1, 1, 1);
+
+        /* 字の 絵（GPU へは 1回だけ） */
+        drawAtlas();
+        const atlasTex = new T.CanvasTexture(atlasCanvas);
+        atlasTex.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+        const inkDark = new T.MeshBasicMaterial({ map: atlasTex, color: 0x1c2445, transparent: true, depthWrite: false });
+        const inkWhite = new T.MeshBasicMaterial({ map: atlasTex, color: 0xffffff, transparent: true, depthWrite: false });
+
+        /** 字の 板（uv だけ かえて 字を かえる） */
+        function makeGlyph(parent, mat) {
+            const geo = new T.PlaneGeometry(1, 1);
+            const m = new T.Mesh(geo, mat);
+            parent.add(m);
+            return m;
+        }
+        function setGlyph(m, ch, h) {
+            const i = GLYPHS.indexOf(ch);
+            const w = glyphW[ch] || 0.6;
+            const u0 = ((i % COLS) + 0.5 - w / 2) / COLS, u1 = ((i % COLS) + 0.5 + w / 2) / COLS;
+            const row = Math.floor(i / COLS);
+            const v1 = 1 - row / 2, v0 = 1 - (row + 1) / 2;
+            const uv = m.geometry.attributes.uv;
+            /* PlaneGeometry の 頂点：左上・右上・左下・右下 */
+            uv.setXY(0, u0, v1); uv.setXY(1, u1, v1); uv.setXY(2, u0, v0); uv.setXY(3, u1, v0);
+            uv.needsUpdate = true;
+            m.scale.set(h * w, h, 1);
+            m.visible = true;
+        }
+        /** 字を ならべる（text の 字数ぶんの 板を つかう。中心 cx・高さ h） */
+        function layoutText(glyphs, text, cx, cy, z, h, gap) {
+            let total = 0;
+            for (let i = 0; i < text.length; i++) total += (glyphW[text[i]] || 0.6) * h + (i ? gap : 0);
+            let x = cx - total / 2;
+            for (let i = 0; i < glyphs.length; i++) {
+                const m = glyphs[i];
+                if (i >= text.length) { m.visible = false; continue; }
+                setGlyph(m, text[i], h);
+                const w = (glyphW[text[i]] || 0.6) * h;
+                m.position.set(x + w / 2, cy, z);
+                x += w + gap;
+            }
+        }
 
         /* ---------- じめん・道 ---------- */
         const ground = new T.Mesh(new T.PlaneGeometry(600, 600), lambert(COL.grass));
@@ -287,6 +301,10 @@
         /* ---------- ゲート ---------- */
         const postMat = lambert(COL.post), dividerMat = lambert(COL.divider);
         const sideMat = lambert(0xd9a21a);
+        const labelTex = new T.CanvasTexture(labelTexture());
+        const labelMat = new T.MeshBasicMaterial({ map: labelTex, transparent: true, depthWrite: false });
+        const PANEL_COLOR = { normal: 0xf7c331, review: 0xffb3c7, good: 0x7be07b };
+        const BANNER_COLOR = { normal: 0xffffff, review: 0xff7aa2 };
         const gates = [];
         for (let gi = 0; gi < GATE_COUNT; gi++) {
             const group = new T.Group();
@@ -294,24 +312,30 @@
             scene.add(group);
             const postL = part(postMat, 0.35, 5.4, 0.35, 0, 2.7, 0, group);
             const postR = part(postMat, 0.35, 5.4, 0.35, 0, 2.7, 0, group);
-            const bannerCanvas = makeCanvas(512, 128);
-            const bannerTex = canvasTexture(bannerCanvas, renderer);
-            const banner = new T.Mesh(new T.PlaneGeometry(1, 1), new T.MeshBasicMaterial({ map: bannerTex }));
+            const bannerMat = new T.MeshBasicMaterial({ color: BANNER_COLOR.normal });
+            const banner = new T.Mesh(new T.PlaneGeometry(1, 1), bannerMat);
             banner.position.set(0, 4.75, 0.2);
             group.add(banner);
             const bannerBack = part(postMat, 1, 1.1, 0.2, 0, 4.75, 0.05, group);
+            /* 問題の 字：「a × b = ?」で 5字 */
+            const qGlyphs = [], qGlyphsW = [];
+            for (let k = 0; k < 5; k++) { qGlyphs.push(makeGlyph(group, inkDark)); qGlyphsW.push(makeGlyph(group, inkWhite)); }
+            const label = new T.Mesh(new T.PlaneGeometry(2.4, 0.45), labelMat);
+            label.position.set(0, 5.32, 0.24);
+            label.visible = false;
+            group.add(label);
             const panels = [];
-            for (let k = 0; k < 3; k++) {
-                const c = makeCanvas(256, 256);
-                const tex = canvasTexture(c, renderer);
-                const face = new T.Mesh(new T.PlaneGeometry(1, 1), new T.MeshBasicMaterial({ map: tex }));
+            for (let k = 0; k < 2; k++) {
+                const mat = new T.MeshBasicMaterial({ color: PANEL_COLOR.normal });
+                const face = new T.Mesh(new T.PlaneGeometry(1, 1), mat);
                 const back = new T.Mesh(box, sideMat);
                 group.add(face, back);
-                panels.push({ canvas: c, tex, face, back, value: 0 });
+                const glyphs = [makeGlyph(group, inkDark), makeGlyph(group, inkDark)];
+                panels.push({ face, back, mat, glyphs, value: 0 });
             }
-            const dividers = [part(dividerMat, 0.18, 2.5, 0.4, 0, 1.25, 0, group), part(dividerMat, 0.18, 2.5, 0.4, 0, 1.25, 0, group)];
+            const dividers = [part(dividerMat, 0.18, 2.5, 0.4, 0, 1.25, 0, group)];
             gates.push({
-                group, postL, postR, banner, bannerBack, bannerCanvas, bannerTex, panels, dividers,
+                group, postL, postR, banner, bannerMat, bannerBack, qGlyphs, qGlyphsW, label, panels, dividers,
                 z: -9999, q: null, answers: [], correct: 0, resolved: true, active: false,
             });
         }
@@ -370,12 +394,13 @@
             dashes.instanceMatrix.needsUpdate = true;
             /* ゲート */
             for (const g of gates) layoutGate(g, n);
-            /* 2まいなら 左・3まいなら まんなかから */
+            /* 左の レーンから */
             run.lane = Math.floor((n - 1) / 2);
             run.x = run.laneXs[run.lane];
             layoutScenery();
         }
 
+        const PANEL_Y = 1.55;
         function layoutGate(g, n) {
             const half = roadHalf - 0.1;
             g.postL.position.x = -half; g.postR.position.x = half;
@@ -387,10 +412,11 @@
                 p.face.visible = p.back.visible = on;
                 if (!on) return;
                 const x = run.laneXs[k];
-                p.face.scale.set(pw, pw * 0.92, 1);
-                p.face.position.set(x, 1.55, 0.17);
+                p.x = x;
+                p.face.scale.set(pw - 0.16, pw * 0.92 - 0.16, 1);
+                p.face.position.set(x, PANEL_Y, 0.17);
                 p.back.scale.set(pw, pw * 0.92, 0.3);
-                p.back.position.set(x, 1.55, 0);
+                p.back.position.set(x, PANEL_Y, 0);
             });
             g.dividers.forEach((d, k) => {
                 d.visible = k < n - 1;
@@ -399,19 +425,28 @@
             g.panelCount = n;
         }
 
-        /** ゲートに 問題を はる */
+        function setPanelVisible(p, on) {
+            p.face.visible = p.back.visible = on;
+            for (const m of p.glyphs) if (!on) m.visible = false;
+        }
+
+        /** ゲートに 問題を はる（絵は かきなおさない。字の 板の uv と 色だけ かえる） */
         function assignGate(g, q, answers, correct, z) {
             g.q = q; g.answers = answers; g.correct = correct;
             g.z = z; g.group.position.z = z;
             g.resolved = false; g.active = true; g.group.visible = true;
-            drawBanner(g.bannerCanvas, q, q.review);
-            g.bannerTex.needsUpdate = true;
+            const review = !!q.review;
+            g.bannerMat.color.setHex(review ? BANNER_COLOR.review : BANNER_COLOR.normal);
+            g.label.visible = review;
+            const qText = `${q.a}×${q.b}=?`;
+            layoutText(review ? g.qGlyphsW : g.qGlyphs, qText, 0, review ? 4.6 : 4.75, 0.23, review ? 0.95 : 1.15, 0.12);
+            for (const m of (review ? g.qGlyphs : g.qGlyphsW)) m.visible = false;
             for (let k = 0; k < g.panelCount; k++) {
                 const p = g.panels[k];
                 p.value = answers[k];
-                p.face.visible = p.back.visible = true;
-                drawPanel(p.canvas, answers[k], q.review ? 'review' : 'normal');
-                p.tex.needsUpdate = true;
+                setPanelVisible(p, true);
+                p.mat.color.setHex(review ? PANEL_COLOR.review : PANEL_COLOR.normal);
+                layoutText(p.glyphs, String(answers[k]), p.x, PANEL_Y, 0.2, 1.75, 0.02);
             }
         }
 
@@ -423,7 +458,7 @@
         function breakPanel(g, k, good) {
             const p = g.panels[k];
             if (!p) return;
-            p.face.visible = p.back.visible = false;
+            setPanelVisible(p, false);
             const x = run.laneXs[k];
             const cols = good ? [0xf7c331, 0xf7c331, 0x1c2445, 0xffffff, 0x7be07b] : [0xff5a4f, 0x1c2445, 0xf7c331, 0x333333];
             burst(x, 1.55, g.z + 0.2, good ? (lite ? 14 : 26) : (lite ? 16 : 30), cols, good ? 1 : 1.4);
@@ -433,8 +468,7 @@
         function showCorrect(g) {
             const p = g.panels[g.correct];
             if (!p || !p.face.visible) return;
-            drawPanel(p.canvas, p.value, 'good');
-            p.tex.needsUpdate = true;
+            p.mat.color.setHex(PANEL_COLOR.good);
         }
 
         function burst(x, y, z, n, colors, power) {
@@ -523,8 +557,8 @@
                 if (!g.active) continue;
                 g.z += dz;
                 g.group.position.z = g.z;
-                /* カメラの すぐ 前まで きたら けす（大きな 板が 画面を ふさがない ように） */
-                g.group.visible = g.z < camDist - 2.5;
+                /* とおりすぎた ゲートは ランナーの すこし うしろで けす（大きな 板が 画面を ふさがない ように） */
+                g.group.visible = g.z < (g.resolved ? 2.5 : camDist - 2.5);
             }
 
             /* ランナー */
@@ -605,20 +639,43 @@
             camera.lookAt(run.x * 0.2, 0.9, -12);
         }
 
-        /* ---------- かく（おそい 端末では こまかさを さげる） ---------- */
-        let slowFrames = 0, fastFrames = 0;
+        /* ---------- かく（おそい 端末では こまかさを さげる） ----------
+           さげるのは「おそい フレームが ずっと つづく」ときだけ・あそびの 中で 1回まで。
+           上げなおしは しない（こまかさの きりかえは 一瞬 止まるので、くりかえさない） */
+        let slowFrames = 0, judged = 0, droppedThisRun = false;
         function render(dt) {
             renderer.render(scene, camera);
-            if (dt > 0) {
-                if (dt > 1 / 40) { slowFrames++; fastFrames = 0; } else { fastFrames++; slowFrames = Math.max(0, slowFrames - 1); }
-                if (slowFrames > 45 && ratio > 0.75) {
+            if (dt <= 0 || droppedThisRun) return;
+            judged++;
+            if (dt > 1 / 40) slowFrames++;
+            if (judged >= 90) {
+                if (slowFrames > 60 && ratio > 0.75) {
                     ratio = Math.max(0.75, ratio - 0.25);
-                    renderer.setPixelRatio(ratio); resize(); slowFrames = 0;
-                } else if (fastFrames > 600 && ratio < maxRatio) {
-                    ratio = Math.min(maxRatio, ratio + 0.25);
-                    renderer.setPixelRatio(ratio); resize(); fastFrames = 0;
+                    renderer.setPixelRatio(ratio);
+                    resize();
+                    droppedThisRun = true;
                 }
+                judged = 0; slowFrames = 0;
             }
+        }
+
+        /** あそぶ まえに ぜんぶの 材質と 字の 絵を じゅんび（はじめて 出る ときに 止まらない ように） */
+        function warmUp() {
+            const saved = gates.map(g => g.group.visible);
+            gates.forEach(g => { g.group.visible = true; g.label.visible = true; });
+            const lv = lines.visible;
+            lines.visible = true;
+            renderer.compile(scene, camera);
+            if (renderer.initTexture) { renderer.initTexture(atlasTex); renderer.initTexture(labelTex); }
+            gates.forEach((g, i) => { g.group.visible = saved[i]; g.label.visible = false; });
+            lines.visible = lv;
+        }
+
+        /** 字の かたちが 読みこまれたら 字の 絵を かきなおす（はじめの 画面で 1回だけ） */
+        function refreshGlyphs() {
+            drawAtlas();
+            atlasTex.needsUpdate = true;
+            if (renderer.initTexture) renderer.initTexture(atlasTex);
         }
 
         function setLite(v) {
@@ -632,6 +689,7 @@
         }
 
         function reset() {
+            droppedThisRun = false; judged = 0; slowFrames = 0;
             for (const g of gates) hideGate(g);
             for (let i = 0; i < BITS; i++) { bitState[i].life = 0; M.makeScale(0, 0, 0); bits.setMatrixAt(i, M); }
             bitsAlive = 0;
@@ -650,6 +708,7 @@
         setLanes(2);
         resize();
         step(0, 0, 0);
+        warmUp();
 
         return {
             gates, renderer,
@@ -657,6 +716,7 @@
             get laneCount() { return run.laneXs.length; },
             setLane(i) { run.lane = Math.max(0, Math.min(run.laneXs.length - 1, i)); },
             setLanes, assignGate, hideGate, breakPanel, showCorrect, crash, step, render, resize, reset, setLite,
+            refreshGlyphs, warmUp,
             get pixelRatio() { return ratio; },
         };
     }

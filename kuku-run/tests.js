@@ -42,7 +42,7 @@
         {
             const r = seeded(1);
             let bad = '';
-            for (const n of [2, 3]) {
+            for (const n of [L.PANELS]) {
                 for (let a = 1; a <= 9; a++) for (let b = 1; b <= 9; b++) {
                     for (let k = 0; k < 8; k++) {
                         const c = L.choicesFor(a, b, n, r);
@@ -55,7 +55,7 @@
                     }
                 }
             }
-            t('パネルは 2まい・3まい とも、正解が 1まいだけ・数が ぜんぶ ちがう（1×1〜9×9）', !bad, bad);
+            t('パネルは 2まい。正解が 1まいだけ・数が ちがう（1×1〜9×9）', !bad, bad);
         }
         {
             const r = seeded(2);
@@ -70,9 +70,9 @@
         }
         {
             const r = seeded(3);
-            const cnt = [0, 0, 0];
-            for (let i = 0; i < 3000; i++) cnt[L.choicesFor(6, 7, 3, r).correct]++;
-            t('正解の ばしょは 左・まんなか・右に ばらける', cnt.every(x => x > 800), cnt.join(' / '));
+            const cnt = [0, 0];
+            for (let i = 0; i < 2000; i++) cnt[L.choicesFor(6, 7, L.PANELS, r).correct]++;
+            t('正解の ばしょは 左・右に ばらける', cnt.every(x => x > 850), cnt.join(' / '));
         }
 
         /* ---------- 出題の 山 ---------- */
@@ -180,28 +180,30 @@
         t('ほめことば：1→せいかい・5→いいね・10→すごい・20→ちょうはやい・30→でんせつ',
             [1, 5, 10, 20, 30, 99].map(L.praiseOf).join() === 'せいかい！,いいね！,すごい！,ちょうはやい！,でんせつ！！,でんせつ！！');
         t('5れんぞく ごとに 画面が ひかる', L.isFlash(5) && L.isFlash(10) && !L.isFlash(0) && !L.isFlash(7));
+        t('ゆるせる ミスは 3かい・パネルは 2まい', L.LIVES === 3 && L.PANELS === 2);
         {
-            const cfg = L.speedOf('futsuu');
-            let v = cfg.start;
-            for (let i = 0; i < 100; i++) v = L.speedUp(v, cfg);
-            t('はやさは さいこうで とまる', v === cfg.max, String(v));
-            t('はやさ：ゆっくり＜ふつう＜はやい', L.SPEEDS.yukkuri.max < L.SPEEDS.futsuu.max && L.SPEEDS.futsuu.max < L.SPEEDS.hayai.max);
-            t('しらない はやさは ふつう', L.speedOf('zzz') === L.SPEEDS.futsuu);
+            const T = [0, 10, 20, 30, 40].map(L.gateTimeAt);
+            t('ゲートまでの 時間：はじめは 4びょう（ゆっくり）', Math.abs(T[0] - 4) < 1e-9, T[0].toFixed(2));
+            t('ゲートまでの 時間：30びょうで 0.6〜0.8びょう（大人でも くるしい）', T[3] > 0.6 && T[3] < 0.8, T[3].toFixed(2));
+            t('ゲートまでの 時間：20びょうでは まだ 1びょう いじょう', T[2] > 1.0, T[2].toFixed(2));
+            t('ゲートまでの 時間は どんどん みじかく なる', T.every((x, i) => i === 0 || x < T[i - 1]), T.map(x => x.toFixed(2)).join(' '));
+            t('はやさに 上限は ない（60びょうで 30びょうの 5ばい いじょう）', L.speedAt(60, 64) > L.speedAt(30, 64) * 5,
+                `${L.speedAt(30, 64).toFixed(0)} → ${L.speedAt(60, 64).toFixed(0)}`);
+            t('マイナスの 時間は 0 と おなじ', L.gateTimeAt(-5) === L.gateTimeAt(0));
         }
 
         /* ---------- きろく ---------- */
         {
-            const s = L.sanitizeSettings({ course: 'zzz', mode: 'x', miss: 7, panels: 4, speed: 'q', voice: false });
-            t('こわれた せっていは 初期値（コース 2のだん・れんぞく・ミス 3・パネル 2・ふつう）',
-                s.course === 'dan2' && s.mode === 'renzoku' && s.miss === 3 && s.panels === 2 && s.speed === 'futsuu' && s.voice === false && s.sound === true);
-            const s2 = L.sanitizeSettings({ course: 'kouhan', mode: 'time', miss: 5, panels: 3, speed: 'hayai', lite: true });
-            t('ただしい せっていは そのまま', s2.course === 'kouhan' && s2.mode === 'time' && s2.miss === 5 && s2.panels === 3 && s2.speed === 'hayai' && s2.lite);
+            const s = L.sanitizeSettings({ course: 'zzz', mode: 'time', speed: 'hayai', lite: 'x' });
+            t('こわれた せっていは 初期値（コース 2のだん・がめん ふつう）', s.course === 'dan2' && s.lite === false && Object.keys(s).join() === 'course,lite');
+            const s2 = L.sanitizeSettings({ course: 'kouhan', lite: true });
+            t('ただしい せっていは そのまま', s2.course === 'kouhan' && s2.lite === true);
         }
         {
             const st = L.sanitizeStats({ '7x8': { ok: 2, ng: '3' }, '0x1': { ok: 1 }, '6x6': null, '5x5': { ok: -1, ng: 0 } });
             t('九九の きろくの こわれた ところを すてる', JSON.stringify(st) === '{"7x8":{"ok":2,"ng":3}}', JSON.stringify(st));
-            const b = L.sanitizeBest({ a: 3, b: -1, c: 'x', d: 2.7 });
-            t('ベストの こわれた ところを すてる', JSON.stringify(b) === '{"a":3,"d":2}', JSON.stringify(b));
+            const b = L.sanitizeBest({ dan3: 3, dan4: -1, dan5: 'x', zenbu: 2.7, dan2_renzoku: 9, zzz: 4 });
+            t('ベストの こわれた ところと ない コースを すてる', JSON.stringify(b) === '{"dan3":3,"zenbu":2}', JSON.stringify(b));
         }
 
         /* ---------- となえかた ---------- */
@@ -211,9 +213,6 @@
             t('81この となえかたが ぜんぶ ある', all);
         }
         t('となえかた：8×9 は「はっく しちじゅうに」', L.kukuReading(8, 9) === 'はっく しちじゅうに');
-        t('もんだいの ところ：7×4 →「しちし」・2×2 →「ににん」・1×1 →「いんいち」',
-            L.kukuQuestionPart(7, 4) === 'しちし' && L.kukuQuestionPart(2, 2) === 'ににん' && L.kukuQuestionPart(1, 1) === 'いんいち',
-            [L.kukuQuestionPart(7, 4), L.kukuQuestionPart(2, 2), L.kukuQuestionPart(1, 1)].join());
 
         return rows;
     }

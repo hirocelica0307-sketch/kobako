@@ -56,42 +56,7 @@
       <span id="nigateList"></span>
     </button>
 
-    <h2>あそびかた</h2>
-    <div class="seg" data-key="mode">
-      <button data-v="renzoku">れんぞく チャレンジ</button>
-      <button data-v="time">タイムアタック<small>60びょう</small></button>
-    </div>
-
-    <div class="row" id="missRow">
-      <h3>ゆるせる<br>ミス</h3>
-      <div class="seg" data-key="miss">
-        <button data-v="1">1かい</button><button data-v="3">3かい</button><button data-v="5">5かい</button>
-      </div>
-    </div>
-    <div class="row">
-      <h3>パネル</h3>
-      <div class="seg" data-key="panels">
-        <button data-v="2">2まい</button><button data-v="3">3まい</button>
-      </div>
-    </div>
-    <div class="row">
-      <h3>はやさ</h3>
-      <div class="seg" data-key="speed">
-        <button data-v="yukkuri">ゆっくり</button><button data-v="futsuu">ふつう</button><button data-v="hayai">はやい</button>
-      </div>
-    </div>
-    <div class="row">
-      <h3>よみあげ</h3>
-      <div class="seg" data-key="voice">
-        <button data-v="true">あり</button><button data-v="false">なし</button>
-      </div>
-    </div>
-    <div class="row">
-      <h3>おと</h3>
-      <div class="seg" data-key="sound">
-        <button data-v="true">あり</button><button data-v="false">なし</button>
-      </div>
-    </div>
+    <h2>せってい</h2>
     <div class="row">
       <h3>がめん</h3>
       <div class="seg" data-key="lite">
@@ -101,7 +66,7 @@
 
     <p id="bestLine" class="best"></p>
     <button id="startBtn" class="start">スタート</button>
-    <p class="howto">◀ ▶ で パネルを えらぶ ／ まちがえると ばくはつして おそくなる<br>まちがえた 九九は すこし あとで「もういちど！」出るよ</p>
+    <p class="howto">◀ ▶ で パネルを えらぶ ／ ミスは 3かいまで<br>だんだん はやく なるよ。どこまで れんぞくで いけるかな？<br>まちがえた 九九は すこし あとで「もういちど！」出るよ</p>
     <p class="foot"><button id="resetBtn" class="link">きろくを けす</button></p>
   </div>
 </section>
@@ -123,7 +88,7 @@
     <p id="rStats" class="stats"></p>
     <p id="rBest" class="best"></p>
     <div id="rReview" class="review">
-      <h3>おさらい <small>（タップで よみあげ）</small></h3>
+      <h3>おさらい</h3>
       <div id="rChips" class="chips"></div>
     </div>
     <button id="practiceBtn" class="start">まちがえた 九九を れんしゅう</button>
@@ -134,7 +99,6 @@
 
 <script src="lib/three.min.js"></script>
 <script src="logic.js"></script>
-<script src="sound.js"></script>
 <script src="world3d.js"></script>
 <script src="main.js"></script>
 </body>
