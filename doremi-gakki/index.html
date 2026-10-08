@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#3d7fd6">
+<meta name="description" content="タブレットや 電子黒板で ひける、けんばん（鍵盤ハーモニカ）・もっきん・てっきん・バスの れんしゅうアプリ。ガイドつきの きょく・じぶんで つくる きょく・ろくおん。">
+<title>ドレミ がっき</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=M+PLUS+Rounded+1c:wght@500;800&display=swap">
+<style>
+/* ドレミ がっき ── 見ため
+   ------------------------------------------------------------------
+   うえ：がっきの タブ と ボタン。まんなか：がっき（画面の のこり ぜんぶ）。
+   けんばん・バスは けんばん、もっきん・てっきんは バーを ならべる。
+   ドレミの いろは 学校で よく つかう シールの いろ
+   （ド あか・レ だいだい・ミ きいろ・ファ みどり・ソ みずいろ・ラ あお・シ むらさき）。
+   クラスの 画面で 見やすい ように、明るい 1しゅるいの 見ため だけに している。
+   ------------------------------------------------------------------ */
+:root{
+    --bg:      #f3f5fa;
+    --panel:   #ffffff;
+    --ink:     #26304a;
+    --thin:    #6b7590;
+    --line:    #dbe1ee;
+    --accent:  #3d7fd6;
+    --accent-s:#e2edfc;
+    --accent-d:#2559a8;
+    --glow:    #ff8c1a;
+    --rec:     #e0413a;
+    --c0:#ff6b6b; --c2:#ffa94d; --c4:#ffd43b; --c5:#69db7c; --c7:#66d9e8; --c9:#74a7ff; --c11:#b197fc;
+    --round: "M PLUS Rounded 1c","Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Noto Sans JP","Noto Sans CJK JP","Yu Gothic",sans-serif;
+    --pop:   "Mochiy Pop One","M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Noto Sans JP",sans-serif;
+    --radius: 14px;
+    --kw: 60px;   /* けんばん・バー 1つの はば（JS が いれる） */
+    --rh: 300px;  /* 1だんの たかさ（JS が いれる） */
+    --n: 15;      /* 1だんの しろい けんばんの かず */
+}
+html{ font-size:clamp(14px, calc(.7vw + .55vh), 22px); height:100%; }
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body{
+    margin:0; height:100%; overflow:hidden;
+    display:flex; flex-direction:column; gap:.45rem;
+    padding:.5rem max(16px, .8rem) max(.5rem, env(safe-area-inset-bottom));
+    background:var(--bg); color:var(--ink);
+    font-family:var(--round); font-weight:800;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+    touch-action:manipulation;
+}
+button, select, input, textarea{ font:inherit; color:inherit; }
+button{ cursor:pointer; }
+button:focus-visible, select:focus-visible{ outline:3px solid var(--accent-d); outline-offset:2px; }
+[hidden]{ display:none !important; }
+
+.btn{
+    min-height:max(44px, 2.5rem); min-width:44px; padding:.2rem .75rem;
+    display:inline-flex; align-items:center; justify-content:center; gap:.3rem;
+    border:2px solid var(--line); border-radius:var(--radius);
+    background:var(--panel); font-size:.95rem; line-height:1.1; white-space:nowrap;
+    transition:transform .08s, background .15s, border-color .15s;
+}
+.btn:active{ transform:scale(.95); }
+.btn:disabled{ opacity:.35; cursor:default; transform:none; }
+.btn.on{ background:var(--accent-s); border-color:var(--accent-d); box-shadow:0 0 0 2px var(--accent-d) inset; }
+.btn.sq{ padding:0; width:max(44px, 2.5rem); }
+
+/* ---------- うえ ---------- */
+.top{ display:flex; align-items:center; gap:.4rem .8rem; flex-wrap:wrap; }
+.logo{ margin:0; font-family:var(--pop); font-weight:400; font-size:1.35rem; letter-spacing:.04em; white-space:nowrap; }
+.tabs{ display:flex; gap:.35rem; flex-wrap:wrap; }
+.tab{
+    min-height:max(48px, 2.8rem); padding:.15rem .8rem .15rem .45rem;
+    display:inline-flex; align-items:center; gap:.4rem;
+    border:2px solid var(--line); border-radius:999px; background:var(--panel); font-size:1rem;
+}
+.tab svg{ width:2.1em; height:1.3em; flex:none; }
+.tab[aria-selected="true"]{ background:var(--ink); border-color:var(--ink); color:#fff; }
+.tools{ margin-left:auto; display:flex; gap:.35rem; }
+
+.ctrl{ display:flex; align-items:center; gap:.4rem .9rem; flex-wrap:wrap; }
+.grp{ display:flex; align-items:center; gap:.3rem; }
+.grp .lbl{ color:var(--thin); font-size:.85rem; }
+.range{ min-width:6.5em; text-align:center; font-size:.95rem; display:inline-flex; align-items:center; justify-content:center; gap:.25em; }
+.count{ min-width:1.6em; text-align:center; font-size:1.1rem; }
+#recBtn.rec{ background:#fde3e1; border-color:var(--rec); color:var(--rec); animation:blink 1s steps(2) infinite; }
+@keyframes blink{ 50%{ box-shadow:0 0 0 3px #f8b9b4; } }
+.dot-rec{ color:var(--rec); }
+
+/* ---------- きょく ---------- */
+.song{
+    display:flex; flex-wrap:wrap; align-items:center; gap:.35rem .5rem;
+    background:var(--panel); border:2px solid var(--line); border-radius:var(--radius);
+    padding:.4rem .55rem;
+}
+.song select{
+    min-height:max(44px, 2.5rem); max-width:16rem; padding:0 .5rem;
+    border:2px solid var(--line); border-radius:var(--radius); background:#fff; font-weight:800;
+}
+.tempo{ display:flex; align-items:center; gap:.25rem; color:var(--thin); font-size:.85rem; }
+.tempo input{ width:7rem; }
+.song .msg{ color:var(--thin); font-size:.85rem; }
+.strip{
+    position:relative; flex-basis:100%; display:flex; gap:.3rem; overflow-x:auto; padding:.35rem .2rem .45rem;
+    scrollbar-width:thin;
+}
+.chip{
+    flex:none; position:relative;
+    min-width:calc(2rem + var(--d, 1) * .55rem); height:2.7rem; padding:0 .25rem;
+    border-radius:10px; border:2px solid rgba(0,0,0,.08);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:var(--st, #eef1f6); font-size:1.05rem; line-height:1;
+    transition:opacity .2s, transform .15s;
+}
+.chip .dots{ height:5px; }
+.chip.rest{ background:#f1f3f8; color:#9aa3b8; font-size:.85rem; }
+.chip.out{ text-decoration:line-through; opacity:.5; }
+.chip.done{ opacity:.32; }
+.chip.now{ border-color:var(--glow); box-shadow:0 0 0 3px #ffd8a8; transform:scale(1.12); z-index:1; }
+
+/* ---------- がっき ---------- */
+.stage{
+    flex:1; min-height:0; position:relative;
+    display:grid; place-items:center; overflow:hidden;
+    touch-action:none;
+}
+.board{
+    display:flex; flex-direction:column; gap:10px; padding:12px;
+    border-radius:20px; box-shadow:0 6px 18px rgba(30,40,70,.18);
+}
+.row{ position:relative; width:calc(var(--n) * var(--kw)); height:var(--rh); }
+.key{ position:relative; }
+.face{ position:absolute; inset:0; }
+.nm{
+    position:absolute; left:50%; pointer-events:none;
+    display:flex; flex-direction:column; align-items:center; gap:2px; line-height:1;
+}
+.dots{ display:flex; gap:3px; justify-content:center; min-height:5px; }
+.dots b{ width:5px; height:5px; border-radius:50%; background:currentColor; }
+.t{ display:grid; place-items:center; white-space:nowrap; letter-spacing:-.03em; }
+.tiny .key.b .nm{ display:none; }   /* けんばんが ほそい ときは ♯・♭の なまえを かくす */
+
+/* けんばん（けんばん・バス） */
+.stage[data-layout="keys"] .board{ background:linear-gradient(#5193e6, #2c68bd); }
+.stage[data-inst="bass"] .board{ background:linear-gradient(#59606f, #2c303b); }
+.keys .row{ overflow:hidden; border-radius:4px 4px 8px 8px; }
+.keys .whites{ display:flex; height:100%; }
+.keys .key.w{ width:var(--kw); height:100%; }
+.keys .key.w .face{
+    inset:0 1.5px 3px;
+    background:linear-gradient(#ffffff 0 82%, #eef1f6);
+    border-radius:0 0 calc(var(--kw) * .12) calc(var(--kw) * .12);
+    box-shadow:inset 0 -6px 0 #d6dbe6, 0 2px 0 rgba(0,0,0,.28);
+    transition:transform .05s;
+}
+.keys .key.w.down .face{ background:linear-gradient(#d3e3fb, #c3d6f3); box-shadow:inset 0 -2px 0 #b5c6e2; transform:translateY(2px); }
+.keys .blacks{ position:absolute; left:0; right:0; top:0; height:60%; pointer-events:none; }
+.keys .key.b{ position:absolute; top:0; height:100%; width:calc(var(--kw) * .6); transform:translateX(-50%); pointer-events:auto; z-index:2; }
+.keys .key.b .face{
+    inset:0 0 2px;
+    background:linear-gradient(#41464f, #15171c); border-radius:0 0 6px 6px;
+    box-shadow:inset 0 -6px 0 #000, 0 2px 3px rgba(0,0,0,.45);
+}
+.keys .key.b.down .face{ background:linear-gradient(#6c7383, #343842); box-shadow:inset 0 -2px 0 #000; }
+.keys .key.w .nm{ bottom:calc(6px + var(--kw) * .1); transform:translateX(-50%); color:#3a4256; }
+.keys .key.w .t{
+    font-size:clamp(11px, calc(var(--kw) * .3), 30px);
+    width:1.9em; height:1.9em; border-radius:50%;
+    background:var(--st, transparent); border:2px solid rgba(0,0,0,.08);
+}
+.keys .key.w .t.long{ font-size:clamp(10px, calc(var(--kw) * .25), 25px); width:2.3em; height:2.3em; }
+.keys .key.b .nm{ bottom:calc(var(--kw) * .16); transform:translateX(-50%); color:#e9ecf3; }
+.keys .key.b .t{ font-size:clamp(8px, calc(var(--kw) * .15), 15px); text-align:center; line-height:1.15; }
+.keys .key.edge .nm{ display:none; }
+.nolabel .t{ color:transparent !important; }
+.nocolor .t{ background:transparent !important; border-color:transparent !important; }
+.keys.nocolor.nolabel .key .nm{ display:none; }
+
+/* バー（もっきん・てっきん） */
+.stage[data-layout="bars"] .board{ background:linear-gradient(#77502f, #4a2f1a); }
+.stage[data-inst="tekkin"] .board{ background:linear-gradient(#34405a, #1b2233); }
+.bars .row{ display:flex; flex-direction:column; }
+.bars .blacks{ position:relative; height:42%; }
+.bars.nosharp .blacks{ display:none; }
+.bars .whites{ display:flex; flex:1; min-height:0; }
+.bars .key{ display:flex; align-items:center; justify-content:center; }
+.bars .key.w{ width:var(--kw); height:100%; }
+.bars .key.b{ position:absolute; top:0; height:100%; width:var(--kw); transform:translateX(-50%); }
+.bars .face{
+    position:relative; inset:auto; width:80%; height:calc(var(--len) * 100%);
+    border-radius:calc(var(--kw) * .14);
+    background:linear-gradient(90deg, #9b4f26, #dc905a 38%, #cc7a45 62%, #8a4420);
+    box-shadow:0 3px 0 rgba(0,0,0,.35), inset 0 0 0 1px rgba(0,0,0,.15);
+    transition:transform .06s, filter .06s;
+}
+.bars .key.b .face{ width:68%; background:linear-gradient(90deg, #6e3417, #a65e30 40%, #96522a 62%, #5f2c12); }
+.stage[data-inst="tekkin"] .bars .face{ background:linear-gradient(90deg, #aab4c3, #f6f8fb 38%, #dfe5ee 62%, #9ba6b6); }
+.stage[data-inst="tekkin"] .bars .key.b .face{ background:linear-gradient(90deg, #7c8798, #c9d0db 40%, #b5bdca 62%, #6f7a8c); }
+.bars .face::before, .bars .face::after{
+    content:""; position:absolute; left:50%; width:clamp(5px, calc(var(--kw) * .12), 10px); aspect-ratio:1;
+    border-radius:50%; background:#3c3c44; transform:translateX(-50%); box-shadow:inset 0 1px 1px rgba(255,255,255,.4);
+}
+.bars .face::before{ top:6%; }
+.bars .face::after{ bottom:6%; }
+.bars .key.down .face{ transform:scale(.94); filter:brightness(1.18); }
+.bars .nm{ top:50%; transform:translate(-50%, -50%); color:#3a2a1c; }
+.stage[data-inst="tekkin"] .bars .nm{ color:#2b3346; }
+.bars .key.w .t{
+    font-size:clamp(11px, calc(var(--kw) * .3), 30px);
+    width:1.9em; height:1.9em; border-radius:50%;
+    background:var(--st, rgba(255,255,255,.55)); border:2px solid rgba(0,0,0,.1);
+}
+.bars .key.w .t.long{ font-size:clamp(10px, calc(var(--kw) * .25), 25px); width:2.3em; height:2.3em; }
+.bars .key.b .t{ font-size:clamp(8px, calc(var(--kw) * .15), 15px); text-align:center; line-height:1.15; color:#fff; }
+.stage[data-inst="tekkin"] .bars .key.b .t{ color:#1d2433; }
+.bars.nocolor .key.w .t{ background:rgba(255,255,255,.4) !important; }
+
+/* ガイド：つぎに ひく ところ */
+.key.next .face{ animation:nextGlow 1s ease-in-out infinite; }
+@keyframes nextGlow{
+    0%,100%{ box-shadow:inset 0 0 0 4px var(--glow), 0 0 0 0 rgba(255,150,40,0); }
+    50%{ box-shadow:inset 0 0 0 6px var(--glow), 0 0 22px 8px rgba(255,170,60,.9); }
+}
+
+.turn{
+    position:absolute; inset:auto 0 .4rem; margin:0 auto; width:max-content; max-width:90%;
+    padding:.3rem .8rem; border-radius:999px; background:rgba(38,48,74,.85); color:#fff;
+    font-size:.85rem; pointer-events:none; display:none;
+}
+@media (orientation:portrait) and (max-width:700px){ .turn{ display:block; } }
+
+/* できた！ */
+.cheer{
+    position:fixed; inset:0; z-index:20; display:grid; place-items:center;
+    background:rgba(243,245,250,.75); backdrop-filter:blur(2px);
+}
+.cheer .card{
+    background:#fff; border:3px solid var(--glow); border-radius:24px; padding:1.2rem 2rem;
+    text-align:center; box-shadow:0 10px 30px rgba(0,0,0,.15); animation:pop .4s cubic-bezier(.2,1.6,.4,1);
+}
+.cheer .big{ font-family:var(--pop); font-weight:400; font-size:2.6rem; margin:.2rem 0 .6rem; }
+.cheer .stars{ font-size:2rem; letter-spacing:.2em; }
+.cheer .row2{ display:flex; gap:.6rem; justify-content:center; margin-top:.8rem; }
+@keyframes pop{ from{ transform:scale(.4); opacity:0; } }
+
+/* ダイアログ */
+dialog{
+    border:none; border-radius:20px; padding:1rem 1.2rem; max-width:min(42rem, 94vw); width:100%;
+    max-height:90vh; overflow:auto; color:var(--ink); box-shadow:0 12px 40px rgba(0,0,0,.25);
+}
+dialog::backdrop{ background:rgba(30,40,70,.35); }
+dialog h2{ margin:.1rem 0 .8rem; font-family:var(--pop); font-weight:400; font-size:1.3rem; }
+.set{ display:grid; grid-template-columns:auto 1fr; gap:.7rem 1rem; align-items:center; }
+.set > span{ color:var(--thin); font-size:.9rem; white-space:nowrap; }
+.seg{ display:flex; gap:.3rem; flex-wrap:wrap; }
+.seg .btn{ font-size:.9rem; }
+.note{ color:var(--thin); font-size:.82rem; font-weight:500; line-height:1.6; margin:.8rem 0 0; }
+.note kbd{ font-family:inherit; font-weight:800; padding:0 .3em; border:1px solid var(--line); border-radius:4px; background:#f6f8fc; }
+.dlg-foot{ display:flex; gap:.5rem; justify-content:flex-end; flex-wrap:wrap; margin-top:1rem; }
+.dlg-foot .left{ margin-right:auto; }
+.field{ display:flex; flex-direction:column; gap:.3rem; margin-bottom:.7rem; font-size:.9rem; color:var(--thin); }
+.field input, .field textarea{
+    border:2px solid var(--line); border-radius:12px; padding:.45rem .6rem; color:var(--ink); font-weight:800;
+    -webkit-user-select:text; user-select:text;
+}
+.field textarea{ min-height:7rem; resize:vertical; font-size:1.05rem; line-height:1.6; }
+.preview{ display:flex; flex-wrap:wrap; gap:.25rem; min-height:2.8rem; padding:.3rem; border-radius:12px; background:#f6f8fc; }
+.preview .chip{ height:2.3rem; font-size:.9rem; }
+.err{ color:var(--rec); font-size:.9rem; min-height:1.3em; margin:.3rem 0 0; }
+.share{ display:flex; gap:.4rem; margin-top:.6rem; }
+.share input{ flex:1; min-width:0; border:2px solid var(--line); border-radius:12px; padding:.35rem .5rem; font-size:.8rem; font-weight:500; -webkit-user-select:text; user-select:text; }
+.help{ margin:.2rem 0 .6rem; padding:.5rem .7rem; border-radius:12px; background:#fff8e6; font-size:.82rem; font-weight:500; line-height:1.7; }
+.help b{ font-weight:800; }
+
+@media (max-width:640px){
+    .logo{ font-size:1.1rem; }
+    .tab{ padding:.1rem .55rem .1rem .35rem; font-size:.9rem; }
+    .tab .tl{ display:none; }
+    .tab svg{ width:2.4em; height:1.5em; }
+}
+@media (max-height:520px){
+    body{ gap:.3rem; padding-top:.3rem; }
+    .logo{ display:none; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+    <h1 class="logo">ドレミ がっき</h1>
+    <nav class="tabs" role="tablist" aria-label="がっき">
+        <button class="tab" role="tab" data-inst="kenban" aria-selected="false">
+            <svg viewBox="0 0 40 24" aria-hidden="true"><rect x="1" y="2" width="38" height="20" rx="5" fill="#3d7fd6"/><g fill="#fff"><rect x="5" y="6" width="5" height="13" rx="1"/><rect x="11" y="6" width="5" height="13" rx="1"/><rect x="17" y="6" width="5" height="13" rx="1"/><rect x="23" y="6" width="5" height="13" rx="1"/><rect x="29" y="6" width="5" height="13" rx="1"/></g><g fill="#222"><rect x="8.5" y="6" width="3" height="8"/><rect x="14.5" y="6" width="3" height="8"/><rect x="26.5" y="6" width="3" height="8"/></g></svg>
+            <span class="tl">けんばん</span>
+        </button>
+        <button class="tab" role="tab" data-inst="mokkin" aria-selected="false">
+            <svg viewBox="0 0 40 24" aria-hidden="true"><g fill="#c97640" stroke="#7a3d1b" stroke-width=".8"><rect x="3" y="2" width="5" height="20" rx="1.5"/><rect x="10" y="3.5" width="5" height="17" rx="1.5"/><rect x="17" y="5" width="5" height="14" rx="1.5"/><rect x="24" y="6.5" width="5" height="11" rx="1.5"/><rect x="31" y="8" width="5" height="8" rx="1.5"/></g></svg>
+            <span class="tl">もっきん</span>
+        </button>
+        <button class="tab" role="tab" data-inst="tekkin" aria-selected="false">
+            <svg viewBox="0 0 40 24" aria-hidden="true"><g fill="#dfe5ee" stroke="#6f7a8c" stroke-width=".8"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="4.5" width="5" height="15" rx="1"/><rect x="17" y="6" width="5" height="12" rx="1"/><rect x="24" y="7" width="5" height="10" rx="1"/><rect x="31" y="8" width="5" height="8" rx="1"/></g></svg>
+            <span class="tl">てっきん</span>
+        </button>
+        <button class="tab" role="tab" data-inst="bass" aria-selected="false">
+            <svg viewBox="0 0 40 24" aria-hidden="true"><rect x="1" y="2" width="38" height="20" rx="5" fill="#4b5263"/><g fill="#fff"><rect x="5" y="6" width="9" height="13" rx="1"/><rect x="15.5" y="6" width="9" height="13" rx="1"/><rect x="26" y="6" width="9" height="13" rx="1"/></g><g fill="#222"><rect x="11.5" y="6" width="5" height="8"/><rect x="22" y="6" width="5" height="8"/></g></svg>
+            <span class="tl">バス</span>
+        </button>
+    </nav>
+    <div class="tools">
+        <button id="songBtn" class="btn" aria-pressed="false">🎵 きょく</button>
+        <button id="setBtn" class="btn sq" aria-label="せってい">⚙️</button>
+        <button id="fsBtn" class="btn sq" aria-label="がめん いっぱい">⛶</button>
+    </div>
+</header>
+
+<div class="ctrl">
+    <div class="grp">
+        <button id="leftBtn" class="btn sq" aria-label="ひくい ほうへ">◀</button>
+        <span id="range" class="range" aria-live="polite"></span>
+        <button id="rightBtn" class="btn sq" aria-label="たかい ほうへ">▶</button>
+    </div>
+    <div class="grp">
+        <span id="countLbl" class="lbl">けんばん</span>
+        <button id="fewerBtn" class="btn sq" aria-label="へらす">－</button>
+        <b id="count" class="count"></b>
+        <button id="moreBtn" class="btn sq" aria-label="ふやす">＋</button>
+    </div>
+    <div class="grp">
+        <button id="rowsBtn" class="btn" aria-pressed="false">2だん</button>
+    </div>
+    <div class="grp">
+        <button id="recBtn" class="btn"><span class="dot-rec">●</span> ろくおん</button>
+        <button id="playBtn" class="btn" disabled>▶ きく</button>
+    </div>
+</div>
+
+<section id="songBox" class="song" hidden aria-label="きょくの れんしゅう">
+    <select id="songSel" aria-label="きょく"></select>
+    <button id="demoBtn" class="btn">▶ おてほん</button>
+    <button id="guideBtn" class="btn on" aria-pressed="true">👆 ガイド</button>
+    <button id="againBtn" class="btn sq" aria-label="はじめから">⏮</button>
+    <span class="tempo">🐢<input id="tempo" type="range" min="50" max="160" step="2" aria-label="はやさ">🐇</span>
+    <button id="editBtn" class="btn">✏️ つくる</button>
+    <span id="songMsg" class="msg"></span>
+    <div id="strip" class="strip"></div>
+</section>
+
+<main id="stage" class="stage">
+    <div id="board" class="board"></div>
+    <p class="turn">よこむきに すると ひきやすいよ</p>
+</main>
+
+<div id="cheer" class="cheer" hidden>
+    <div class="card">
+        <div class="stars">⭐⭐⭐</div>
+        <p class="big">できたね！</p>
+        <div id="cheerName"></div>
+        <div class="row2">
+            <button id="cheerAgain" class="btn">⏮ もういちど</button>
+            <button id="cheerClose" class="btn">とじる</button>
+        </div>
+    </div>
+</div>
+
+<dialog id="setDlg" aria-label="せってい">
+    <h2>⚙️ せってい</h2>
+    <div class="set">
+        <span>おとの なまえ</span>
+        <div class="seg" data-key="names">
+            <button class="btn" data-v="doremi">ドレミ</button>
+            <button class="btn" data-v="cde">CDE</button>
+            <button class="btn" data-v="none">なし</button>
+        </div>
+        <span>いろ</span>
+        <div class="seg" data-key="color">
+            <button class="btn" data-v="1">あり</button>
+            <button class="btn" data-v="0">なし</button>
+        </div>
+        <span id="toneLbl">ねいろ</span>
+        <div class="seg" id="toneSeg" data-key="tone"></div>
+        <span id="sharpLbl">♯・♭の バー</span>
+        <div class="seg" id="sharpSeg" data-key="sharps">
+            <button class="btn" data-v="1">あり</button>
+            <button class="btn" data-v="0">なし（ドレミだけ）</button>
+        </div>
+        <span>おとの おおきさ</span>
+        <input id="vol" type="range" min="0" max="100" step="5" aria-label="おとの おおきさ">
+    </div>
+    <p class="note">
+        パソコンの キーボードでも ひけます：<kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd><kbd>G</kbd><kbd>H</kbd><kbd>J</kbd><kbd>K</kbd> が ドレミファソラシド、
+        <kbd>W</kbd><kbd>E</kbd><kbd>T</kbd><kbd>Y</kbd><kbd>U</kbd> が ♯・♭。<kbd>←</kbd><kbd>→</kbd> で けんばんを うごかす。<br>
+        iPad で 音が でない ときは、よこの スイッチ（マナーモード）と 音量を たしかめてください。
+    </p>
+    <div class="dlg-foot"><button class="btn" data-close>とじる</button></div>
+</dialog>
+
+<dialog id="edDlg" aria-label="じぶんの きょく">
+    <h2>✏️ じぶんの きょくを つくる</h2>
+    <div class="help">
+        <b>ドレミ</b>で かきます（ひらがなでも OK）。くぎりは スペース。<b>ー</b> で のばす（ドー は 2はく、ドーーー は 4はく）。<br>
+        <b>高ド</b>・<b>低ソ</b> で 1オクターブ うえ・した。<b>シ♭</b>・<b>ファ#</b>。<b>休</b> で やすみ。<b>ド0.5</b> で はんぶんの ながさ。<br>
+        れい：<b>ド レ ミ ファ ミ レ ドー ミ ファ ソ ラ ソ ファ ミー</b>
+    </div>
+    <label class="field">きょくの なまえ<input id="edName" maxlength="30" placeholder="れい：かえるのうた"></label>
+    <label class="field">ドレミ<textarea id="edText" spellcheck="false" placeholder="ド レ ミ ファ ミ レ ドー"></textarea></label>
+    <div id="edPrev" class="preview" aria-label="よみとった おと"></div>
+    <p id="edErr" class="err"></p>
+    <div class="share">
+        <input id="edLink" readonly aria-label="くばる リンク" placeholder="「リンクを つくる」を おすと ここに でます">
+        <button id="edLinkBtn" class="btn">🔗 リンクを つくる</button>
+    </div>
+    <div class="dlg-foot">
+        <button id="edDel" class="btn left">🗑 けす</button>
+        <button id="edTry" class="btn">▶ きいてみる</button>
+        <button id="edSave" class="btn">💾 ほぞんして つかう</button>
+        <button class="btn" data-close>とじる</button>
+    </div>
+</dialog>
+
+<script>
+'use strict';
+/* ==================================================================
+   ドレミ がっき
+   ------------------------------------------------------------------
+   ・おとは Web Audio で その場で つくる（おとの ファイルは つかわない）
+   ・おとの ばんごうは MIDI（まんなかの ド＝60）。がっきに かいてある ドレミ（かく おと）と
+     じっさいに なる おと は、もっきん＋1オクターブ・てっきん＋2オクターブ（本物と おなじ）
+   ・せっていと じぶんの きょくは この ブラウザに おぼえる（どこにも おくらない）
+   ================================================================== */
+
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const KEY = 'doremi-gakki.v1';
+
+/* ---------- がっき ---------- */
+const INST = {
+    kenban: { label:'けんばん',   unit:'けんばん', layout:'keys', min:53, max:84, start:60, xpose:0,
+              tones:[['kenhamo','けんばんハーモニカ'],['piano','ピアノ'],['recorder','リコーダー']] },
+    mokkin: { label:'もっきん',   unit:'バー',     layout:'bars', min:53, max:84, start:60, xpose:12, tones:[['xylo','もっきん']] },
+    tekkin: { label:'てっきん',   unit:'バー',     layout:'bars', min:55, max:84, start:60, xpose:24, tones:[['glock','てっきん']] },
+    bass:   { label:'バス',       unit:'けんばん', layout:'keys', min:28, max:60, start:36, xpose:0, home:36,
+              tones:[['ebass','ベース'],['obass','オルガン']] },
+};
+const isBlack = m => [1,3,6,8,10].includes(((m % 12) + 12) % 12);
+const WH = {};   // がっきごとの しろい けんばんの ならび
+for (const k in INST) { WH[k] = []; for (let m = INST[k].min; m <= INST[k].max; m++) if (!isBlack(m)) WH[k].push(m); }
+
+/* ---------- おとの なまえ ---------- */
+const LET_DO = ['ド','レ','ミ','ファ','ソ','ラ','シ'];
+const LET_C  = ['C','D','E','F','G','A','B'];
+const LET_PC = [0,2,4,5,7,9,11];
+const PC_LET = {0:0,2:1,4:2,5:3,7:4,9:5,11:6};
+const STICK = {0:'var(--c0)',2:'var(--c2)',4:'var(--c4)',5:'var(--c5)',7:'var(--c7)',9:'var(--c9)',11:'var(--c11)'};
+const pcOf = m => ((m % 12) + 12) % 12;
+// オクターブの 点の かず。まんなかの ド（バスは 2オクターブ した の ド）の オクターブ＝0
+const octOf = m => Math.floor((m - ((INST[S.inst].home || 60) - 60)) / 12) - 5;
+function letName(L, acc){
+    const base = (S.names === 'cde' ? LET_C : LET_DO)[L];
+    return base + (acc > 0 ? '♯' : acc < 0 ? '♭' : '');
+}
+function dotsHTML(o){ return '<i class="dots">' + '<b></b>'.repeat(Math.min(Math.abs(o), 3)) + '</i>'; }
+// けんばんに かく なまえ（しろ：1つ、くろ：♯ と ♭ の 2つ）
+function keyLabelHTML(m){
+    const pc = pcOf(m), o = octOf(m);
+    let t;
+    if (!isBlack(m)) {
+        const L = PC_LET[pc], s = letName(L, 0);
+        t = `<span class="t${s.length > 1 ? ' long' : ''}" style="--st:${S.color ? STICK[pc] : 'transparent'}">${s}</span>`;
+    } else {
+        const lo = PC_LET[pc - 1], hi = PC_LET[pc + 1];
+        t = `<span class="t">${letName(lo, 1)}<br>${letName(hi, -1)}</span>`;
+    }
+    return `<span class="nm">${o > 0 ? dotsHTML(o) : '<i class="dots"></i>'}${t}${o < 0 ? dotsHTML(o) : '<i class="dots"></i>'}</span>`;
+}
+
+/* ---------- せってい ---------- */
+const S = {
+    inst:'kenban', names:'doremi', color:true, sharps:true, vol:80,
+    tone:{ kenban:'kenhamo', bass:'ebass', mokkin:'xylo', tekkin:'glock' },
+    view:{}, songOpen:false, songId:'kaeru', guide:true, tempo:92, mysongs:[],
+};
+try {
+    const s = JSON.parse(localStorage.getItem(KEY) || '{}');
+    for (const k of Object.keys(S)) if (s[k] !== undefined) S[k] = (typeof S[k] === 'object' && !Array.isArray(S[k])) ? Object.assign(S[k], s[k]) : s[k];
+    if (!INST[S.inst]) S.inst = 'kenban';
+} catch (e) {}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+function defaultCount(){
+    const w = innerWidth;
+    return w < 520 ? 8 : w < 820 ? 10 : w < 1200 ? 13 : 15;
+}
+// いま 見えている はんい（si＝さいしょの しろい けんばんの ばんごう、count＝1だんの かず、rows＝だん）
+function V(inst = S.inst){
+    const W = WH[inst];
+    let v = S.view[inst];
+    if (!v) v = S.view[inst] = { si: Math.max(0, W.indexOf(INST[inst].start)), count: defaultCount(), rows: 1 };
+    v.rows = v.rows === 2 ? 2 : 1;
+    v.count = Math.max(5, Math.min(v.count | 0 || 8, Math.floor(W.length / v.rows)));
+    v.si = Math.max(0, Math.min(v.si | 0, W.length - v.count * v.rows));
+    return v;
+}
+
+/* ==================================================================
+   おと（Web Audio）
+   ================================================================== */
+let ctx = null, master = null, revIn = null;
+const waves = {};
+let noiseBuf = null;
+const live = [];   // なっている こえ（おおすぎたら ふるい ものから けす）
+
+function ensureAudio(){
+    if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return false;
+        try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+        ctx = new AC({ latencyHint:'interactive' });
+        master = ctx.createGain();
+        const comp = ctx.createDynamicsCompressor();
+        comp.threshold.value = -14; comp.knee.value = 12; comp.ratio.value = 4;
+        comp.attack.value = .003; comp.release.value = .2;
+        master.connect(comp).connect(ctx.destination);
+        // ひびき（てっきん・もっきん に すこし）
+        const conv = ctx.createConvolver();
+        conv.buffer = makeImpulse(1.8);
+        revIn = ctx.createGain(); revIn.gain.value = .5;
+        revIn.connect(conv).connect(master);
+        setVolume();
+    }
+    if (ctx.state !== 'running') ctx.resume();
+    return true;
+}
+function setVolume(){ if (master) master.gain.value = Math.pow(S.vol / 100, 1.6) * .9; }
+function makeImpulse(sec){
+    const n = Math.floor(ctx.sampleRate * sec), b = ctx.createBuffer(2, n, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3); }
+    return b;
+}
+function noise(){
+    if (!noiseBuf) {
+        noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+        const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; return s;
+}
+function wave(name, harm){
+    if (!waves[name]) {
+        const re = new Float32Array(harm.length + 1), im = new Float32Array(harm.length + 1);
+        harm.forEach((a, i) => im[i + 1] = a);
+        waves[name] = ctx.createPeriodicWave(re, im);
+    }
+    return waves[name];
+}
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+const G = v => { const g = ctx.createGain(); g.gain.value = v; return g; };
+function osc(f, type, w){ const o = ctx.createOscillator(); if (w) o.setPeriodicWave(w); else o.type = type; o.frequency.value = f; return o; }
+function filt(type, f, q){ const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q || .7; return b; }
+function hold(p, t){ if (p.cancelAndHoldAtTime) p.cancelAndHoldAtTime(t); else { const v = p.value; p.cancelScheduledValues(t); p.setValueAtTime(v, t); } }
+
+// ながく なる おと（おしている あいだ なる）
+function sustained(build, rel){
+    const t = ctx.currentTime, out = ctx.createGain(); out.gain.value = 0;
+    const srcs = build(out, t);
+    out.connect(master);
+    const v = { end: Infinity, stop(){
+        if (v.stopped) return; v.stopped = true;
+        const t2 = ctx.currentTime; hold(out.gain, t2); out.gain.setTargetAtTime(0, t2, rel);
+        srcs.forEach(s => { try { s.stop(t2 + rel * 8); } catch (e) {} });
+        v.end = t2 + rel * 8;
+    } };
+    return v;
+}
+// たたく おと（かってに きえる）
+function struck(f, parts, decay, amp, click, rev){
+    const t = ctx.currentTime, out = G(amp);
+    out.connect(master);
+    if (rev) { const r = G(rev); out.connect(r); r.connect(revIn); }
+    for (const [ratio, a, dk] of parts) {
+        const fr = f * ratio; if (fr > 18000) continue;
+        const o = osc(fr, 'sine'), g = ctx.createGain(), d = decay * dk;
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(a, t + .002); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+        o.connect(g).connect(out); o.start(t); o.stop(t + d + .05);
+    }
+    if (click) {
+        const n = noise(), b = filt(click.type, click.f, click.q), g = ctx.createGain();
+        g.gain.setValueAtTime(click.a, t); g.gain.exponentialRampToValueAtTime(.0001, t + click.d);
+        n.connect(b).connect(g).connect(out); n.start(t); n.stop(t + click.d + .02);
+    }
+    return { end: t + decay + .1, stop(){} };
+}
+
+const VOICES = {
+    kenhamo(f){   // けんばんハーモニカ：リードの ビーッと した おと
+        return sustained((out, t) => {
+            const lp = filt('lowpass', Math.min(f * 5 + 700, 7500), .9);
+            const o1 = osc(f, 'sawtooth'), o2 = osc(f, 'square'); o2.detune.value = 5;
+            o1.connect(G(.42)).connect(lp); o2.connect(G(.2)).connect(lp); lp.connect(out);
+            const n = noise(), bp = filt('bandpass', Math.min(f * 2.2, 9000), 1.5); n.connect(bp).connect(G(.05)).connect(out);
+            out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(.5, t + .03); out.gain.setTargetAtTime(.36, t + .03, .09);
+            [o1, o2, n].forEach(s => s.start(t)); return [o1, o2, n];
+        }, .025);
+    },
+    piano(f){
+        return sustained((out, t) => {
+            const w = wave('piano', [1, .55, .32, .22, .12, .09, .06, .04, .03]);
+            const o = osc(f, null, w), lp = filt('lowpass', Math.min(f * 9, 12000), .5);
+            lp.frequency.setTargetAtTime(Math.min(f * 3 + 400, 8000), t + .01, .35);
+            o.connect(lp).connect(out);
+            const tau = Math.max(.35, Math.min(1.8, 1.1 * Math.sqrt(261 / f)));
+            out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(.62, t + .004); out.gain.setTargetAtTime(0, t + .004, tau);
+            o.start(t); return [o];
+        }, .07);
+    },
+    recorder(f){
+        return sustained((out, t) => {
+            const w = wave('recorder', [1, .1, .16, .03, .04]);
+            const o = osc(f, null, w);
+            o.frequency.setValueAtTime(f * .985, t); o.frequency.setTargetAtTime(f, t, .02);
+            o.connect(out);
+            const n = noise(), bp = filt('bandpass', Math.min(f * 1.6, 9000), 2.5), gn = ctx.createGain();
+            gn.gain.setValueAtTime(.09, t); gn.gain.setTargetAtTime(.022, t + .02, .05);
+            n.connect(bp).connect(gn).connect(out);
+            out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(.55, t + .035); out.gain.setTargetAtTime(.45, t + .035, .1);
+            o.start(t); n.start(t); return [o, n];
+        }, .02);
+    },
+    ebass(f){     // ベース：はじく おと。ちいさな スピーカーでも きこえる ように 上の おとも まぜる
+        return sustained((out, t) => {
+            const w = wave('bass', [1, .62, .4, .28, .18, .12, .08]);
+            const o = osc(f, null, w), sub = osc(f, 'sine');
+            const lp = filt('lowpass', f * 14 + 400, 2);
+            lp.frequency.setTargetAtTime(f * 4 + 250, t + .005, .12);
+            o.connect(lp); lp.connect(out); sub.connect(G(.45)).connect(out);
+            out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(.8, t + .006); out.gain.setTargetAtTime(.5, t + .006, .3);
+            o.start(t); sub.start(t); return [o, sub];
+        }, .05);
+    },
+    obass(f){
+        return sustained((out, t) => {
+            const w = wave('organ', [1, .55, .0, .32, .0, .16, .0, .08]);
+            const o = osc(f, null, w), lp = filt('lowpass', Math.min(f * 8 + 300, 5000), .6);
+            o.connect(lp).connect(out);
+            out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(.55, t + .012);
+            o.start(t); return [o];
+        }, .04);
+    },
+    xylo(f){      // もっきん：木の コツッと した おと。たかいほど みじかい
+        const d = Math.max(.28, Math.min(1.3, .95 * Math.pow(523 / f, .6)));
+        return struck(f, [[1, 1, 1], [3.98, .2, .28], [9.1, .06, .1]], d, .75,
+            { type:'bandpass', f:Math.min(f * 2.6, 9000), q:1.2, a:.35, d:.02 }, .12);
+    },
+    glock(f){     // てっきん：金ぞくの キーンと ながく のこる おと
+        const d = Math.max(.9, Math.min(3, 2.4 * Math.sqrt(1046 / f)));
+        return struck(f, [[1, 1, 1], [2.76, .22, .32], [5.4, .09, .12], [8.93, .035, .06]], d, .42,
+            { type:'highpass', f:4000, q:.7, a:.12, d:.012 }, .35);
+    },
+};
+function startVoice(inst, m){
+    if (!ensureAudio()) return { stop(){} };
+    const now = ctx.currentTime;
+    for (let i = live.length - 1; i >= 0; i--) if (live[i].end < now) live.splice(i, 1);
+    while (live.length > 28) live.shift().stop();
+    const I = INST[inst], tone = I.tones.some(t => t[0] === S.tone[inst]) ? S.tone[inst] : I.tones[0][0];
+    const v = VOICES[tone](mtof(m + I.xpose));
+    live.push(v);
+    return v;
+}
+
+/* ==================================================================
+   けんばん・バーを かく
+   ================================================================== */
+const stage = $('#stage'), board = $('#board');
+let keyEls = new Map();      // おと → [要素]
+const downN = new Map();     // おと → おしている かず
+
+function el(tag, cls){ const e = document.createElement(tag); if (cls) e.className = cls; return e; }
+function makeKey(m, black, inst){
+    const I = INST[inst];
+    const k = el('div', 'key ' + (black ? 'b' : 'w'));
+    k.dataset.m = m;
+    if (I.layout === 'bars') k.style.setProperty('--len', (1 - .4 * (m - I.min) / (I.max - I.min)).toFixed(3));
+    const f = el('div', 'face');
+    f.innerHTML = keyLabelHTML(m);
+    k.append(f);
+    if (!keyEls.has(m)) keyEls.set(m, []);
+    keyEls.get(m).push(k);
+    return k;
+}
+function render(){
+    const inst = S.inst, I = INST[inst], v = V(), W = WH[inst];
+    stage.dataset.inst = inst; stage.dataset.layout = I.layout;
+    board.className = 'board ' + I.layout + (I.layout === 'bars' && !S.sharps ? ' nosharp' : '') +
+        (S.color ? '' : ' nocolor') + (S.names === 'none' ? ' nolabel' : '');
+    board.innerHTML = ''; keyEls = new Map();
+    for (let r = v.rows - 1; r >= 0; r--) {       // たかい だんが うえ
+        const sl = W.slice(v.si + r * v.count, v.si + (r + 1) * v.count);
+        const row = el('div', 'row'), whites = el('div', 'whites'), blacks = el('div', 'blacks');
+        sl.forEach(m => whites.append(makeKey(m, false, inst)));
+        for (let b = 0; b <= sl.length; b++) {
+            const m = b === 0 ? sl[0] - 1 : sl[b - 1] + 1;
+            if (!isBlack(m) || m < I.min || m > I.max) continue;
+            const edge = b === 0 || b === sl.length;
+            if (I.layout === 'bars' && (edge || !S.sharps)) continue;
+            const k = makeKey(m, true, inst);
+            k.style.left = `calc(${b} * var(--kw))`;
+            if (edge) k.classList.add('edge');
+            blacks.append(k);
+        }
+        if (I.layout === 'bars') row.append(blacks, whites); else row.append(whites, blacks);
+        board.append(row);
+    }
+    for (const [m, n] of downN) if (n > 0) (keyEls.get(m) || []).forEach(k => k.classList.add('down'));
+    layout();
+    markGuide();
+    updateCtrl();
+}
+function layout(){
+    const I = INST[S.inst], v = V();
+    const pad = 12, gap = 10;
+    const W = stage.clientWidth - pad * 2 - 2, H = stage.clientHeight - pad * 2 - gap * (v.rows - 1) - 4;
+    const kw = Math.max(18, Math.floor(W / v.count));
+    const rh = Math.max(60, Math.min(H / v.rows, kw * (I.layout === 'keys' ? 5 : 5.6)));
+    board.style.setProperty('--kw', kw + 'px');
+    board.style.setProperty('--rh', Math.floor(rh) + 'px');
+    board.style.setProperty('--n', v.count);
+    board.classList.toggle('tiny', kw < 46);
+}
+new ResizeObserver(() => layout()).observe(stage);
+
+function updateCtrl(){
+    const I = INST[S.inst], v = V(), W = WH[S.inst];
+    const lo = W[v.si], hi = W[v.si + v.count * v.rows - 1];
+    const nm = m => `<span style="display:inline-flex;flex-direction:column;align-items:center;line-height:1">${octOf(m) > 0 ? dotsHTML(octOf(m)) : ''}${S.names === 'cde' ? LET_C[PC_LET[pcOf(m)]] : LET_DO[PC_LET[pcOf(m)]]}${octOf(m) < 0 ? dotsHTML(octOf(m)) : ''}</span>`;
+    $('#range').innerHTML = nm(lo) + '〜' + nm(hi);
+    $('#leftBtn').disabled = v.si <= 0;
+    $('#rightBtn').disabled = v.si + v.count * v.rows >= W.length;
+    $('#count').textContent = v.count;
+    $('#countLbl').textContent = I.unit;
+    $('#fewerBtn').disabled = v.count <= 5;
+    $('#moreBtn').disabled = v.count >= Math.floor(W.length / v.rows);
+    $('#rowsBtn').classList.toggle('on', v.rows === 2);
+    $('#rowsBtn').setAttribute('aria-pressed', v.rows === 2);
+    $$('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.inst === S.inst));
+    document.querySelector('meta[name=theme-color]').content = { kenban:'#3d7fd6', mokkin:'#8a5530', tekkin:'#34405a', bass:'#4b5263' }[S.inst];
+}
+function shiftView(d){ const v = V(); v.si += d; V(); save(); render(); }
+
+/* ==================================================================
+   おす・はなす
+   ================================================================== */
+const held = new Map();   // "どこから|おと" → { m, v, inst }
+
+function setDown(m, d){
+    const n = Math.max(0, (downN.get(m) || 0) + d);
+    downN.set(m, n);
+    (keyEls.get(m) || []).forEach(k => k.classList.toggle('down', n > 0));
+}
+function press(m, src, user = true, inst = S.inst){
+    const I = INST[inst];
+    if (m < I.min || m > I.max) return;
+    const k = src + '|' + m;
+    if (held.has(k)) return;
+    const v = startVoice(inst, m);
+    held.set(k, { m, v, inst });
+    if (inst === S.inst) setDown(m, 1);
+    if (user) { recEvent(m, true); guideHit(m); }
+}
+function release(m, src, user = true){
+    const k = src + '|' + m, h = held.get(k);
+    if (!h) return;
+    held.delete(k); h.v.stop();
+    if (h.inst === S.inst) setDown(m, -1);
+    if (user) recEvent(m, false);
+}
+function releaseAll(prefix){
+    for (const [k, h] of [...held]) if (!prefix || k.startsWith(prefix + '|')) release(h.m, k.split('|')[0], !prefix);
+}
+
+// ゆびと マウス（すべらせると グリッサンド）
+const ptr = new Map();
+function noteAt(x, y){
+    const e = document.elementFromPoint(x, y);
+    const k = e && e.closest && e.closest('.key');
+    return k && board.contains(k) ? +k.dataset.m : null;
+}
+stage.addEventListener('pointerdown', e => {
+    if (e.button > 0) return;
+    e.preventDefault();
+    ensureAudio();
+    try { stage.setPointerCapture(e.pointerId); } catch (_) {}
+    const m = noteAt(e.clientX, e.clientY);
+    ptr.set(e.pointerId, m);
+    if (m != null) press(m, 'p' + e.pointerId);
+});
+stage.addEventListener('pointermove', e => {
+    if (!ptr.has(e.pointerId)) return;
+    const m = noteAt(e.clientX, e.clientY), old = ptr.get(e.pointerId);
+    if (m === old) return;
+    if (old != null) release(old, 'p' + e.pointerId);
+    if (m != null) press(m, 'p' + e.pointerId);
+    ptr.set(e.pointerId, m);
+});
+function ptrEnd(e){
+    if (!ptr.has(e.pointerId)) return;
+    const old = ptr.get(e.pointerId); ptr.delete(e.pointerId);
+    if (old != null) release(old, 'p' + e.pointerId);
+}
+stage.addEventListener('pointerup', ptrEnd);
+stage.addEventListener('pointercancel', ptrEnd);
+stage.addEventListener('lostpointercapture', ptrEnd);
+stage.addEventListener('contextmenu', e => e.preventDefault());
+addEventListener('blur', () => releaseAll());
+document.addEventListener('visibilitychange', () => { if (document.hidden) { releaseAll(); stopDemo(); stopPlay(); } });
+
+// パソコンの キーボード（ならびは ピアノと おなじ。いちばん ひだりの ド から）
+const KB = { KeyA:0, KeyW:1, KeyS:2, KeyE:3, KeyD:4, KeyF:5, KeyT:6, KeyG:7, KeyY:8, KeyH:9, KeyU:10, KeyJ:11,
+             KeyK:12, KeyO:13, KeyL:14, KeyP:15, Semicolon:16, Quote:17 };
+function kbBase(){
+    const W = WH[S.inst], v = V(), lo = W[v.si];
+    const c = lo + ((12 - pcOf(lo)) % 12);
+    return c <= W[v.si + v.count * v.rows - 1] ? c : lo - pcOf(lo);
+}
+document.addEventListener('keydown', e => {
+    if (e.target.closest && e.target.closest('input, textarea, select, dialog[open]')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.code in KB) { e.preventDefault(); if (!e.repeat) { ensureAudio(); press(kbBase() + KB[e.code], 'k' + e.code); } return; }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); shiftView(-1); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); shiftView(1); }
+});
+document.addEventListener('keyup', e => {
+    if (!(e.code in KB)) return;
+    for (const [k, h] of [...held]) if (k.startsWith('k' + e.code + '|')) release(h.m, 'k' + e.code);
+});
+
+/* ==================================================================
+   きょく
+   ================================================================== */
+// むかしからの きょく（作曲者が なくなって 70年 いじょうの もの）だけ。かしは のせない。
+const SONGS = [
+    { id:'kaidan',   name:'ドレミの かいだん', text:'ド レ ミ ファ ソ ラ シ 高ドー 高ド シ ラ ソ ファ ミ レ ドー' },
+    { id:'mired',    name:'ミ・レ・ド（3つの おと）', text:'ミ レ ドー ミ レ ドー ド0.5 ド0.5 ド0.5 ド0.5 レ0.5 レ0.5 レ0.5 レ0.5 ミ レ ドー' },
+    { id:'kaeru',    name:'かえるの うた', text:'ド レ ミ ファ ミ レ ドー ミ ファ ソ ラ ソ ファ ミー ド 休 ド 休 ド 休 ド 休 ド0.5 ド0.5 レ0.5 レ0.5 ミ0.5 ミ0.5 ファ0.5 ファ0.5 ミ レ ドー' },
+    { id:'mary',     name:'メリーさんの ひつじ', text:'ミ レ ド レ ミ ミ ミー レ レ レー ミ ソ ソー ミ レ ド レ ミ ミ ミ ミ レ レ ミ レ ドーーー' },
+    { id:'kirakira', name:'きらきらぼし', text:'ド ド ソ ソ ラ ラ ソー ファ ファ ミ ミ レ レ ドー ソ ソ ファ ファ ミ ミ レー ソ ソ ファ ファ ミ ミ レー ド ド ソ ソ ラ ラ ソー ファ ファ ミ ミ レ レ ドー' },
+    { id:'frere',    name:'フレール・ジャック（かえうた で おなじみ）', text:'ド レ ミ ド ド レ ミ ド ミ ファ ソー ミ ファ ソー ソ0.5 ラ0.5 ソ0.5 ファ0.5 ミ ド ソ0.5 ラ0.5 ソ0.5 ファ0.5 ミ ド ド 低ソ ドー ド 低ソ ドー' },
+    { id:'london',   name:'ロンドン橋', text:'ソ1.5 ラ0.5 ソ ファ ミ ファ ソー レ ミ ファー ミ ファ ソー ソ1.5 ラ0.5 ソ ファ ミ ファ ソー レー ソー ミ ドーー' },
+    { id:'joy',      name:'よろこびの うた', text:'ミ ミ ファ ソ ソ ファ ミ レ ド ド レ ミ ミ1.5 レ0.5 レー ミ ミ ファ ソ ソ ファ ミ レ ド ド レ ミ レ1.5 ド0.5 ドー レ レ ミ ド レ ミ0.5 ファ0.5 ミ ド レ ミ0.5 ファ0.5 ミ レ ド レ 低ソー ミ ミ ファ ソ ソ ファ ミ レ ド ド レ ミ レ1.5 ド0.5 ドー' },
+    { id:'jingle',   name:'ジングルベル', text:'ミ ミ ミー ミ ミ ミー ミ ソ ド1.5 レ0.5 ミーーー ファ ファ ファ1.5 ファ0.5 ファ ミ ミ ミ0.5 ミ0.5 ミ レ レ ミ レー ソー ミ ミ ミー ミ ミ ミー ミ ソ ド1.5 レ0.5 ミーーー ファ ファ ファ1.5 ファ0.5 ファ ミ ミ ミ0.5 ミ0.5 ソ ソ ファ レ ドーーー' },
+];
+
+// ドレミの もじ → おと。まちがいが あれば error に どこか を いれる
+function parseMelody(src){
+    const s = String(src || '').normalize('NFKC')
+        .replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
+    const NOTE = /(?:高|低|↑|↓)*(?:ファ|ド|レ|ミ|ソ|ラ|シ|休|ウン|[CDEFGAB])(?:[#♯]|[b♭])?(?:ー|-|~|〜)*(?:\d+(?:\.\d+)?)?/y;
+    const SEP = /[\s、,。・|｜/／()（）「」]+/y;
+    const notes = [];
+    let i = 0;
+    while (i < s.length) {
+        SEP.lastIndex = i;
+        const sp = SEP.exec(s);
+        if (sp) { i += sp[0].length; continue; }
+        NOTE.lastIndex = i;
+        const mt = NOTE.exec(s);
+        if (!mt) return { notes, error:{ index:notes.length, ch:s[i] } };
+        notes.push(tokenToNote(mt[0]));
+        i += mt[0].length;
+    }
+    return { notes };
+}
+function tokenToNote(t){
+    let oct = 0;
+    while (/^(高|低|↑|↓)/.test(t)) { oct += (t[0] === '高' || t[0] === '↑') ? 1 : -1; t = t.slice(1); }
+    const nm = t.match(/^(ファ|ド|レ|ミ|ソ|ラ|シ|休|ウン|[CDEFGAB])/)[0]; t = t.slice(nm.length);
+    let acc = 0;
+    if (/^[#♯]/.test(t)) { acc = 1; t = t.slice(1); } else if (/^[b♭]/.test(t)) { acc = -1; t = t.slice(1); }
+    let ext = 0;
+    while (/^(ー|-|~|〜)/.test(t)) { ext++; t = t.slice(1); }
+    let d = t ? parseFloat(t) : 1;
+    if (!(d > 0)) d = 1;
+    d = Math.min(16, Math.max(.125, d + ext));
+    if (nm === '休' || nm === 'ウン') return { m:null, d };
+    const L = { ド:0, レ:1, ミ:2, ファ:3, ソ:4, ラ:5, シ:6, C:0, D:1, E:2, F:3, G:4, A:5, B:6 }[nm];
+    return { m: 60 + LET_PC[L] + acc + 12 * oct, d, L, acc };
+}
+
+let linkSong = null;     // リンクで もらった きょく
+const song = { id:null, name:'', notes:[], shift:0, pos:0 };
+
+function allSongs(){ return [...SONGS, ...S.mysongs, ...(linkSong ? [linkSong] : [])]; }
+function findSong(id){ return allSongs().find(s => s.id === id); }
+function fillSongSel(){
+    const sel = $('#songSel');
+    const opt = (s) => `<option value="${s.id}">${esc(s.name)}</option>`;
+    let h = `<optgroup label="きょく">${SONGS.map(opt).join('')}</optgroup>`;
+    if (S.mysongs.length || linkSong) h += `<optgroup label="じぶんの きょく">${[...S.mysongs, ...(linkSong ? [linkSong] : [])].map(opt).join('')}</optgroup>`;
+    h += `<option value="__new">＋ あたらしく つくる…</option>`;
+    sel.innerHTML = h;
+    sel.value = song.id || '';
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])); }
+
+// がっきの はんいに はいる ように オクターブを うごかす
+function fitShift(notes, inst){
+    const I = INST[inst], ms = notes.filter(n => n.m != null).map(n => n.m);
+    if (!ms.length) return 0;
+    let best = 0, bestOut = Infinity;
+    for (const k of [0, -1, 1, -2, 2, -3, 3]) {
+        const out = ms.filter(m => m + 12 * k < I.min || m + 12 * k > I.max).length;
+        if (out < bestOut) { best = k; bestOut = out; }
+        if (!out) break;
+    }
+    return best * 12;
+}
+const inRange = m => m >= INST[S.inst].min && m <= INST[S.inst].max;
+function loadSong(id){
+    const s = findSong(id) || SONGS[2];
+    stopDemo();
+    song.id = s.id; song.name = s.name;
+    song.notes = parseMelody(s.text).notes;
+    S.songId = s.id; save();
+    $('#songSel').value = s.id;
+    prepareSong();
+}
+function prepareSong(){
+    song.shift = fitShift(song.notes, S.inst);
+    // ♯・♭が ある きょくで バーを かくしていたら 出す
+    if (INST[S.inst].layout === 'bars' && !S.sharps && song.notes.some(n => n.m != null && isBlack(n.m))) { S.sharps = true; save(); }
+    song.pos = nextPlayable(0);
+    fitViewToSong();
+    drawStrip();
+    render();
+}
+function nextPlayable(i){
+    while (i < song.notes.length && (song.notes[i].m == null || !inRange(song.notes[i].m + song.shift))) i++;
+    return i;
+}
+// きょくの おとが ぜんぶ 見える ように けんばんを うごかす（はいらない ときは さいしょの ほう）
+function fitViewToSong(){
+    const ms = song.notes.filter(n => n.m != null).map(n => n.m + song.shift).filter(inRange);
+    if (!ms.length) return;
+    const W = WH[S.inst], v = V();
+    const lo = Math.min(...ms), hi = Math.max(...ms);
+    const loW = isBlack(lo) ? lo - 1 : lo, hiW = isBlack(hi) ? hi + 1 : hi;
+    const li = W.indexOf(loW), hiI = W.indexOf(hiW);
+    const total = v.count * v.rows;
+    if (li >= v.si && hiI < v.si + total) return;          // もう 見えている
+    if (hiI - li + 1 <= total) {
+        const cI = W.indexOf(loW - pcOf(loW));               // その オクターブの ド から だと きれい
+        v.si = (cI >= 0 && hiI - cI + 1 <= total) ? cI : li;
+    } else v.si = li;
+    V(); save();
+}
+function ensureVisible(m){
+    if (keyEls.has(m) || !inRange(m)) return;
+    const W = WH[S.inst], v = V(), total = v.count * v.rows, old = v.si;
+    const loI = W.indexOf(isBlack(m) ? m - 1 : m), hiI = W.indexOf(isBlack(m) ? m + 1 : m);
+    if (loI >= 0 && loI < v.si) v.si = loI - 1;
+    else if (hiI >= v.si + total) v.si = hiI - total + 2;
+    else return;                 // となりは 見えている（だんの さかいめ など）。うごかさない
+    V();
+    if (v.si !== old) { save(); render(); }
+}
+
+function chipHTML(n, i){
+    if (n.m == null) return `<span class="chip rest" data-i="${i}" style="--d:${n.d}">休</span>`;
+    const m = n.m + song.shift, o = octOf(m), pc = pcOf(n.m - n.acc);
+    const label = S.names === 'none' ? '' : letName(n.L, n.acc);
+    const st = S.color && !n.acc ? STICK[pc] : (n.acc ? '#d9dde7' : '#f4f6fa');
+    return `<span class="chip${inRange(m) ? '' : ' out'}" data-i="${i}" style="--d:${n.d};--st:${st}">` +
+        `${o > 0 ? dotsHTML(o) : '<i class="dots"></i>'}<span>${label || '●'}</span>${o < 0 ? dotsHTML(o) : '<i class="dots"></i>'}</span>`;
+}
+function drawStrip(){
+    const strip = $('#strip');
+    strip.innerHTML = song.notes.map(chipHTML).join('');
+    markStrip();
+    const msg = song.shift ? `（${INST[S.inst].label}に あわせて ${Math.abs(song.shift / 12)}オクターブ ${song.shift > 0 ? 'うえ' : 'した'}）` : '';
+    $('#songMsg').textContent = msg;
+}
+function markStrip(nowI){
+    const chips = $('#strip').children;
+    const cur = nowI != null ? nowI : (S.guide ? song.pos : -1);
+    for (const c of chips) {
+        const i = +c.dataset.i;
+        c.classList.toggle('done', nowI == null && S.guide && i < song.pos);
+        c.classList.toggle('now', i === cur);
+    }
+    const c = chips[cur];
+    if (c) {
+        const strip = $('#strip');
+        const x = c.offsetLeft - strip.clientWidth / 2 + c.offsetWidth / 2;
+        strip.scrollTo({ left: Math.max(0, x), behavior: 'smooth' });
+    }
+}
+function guideTarget(){
+    if (!S.songOpen || !S.guide || demo || song.pos >= song.notes.length) return null;
+    return song.notes[song.pos].m + song.shift;
+}
+function markGuide(){
+    $$('.key.next').forEach(k => k.classList.remove('next'));
+    const t = guideTarget();
+    if (t == null) return;
+    if (!keyEls.has(t)) { ensureVisible(t); return; }   // render が もう いちど よぶ
+    keyEls.get(t).forEach(k => k.classList.add('next'));
+}
+function guideHit(m){
+    const t = guideTarget();
+    if (t == null || m !== t) return;
+    song.pos = nextPlayable(song.pos + 1);
+    markStrip();
+    if (song.pos >= song.notes.length) { markGuide(); setTimeout(cheer, 350); }
+    else markGuide();
+}
+function restartSong(){ stopDemo(); song.pos = nextPlayable(0); markStrip(); markGuide(); }
+
+// おてほん
+let demo = null;
+function startDemo(notes = song.notes, shift = song.shift, onStrip = true){
+    stopDemo(); stopPlay();
+    ensureAudio();
+    const beat = 60000 / S.tempo;
+    const timers = [];
+    demo = { timers, onStrip };
+    $('#demoBtn').textContent = '■ とめる';
+    markGuide();
+    let t = 300;
+    notes.forEach((n, i) => {
+        timers.push(setTimeout(() => {
+            if (onStrip) markStrip(i);
+            if (n.m == null) return;
+            const m = n.m + shift;
+            if (onStrip) ensureVisible(m);
+            press(m, 'demo', false);
+            timers.push(setTimeout(() => release(m, 'demo', false), Math.max(80, n.d * beat * .86)));
+        }, t));
+        t += n.d * beat;
+    });
+    timers.push(setTimeout(() => { stopDemo(); }, t + 200));
+}
+function stopDemo(){
+    if (!demo) return;
+    demo.timers.forEach(clearTimeout);
+    const onStrip = demo.onStrip;
+    demo = null;
+    releaseAll('demo');
+    $('#demoBtn').textContent = '▶ おてほん';
+    if (onStrip) { song.pos = nextPlayable(0); markStrip(); }
+    markGuide();
+}
+
+function cheer(){
+    $('#cheerName').textContent = song.name;
+    $('#cheer').hidden = false;
+    ensureAudio();
+    [72, 76, 79, 84].forEach((m, i) => setTimeout(() => { const v = VOICES.glock(mtof(m + 12)); live.push(v); }, i * 110));
+}
+$('#cheerClose').onclick = () => { $('#cheer').hidden = true; restartSong(); };
+$('#cheerAgain').onclick = () => { $('#cheer').hidden = true; restartSong(); };
+
+/* ---------- きょくの ボタン ---------- */
+function setSongOpen(on){
+    S.songOpen = on; save();
+    $('#songBox').hidden = !on;
+    $('#songBtn').classList.toggle('on', on);
+    $('#songBtn').setAttribute('aria-pressed', on);
+    if (on) { if (!song.id) loadSong(S.songId); else { drawStrip(); render(); } }
+    else { stopDemo(); render(); }
+}
+$('#songBtn').onclick = () => setSongOpen(!S.songOpen);
+$('#songSel').onchange = e => {
+    if (e.target.value === '__new') { e.target.value = song.id; openEditor(null); return; }
+    loadSong(e.target.value);
+};
+$('#demoBtn').onclick = () => demo ? stopDemo() : startDemo();
+$('#guideBtn').onclick = () => {
+    S.guide = !S.guide; save();
+    $('#guideBtn').classList.toggle('on', S.guide);
+    $('#guideBtn').setAttribute('aria-pressed', S.guide);
+    markStrip(); markGuide();
+};
+$('#againBtn').onclick = restartSong;
+$('#tempo').oninput = e => { S.tempo = +e.target.value; save(); };
+$('#editBtn').onclick = () => openEditor(findSong(song.id));
+
+/* ---------- じぶんの きょく ---------- */
+let editing = null;     // へんしゅうちゅうの じぶんの きょく（あたらしい ときは null）
+function openEditor(s){
+    stopDemo();
+    const mine = s && S.mysongs.some(x => x.id === s.id);
+    editing = mine ? s : null;
+    $('#edName').value = s ? (mine || s === linkSong ? s.name : s.name + '（コピー）') : '';
+    $('#edText').value = s ? s.text : '';
+    $('#edDel').hidden = !mine;
+    $('#edLink').value = '';
+    edPreview();
+    $('#edDlg').showModal();
+}
+function edPreview(){
+    const r = parseMelody($('#edText').value);
+    const keep = song.shift; song.shift = 0;
+    $('#edPrev').innerHTML = r.notes.map(chipHTML).join('');
+    song.shift = keep;
+    $('#edErr').textContent = r.error ? `${r.error.index + 1}こめの あたりの「${r.error.ch}」が よめないよ` : (r.notes.length ? `${r.notes.length}こ の おと` : '');
+    $('#edErr').style.color = r.error ? '' : 'var(--thin)';
+    $('#edSave').disabled = !!r.error || !r.notes.some(n => n.m != null);
+    return r;
+}
+$('#edText').oninput = () => { $('#edLink').value = ''; edPreview(); };
+$('#edName').oninput = () => { $('#edLink').value = ''; };
+$('#edTry').onclick = () => {
+    const r = edPreview();
+    if (r.error || !r.notes.length) return;
+    if (demo) { stopDemo(); return; }
+    startDemo(r.notes, fitShift(r.notes, S.inst), false);
+};
+$('#edSave').onclick = () => {
+    const r = edPreview(); if (r.error) return;
+    const name = $('#edName').value.trim() || 'じぶんの きょく';
+    const text = $('#edText').value.trim();
+    let s = editing;
+    if (s) { s.name = name; s.text = text; }
+    else { s = { id:'my' + Date.now().toString(36), name, text }; S.mysongs.push(s); }
+    save(); stopDemo();
+    $('#edDlg').close();
+    fillSongSel(); loadSong(s.id); fillSongSel();
+};
+$('#edDel').onclick = () => {
+    if (!editing || !confirm(`「${editing.name}」を けしますか？`)) return;
+    S.mysongs = S.mysongs.filter(x => x !== editing); save();
+    $('#edDlg').close();
+    fillSongSel(); loadSong('kaeru'); fillSongSel();
+};
+$('#edLinkBtn').onclick = async () => {
+    const r = edPreview(); if (r.error) return;
+    const p = new URLSearchParams({ k: $('#edName').value.trim() || 'じぶんの きょく', t: $('#edText').value.trim(), g: S.inst });
+    const url = location.origin + location.pathname + '#' + p.toString();
+    const box = $('#edLink'); box.value = url; box.select();
+    try { await navigator.clipboard.writeText(url); $('#edErr').textContent = 'リンクを コピーしました。Classroom などに はって くばれます'; $('#edErr').style.color = 'var(--accent-d)'; } catch (e) {}
+};
+$('#edDlg').addEventListener('close', () => stopDemo());
+
+/* ==================================================================
+   ろくおん
+   ================================================================== */
+const rec = { on:false, t0:0, ev:[] };
+let play = null;
+function recEvent(m, on){ if (rec.on) rec.ev.push({ t: performance.now() - rec.t0, m, on, inst:S.inst }); }
+$('#recBtn').onclick = () => {
+    stopPlay();
+    rec.on = !rec.on;
+    if (rec.on) { rec.ev = []; rec.t0 = performance.now(); releaseAll(); }
+    $('#recBtn').classList.toggle('rec', rec.on);
+    $('#recBtn').innerHTML = rec.on ? '■ とめる' : '<span class="dot-rec">●</span> ろくおん';
+    $('#playBtn').disabled = rec.on || !rec.ev.length;
+};
+$('#playBtn').onclick = () => {
+    if (play) { stopPlay(); return; }
+    if (!rec.ev.length) return;
+    stopDemo(); ensureAudio();
+    const t0 = rec.ev[0].t - 200, timers = [];
+    play = { timers };
+    $('#playBtn').textContent = '■ とめる';
+    for (const ev of rec.ev) timers.push(setTimeout(() => ev.on ? press(ev.m, 'rec', false, ev.inst) : release(ev.m, 'rec', false), ev.t - t0));
+    timers.push(setTimeout(stopPlay, rec.ev[rec.ev.length - 1].t - t0 + 400));
+};
+function stopPlay(){
+    if (!play) return;
+    play.timers.forEach(clearTimeout); play = null;
+    releaseAll('rec');
+    $('#playBtn').textContent = '▶ きく';
+}
+
+/* ==================================================================
+   せってい・ボタン
+   ================================================================== */
+function setInst(inst){
+    if (!INST[inst] || inst === S.inst && board.childElementCount) return;
+    releaseAll(); stopDemo();
+    downN.clear();
+    S.inst = inst; save();
+    if (S.songOpen && song.id) prepareSong(); else render();
+    syncSetDlg();
+}
+$$('.tab').forEach(t => t.onclick = () => setInst(t.dataset.inst));
+$('#leftBtn').onclick = () => shiftView(-1);
+$('#rightBtn').onclick = () => shiftView(1);
+$('#fewerBtn').onclick = () => { const v = V(); v.count--; V(); save(); render(); };
+$('#moreBtn').onclick = () => {
+    const v = V(), W = WH[S.inst];
+    v.count++;
+    if (v.si + v.count * v.rows > W.length) v.si--;
+    V(); save(); render();
+};
+$('#rowsBtn').onclick = () => {
+    const v = V();
+    if (v.rows === 1) { v.rows = 2; v.count = Math.max(5, Math.ceil(v.count / 2) + 1); }
+    else { v.rows = 1; v.count = Math.min(v.count * 2 - 2, WH[S.inst].length); }
+    V(); save(); render();
+};
+$('#fsBtn').onclick = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+};
+$('#setBtn').onclick = () => { syncSetDlg(); $('#setDlg').showModal(); };
+$$('dialog [data-close]').forEach(b => b.onclick = () => b.closest('dialog').close());
+$$('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
+
+function syncSetDlg(){
+    const I = INST[S.inst];
+    $('#toneSeg').innerHTML = I.tones.map(([v, l]) => `<button class="btn" data-v="${v}">${l}</button>`).join('');
+    const one = I.tones.length < 2;
+    $('#toneSeg').hidden = one; $('#toneLbl').hidden = one;
+    const bars = I.layout === 'bars';
+    $('#sharpSeg').hidden = !bars; $('#sharpLbl').hidden = !bars;
+    $$('#setDlg .seg').forEach(seg => {
+        const k = seg.dataset.key;
+        const cur = k === 'tone' ? S.tone[S.inst] : k === 'color' || k === 'sharps' ? (S[k] ? '1' : '0') : S[k];
+        seg.querySelectorAll('.btn').forEach(b => { b.classList.toggle('on', b.dataset.v === cur); b.setAttribute('aria-pressed', b.dataset.v === cur); });
+    });
+    $('#vol').value = S.vol;
+}
+$('#setDlg').addEventListener('click', e => {
+    const b = e.target.closest('.seg .btn'); if (!b) return;
+    const k = b.closest('.seg').dataset.key, v = b.dataset.v;
+    if (k === 'tone') S.tone[S.inst] = v;
+    else if (k === 'color' || k === 'sharps') S[k] = v === '1';
+    else S[k] = v;
+    save(); syncSetDlg(); render();
+    if (S.songOpen) drawStrip();
+    if (k === 'tone') { ensureAudio(); const m = 60 + (S.inst === 'bass' ? -24 : 0); press(m, 'try', false); setTimeout(() => release(m, 'try', false), 400); }
+});
+$('#vol').oninput = e => { S.vol = +e.target.value; save(); ensureAudio(); setVolume(); };
+
+/* ---------- はじめ ---------- */
+(function init(){
+    // リンクで きょくを もらった とき（#k=なまえ&t=ドレミ&g=がっき）
+    if (location.hash.length > 1) {
+        const p = new URLSearchParams(location.hash.slice(1));
+        if (p.get('t')) {
+            linkSong = { id:'link', name: (p.get('k') || 'もらった きょく').slice(0, 30), text: p.get('t').slice(0, 4000) };
+            S.songId = 'link'; S.songOpen = true;
+            if (INST[p.get('g')]) S.inst = p.get('g');
+        }
+    }
+    $('#tempo').value = S.tempo;
+    $('#guideBtn').classList.toggle('on', S.guide);
+    $('#guideBtn').setAttribute('aria-pressed', S.guide);
+    if (!findSong(S.songId)) S.songId = 'kaeru';
+    song.id = null;
+    render();
+    fillSongSel();
+    if (S.songOpen) { setSongOpen(true); fillSongSel(); }
+})();
+
+// ためし用（tests から よぶ）
+window.__gakki = { parseMelody, fitShift, S, song, press, release, render, V, INST, WH };
+</script>
+</body>
+</html>
