@@ -1,6 +1,6 @@
 /* 九九ラン ── 画面を つかわない きまり
    コース・出題（まちがえた 九九の くりかえし・にがての 重みづけ）・こたえの パネル・ほめことば・
-   はやさ・きろくの 計算だけを ここに まとめます。
+   はやさ（時間で 上がりつづける）・きろくの 計算だけを ここに まとめます。
    tests.js が この ファイルだけを 読みこんで たしかめます（ブラウザでも node でも うごく）。 */
 (function (root) {
     'use strict';
@@ -21,18 +21,26 @@
         { id: 'zenbu', name: 'ぜんぶ', sub: '1〜9のだん', dans: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
     ];
 
-    /* あそびかた */
-    const MODES = ['renzoku', 'time'];
-    const TIME_LIMIT = 60;          /* タイムアタックの びょう数 */
-    const MISS_OPTIONS = [1, 3, 5]; /* ゆるせる ミス */
-    const PANEL_OPTIONS = [2, 3];   /* パネルの まい数（＝ レーンの 数） */
+    const LIVES = 3;                /* ゆるせる ミス */
+    const PANELS = 2;               /* こたえの パネルの まい数（＝ レーンの 数） */
 
-    /* はやさ（km/h）。start＝スタートと まちがえた あと・step＝正解 1つで ふえる 分・max＝さいこう */
-    const SPEEDS = {
-        yukkuri: { start: 70, step: 6, max: 190 },
-        futsuu: { start: 95, step: 9, max: 320 },
-        hayai: { start: 120, step: 13, max: 460 },
-    };
+    /* ---------- はやさ ----------
+       はやさは 走った 時間で きまり、上限は ない（かならず どこかで まちがえる）。
+       1つの ゲートに つくまでの 時間（びょう）＝ GATE_T0 × e^(−t ÷ GATE_TAU)
+         t＝0 → 4.0びょう（ゆっくり）・10 → 2.2・20 → 1.2・30 → 0.7（大人でも くるしい）・40 → 0.4・50 → 0.2
+       まちがえたら t は 0 に もどる（また ゆっくりから）。 */
+    const GATE_T0 = 4.0;
+    const GATE_TAU = 17;
+
+    /** t びょう 走った ときの、ゲートに つくまでの 時間（びょう） */
+    function gateTimeAt(t) {
+        return GATE_T0 * Math.exp(-Math.max(0, t) / GATE_TAU);
+    }
+
+    /** t びょう 走った ときの はやさ（gap ＝ ゲートと ゲートの あいだの 長さ → 1びょうに すすむ 長さ） */
+    function speedAt(t, gap) {
+        return gap / gateTimeAt(t);
+    }
 
     /* まちがえた 九九を もういちど 出す まで（出題の 回数）。
        ゲートは 3つ さきまで 問題が きまっているので、じっさいは「3もん あと」と「さらに 6もん あと」くらい */
@@ -246,30 +254,12 @@
         return combo > 0 && combo % 5 === 0;
     }
 
-    /* ---------- はやさ ---------- */
-    function speedOf(name) {
-        return SPEEDS[name] || SPEEDS.futsuu;
-    }
-
-    /** 正解 → すこし はやく（さいこうで とまる） */
-    function speedUp(kmh, cfg) {
-        return Math.min(cfg.max, kmh + cfg.step);
-    }
-
     /* ---------- きろく ---------- */
-    const bestKey = (courseId, mode) => courseId + '_' + mode;
-
     /** 保存されていた せっていを たしかめる（こわれて いたら 初期値） */
     function sanitizeSettings(o) {
         o = o && typeof o === 'object' ? o : {};
         return {
             course: courseById(o.course) ? o.course : 'dan2',
-            mode: MODES.includes(o.mode) ? o.mode : 'renzoku',
-            miss: MISS_OPTIONS.includes(Number(o.miss)) ? Number(o.miss) : 3,
-            panels: PANEL_OPTIONS.includes(Number(o.panels)) ? Number(o.panels) : 2,
-            speed: SPEEDS[o.speed] ? o.speed : 'futsuu',
-            voice: o.voice !== false,
-            sound: o.sound !== false,
             lite: o.lite === true,
         };
     }
@@ -287,11 +277,12 @@
         return out;
     }
 
-    /** ベスト（{ キー: 数 }）の こわれた ところを すてる */
+    /** ベスト（{ コースの id: れんぞく数 }）の こわれた ところと、もう ない コースを すてる */
     function sanitizeBest(o) {
         const out = {};
         if (!o || typeof o !== 'object') return out;
         for (const k of Object.keys(o)) {
+            if (!courseById(k)) continue;
             const v = Math.floor(Number(o[k]));
             if (isFinite(v) && v > 0) out[k] = v;
         }
@@ -316,18 +307,10 @@
         return (KUKU[a] && KUKU[a][b - 1]) || '';
     }
 
-    /** となえかたの 前半（問題の ところ。「しちし にじゅうはち」→「しちし」・「ににんが し」→「ににん」） */
-    function kukuQuestionPart(a, b) {
-        const s = kukuReading(a, b);
-        const i = s.lastIndexOf(' ');
-        const head = i < 0 ? s : s.slice(0, i);
-        return head.replace(/が$/, '');
-    }
-
     root.KukuRunLogic = {
-        COURSES, MODES, TIME_LIMIT, MISS_OPTIONS, PANEL_OPTIONS, SPEEDS, REVIEW_GAPS, REVIEW_CLEAR,
+        COURSES, LIVES, PANELS, GATE_T0, GATE_TAU, REVIEW_GAPS, REVIEW_CLEAR,
         courseById, keyOf, parseKey, problemsOf, avoidCount, weakScore, weakList, createDeck,
-        choicesFor, praiseOf, isFlash, speedOf, speedUp, bestKey,
-        sanitizeSettings, sanitizeStats, sanitizeBest, kukuReading, kukuQuestionPart,
+        choicesFor, praiseOf, isFlash, gateTimeAt, speedAt,
+        sanitizeSettings, sanitizeStats, sanitizeBest, kukuReading,
     };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1,17 +1,17 @@
 /* 九九ラン ── ゲームの すすみかた
    画面の きりかえ・ゲートに 問題を はる・正解かどうか・いのち・はやさ・きろくを あつかいます。
-   3D の 見た目は world3d.js、きまりの 計算は logic.js、音は sound.js。 */
+   3D の 見た目は world3d.js、きまりの 計算は logic.js。
+   授業で ひとりずつ しずかに つかう ため、音は いっさい 出しません。 */
 (function () {
     'use strict';
-    const L = window.KukuRunLogic, S = window.KukuRunSound, W = window.KukuRunWorld;
+    const L = window.KukuRunLogic, W = window.KukuRunWorld;
     const $ = id => document.getElementById(id);
 
     /* ---------- 大きさ・はやさ ---------- */
-    const KMH_TO_U = 0.16;       /* km/h → 1びょうに すすむ 長さ */
+    const KMH_TO_U = 0.16;       /* km/h → 1びょうに すすむ 長さ（表示用） */
     const GATE_GAP = 64;         /* ゲートと ゲートの あいだ */
     const FIRST_Z = -66;         /* さいしょの ゲート */
     const RECYCLE_Z = 14;        /* カメラの うしろへ ぬけたら つかいまわす */
-    const ACCEL = 150;           /* 1びょうで ふえる km/h（ぐんぐん 速く なる 感じ） */
     const MISS_SLOW = 1.3;       /* まちがえた あと ゆっくりに なる びょう数 */
     const MISS_SHOW = 2.4;       /* 正しい 九九を 見せる びょう数 */
 
@@ -26,8 +26,6 @@
         try { localStorage.setItem(STORE, JSON.stringify(saved)); } catch (e) { /* ほぞん できなくても あそべる */ }
     }
     const st = saved.settings;
-    S.setSound(st.sound);
-    S.setVoice(st.voice);
 
     /* ---------- 3D ---------- */
     let world = null;
@@ -48,10 +46,9 @@
     /* ======================================================================
        はじめの 画面
        ====================================================================== */
-    function bestText(courseId, mode) {
-        const v = saved.best[L.bestKey(courseId, mode)];
-        if (!v) return '';
-        return mode === 'time' ? `ベスト ${v}もん` : `ベスト ${v}れんぞく`;
+    function bestText(courseId) {
+        const v = saved.best[courseId];
+        return v ? `ベスト ${v}れんぞく` : '';
     }
 
     function buildCourses() {
@@ -63,7 +60,6 @@
             b.className = c.id === 'zenbu' ? 'wide' : c.dans.length > 1 ? 'half' : '';
             b.innerHTML = '<span></span><small></small>';
             b.firstChild.textContent = c.id === 'zenbu' ? 'ぜんぶ（1〜9のだん まぜこぜ）' : c.name;
-            b.lastChild.textContent = bestText(c.id, st.mode) || ' ';
             b.addEventListener('click', () => { st.course = c.id; save(); refreshMenu(); });
             box.appendChild(b);
         }
@@ -72,16 +68,14 @@
     function refreshMenu() {
         document.querySelectorAll('#courses button').forEach(b => {
             b.classList.toggle('sel', b.dataset.id === st.course);
-            b.lastChild.textContent = bestText(b.dataset.id, st.mode) || ' ';
+            b.lastChild.textContent = bestText(b.dataset.id) || ' ';
         });
         document.querySelectorAll('.seg').forEach(seg => {
             const key = seg.dataset.key;
             seg.querySelectorAll('button').forEach(b => b.classList.toggle('sel', String(st[key]) === b.dataset.v));
         });
-        document.body.classList.toggle('timeMode', st.mode === 'time');
         const course = L.courseById(st.course);
-        const bt = bestText(st.course, st.mode);
-        $('bestLine').textContent = `${course.name}${st.mode === 'time' ? '・タイムアタック' : ''}　${bt || 'まだ きろく なし'}`;
+        $('bestLine').textContent = `${course.name}　${bestText(st.course) || 'まだ きろく なし'}`;
         const weak = L.weakList(saved.stats, 9);
         $('nigateBtn').hidden = weak.length === 0;
         $('nigateList').textContent = weak.map(w => `${w.a}×${w.b}`).join('・');
@@ -94,20 +88,15 @@
             const key = seg.dataset.key;
             let v = b.dataset.v;
             if (v === 'true' || v === 'false') v = v === 'true';
-            else if (/^\d+$/.test(v)) v = Number(v);
             st[key] = v;
-            S.setSound(st.sound);
-            S.setVoice(st.voice);
             if (key === 'lite' && world) world.setLite(st.lite);
-            if (key === 'voice' && st.voice) { S.unlock(); S.speak('しちし'); }
             save();
             refreshMenu();
         });
     });
 
-    $('startBtn').addEventListener('click', () => { S.unlock(); startRun(null); });
+    $('startBtn').addEventListener('click', () => startRun(null));
     $('nigateBtn').addEventListener('click', () => {
-        S.unlock();
         startRun(L.weakList(saved.stats, 9).map(w => ({ a: w.a, b: w.b })));
     });
     $('resetBtn').addEventListener('click', () => {
@@ -126,10 +115,9 @@
     function startRun(nigateList) {
         if (!world) return;
         const course = L.courseById(st.course);
-        const cfg = L.speedOf(st.speed);
-        let problems, required = null, mode = st.mode;
+        let problems, required = null, nigate = false;
         if (nigateList && nigateList.length) {
-            mode = 'nigate';
+            nigate = true;
             required = nigateList;
             const dans = Array.from(new Set(nigateList.map(p => p.a))).sort();
             problems = L.problemsOf({ dans });
@@ -137,26 +125,26 @@
             problems = L.problemsOf(course);
         }
         R = {
-            mode, course, cfg, nigateList: nigateList || null,
+            nigate, course, nigateList: nigateList || null,
             deck: L.createDeck({ problems, stats: saved.stats, required }),
-            lives: st.miss, maxLives: st.miss,
+            lives: L.LIVES,
             combo: 0, maxCombo: 0, correct: 0, total: 0, wrongs: [],
-            kmh: 0, targetKmh: 0, maxKmh: 0,
-            timeLeft: L.TIME_LIMIT,
-            slow: 0, missShow: 0, speakWait: 0, pendingSpeak: '',
+            runT: 0,            /* さいごに まちがえてから 走った 時間（はやさは これで きまる） */
+            playT: 0,           /* ぜんぶで 走った 時間 */
+            kmh: 0, maxKmh: 0,
+            slow: 0, missShow: 0,
             ended: false, endTimer: 0, countT: 0, countStep: -1,
         };
-        S.hush();
         world.reset();
-        world.setLanes(st.panels);
+        world.setLanes(L.PANELS);
         world.resize();
         for (let i = 0; i < world.gates.length; i++) assignGate(world.gates[i], FIRST_Z - i * GATE_GAP);
         curGate = null;
         refreshCurrent();
-        updateHud(true);
+        updateHud();
         updateButtons();
-        $('praise').style.opacity = 0;
-        $('missBox').style.opacity = 0;
+        lastKmhShown = -1;
+        $('hSpeed').firstElementChild.textContent = 0;
         setScreen('count');
     }
 
@@ -182,26 +170,21 @@
         if (!g) { $('qText').textContent = ''; qb.classList.remove('review'); return; }
         $('qText').textContent = `${g.q.a} × ${g.q.b} = ?`;
         qb.classList.toggle('review', !!g.q.review);
-        $('qText').animate([{ transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 180, easing: 'ease-out' });
-        const text = L.kukuQuestionPart(g.q.a, g.q.b);
-        if (R.speakWait > 0) R.pendingSpeak = text;
-        else S.speak(text, 1.15);
     }
 
     /* ---------- 表示 ---------- */
     let lastKmhShown = -1;
-    function updateHud(force) {
-        const life = $('hLife');
-        if (R.mode === 'renzoku') {
-            life.textContent = 'のこり ' + '♥'.repeat(Math.max(0, R.lives)) + '♡'.repeat(Math.max(0, R.maxLives - R.lives));
-        } else if (R.mode === 'time') {
-            life.textContent = `のこり ${Math.max(0, Math.ceil(R.timeLeft))}びょう`;
+    function updateHud() {
+        $('hLife').textContent = 'のこり ' + '♥'.repeat(Math.max(0, R.lives)) + '♡'.repeat(Math.max(0, L.LIVES - R.lives));
+        const sc = $('hScore');
+        if (R.nigate) {
+            sc.firstChild.textContent = 'あと ';
+            sc.lastElementChild.textContent = `${R.deck.left()}こ`;
         } else {
-            life.textContent = `のこり ${R.deck.left()}もん`;
+            sc.firstChild.textContent = 'せいかい ';
+            sc.lastElementChild.textContent = R.correct;
         }
-        $('hScore').lastElementChild.textContent = R.correct;
         $('combo').textContent = R.combo >= 2 ? `${R.combo} れんぞく！` : '';
-        if (force) lastKmhShown = -1;
     }
     function updateSpeedText() {
         const k = Math.round(R.kmh);
@@ -211,14 +194,14 @@
         }
     }
     function updateButtons() {
-        const n = world.laneCount, l = world.lane;
-        $('btnL').classList.toggle('on', l === 0 && n > 1);
-        $('btnR').classList.toggle('on', l === n - 1 && n > 1);
+        const l = world.lane;
+        $('btnL').classList.toggle('on', l === 0);
+        $('btnR').classList.toggle('on', l === world.laneCount - 1);
     }
 
     function pop(el, text, color) {
         el.textContent = text;
-        if (color) el.style.color = color; else el.style.color = '';
+        el.style.color = color || '';
         el.animate([
             { opacity: 0, transform: 'scale(.6)' },
             { opacity: 1, transform: 'scale(1.12)', offset: 0.18 },
@@ -246,9 +229,7 @@
     /* ---------- うごかす ---------- */
     function move(d) {
         if (!(scr === 'play' || scr === 'count') || !R || R.ended) return;
-        const before = world.lane;
-        world.setLane(before + d);
-        if (world.lane !== before) S.sfx.move();
+        world.setLane(world.lane + d);
         updateButtons();
     }
 
@@ -268,10 +249,8 @@
             R.correct++;
             R.maxCombo = Math.max(R.maxCombo, R.combo);
             world.breakPanel(g, lane, true);
-            R.targetKmh = L.speedUp(R.targetKmh, R.cfg);
             if (R.missShow <= 0) pop($('praise'), q.review ? 'おぼえたね！' : L.praiseOf(R.combo), q.review ? '#ffd1e3' : '');
-            S.sfx.good(R.combo);
-            if (L.isFlash(R.combo)) { flash('flash', 0.6, 450); S.sfx.flash(); }
+            if (L.isFlash(R.combo)) flash('flash', 0.6, 450);
         } else {
             s.ng++;
             R.combo = 0;
@@ -279,22 +258,15 @@
             world.breakPanel(g, lane, false);
             world.showCorrect(g);
             world.crash();
-            R.kmh = Math.min(R.kmh, R.cfg.start * 0.5);
-            R.targetKmh = R.cfg.start;
+            R.runT = 0;                 /* また ゆっくりから */
             R.slow = MISS_SLOW;
             R.missShow = MISS_SHOW;
             showMiss(q);
             flash('redflash', 1, 600);
-            S.sfx.miss();
-            /* 正しい となえかたを よむ。つぎの 問題の よみあげは その あと */
-            S.speak(L.kukuReading(q.a, q.b), 0.95);
-            R.speakWait = 2.0;
-            if (R.mode === 'renzoku') {
-                R.lives--;
-                if (R.lives <= 0) { R.ended = true; R.endTimer = 2.2; }
-            }
+            R.lives--;
+            if (R.lives <= 0) { R.ended = true; R.endTimer = 2.2; }
         }
-        if (R.mode === 'nigate' && R.deck.done()) { R.ended = true; R.endTimer = 1.2; }
+        if (R.nigate && R.deck.done()) { R.ended = true; R.endTimer = 1.2; }
         updateHud();
         refreshCurrent();
     }
@@ -310,30 +282,19 @@
 
     /* ---------- まいフレーム ---------- */
     function updatePlay(dt) {
-        if (R.kmh < R.targetKmh) R.kmh = Math.min(R.targetKmh, R.kmh + ACCEL * dt);
-        else R.kmh = R.targetKmh;
-        R.maxKmh = Math.max(R.maxKmh, R.kmh);
         let k = 1;
         if (R.slow > 0) { R.slow -= dt; k = 0.35; }
+        else if (!R.ended) R.runT += dt;     /* まちがえた あとの ゆっくりの 間は 時間を すすめない */
         if (R.ended) k = 0.25;
         if (R.missShow > 0) R.missShow -= dt;
-        if (R.speakWait > 0) {
-            R.speakWait -= dt;
-            if (R.speakWait <= 0 && R.pendingSpeak) {
-                if (curGate && L.kukuQuestionPart(curGate.q.a, curGate.q.b) === R.pendingSpeak) S.speak(R.pendingSpeak, 1.15);
-                R.pendingSpeak = '';
-            }
-        }
-        world.step(dt, R.kmh * KMH_TO_U * k, Math.min(1, R.kmh / 460));
+        R.playT += dt;
+        const u = L.speedAt(R.runT, GATE_GAP);
+        R.kmh = u / KMH_TO_U;
+        R.maxKmh = Math.max(R.maxKmh, R.kmh);
+        world.step(dt, u * k, Math.min(1, Math.max(0, (R.kmh - 100) / 450)));
         for (const g of world.gates) if (g.active && !g.resolved && g.z >= 0) resolve(g);
         for (const g of world.gates) if (g.active && g.resolved && g.z > RECYCLE_Z) recycle(g);
         updateSpeedText();
-        if (R.mode === 'time' && !R.ended) {
-            const before = Math.ceil(R.timeLeft);
-            R.timeLeft -= dt;
-            if (Math.ceil(R.timeLeft) !== before) updateHud();
-            if (R.timeLeft <= 0) { R.timeLeft = 0; R.ended = true; R.endTimer = 0.6; updateHud(); }
-        }
         if (R.ended) {
             R.endTimer -= dt;
             if (R.endTimer <= 0) finish();
@@ -351,11 +312,7 @@
             el.animate([
                 { opacity: 0, transform: 'scale(1.6)' }, { opacity: 1, transform: 'scale(1)', offset: 0.25 }, { opacity: 0, transform: 'scale(.9)' },
             ], { duration: 680, easing: 'ease-out' });
-            if (i < 3) S.sfx.count(); else S.sfx.go();
-            if (i === 3) {
-                R.targetKmh = R.cfg.start;
-                setScreen('play');
-            }
+            if (i === 3) setScreen('play');
         }
         world.step(dt, 0, 0);
     }
@@ -389,11 +346,10 @@
        ====================================================================== */
     function finish() {
         if (!R || scr === 'result') return;
-        S.hush();
+        const cleared = R.nigate && R.deck.done();
         let title = 'おしまい！', num = R.maxCombo, unit = 'れんぞく', key = null;
-        if (R.mode === 'time') { title = 'タイムアップ！'; num = R.correct; unit = 'もん せいかい'; key = L.bestKey(R.course.id, 'time'); }
-        else if (R.mode === 'renzoku') key = L.bestKey(R.course.id, 'renzoku');
-        else { title = R.deck.done() ? 'にがて クリア！' : 'おしまい！'; num = R.correct; unit = 'もん せいかい'; }
+        if (R.nigate) { title = cleared ? 'にがて クリア！' : 'おしまい！'; num = R.correct; unit = 'もん せいかい'; }
+        else key = R.course.id;
         let isNew = false;
         if (key) {
             const old = saved.best[key] || 0;
@@ -404,17 +360,17 @@
         $('rTitle').textContent = title;
         $('rNum').textContent = num;
         $('rUnit').textContent = unit;
-        const name = R.mode === 'nigate' ? 'にがて れんしゅう' : R.course.name;
+        const name = R.nigate ? 'にがて れんしゅう' : R.course.name;
         $('rStats').innerHTML = '<span></span><br><span></span>';
         $('rStats').firstChild.textContent = `${name}　せいかい ${R.correct}もん ／ ${R.total}もん`;
-        $('rStats').lastChild.textContent = `さいこう ${Math.round(R.maxKmh)}km/h`;
+        $('rStats').lastChild.textContent = `${Math.round(R.playT)}びょう 走った　さいこう ${Math.round(R.maxKmh)}km/h`;
         const rb = $('rBest');
         if (key) {
-            rb.textContent = isNew ? 'しんきろく！' : `ベスト ${saved.best[key] || 0}${R.mode === 'time' ? 'もん' : ' れんぞく'}`;
+            rb.textContent = isNew ? 'しんきろく！' : `ベスト ${saved.best[key] || 0} れんぞく`;
             rb.classList.toggle('new', isNew);
         } else {
-            rb.textContent = R.deck.done() ? 'まちがえた 九九を ぜんぶ 2かい せいかい できたよ！' : '';
-            rb.classList.toggle('new', R.deck.done());
+            rb.textContent = cleared ? 'まちがえた 九九を ぜんぶ 2かい せいかい できたよ！' : '';
+            rb.classList.toggle('new', cleared);
         }
 
         /* おさらい（まちがえた 九九。おなじ ものは 1つに） */
@@ -425,37 +381,32 @@
         chips.textContent = '';
         const rv = $('rReview');
         rv.classList.toggle('none', uniq.length === 0);
-        rv.querySelector('h3').firstChild.textContent = uniq.length ? 'おさらい ' : 'まちがい なし！ すごい！';
-        rv.querySelector('h3 small').hidden = uniq.length === 0;
+        rv.querySelector('h3').textContent = uniq.length ? 'おさらい（まちがえた 九九）' : 'まちがい なし！ すごい！';
         for (const w of uniq) {
-            const b = document.createElement('button');
+            const b = document.createElement('div');
+            b.className = 'chip';
             b.innerHTML = '<b></b><small></small>';
             b.firstChild.textContent = `${w.a}×${w.b}=${w.ans}`;
             b.lastChild.textContent = L.kukuReading(w.a, w.b);
-            b.addEventListener('click', () => { S.unlock(); S.speak(L.kukuReading(w.a, w.b), 0.95); });
             chips.appendChild(b);
         }
         $('practiceBtn').hidden = uniq.length === 0;
         setScreen('result');
-        if (R.mode === 'nigate' && R.deck.done()) S.sfx.clear(); else S.sfx.end();
         world.reset();
-        buildCourses();
         refreshMenu();
     }
 
-    $('againBtn').addEventListener('click', () => { S.unlock(); startRun(R && R.mode === 'nigate' ? R.nigateList : null); });
+    $('againBtn').addEventListener('click', () => startRun(R && R.nigate ? R.nigateList : null));
     $('practiceBtn').addEventListener('click', () => {
-        S.unlock();
         if (R && R.uniqWrongs && R.uniqWrongs.length) startRun(R.uniqWrongs.map(w => ({ a: w.a, b: w.b })));
     });
-    $('menuBtn').addEventListener('click', () => { S.hush(); setScreen('menu'); refreshMenu(); });
+    $('menuBtn').addEventListener('click', () => { setScreen('menu'); refreshMenu(); });
 
     /* ---------- ひとやすみ ---------- */
     let pausedFrom = 'play';
     function pause() {
         if (scr !== 'play' && scr !== 'count') return;
         pausedFrom = scr;
-        S.hush();
         setScreen('pause');
     }
     $('pauseBtn').addEventListener('click', pause);
@@ -464,23 +415,23 @@
     document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 
     /* ---------- そうさ ---------- */
-    function bindHold(el, d) {
-        el.addEventListener('pointerdown', ev => { ev.preventDefault(); S.unlock(); move(d); });
+    function bindPress(el, d) {
+        el.addEventListener('pointerdown', ev => { ev.preventDefault(); move(d); });
     }
-    bindHold($('btnL'), -1);
-    bindHold($('btnR'), 1);
+    bindPress($('btnL'), -1);
+    bindPress($('btnR'), 1);
     window.addEventListener('keydown', ev => {
         if (ev.repeat) return;
         const k = ev.key;
         if (k === 'ArrowLeft' || k === 'a' || k === 'A') { move(-1); ev.preventDefault(); }
         else if (k === 'ArrowRight' || k === 'd' || k === 'D') { move(1); ev.preventDefault(); }
         else if (k === 'Escape' || k === 'p') pause();
-        else if ((k === 'Enter' || k === ' ') && scr === 'menu' && document.activeElement === document.body) { S.unlock(); startRun(null); }
+        else if ((k === 'Enter' || k === ' ') && scr === 'menu' && document.activeElement === document.body) startRun(null);
     });
     /* スワイプ（画面を 左右に なでる） */
     let sx = null, sy = null;
     const surface = $('world');
-    surface.addEventListener('pointerdown', ev => { sx = ev.clientX; sy = ev.clientY; S.unlock(); });
+    surface.addEventListener('pointerdown', ev => { sx = ev.clientX; sy = ev.clientY; });
     surface.addEventListener('pointerup', ev => {
         if (sx == null) return;
         const dx = ev.clientX - sx, dy = ev.clientY - sy;
@@ -490,16 +441,16 @@
 
     window.addEventListener('resize', () => { if (world) world.resize(); });
 
-    /* 字の かたちが 読みこまれたら、パネルの 字も その かたちで かく */
-    if (document.fonts && document.fonts.load) {
-        document.fonts.load('800 80px "M PLUS Rounded 1c"').catch(() => {});
+    /* 字の かたちが 読みこまれたら、ゲートの 字の 絵を 1回だけ かきなおす（はじめの 画面の うちに） */
+    if (document.fonts && document.fonts.load && world) {
+        document.fonts.load('800 80px "M PLUS Rounded 1c"').then(f => { if (f && f.length && scr === 'menu') world.refreshGlyphs(); }).catch(() => {});
     }
 
     /* たしかめ用（テストの 自動プレイで つかう。ゲームは かわらない） */
     window.KukuRunPeek = () => (R ? {
         scr, lane: world.lane, lanes: world.laneCount,
         gate: curGate ? { a: curGate.q.a, b: curGate.q.b, correct: curGate.correct, z: curGate.z, review: curGate.q.review } : null,
-        combo: R.combo, correct: R.correct, lives: R.lives, kmh: R.kmh, pixelRatio: world.pixelRatio,
+        combo: R.combo, correct: R.correct, lives: R.lives, kmh: R.kmh, runT: R.runT, pixelRatio: world.pixelRatio,
     } : { scr });
 
     buildCourses();
