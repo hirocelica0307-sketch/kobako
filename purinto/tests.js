@@ -5,6 +5,7 @@
     const G = root.PurintoGen || require('./gen.js');
     const D = root.PurintoData || require('./data.js');
     const S = root.PurintoSheets || require('./sheets.js');
+    const TB = root.PurintoTetsubou || require('./tetsubou.js');
     const K = root.PurintoSakubun || require('./sakubun.js');
     const GK = root.PurintoGenkou || require('./genkou.js');
 
@@ -221,6 +222,26 @@
             }
             t(`プリント「${e ? e.title : id}」：せっていを かえても できる`, ok);
         }
+
+
+        /* てつぼう わざ カード */
+        t(`てつぼうの わざの id が かぶらない（${TB.WAZA.length}こ）`, new Set(TB.WAZA.map(w => w.id)).size === TB.WAZA.length);
+        for (const gk of ['low', 'mid', 'high']) t(`てつぼう ${gk}: わざが 8こ いじょう`, TB.WAZA.filter(w => w.grade === gk).length >= 8);
+        const tbBad = TB.WAZA.filter(w => !TB.GRADES[w.grade] || !(w.stars >= 1 && w.stars <= 3) || !w.frames.length || w.frames.length > 3
+            || !w.points.length || !w.drill || w.frames.some(f => !f.p.s || !f.p.h || !f.p.k || !f.p.f || !f.cap));
+        t('てつぼう: どの わざにも え・コツ・れんしゅう が ある', tbBad.length === 0, tbBad.map(w => w.id).join(','));
+        const tbKanji = TB.WAZA.flatMap(w => [w.name, w.group, w.drill, ...w.points, ...w.frames.map(f => f.cap)]).concat(TB.SAFETY, Object.values(TB.GRADES).flatMap(g => [g.label, g.title]))
+            .filter(x => /[\u4e00-\u9fff々]/.test(x.replace(/\{[^|{}]+\|[^{}]+\}/g, '')));
+        t('てつぼう: 漢字には ぜんぶ ふりがなが ある', tbKanji.length === 0, tbKanji.slice(0, 3).join(' / '));
+        const r90 = TB.rot({ s: [1, 0], h: [0, 0], k: [0, 0], f: [0, 0] }, 90);
+        t('まわす（90ど で みぎ → した）', Math.abs(r90.s[0]) < 1e-9 && Math.abs(r90.s[1] - 1) < 1e-9);
+        const vb = TB.viewBoxOf(TB.WAZA[0].frames);
+        t('え の はんいは よこ:たて ＝ 4:5', Math.abs(vb[2] / vb[3] - 0.8) < 1e-9);
+        const tbE = S.CATALOG.find(c => c.id === 'tetsubou');
+        const tbAll = S.buildSheet(tbE, { grade: 'all' }, 1).page;
+        t('わざ カードに ぜんぶの わざが のる（6こずつ）', (tbAll.match(/class="tb-card[ "]/g) || []).length === TB.WAZA.length && (tbAll.match(/<section/g) || []).length === Math.ceil(TB.WAZA.length / 6));
+        const tbL = S.buildSheet(tbE, { grade: 'all', kata: 'list' }, 1).page;
+        t('チャレンジ カードは 学年ごとに 1まい', (tbL.match(/<section/g) || []).length === 3);
 
         /* ぜんぶの プリント */
         for (const e of S.CATALOG) {

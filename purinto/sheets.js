@@ -12,6 +12,7 @@
     const D = root.PurintoData || require('./data.js');
     const K = root.PurintoSakubun || require('./sakubun.js');
     const GK = root.PurintoGenkou || require('./genkou.js');
+    const T = root.PurintoTetsubou || require('./tetsubou.js');
 
     const SUBJECTS = {
         kokugo: { label: 'こくご', icon: '📖' },
@@ -981,11 +982,79 @@
         },
     };
 
+    /* ================================================================
+       たいいく：てつぼう わざ カード
+       ================================================================ */
+    const TB_GRADES = ['low', 'mid', 'high'];
+    const tbStars = n => `<span class="tb-stars" title="むずかしさ">${'★'.repeat(n)}<i>${'★'.repeat(3 - n)}</i></span>`;
+    /** いちばん わかりやすい コマ（まわる やじるしの ある コマ、なければ さいごの コマ） */
+    const tbKeyFrame = w => w.frames.find(f => f.arrow) || w.frames[w.frames.length - 1];
+
+    function tbCard(w, R, cut) {
+        const g = T.GRADES[w.grade];
+        const vb = T.viewBoxOf(w.frames);
+        const frames = w.frames.map((f, i) => `${i ? '<span class="tb-to">➡</span>' : ''}<figure>${T.frameSvg(f, vb)}<figcaption>${MARU[i]} ${R(f.cap)}</figcaption></figure>`).join('');
+        return `<div class="tb-card${cut ? ' cut' : ''}" style="--gc:${g.color}">
+          <div class="tb-head"><span class="tb-grade">${R(g.label)}</span><b class="tb-name">${R(w.name)}</b>${tbStars(w.stars)}</div>
+          <div class="tb-sub"><span class="tb-group">${R(w.group)}</span><span class="tb-date">${R('できた{日|ひ}')}（　　/　　）</span></div>
+          <div class="tb-frames n${w.frames.length}">${frames}</div>
+          <ul class="tb-points">${w.points.map(p => `<li>${R(p)}</li>`).join('')}</ul>
+          <div class="tb-drill"><b>${R('やさしい れんしゅう')}</b>${R(w.drill)}</div>
+          <div class="tb-check">${R('できたら ぬろう')}：<span><i></i>1かい</span><span><i></i>3かい つづけて</span><span><i></i>きれいに</span></div>
+        </div>`;
+    }
+
+    const tetsubou = {
+        id: 'tetsubou', title: 'てつぼう わざ カード', icon: '🤸',
+        desc: '学年で ならう てつぼうの わざを、え・コツ・やさしい れんしゅう つきの カードに。',
+        options: [
+            { key: 'grade', label: 'がくねん', type: 'select', def: 'low', choices: [['low', '1・2ねん（てつぼう あそび）'], ['mid', '3・4ねん（きほんの わざ）'], ['high', '5・6ねん（はってん わざ）'], ['all', 'ぜんぶの 学年']] },
+            { key: 'kata', label: 'かたち', type: 'select', def: 'cards', choices: [['cards', 'わざ カード（1まいに 6わざ）'], ['list', 'チャレンジ カード（学年の わざ いちらん）']] },
+            { key: 'cut', label: 'きりとり せん（カード）', type: 'check', def: true },
+            { key: 'furi', label: 'ふりがな', type: 'check', def: true },
+        ],
+        build(opt) {
+            const R = s => ruby(s, opt.furi);
+            const grades = opt.grade === 'all' ? TB_GRADES : [TB_GRADES.includes(opt.grade) ? opt.grade : 'low'];
+            const safety = `<div class="tb-safety"><b>⚠️ ${R('あんぜんの やくそく')}</b>${T.SAFETY.map(s => `<span>${R(s)}</span>`).join('')}</div>`;
+            const pages = [];
+            if (opt.kata === 'list') {
+                for (const gk of grades) {
+                    const g = T.GRADES[gk], list = T.WAZA.filter(w => w.grade === gk);
+                    const rowH = Math.min(19, 176 / list.length);
+                    const rows = list.map((w, i) => {
+                        const kf = tbKeyFrame(w);
+                        return `<tr style="height:${rowH.toFixed(1)}mm"><td class="tl-no">${i + 1}</td>
+                          <td class="tl-fig"><div style="height:${(rowH - 1.5).toFixed(1)}mm">${T.frameSvg(kf, T.viewBoxOf([kf]))}</div></td>
+                          <td class="tl-name"><b>${R(w.name)}</b><br>${tbStars(w.stars)} <small>${R(w.group)}</small></td>
+                          <td class="tl-point">${R(w.points[0])}</td>
+                          <td class="tl-ck"><i></i><i></i><i></i></td>
+                          <td class="tl-date">　/</td></tr>`;
+                    }).join('');
+                    const body = `<div class="tl-meate"><b>${R('めあて')}</b><span class="u"></span></div>
+                      <table class="tl" style="--gc:${g.color}"><thead><tr><th></th><th>${R('え')}</th><th>${R('わざ')}</th><th>${R('コツ')}</th><th>${R('できたら ぬろう')}<br><small>${R('1かい・3かい・きれいに')}</small></th><th>${R('できた{日|ひ}')}</th></tr></thead><tbody>${rows}</tbody></table>
+                      ${safety}
+                      <div class="copy-box"><div class="sub-h small">${R('ふりかえり（できるように なった こと・つぎに ちょうせん したい わざ）')}</div><div class="wline"></div></div>`;
+                    pages.push(page({ subject: 'taiiku', catchline: `${plain(g.label)} ${plain(g.title)}`, title: 'てつぼう チャレンジ カード', icon: '🏅', body }));
+                }
+            } else {
+                const list = T.WAZA.filter(w => grades.includes(w.grade));
+                for (let i = 0; i < list.length; i += 6) {
+                    const cards = list.slice(i, i + 6).map(w => tbCard(w, R, opt.cut)).join('');
+                    const gl = [...new Set(list.slice(i, i + 6).map(w => plain(T.GRADES[w.grade].label)))].join('・');
+                    pages.push(page({ subject: 'taiiku', catchline: `${gl} ${i ? '（つづき）' : 'できる わざを ふやそう！'}`, title: 'てつぼう わざ カード', icon: '🤸',
+                        body: (i ? '' : safety) + `<div class="tb-cards">${cards}</div>` }));
+                }
+            }
+            return { page: pages.join(''), answer: null };
+        },
+    };
+
     /* ---------- ならび ---------- */
 
     const SHEETS = { kaidan, storymaze: storyMaze, wordsearch: wordSearch, kanjiadd: kanjiAdd, anagram, headquiz: headQuiz, acrostic, dicestory: diceStory,
         calcmaze: calcMaze, magic, pyramid, sudoku, symbols: symbolSearch, dotcopy: dotCopy, diffs, halfpic: halfPic, doodle, bingo, feelings, sugoroku, anone, odailist: odaiList,
-        'genkou-machigai': genkouMachigai, 'genkou-shisha': genkouShisha, 'genkou-check': genkouCheck };
+        'genkou-machigai': genkouMachigai, 'genkou-shisha': genkouShisha, 'genkou-check': genkouCheck, tetsubou };
 
     /** メニュー（id は URL に のる ので かえない） */
     const CATALOG = [
@@ -1014,6 +1083,8 @@
         { id: 'bingo-arigatou', sheet: 'bingo', subject: 'dotoku', title: 'ありがとう さがし ビンゴ', icon: '🌼', desc: 'ささえて くれる ひとを さがして「ありがとう」を つたえよう。', defaults: { theme: 'arigatou' } },
         { id: 'feelings', sheet: 'feelings', subject: 'dotoku' },
         { id: 'sugoroku', sheet: 'sugoroku', subject: 'taiiku' },
+        { id: 'tetsubou', sheet: 'tetsubou', subject: 'taiiku' },
+        { id: 'tetsubou-list', sheet: 'tetsubou', subject: 'taiiku', title: 'てつぼう チャレンジ カード', icon: '🏅', desc: '学年の わざを 1まいに。え・コツ・できたら ぬる ○・できた日・めあて と ふりかえり。', defaults: { kata: 'list', grade: 'mid' } },
         { id: 'bingo-undou', sheet: 'bingo', subject: 'taiiku', title: 'うんどう ビンゴ', icon: '🤸', desc: 'ジャンプ・ケンケン・くまあるき…。できた うんどうで ビンゴ。', defaults: { theme: 'undou', size: '4' } },
         { id: 'halfpic', sheet: 'halfpic', subject: 'zuko' },
         { id: 'doodle', sheet: 'doodle', subject: 'zuko' },
