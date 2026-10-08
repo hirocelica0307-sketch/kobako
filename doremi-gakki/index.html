@@ -79,6 +79,55 @@ button:focus-visible, select:focus-visible{ outline:3px solid var(--accent-d); o
 .tools{ margin-left:auto; display:flex; gap:.35rem; }
 
 .ctrl{ display:flex; align-items:center; gap:.4rem .9rem; flex-wrap:wrap; }
+
+/* ふだんは ほそい バー だけ。☰ で メニューを ひらく */
+.bar{ display:flex; align-items:center; gap:.4rem .7rem; flex-wrap:wrap; }
+.bar-inst{
+    border:none; background:none; padding:.2rem .3rem; font-family:var(--pop); font-weight:400; font-size:1.15rem;
+    display:inline-flex; align-items:center; gap:.4rem; white-space:nowrap;
+}
+.bar-inst svg{ width:2.2em; height:1.35em; }
+.bar .fs{ margin-left:auto; }
+#menuBtn[aria-expanded="true"]{ background:var(--ink); border-color:var(--ink); color:#fff; }
+.menu{ display:flex; flex-direction:column; gap:.45rem; padding:.5rem .6rem; border:2px solid var(--line); border-radius:var(--radius); background:#fbfcfe; }
+body:not(.menu-open) .mo{ display:none !important; }
+body.menu-open .mc{ display:none !important; }
+.seg{ display:flex; gap:.3rem; flex-wrap:wrap; }
+
+.rhy{ display:flex; align-items:center; gap:.45rem; }
+#rhyBtn.on{ background:#fff1d6; border-color:var(--glow); box-shadow:0 0 0 2px var(--glow) inset; }
+.rhy-lbl{ color:var(--thin); font-size:.85rem; white-space:nowrap; }
+.beats{ display:inline-flex; gap:.3rem; align-items:center; }
+.beats i{ width:.75rem; height:.75rem; border-radius:50%; background:#d6dbe6; transition:transform .06s, background .06s; }
+.beats i.a{ width:.95rem; height:.95rem; }
+.beats i.on{ background:var(--glow); transform:scale(1.35); }
+.beats i.a.on{ background:#e0413a; }
+
+/* さいだいか：がっき だけ */
+body.big{ padding:max(6px, env(safe-area-inset-top)) 6px max(6px, env(safe-area-inset-bottom)); gap:0; }
+body.big .bar, body.big .menu, body.big .song{ display:none !important; }
+body.capturing .song{ display:none !important; }
+.bigctl{
+    position:fixed; z-index:15; top:6px; right:8px; display:flex; align-items:center; gap:.4rem;
+    padding:.25rem .35rem .25rem .6rem; border-radius:999px; background:rgba(255,255,255,.82); box-shadow:0 2px 10px rgba(0,0,0,.18);
+}
+.bigctl .btn{ min-height:38px; font-size:.85rem; }
+.bigctl .beats i{ width:.6rem; height:.6rem; }
+
+/* けんばんで きょくを 入力 */
+.inbar{
+    display:flex; align-items:center; gap:.4rem .6rem; flex-wrap:wrap;
+    padding:.4rem .55rem; border:2px solid #e0413a; border-radius:var(--radius); background:#fff5f4;
+}
+.in-msg{ color:#c0322b; white-space:nowrap; }
+.in-chips{ flex:1 1 12rem; min-width:0; display:flex; gap:.25rem; overflow-x:auto; padding:.2rem 0; }
+.in-chips .chip{ height:2.3rem; font-size:.9rem; }
+.in-btns{ display:flex; gap:.3rem; flex-wrap:wrap; }
+.inrow{ display:flex; align-items:center; gap:.4rem .7rem; flex-wrap:wrap; margin:.2rem 0 .3rem; }
+.chk{ display:inline-flex; align-items:center; gap:.3rem; font-size:.88rem; color:var(--ink); }
+.chk input{ width:1.2rem; height:1.2rem; }
+.song-title{ font-size:1rem; margin-right:.2rem; }
+#muteBtn.on{ background:#fff7d6; border-color:#d9a300; box-shadow:0 0 0 2px #d9a300 inset; }
 .grp{ display:flex; align-items:center; gap:.3rem; }
 .grp .lbl{ color:var(--thin); font-size:.85rem; }
 .range{ min-width:6.5em; text-align:center; font-size:.95rem; display:inline-flex; align-items:center; justify-content:center; gap:.25em; }
@@ -220,18 +269,24 @@ button:focus-visible, select:focus-visible{ outline:3px solid var(--accent-d); o
 .stage[data-inst="recorder"].col{ flex-direction:column; }
 .stage[data-inst="recorder"] .board{ background:linear-gradient(#4db3a4, #2a7c71); }
 .reco{
-    flex:none; display:flex; flex-direction:column; align-items:center; gap:.2rem;
-    background:var(--panel); border:2px solid var(--line); border-radius:20px; padding:.45rem .4rem .3rem;
-    box-shadow:0 6px 18px rgba(30,40,70,.12);
+    flex:none; display:flex; align-items:stretch; justify-content:center; gap:.3rem;
+    background:var(--panel); border:2px solid var(--line); border-radius:20px; padding:.35rem .4rem;
+    box-shadow:0 6px 18px rgba(30,40,70,.12); overflow:hidden;
 }
-.reco .rhead{ display:flex; align-items:center; justify-content:center; gap:.5rem; flex-wrap:wrap; }
-.reco .rview{ font-size:.78rem; color:var(--thin); padding:.1rem .55rem; border-radius:999px; background:#eef1f6; white-space:nowrap; }
-.reco .rnote{ display:inline-flex; flex-direction:column; align-items:center; line-height:1; font-size:1.7rem; min-width:2.6em; }
-.reco .rnote .t{ padding:.12em .45em; border-radius:12px; background:var(--st, #eef1f6); border:2px solid rgba(0,0,0,.08); }
-.reco .rnote.next .t{ box-shadow:0 0 0 3px var(--glow); }
-.reco .rtag{ font-size:.75rem; color:#fff; background:var(--glow); border-radius:999px; padding:.1rem .5rem; }
-.reco svg{ flex:1; min-height:0; width:100%; display:block; }
-.col .reco svg{ width:auto; }
+.rinfo{ flex:none; width:5.4rem; display:flex; flex-direction:column; align-items:center; gap:.45rem; padding-top:.2rem; }
+.rview{
+    width:100%; padding:.3rem .2rem; border:2px solid var(--line); border-radius:12px; background:#f4f6fa;
+    font-size:.72rem; line-height:1.3; text-align:center; cursor:pointer;
+}
+.rtag{ font-size:.78rem; color:#fff; background:var(--glow); border-radius:999px; padding:.12rem .55rem; visibility:hidden; }
+.rtag.on{ visibility:visible; }
+.rnote{ width:5.2rem; height:5.4rem; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1; font-size:2.5rem; }
+.rnote .t{ padding:.15em .3em; min-width:1.9em; border-radius:12px; background:var(--st, #eef1f6); border:2px solid rgba(0,0,0,.08); text-align:center; }
+.rnote .t.mid{ font-size:.72em; }
+.rnote .t.long{ font-size:.48em; line-height:1.25; }
+.rnote.next .t{ box-shadow:0 0 0 3px var(--glow); }
+.rsvg{ flex:none; height:100%; aspect-ratio:200 / 640; }
+.rsvg svg{ width:100%; height:100%; display:block; }
 
 /* ガイド：つぎに ひく ところ */
 .key.next .face{ animation:nextGlow 1s ease-in-out infinite; }
@@ -304,6 +359,18 @@ dialog h2{ margin:.1rem 0 .8rem; font-family:var(--pop); font-weight:400; font-s
 </head>
 <body>
 
+<div class="bar" id="bar">
+    <button id="menuBtn" class="btn" aria-expanded="false" aria-controls="menu">☰ メニュー</button>
+    <button id="barInst" class="bar-inst" aria-label="がっきを かえる（メニューを ひらく）"></button>
+    <div class="rhy">
+        <button id="rhyBtn" class="btn" aria-pressed="false">🥁 リズム</button>
+        <span class="beats" aria-hidden="true"></span>
+        <span id="rhyLbl" class="rhy-lbl"></span>
+    </div>
+    <button id="fsBtn" class="btn fs" aria-label="さいだいか（けんばん だけ 大きく）">⛶ さいだいか</button>
+</div>
+
+<div id="menu" class="menu" hidden>
 <header class="top">
     <h1 class="logo">ドレミ がっき</h1>
     <nav class="tabs" role="tablist" aria-label="がっき">
@@ -331,7 +398,6 @@ dialog h2{ margin:.1rem 0 .8rem; font-family:var(--pop); font-weight:400; font-s
     <div class="tools">
         <button id="songBtn" class="btn" aria-pressed="false">🎵 きょく</button>
         <button id="setBtn" class="btn sq" aria-label="せってい">⚙️</button>
-        <button id="fsBtn" class="btn sq" aria-label="がめん いっぱい">⛶</button>
     </div>
 </header>
 
@@ -357,16 +423,55 @@ dialog h2{ margin:.1rem 0 .8rem; font-family:var(--pop); font-weight:400; font-s
     </div>
 </div>
 
+<div class="ctrl">
+    <div class="grp">
+        <span class="lbl">🥁 リズム</span>
+        <div class="seg" id="meterSeg">
+            <button class="btn" data-v="2">2拍子</button>
+            <button class="btn" data-v="3">3拍子</button>
+            <button class="btn" data-v="4">4拍子</button>
+            <button class="btn" data-v="6">6/8拍子</button>
+        </div>
+    </div>
+    <div class="grp">
+        <div class="seg" id="styleSeg">
+            <button class="btn" data-v="click">カチカチ</button>
+            <button class="btn" data-v="drum">ドラム</button>
+        </div>
+    </div>
+    <div class="grp tempo">はやさ 🐢<input id="tempo" type="range" min="50" max="160" step="2" aria-label="はやさ">🐇 <b id="tempoLbl"></b></div>
+</div>
+</div>
+
 <section id="songBox" class="song" hidden aria-label="きょくの れんしゅう">
-    <select id="songSel" aria-label="きょく"></select>
+    <select id="songSel" class="mo" aria-label="きょく"></select>
+    <b id="songTitle" class="song-title mc"></b>
     <button id="demoBtn" class="btn">▶ おてほん</button>
-    <button id="guideBtn" class="btn on" aria-pressed="true">👆 ガイド</button>
+    <button id="muteBtn" class="btn" aria-pressed="false">🔈 おとも ならす</button>
+    <button id="guideBtn" class="btn on mo" aria-pressed="true">👆 ガイド</button>
     <button id="againBtn" class="btn sq" aria-label="はじめから">⏮</button>
-    <span class="tempo">🐢<input id="tempo" type="range" min="50" max="160" step="2" aria-label="はやさ">🐇</span>
-    <button id="editBtn" class="btn">✏️ つくる</button>
-    <span id="songMsg" class="msg"></span>
+    <button id="editBtn" class="btn mo">✏️ つくる</button>
+    <span id="songMsg" class="msg mo"></span>
     <div id="strip" class="strip"></div>
 </section>
+
+<div id="inBar" class="inbar" hidden>
+    <span id="inMsg" class="in-msg">🎹 にゅうりょく中</span>
+    <div id="inChips" class="in-chips"></div>
+    <div class="in-btns">
+        <button id="inLong" class="btn">ー のばす</button>
+        <button id="inRest" class="btn">休 やすみ</button>
+        <button id="inUndo" class="btn">⌫ 1つ けす</button>
+        <button id="inDone" class="btn on">✓ できた</button>
+        <button id="inCancel" class="btn">✕ やめる</button>
+    </div>
+</div>
+
+<div id="bigCtl" class="bigctl" hidden>
+    <span class="beats" aria-hidden="true"></span>
+    <button id="bigRhy" class="btn sq" aria-label="リズム">🥁</button>
+    <button id="bigExit" class="btn">✕ もどる</button>
+</div>
 
 <main id="stage" class="stage">
     <div id="reco" class="reco" hidden aria-live="polite"></div>
@@ -422,11 +527,21 @@ dialog h2{ margin:.1rem 0 .8rem; font-family:var(--pop); font-weight:400; font-s
     <h2>✏️ じぶんの きょくを つくる</h2>
     <div class="help">
         <b>ドレミ</b>で かきます（ひらがなでも OK）。くぎりは スペース。<b>ー</b> で のばす（ドー は 2はく、ドーーー は 4はく）。<br>
-        <b>高ド</b>・<b>低ソ</b> で 1オクターブ うえ・した。<b>シ♭</b>・<b>ファ#</b>。<b>休</b> で やすみ。<b>ド0.5</b> で はんぶんの ながさ。<br>
+        <b>高ド</b>・<b>低ソ</b> で 1オクターブ うえ・した。<b>シ♭</b>・<b>ファ#</b>。<b>休</b> で やすみ。<b>ド0.5</b> で はんぶんの ながさ。<b>3拍子</b> と はじめに かくと リズムが 3拍子に なる。<br>
         れい：<b>ド レ ミ ファ ミ レ ドー ミ ファ ソ ラ ソ ファ ミー</b>
     </div>
     <label class="field">きょくの なまえ<input id="edName" maxlength="30" placeholder="れい：かえるのうた"></label>
     <label class="field">ドレミ<textarea id="edText" spellcheck="false" placeholder="ド レ ミ ファ ミ レ ドー"></textarea></label>
+    <div class="inrow">
+        <button id="edKeys" class="btn">🎹 けんばんで ひいて 入力</button>
+        <label class="chk"><input type="checkbox" id="edTimed" checked> リズムに あわせる（<span id="edMeter">4拍子</span>）</label>
+        <button id="edFile" class="btn">📄 がくふファイルを よみこむ</button>
+        <input type="file" id="edFileIn" accept=".musicxml,.xml,.mxl,.mid,.midi,application/vnd.recordare.musicxml+xml,audio/midi" hidden>
+    </div>
+    <p class="note" style="margin-top:.2rem">
+        リズムに あわせる と、カウント（1小節）の あとで ひいた タイミングから のばす 音・やすみを 8分音符 まで 自動で きめます。はずすと 1つ おすごとに 1はく。<br>
+        がくふファイルは MusicXML（.musicxml .xml .mxl）と MIDI（.mid）。しゃしん・PDF の がくふは MuseScore などで MusicXML に してから よみこんで ください。
+    </p>
     <div id="edPrev" class="preview" aria-label="よみとった おと"></div>
     <p id="edErr" class="err"></p>
     <div class="share">
@@ -504,6 +619,9 @@ const S = {
     inst:'kenban', names:'doremi', color:true, sharps:true, vol:80,
     tone:{ kenban:'kenhamo', bass:'ebass', mokkin:'xylo', tekkin:'glock', recorder:'recorder' },
     recoView:'self',   // リコーダーの 図：self＝ふく人から 見た、front＝むかいから 見た
+    meter:4,           // リズムの 拍子（2・3・4・6＝6/8）
+    rhyStyle:'click',  // リズムの おと：click＝カチカチ、drum＝ドラム
+    demoMute:false,    // おてほんを ひかる だけに する
     view:{}, songOpen:false, songId:'kaeru', guide:true, tempo:92, mysongs:[],
 };
 try {
@@ -747,20 +865,22 @@ function layout(){
     const pad = 12, gap = 10;
     let W = stage.clientWidth - pad * 2 - 2, H = stage.clientHeight - pad * 2 - gap * (v.rows - 1) - 4;
     if (S.inst === 'recorder') {           // リコーダーの 図の ぶんを あける（たてながの 画面では うえに おく）
-        const reco = $('#reco'), col = stage.clientWidth < stage.clientHeight * 1.1;
+        // リコーダーは 画面の たかさ いっぱいに して、けんばんは のこりの はば（小さく なっても よい）
+        const reco = $('#reco'), col = stage.clientWidth < stage.clientHeight * .9;
         stage.classList.toggle('col', col);
+        recoSkeleton();
         if (col) {
-            const rh0 = Math.floor(stage.clientHeight * .5);
+            const rh0 = Math.floor(stage.clientHeight * .58);
             reco.style.width = '100%'; reco.style.height = rh0 + 'px';
             H -= rh0 + 14;
         } else {
-            const rw = Math.floor(Math.min(stage.clientHeight * .5, stage.clientWidth * .32));
-            reco.style.width = rw + 'px'; reco.style.height = '100%';
-            W -= rw + 14;
+            reco.style.width = ''; reco.style.height = stage.clientHeight + 'px';
+            W -= reco.offsetWidth + 14;
         }
     } else stage.classList.remove('col');
     const kw = Math.max(18, Math.floor(W / v.count));
-    const rh = Math.max(60, Math.min(H / v.rows, kw * (I.layout === 'keys' ? 5 : 5.6)));
+    const tall = document.body.classList.contains('big') ? 7 : 5;     // さいだいか の ときは たかく
+    const rh = Math.max(60, Math.min(H / v.rows, kw * (I.layout === 'keys' ? tall : tall + .6)));
     board.style.setProperty('--kw', kw + 'px');
     board.style.setProperty('--rh', Math.floor(rh) + 'px');
     board.style.setProperty('--n', v.count);
@@ -782,6 +902,7 @@ function updateCtrl(){
     $('#rowsBtn').classList.toggle('on', v.rows === 2);
     $('#rowsBtn').setAttribute('aria-pressed', v.rows === 2);
     $$('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.inst === S.inst));
+    $('#barInst').innerHTML = $(`.tab[data-inst="${S.inst}"] svg`).outerHTML + `<span>${INST[S.inst].label}</span>`;
     $('#viewBtn').hidden = S.inst !== 'recorder';
     $('#viewBtn').textContent = S.recoView === 'front' ? '👀 むかいから 見た' : '👀 ふく人から 見た';
     document.querySelector('meta[name=theme-color]').content = { kenban:'#3d7fd6', mokkin:'#8a5530', tekkin:'#34405a', bass:'#4b5263', recorder:'#2a7c71' }[S.inst];
@@ -821,8 +942,16 @@ const FING = {
     81:'h110000000',  // 高ラ
 };
 let recoShown = null;
+// リコーダーの わく（大きさは かわらない。中みだけ かきかえる）
+function recoSkeleton(){
+    const r = $('#reco');
+    if (r.firstChild) return;
+    r.innerHTML = `<div class="rinfo"><button class="rview" type="button"></button><span class="rtag">つぎは</span><span class="rnote"></span></div><div class="rsvg"></div>`;
+    r.querySelector('.rview').onclick = () => { S.recoView = S.recoView === 'front' ? 'self' : 'front'; save(); updateCtrl(); updateReco(); };
+}
 function updateReco(){
     if (S.inst !== 'recorder') return;
+    recoSkeleton();
     const now = [...downN].filter(([, n]) => n > 0).map(([m]) => m);
     let m = null, kind = 'last';
     if (now.length) { m = now.includes(lastDown) ? lastDown : now[now.length - 1]; kind = 'play'; }
@@ -830,58 +959,66 @@ function updateReco(){
     const key = m + kind + S.recoView + S.names + S.color;
     if (key === recoShown) return;
     recoShown = key;
-    $('#reco').innerHTML = recoHTML(m, kind);
-}
-function recoHTML(m, kind){
-    const F = m != null && FING[m];
-    let name = '<span class="t">？</span>';
+    const r = $('#reco'), F = m != null && FING[m];
+    r.querySelector('.rview').innerHTML = S.recoView === 'front' ? '👀 むかいから<br>見た' : '👀 ふく人から<br>見た';
+    r.querySelector('.rtag').classList.toggle('on', kind === 'next');
+    const rn = r.querySelector('.rnote');
+    rn.classList.toggle('next', kind === 'next');
+    let name = '<i class="dots"></i><span class="t">？</span><i class="dots"></i>';
     if (F) {
         const pc = pcOf(m), o = octOf(m);
-        const s = isBlack(m) ? letName(PC_LET[pc - 1], 1) + '・' + letName(PC_LET[pc + 1], -1) : letName(PC_LET[pc], 0);
-        name = `${o > 0 ? dotsHTML(o) : '<i class="dots"></i>'}<span class="t" style="--st:${S.color && !isBlack(m) ? STICK[pc] : '#eef1f6'}">${s}</span>${o < 0 ? dotsHTML(o) : '<i class="dots"></i>'}`;
+        const s = isBlack(m) ? letName(PC_LET[pc - 1], 1) + '<br>' + letName(PC_LET[pc + 1], -1) : letName(PC_LET[pc], 0);
+        name = `${o > 0 ? dotsHTML(o) : '<i class="dots"></i>'}<span class="t${isBlack(m) ? ' long' : s.length > 1 ? ' mid' : ''}" style="--st:${S.color && !isBlack(m) ? STICK[pc] : '#eef1f6'}">${s}</span>${o < 0 ? dotsHTML(o) : '<i class="dots"></i>'}`;
     }
-    const view = S.recoView === 'front' ? 'むかいから 見た' : 'ふく人から 見た';
-    return `<div class="rhead"><span class="rview">${view}</span>${kind === 'next' ? '<span class="rtag">つぎは</span>' : ''}` +
-        `<span class="rnote${kind === 'next' ? ' next' : ''}">${name}</span></div>` + recoSVG(F || '0000000000', S.recoView === 'front', !F);
+    rn.innerHTML = name;
+    r.querySelector('.rsvg').innerHTML = recoSVG(F || '0000000000', S.recoView === 'front', !F);
 }
-// たての リコーダー。front＝むかいから 見た ので 左右が はんたい
+// たての リコーダー。
+//   self ＝ ふいている 人から 見た 向き：てまえ（画面の した）が ふきぐち、むこう（うえ）が あしぶ。左右は そのまま
+//   front＝ むかいから 見た 向き    ：ふきぐちが うえ。左右が はんたい
 function recoSVG(F, front, blank){
     const X = x => front ? 200 - x : x;
+    const Y = y => front ? y : 640 - y;        // もとの 図（ふきぐちが うえ）を うえ・した ひっくりかえす
+    const P = (x, y) => `${X(x)} ${Y(y)}`;
+    const R = (x, y, w, h) => `x="${Math.min(X(x), X(x + w))}" y="${Math.min(Y(y), Y(y + h))}" width="${w}" height="${h}"`;
     const CL = '#1d1f24', OP = '#fffdf6', LN = '#7b6a4d', TX = '#6b7590';
+    const foot = front ? 0 : 1;   // サミング：あしぶ がわ はんぶんを くろく する（0＝した、1＝うえ）
     const hole = (cx, cy, r, st) => {
-        cx = X(cx);
+        cx = X(cx); cy = Y(cy);
         if (st === 'h') return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${OP}" stroke="${LN}" stroke-width="2.5"/>` +
-            `<path d="M${cx - r} ${cy} A${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="${CL}"/>`;
+            `<path d="M${cx - r} ${cy} A${r} ${r} 0 0 ${foot} ${cx + r} ${cy} Z" fill="${CL}"/>`;
         return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${st === '1' ? CL : OP}" stroke="${st === '1' ? CL : LN}" stroke-width="2.5"/>`;
     };
     const txt = (x, y, t, size = 15, anchor = 'middle', extra = '') => `<text x="${X(x)}" y="${y}" font-size="${size}" fill="${TX}" text-anchor="${anchor}" ${extra}>${t}</text>`;
     const sideB = front ? 'end' : 'start';
     let s = `<svg viewBox="0 0 200 640" preserveAspectRatio="xMidYMid meet" role="img" aria-label="リコーダーの ゆびの おさえかた" font-family="inherit" font-weight="800">
     <defs><linearGradient id="rbody" x1="0" x2="1"><stop offset="0" stop-color="#d8cbab"/><stop offset=".45" stop-color="#fbf6e8"/><stop offset="1" stop-color="#c8b994"/></linearGradient></defs>
-    <path d="M80 14 Q100 6 120 14 L127 140 L73 140 Z" fill="url(#rbody)" stroke="${LN}" stroke-width="2"/>
-    <rect x="88" y="98" width="24" height="15" rx="2" fill="#5b4a35"/>
-    <path d="M73 140 L127 140 L123 565 L77 565 Z" fill="url(#rbody)" stroke="${LN}" stroke-width="2"/>
-    <rect x="71" y="140" width="58" height="12" rx="3" fill="#cdbd97" stroke="${LN}" stroke-width="1.5"/>
-    <path d="M77 565 L123 565 L131 618 Q100 628 69 618 Z" fill="url(#rbody)" stroke="${LN}" stroke-width="2"/>
-    <rect x="75" y="563" width="50" height="10" rx="3" fill="#cdbd97" stroke="${LN}" stroke-width="1.5"/>`;
+    <path d="M${P(80, 14)} Q${P(100, 6)} ${P(120, 14)} L${P(127, 140)} L${P(73, 140)} Z" fill="url(#rbody)" stroke="${LN}" stroke-width="2"/>
+    <rect ${R(88, 98, 24, 15)} rx="2" fill="#5b4a35"/>
+    <path d="M${P(73, 140)} L${P(127, 140)} L${P(123, 565)} L${P(77, 565)} Z" fill="url(#rbody)" stroke="${LN}" stroke-width="2"/>
+    <rect ${R(71, 140, 58, 12)} rx="3" fill="#cdbd97" stroke="${LN}" stroke-width="1.5"/>
+    <path d="M${P(77, 565)} L${P(123, 565)} L${P(131, 618)} Q${P(100, 628)} ${P(69, 618)} Z" fill="url(#rbody)" stroke="${LN}" stroke-width="2"/>
+    <rect ${R(75, 563, 50, 10)} rx="3" fill="#cdbd97" stroke="${LN}" stroke-width="1.5"/>`;
     // うらの おやゆび（見えない ので よこに 出す）
-    s += `<line x1="${X(52)}" y1="205" x2="${X(73)}" y2="205" stroke="${LN}" stroke-width="2" stroke-dasharray="4 3"/>`;
+    const ty = Y(205);
+    s += `<line x1="${X(52)}" y1="${ty}" x2="${X(73)}" y2="${ty}" stroke="${LN}" stroke-width="2" stroke-dasharray="4 3"/>`;
     s += hole(36, 205, 14, F[0]);
-    s += txt(36, 240, 'うら', 13) + txt(36, 256, '0', 13);
-    if (F[0] === 'h') s += txt(36, 180, 'サミング', 12);
+    s += txt(36, ty + 35, 'うら', 13) + txt(36, ty + 51, '0', 13);
+    if (F[0] === 'h') s += txt(36, ty - 24, 'サミング', 12);
     // おもての あな
-    [[1, 205], [2, 260], [3, 315], [4, 395], [5, 450]].forEach(([i, y]) => { s += hole(100, y, 13, F[i]); s += txt(146, y + 5, i, 14, sideB); });
+    [[1, 205], [2, 260], [3, 315], [4, 395], [5, 450]].forEach(([i, y]) => { s += hole(100, y, 13, F[i]); s += txt(146, Y(y) + 5, i, 14, sideB); });
     // 2つ あな（大きい あな と 小さい あな）
     [[6, 505, 6], [7, 545, 8]].forEach(([n, y, i]) => {
         s += hole(94, y, 10.5, F[i]) + hole(113, y + 1, 6, F[i + 1]);
-        s += txt(146, y + 5, n, 14, sideB);
+        s += txt(146, Y(y) + 5, n, 14, sideB);
     });
     // ひだり手・みぎ手
-    s += `<path d="M${X(160)} 190 v140" stroke="#c4cad8" stroke-width="3" stroke-linecap="round"/>`;
-    s += `<path d="M${X(160)} 380 v180" stroke="#c4cad8" stroke-width="3" stroke-linecap="round"/>`;
-    s += txt(176, 262, 'ひだり手', 14, 'middle', `writing-mode="tb" glyph-orientation-vertical="0"`);
-    s += txt(176, 470, 'みぎ手', 14, 'middle', `writing-mode="tb" glyph-orientation-vertical="0"`);
-    if (blank) s += txt(100, 340, '？', 40);
+    s += `<path d="M${P(160, 190)} L${P(160, 330)}" stroke="#c4cad8" stroke-width="3" stroke-linecap="round"/>`;
+    s += `<path d="M${P(160, 380)} L${P(160, 560)}" stroke="#c4cad8" stroke-width="3" stroke-linecap="round"/>`;
+    s += txt(176, Y(262), 'ひだり手', 14, 'middle', `writing-mode="tb" glyph-orientation-vertical="0"`);
+    s += txt(176, Y(470), 'みぎ手', 14, 'middle', `writing-mode="tb" glyph-orientation-vertical="0"`);
+    s += txt(36, Y(60) + 4, 'ふきぐち', 12) + txt(36, Y(590) + 4, 'あしぶ', 12);
+    if (blank) s += txt(100, 330, '？', 40);
     return s + '</svg>';
 }
 
@@ -898,22 +1035,22 @@ function setDown(m, d){
     if (d > 0) lastDown = m;
     updateReco();
 }
-function press(m, src, user = true, inst = S.inst){
+function press(m, src, user = true, inst = S.inst, silent = false){
     const I = INST[inst];
     if (m < I.min || m > I.max) return;
     const k = src + '|' + m;
     if (held.has(k)) return;
-    const v = startVoice(inst, m);
+    const v = silent ? { stop(){} } : startVoice(inst, m);
     held.set(k, { m, v, inst });
     if (inst === S.inst) setDown(m, 1);
-    if (user) { recEvent(m, true); guideHit(m); }
+    if (user) { recEvent(m, true); capPress(m); if (!cap) guideHit(m); }
 }
 function release(m, src, user = true){
     const k = src + '|' + m, h = held.get(k);
     if (!h) return;
     held.delete(k); h.v.stop();
     if (h.inst === S.inst) setDown(m, -1);
-    if (user) recEvent(m, false);
+    if (user) { recEvent(m, false); capRelease(m); }
 }
 function releaseAll(prefix){
     for (const [k, h] of [...held]) if (!prefix || k.startsWith(prefix + '|')) release(h.m, k.split('|')[0], !prefix);
@@ -927,7 +1064,7 @@ function noteAt(x, y){
     return k && board.contains(k) ? +k.dataset.m : null;
 }
 stage.addEventListener('pointerdown', e => {
-    if (e.button > 0) return;
+    if (e.button > 0 || e.target.closest('.reco')) return;
     e.preventDefault();
     ensureAudio();
     try { stage.setPointerCapture(e.pointerId); } catch (_) {}
@@ -953,7 +1090,7 @@ stage.addEventListener('pointercancel', ptrEnd);
 stage.addEventListener('lostpointercapture', ptrEnd);
 stage.addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('blur', () => releaseAll());
-document.addEventListener('visibilitychange', () => { if (document.hidden) { releaseAll(); stopDemo(); stopPlay(); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { releaseAll(); stopDemo(); stopPlay(); if (RHY.on && !cap) rhyStop(); } });
 
 // パソコンの キーボード（ならびは ピアノと おなじ。いちばん ひだりの ド から）
 const KB = { KeyA:0, KeyW:1, KeyS:2, KeyE:3, KeyD:4, KeyF:5, KeyT:6, KeyG:7, KeyY:8, KeyH:9, KeyU:10, KeyJ:11,
@@ -967,6 +1104,7 @@ document.addEventListener('keydown', e => {
     if (e.target.closest && e.target.closest('input, textarea, select, dialog[open]')) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.code in KB) { e.preventDefault(); if (!e.repeat) { ensureAudio(); press(kbBase() + KB[e.code], 'k' + e.code); } return; }
+    if (e.key === 'Escape' && document.body.classList.contains('big')) { setBig(false); return; }
     if (e.key === 'ArrowLeft') { e.preventDefault(); shiftView(-1); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); shiftView(1); }
 });
@@ -997,19 +1135,55 @@ function parseMelody(src){
         .replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
     const NOTE = /(?:高|低|↑|↓)*(?:ファ|ド|レ|ミ|ソ|ラ|シ|休|ウン|[CDEFGAB])(?:[#♯]|[b♭])?(?:ー|-|~|〜)*(?:\d+(?:\.\d+)?)?/y;
     const SEP = /[\s、,。・|｜/／()（）「」]+/y;
+    const METER = /(?:(\d)\/(\d)|([2346]))拍子/y;     // 「3拍子」「6/8拍子」
     const notes = [];
-    let i = 0;
+    let i = 0, meter = null;
     while (i < s.length) {
+        METER.lastIndex = i;
+        const mm = METER.exec(s);
+        if (mm) { meter = mm[3] ? +mm[3] : ({ '2/4':2, '3/4':3, '4/4':4, '6/8':6, '2/2':4, '3/8':3, '9/8':3, '12/8':4 }[mm[1] + '/' + mm[2]] || 4); i += mm[0].length; continue; }
         SEP.lastIndex = i;
         const sp = SEP.exec(s);
         if (sp) { i += sp[0].length; continue; }
         NOTE.lastIndex = i;
         const mt = NOTE.exec(s);
-        if (!mt) return { notes, error:{ index:notes.length, ch:s[i] } };
+        if (!mt) return { notes, meter, error:{ index:notes.length, ch:s[i] } };
         notes.push(tokenToNote(mt[0]));
         i += mt[0].length;
     }
-    return { notes };
+    return { notes, meter };
+}
+// おと → ドレミの もじ（parseMelody の はんたい）。小節ごとに 行を かえる
+const NAME_PC = ['ド','ド♯','レ','ミ♭','ミ','ファ','ファ♯','ソ','ソ♯','ラ','シ♭','シ'];
+function durTxt(d){
+    d = Math.round(d * 1000) / 1000;
+    if (d === 1) return '';
+    if (Number.isInteger(d) && d <= 8) return 'ー'.repeat(d - 1);
+    return String(d);
+}
+function noteTxt(n){
+    if (n.m == null) return '休' + durTxt(n.d);
+    let name, acc;
+    if (n.L != null) { acc = n.acc || 0; name = LET_DO[n.L] + (acc > 0 ? '♯' : acc < 0 ? '♭' : ''); }
+    else { name = NAME_PC[pcOf(n.m)]; acc = name.endsWith('♯') ? 1 : name.endsWith('♭') ? -1 : 0; }
+    const o = Math.floor((n.m - acc) / 12) - 5;
+    return (o > 0 ? '高'.repeat(o) : '低'.repeat(-o)) + name + durTxt(n.d);
+}
+function notesToText(notes, meter){
+    const out = [];
+    for (const n of notes) {            // つづく やすみは 1つに まとめる
+        const last = out[out.length - 1];
+        if (n.m == null && last && last.m == null) last.d += n.d; else out.push({ ...n });
+    }
+    const bar = meter === 6 ? 3 : (meter || 4);
+    let acc = 0, line = [], lines = [];
+    for (const n of out) {
+        line.push(noteTxt(n)); acc += n.d;
+        if (acc >= bar - 1e-6) { lines.push(line.join(' ')); line = []; acc %= bar; if (acc < 1e-6) acc = 0; }
+    }
+    if (line.length) lines.push(line.join(' '));
+    const head = meter && meter !== 4 ? (meter === 6 ? '6/8拍子' : meter + '拍子') + '\n' : '';
+    return head + lines.join('\n');
 }
 function tokenToNote(t){
     let oct = 0;
@@ -1060,7 +1234,10 @@ function loadSong(id){
     const s = findSong(id) || SONGS[2];
     stopDemo();
     song.id = s.id; song.name = s.name;
-    song.notes = parseMelody(s.text).notes;
+    const r = parseMelody(s.text);
+    song.notes = r.notes;
+    setMeter(r.meter || 4);
+    $('#songTitle').textContent = '🎵 ' + s.name;
     S.songId = s.id; save();
     $('#songSel').value = s.id;
     prepareSong();
@@ -1136,6 +1313,7 @@ function markStrip(nowI){
     }
 }
 function guideTarget(){
+    if (cap) return null;
     if (!S.songOpen || !S.guide || demo || song.pos >= song.notes.length) return null;
     return song.notes[song.pos].m + song.shift;
 }
@@ -1168,13 +1346,15 @@ function startDemo(notes = song.notes, shift = song.shift, onStrip = true){
     $('#demoBtn').textContent = '■ とめる';
     markGuide();
     let t = 300;
+    if (RHY.on && onStrip) t = Math.max(0, (nextBarTime(.15) - ctx.currentTime) * 1000);   // リズムの 小節の あたまから
+    const mute = onStrip && S.demoMute;
     notes.forEach((n, i) => {
         timers.push(setTimeout(() => {
             if (onStrip) markStrip(i);
             if (n.m == null) return;
             const m = n.m + shift;
             if (onStrip) ensureVisible(m);
-            press(m, 'demo', false);
+            press(m, 'demo', false, S.inst, mute);
             timers.push(setTimeout(() => release(m, 'demo', false), Math.max(80, n.d * beat * .86)));
         }, t));
         t += n.d * beat;
@@ -1223,7 +1403,17 @@ $('#guideBtn').onclick = () => {
     markStrip(); markGuide();
 };
 $('#againBtn').onclick = restartSong;
-$('#tempo').oninput = e => { S.tempo = +e.target.value; save(); };
+$('#tempo').oninput = e => {
+    S.tempo = +e.target.value; save();
+    if (RHY.on) RHY.t0 = RHY.next - RHY.idx * tickSec();     // つぎの はくから あたらしい はやさ
+    rhyUI();
+};
+function muteUI(){
+    $('#muteBtn').classList.toggle('on', S.demoMute);
+    $('#muteBtn').setAttribute('aria-pressed', S.demoMute);
+    $('#muteBtn').textContent = S.demoMute ? '💡 ひかる だけ' : '🔈 おとも ならす';
+}
+$('#muteBtn').onclick = () => { S.demoMute = !S.demoMute; save(); muteUI(); };
 $('#editBtn').onclick = () => openEditor(findSong(song.id));
 
 /* ---------- じぶんの きょく ---------- */
@@ -1237,6 +1427,7 @@ function openEditor(s){
     $('#edDel').hidden = !mine;
     $('#edLink').value = '';
     edPreview();
+    rhyUI();
     $('#edDlg').showModal();
 }
 function edPreview(){
@@ -1282,6 +1473,377 @@ $('#edLinkBtn').onclick = async () => {
     try { await navigator.clipboard.writeText(url); $('#edErr').textContent = 'リンクを コピーしました。Classroom などに はって くばれます'; $('#edErr').style.color = 'var(--accent-d)'; } catch (e) {}
 };
 $('#edDlg').addEventListener('close', () => stopDemo());
+
+/* ==================================================================
+   リズム（カチカチ・ドラム）
+   ------------------------------------------------------------------
+   AudioContext の とけいで すこし さきまで よやくする（ずれない）。
+   2・3・4拍子は 4分音符ごと、6/8拍子は 8分音符ごとに 1つ。
+   ================================================================== */
+const METERS = { 2:{ n:2, tick:1 }, 3:{ n:3, tick:1 }, 4:{ n:4, tick:1 }, 6:{ n:6, tick:.5 } };   // tick＝4分音符 いくつ分
+const RHY = { on:false, timer:null, next:0, idx:0, t0:0, bus:null, ui:[] };
+const tickSec = () => METERS[S.meter].tick * 60 / S.tempo;
+const barSec = () => METERS[S.meter].n * tickSec();
+const barBeats = () => METERS[S.meter].n * METERS[S.meter].tick;
+// つぎの 小節の はじまりの じかん
+function nextBarTime(lead = .05){
+    const b = barSec(), now = ctx.currentTime + lead;
+    return RHY.t0 + Math.max(0, Math.ceil((now - RHY.t0) / b - 1e-6)) * b;
+}
+function rhyStart(){
+    if (!ensureAudio()) return;
+    if (!RHY.bus) { RHY.bus = G(.6); RHY.bus.connect(master); }
+    rhyStop(true);
+    RHY.on = true; RHY.idx = 0;
+    RHY.t0 = RHY.next = ctx.currentTime + .12;
+    RHY.timer = setInterval(rhySched, 25);
+    rhySched(); rhyUI();
+}
+function rhyStop(quiet){
+    clearInterval(RHY.timer); RHY.timer = null; RHY.on = false;
+    RHY.ui.forEach(clearTimeout); RHY.ui = [];
+    if (!quiet) { rhyUI(); beatUI(-1); }
+}
+function rhySched(){
+    const M = METERS[S.meter], ts = tickSec();
+    while (RHY.next < ctx.currentTime + .12) {
+        const i = RHY.idx % M.n, t = RHY.next;
+        rhySound(i, t, M, ts);
+        RHY.ui.push(setTimeout(() => { RHY.ui.shift(); beatUI(i); }, Math.max(0, (t - ctx.currentTime) * 1000)));
+        RHY.next += ts; RHY.idx++;
+    }
+}
+function blip(t, f, a, d){
+    const o = osc(f, 'sine'), g = ctx.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(a, t + .002); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+    o.connect(g).connect(RHY.bus); o.start(t); o.stop(t + d + .02);
+}
+function hiss(t, type, f, a, d, q){
+    const n = noise(), b = filt(type, f, q), g = ctx.createGain();
+    g.gain.setValueAtTime(a, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+    n.connect(b).connect(g).connect(RHY.bus); n.start(t); n.stop(t + d + .02);
+}
+function kick(t){
+    const o = osc(150, 'sine'), g = ctx.createGain();
+    o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + .13);
+    g.gain.setValueAtTime(1, t); g.gain.exponentialRampToValueAtTime(.0001, t + .3);
+    o.connect(g).connect(RHY.bus); o.start(t); o.stop(t + .32);
+}
+function snare(t){ hiss(t, 'bandpass', 1900, .55, .16, .8); blip(t, 190, .25, .08); }
+function hat(t, a){ hiss(t, 'highpass', 7000, a, .045, .7); }
+function rhySound(i, t, M, ts){
+    if (S.rhyStyle === 'drum') {
+        // 2拍子：ドン・タン　3拍子：ドン・タン・タン　4拍子：ドン・タン・ドン・タン　6/8：ドン・チ・チ・タン・チ・チ
+        const x = { 2:'ks', 3:'kss', 4:'ksks', 6:'khhshh' }[S.meter][i];
+        if (x === 'k') kick(t);
+        if (x === 's') snare(t);
+        hat(t, i === 0 ? .22 : .16);
+        if (M.tick === 1) hat(t + ts / 2, .1);
+    } else {
+        const a = i === 0 ? 2 : (S.meter === 6 && i === 3) ? 1 : 0;   // 1はくめは つよく・たかく
+        blip(t, [880, 1180, 1660][a], [.35, .45, .6][a], .05);
+    }
+}
+function beatsHTML(){
+    return Array.from({ length: METERS[S.meter].n }, (_, i) => `<i class="${i === 0 || (S.meter === 6 && i === 3) ? 'a' : ''}"></i>`).join('');
+}
+function beatUI(i){
+    $$('.beats').forEach(b => [...b.children].forEach((d, j) => d.classList.toggle('on', j === i)));
+    capTick();
+}
+function rhyUI(){
+    $$('.beats').forEach(b => { b.innerHTML = beatsHTML(); });
+    $('#rhyBtn').classList.toggle('on', RHY.on);
+    $('#rhyBtn').setAttribute('aria-pressed', RHY.on);
+    $('#rhyBtn').textContent = RHY.on ? '■ リズム' : '🥁 リズム';
+    $('#bigRhy').classList.toggle('on', RHY.on);
+    const ml = (S.meter === 6 ? '6/8' : S.meter) + '拍子';
+    $('#rhyLbl').textContent = `${ml}　♩=${S.tempo}`;
+    $('#tempoLbl').textContent = '♩=' + S.tempo;
+    $('#edMeter').textContent = ml;
+    $$('#meterSeg .btn').forEach(b => b.classList.toggle('on', +b.dataset.v === S.meter));
+    $$('#styleSeg .btn').forEach(b => b.classList.toggle('on', b.dataset.v === S.rhyStyle));
+}
+function setMeter(m){
+    m = METERS[m] ? +m : 4;
+    if (m === S.meter) { rhyUI(); return; }
+    S.meter = m; save();
+    if (RHY.on && !cap) rhyStart(); else rhyUI();
+}
+$('#rhyBtn').onclick = () => RHY.on ? rhyStop() : rhyStart();
+$('#bigRhy').onclick = () => RHY.on ? rhyStop() : rhyStart();
+$('#meterSeg').onclick = e => { const b = e.target.closest('.btn'); if (b) setMeter(+b.dataset.v); };
+$('#styleSeg').onclick = e => { const b = e.target.closest('.btn'); if (b) { S.rhyStyle = b.dataset.v; save(); rhyUI(); } };
+
+/* ==================================================================
+   メニュー・さいだいか
+   ================================================================== */
+function setMenu(open){
+    document.body.classList.toggle('menu-open', open);
+    $('#menu').hidden = !open;
+    $('#menuBtn').setAttribute('aria-expanded', open);
+}
+$('#menuBtn').onclick = () => setMenu($('#menu').hidden);
+$('#barInst').onclick = () => setMenu(true);
+function setBig(on){
+    document.body.classList.toggle('big', on);
+    $('#bigCtl').hidden = !on;
+    if (on) {
+        setMenu(false);
+        const el = document.documentElement;
+        if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => {});
+    } else if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    layout();
+}
+$('#fsBtn').onclick = () => setBig(true);
+$('#bigExit').onclick = () => setBig(false);
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && document.body.classList.contains('big')) setBig(false); });
+
+/* ==================================================================
+   けんばんで きょくを 入力
+   ------------------------------------------------------------------
+   リズムに あわせる：1小節 カウントの あと、おした・はなした じかんを 8分音符に そろえて、
+     つぎの 音までの ながさ を その 音の ながさに する（のばす 音）。
+     はなしてから つぎの 音まで 1はく いじょう あいたら やすみ に する。
+   あわせない：1つ おすごとに 1はく。「ー のばす」「休 やすみ」で なおす。
+   ================================================================== */
+let cap = null;
+function capStart(){
+    const r = parseMelody($('#edText').value);
+    if (r.meter) setMeter(r.meter);
+    const timed = $('#edTimed').checked;
+    cap = { timed, raw:[], steps:[], base: $('#edText').value, startedRhy:false, t0:0 };
+    $('#edDlg').close();
+    setMenu(false);
+    if (timed) {
+        if (!RHY.on) { rhyStart(); cap.startedRhy = true; }
+        if (!ctx) { cap = null; return; }
+        cap.t0 = nextBarTime(.05) + barSec();      // 1小節 カウント
+    }
+    $('#inBar').hidden = false;
+    document.body.classList.add('capturing');
+    $('#inLong').hidden = $('#inRest').hidden = timed;
+    $('#inMsg').textContent = timed ? '🎹 カウントの あとで ひいてね' : '🎹 おした じゅんに 1はくずつ';
+    capDraw(); markGuide();
+}
+function capPress(m){
+    if (!cap) return;
+    if (cap.timed) {
+        const now = ctx.currentTime;
+        if (now < cap.t0 - tickSec() / 2) return;    // カウント中は いれない
+        cap.raw.push({ m, on: now, off: null });
+    } else cap.steps.push({ m, d: 1 });
+    capDraw();
+}
+function capRelease(m){
+    if (!cap || !cap.timed) return;
+    for (let i = cap.raw.length - 1; i >= 0; i--) if (cap.raw[i].m === m && cap.raw[i].off == null) { cap.raw[i].off = ctx.currentTime; break; }
+    capDraw();
+}
+function capTick(){
+    if (!cap || !cap.timed) return;
+    const left = Math.round((cap.t0 - ctx.currentTime) / tickSec());
+    $('#inMsg').textContent = left > 0 ? `🎹 カウント ${left}…` : '🎹 にゅうりょく中（ひいてね）';
+    if (cap.raw.some(r => r.off == null)) capDraw();
+}
+function quantize(raw, t0){
+    const qs = 60 / S.tempo, Q = x => Math.round(x * 2) / 2, bar = barBeats(), now = ctx.currentTime;
+    let ev = raw.map(r => ({ m: r.m, s: Math.max(0, Q((r.on - t0) / qs)), e: Q(((r.off != null ? r.off : now) - t0) / qs) }));
+    ev.sort((a, b) => a.s - b.s || b.m - a.m);
+    ev = ev.filter((e, i) => i === 0 || e.s !== ev[i - 1].s);      // おなじ ときは たかい ほう 1つ
+    const out = [];
+    if (!ev.length) return out;
+    const lead = ev[0].s % bar;                                   // さいしょの 小節の とちゅうから ＝ やすみ
+    if (lead >= .5) out.push({ m: null, d: lead });
+    ev.forEach((e, i) => {
+        const held = Math.max(.5, e.e - e.s), nx = ev[i + 1];
+        if (!nx) { out.push({ m: e.m, d: held }); return; }
+        const ioi = nx.s - e.s;
+        if (ioi - held >= 1) { out.push({ m: e.m, d: held }); out.push({ m: null, d: ioi - held }); }
+        else out.push({ m: e.m, d: ioi });
+    });
+    return out;
+}
+function capNotes(){ return cap.timed ? quantize(cap.raw, cap.t0) : cap.steps; }
+function capDraw(){
+    const keep = song.shift; song.shift = 0;
+    const box = $('#inChips');
+    box.innerHTML = capNotes().slice(-24).map(chipHTML).join('');
+    song.shift = keep;
+    box.scrollLeft = box.scrollWidth;
+}
+function capEnd(ok){
+    if (!cap) return;
+    const c = cap, notes = capNotes();
+    cap = null;
+    releaseAll();
+    if (c.startedRhy) rhyStop();
+    $('#inBar').hidden = true;
+    document.body.classList.remove('capturing');
+    if (ok && notes.length) {
+        const add = notesToText(notes, c.timed ? S.meter : null), base = c.base.trim();
+        $('#edText').value = base ? base + '\n' + add : add;
+        $('#edLink').value = '';
+    }
+    markGuide();
+    $('#edDlg').showModal();
+    edPreview();
+}
+$('#edKeys').onclick = capStart;
+$('#inDone').onclick = () => capEnd(true);
+$('#inCancel').onclick = () => capEnd(false);
+$('#inUndo').onclick = () => { if (!cap) return; (cap.timed ? cap.raw : cap.steps).pop(); capDraw(); };
+$('#inLong').onclick = () => { if (!cap) return; const l = cap.steps[cap.steps.length - 1]; if (l) l.d += 1; capDraw(); };
+$('#inRest').onclick = () => { if (!cap) return; cap.steps.push({ m: null, d: 1 }); capDraw(); };
+
+/* ==================================================================
+   がくふファイルを よみこむ（MusicXML・.mxl・MIDI）
+   ------------------------------------------------------------------
+   1ばんめの パートの 1ばんめの こえ だけ。和音は いちばん うえ だけ（MIDI）／さいしょの 音（MusicXML）。
+   タイは つなげる。しゃしん・PDF は ここでは よめない（MuseScore などで MusicXML に する）。
+   ================================================================== */
+const METER_OF = { '2/4':2, '3/4':3, '4/4':4, '6/8':6, '2/2':4, '3/8':3, '9/8':3, '12/8':4 };
+function parseMusicXML(text){
+    const doc = new DOMParser().parseFromString(text, 'application/xml');
+    if (doc.querySelector('parsererror')) throw new Error('MusicXML の かたちが よめないよ');
+    const part = doc.querySelector('part');
+    if (!part) throw new Error('パートが みつからないよ');
+    const tEl = doc.querySelector('work-title') || doc.querySelector('movement-title');
+    const STEP = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 }, LET = { C:0, D:1, E:2, F:3, G:4, A:5, B:6 };
+    let div = 1, meter = null, voice = null;
+    const out = [];
+    for (const meas of part.querySelectorAll(':scope > measure')) {
+        for (const el of meas.children) {
+            if (el.tagName === 'attributes') {
+                const dv = el.querySelector('divisions'); if (dv) div = +dv.textContent || 1;
+                const tm = el.querySelector('time');
+                if (tm && meter == null) meter = METER_OF[(tm.querySelector('beats') || {}).textContent + '/' + (tm.querySelector('beat-type') || {}).textContent] || 4;
+            } else if (el.tagName === 'note') {
+                if (el.querySelector('grace, cue, chord')) continue;
+                const v = (el.querySelector('voice') || {}).textContent || '1';
+                if (voice == null) voice = v;
+                if (v !== voice) continue;
+                const dur = (+(el.querySelector('duration') || {}).textContent || 0) / div;
+                if (!dur) continue;
+                if (el.querySelector('rest')) { out.push({ m: null, d: dur }); continue; }
+                const p = el.querySelector('pitch'); if (!p) continue;
+                const st = p.querySelector('step').textContent.trim();
+                const alt = Math.round(+((p.querySelector('alter') || {}).textContent || 0));
+                const m = (+p.querySelector('octave').textContent + 1) * 12 + STEP[st] + alt;
+                const ties = [...el.querySelectorAll('tie')].map(t => t.getAttribute('type'));
+                const last = out[out.length - 1];
+                if (ties.includes('stop') && last && last.m === m) { last.d += dur; continue; }
+                out.push(Math.abs(alt) <= 1 ? { m, d: dur, L: LET[st], acc: alt } : { m, d: dur });
+            }
+        }
+    }
+    out.forEach(n => n.d = Math.round(n.d * 8) / 8);
+    return { notes: out.filter(n => n.d > 0), meter, title: tEl ? tEl.textContent.trim() : null };
+}
+const isZip = buf => { const u = new Uint8Array(buf, 0, Math.min(4, buf.byteLength)); return u[0] === 0x50 && u[1] === 0x4b && u[2] === 3 && u[3] === 4; };
+async function mxlText(buf){
+    const dv = new DataView(buf), u8 = new Uint8Array(buf), td = new TextDecoder();
+    let e = -1;
+    for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 66000); i--) if (dv.getUint32(i, true) === 0x06054b50) { e = i; break; }
+    if (e < 0) throw new Error('.mxl が よめないよ');
+    const files = [];
+    let p = dv.getUint32(e + 16, true);
+    for (let k = dv.getUint16(e + 10, true); k > 0 && dv.getUint32(p, true) === 0x02014b50; k--) {
+        const nl = dv.getUint16(p + 28, true);
+        files.push({ name: td.decode(u8.subarray(p + 46, p + 46 + nl)), method: dv.getUint16(p + 10, true), csize: dv.getUint32(p + 20, true), off: dv.getUint32(p + 42, true) });
+        p += 46 + nl + dv.getUint16(p + 30, true) + dv.getUint16(p + 32, true);
+    }
+    const read = async f => {
+        const at = f.off + 30 + dv.getUint16(f.off + 26, true) + dv.getUint16(f.off + 28, true);
+        const data = u8.subarray(at, at + f.csize);
+        if (f.method === 0) return td.decode(data);
+        if (f.method !== 8 || typeof DecompressionStream === 'undefined') throw new Error('この ブラウザでは .mxl が ひらけないよ（.musicxml で ほぞんしてね）');
+        return new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    };
+    let target = null;
+    const cont = files.find(f => f.name === 'META-INF/container.xml');
+    if (cont) { const m = (await read(cont)).match(/full-path="([^"]+)"/); if (m) target = files.find(f => f.name === m[1]); }
+    if (!target) target = files.find(f => !f.name.startsWith('META-INF') && /\.(xml|musicxml)$/i.test(f.name));
+    if (!target) throw new Error('がくふの ファイルが みつからないよ');
+    return read(target);
+}
+function parseMidi(buf){
+    const d = new DataView(buf), u8 = new Uint8Array(buf), td = new TextDecoder();
+    const str = (p, n) => String.fromCharCode(...u8.subarray(p, p + n));
+    if (str(0, 4) !== 'MThd') throw new Error('MIDI では ないみたい');
+    const ntr = d.getUint16(10), tpq = d.getUint16(12);
+    if (tpq & 0x8000) throw new Error('この MIDI の じかんの かたちは よめないよ');
+    let p = 8 + d.getUint32(4), meter = null, title = null;
+    const tracks = [];
+    for (let t = 0; t < ntr && p + 8 <= u8.length; t++) {
+        if (str(p, 4) !== 'MTrk') break;
+        const end = Math.min(u8.length, p + 8 + d.getUint32(p + 4));
+        let q = p + 8, tick = 0, run = 0;
+        const notes = [], open = {};
+        const vlq = () => { let v = 0, b; do { b = u8[q++]; v = (v << 7) | (b & 0x7f); } while (b & 0x80 && q < end); return v; };
+        while (q < end) {
+            tick += vlq();
+            let st = u8[q];
+            if (st & 0x80) q++; else st = run;
+            if (st === 0xff) {
+                const ty = u8[q++], l = vlq();
+                if (ty === 0x58 && meter == null) meter = METER_OF[u8[q] + '/' + (1 << u8[q + 1])] || 4;
+                if ((ty === 0x03 || ty === 0x01) && !title && t === 0) title = td.decode(u8.subarray(q, q + l)).trim() || null;
+                q += l; continue;
+            }
+            if (st === 0xf0 || st === 0xf7) { q += vlq(); continue; }
+            run = st;
+            const ty = st & 0xf0, ch = st & 0x0f;
+            if (ty === 0xc0 || ty === 0xd0) { q += 1; continue; }
+            const a = u8[q], b = u8[q + 1]; q += 2;
+            if (ch === 9) continue;                       // ドラムは つかわない
+            if (ty === 0x90 && b > 0) { (open[a] = open[a] || []).push(notes.length); notes.push({ m: a, s: tick, e: null }); }
+            else if (ty === 0x80 || (ty === 0x90 && b === 0)) { const i = (open[a] || []).shift(); if (i != null) notes[i].e = tick; }
+        }
+        tracks.push(notes); p = end;
+    }
+    const notes = tracks.reduce((a, b) => b.length > a.length ? b : a, []);
+    if (!notes.length) throw new Error('おとが みつからないよ');
+    // はじまりは 16分音符、おわりは 8分音符に そろえる（すこし みじかく ならす ファイルでも のばす 音に なる）
+    const g = tpq / 4, Qt = x => Math.round(x / g) * g, Qe = x => Math.round(x / (2 * g)) * 2 * g;
+    let ev = notes.map(n => { const s = Qt(n.s); return { m: n.m, s, e: Math.max(s + g, Qe(n.e != null ? n.e : n.s + tpq)) }; }).sort((a, b) => a.s - b.s || b.m - a.m);
+    ev = ev.filter((e, i) => i === 0 || e.s !== ev[i - 1].s);
+    const out = [], bar = (meter === 6 ? 3 : (meter || 4)) * tpq;
+    const lead = ev[0].s % bar;
+    if (lead > 0) out.push({ m: null, d: lead / tpq });
+    ev.forEach((e, i) => {
+        const nx = ev[i + 1], held = Math.max(g, e.e - e.s);
+        if (!nx) { out.push({ m: e.m, d: held / tpq }); return; }
+        const ioi = nx.s - e.s;
+        if (ioi - held >= tpq / 2) { out.push({ m: e.m, d: held / tpq }); out.push({ m: null, d: (ioi - held) / tpq }); }
+        else out.push({ m: e.m, d: ioi / tpq });
+    });
+    return { notes: out, meter, title };
+}
+$('#edFile').onclick = () => $('#edFileIn').click();
+$('#edFileIn').onchange = async e => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    try {
+        const buf = await f.arrayBuffer(), nm = f.name.toLowerCase();
+        let r;
+        if (/\.midi?$/.test(nm)) r = parseMidi(buf);
+        else if (/\.mxl$/.test(nm) || isZip(buf)) r = parseMusicXML(await mxlText(buf));
+        else r = parseMusicXML(new TextDecoder().decode(buf));
+        const cnt = r.notes.filter(n => n.m != null).length;
+        if (!cnt) throw new Error('おとが みつからないよ');
+        $('#edText').value = notesToText(r.notes, r.meter);
+        if (!$('#edName').value.trim()) $('#edName').value = (r.title || f.name.replace(/\.[^.]+$/, '')).slice(0, 30);
+        $('#edLink').value = '';
+        if (r.meter) setMeter(r.meter);
+        edPreview();
+        $('#edErr').textContent = `「${f.name}」から ${cnt}こ の おとを よみこみました`;
+        $('#edErr').style.color = 'var(--accent-d)';
+    } catch (err) {
+        $('#edErr').textContent = 'よみこめなかったよ：' + (err && err.message || err);
+        $('#edErr').style.color = '';
+    }
+};
 
 /* ==================================================================
    ろくおん
@@ -1345,10 +1907,6 @@ $('#viewBtn').onclick = () => {
     S.recoView = S.recoView === 'front' ? 'self' : 'front'; save();
     updateCtrl(); updateReco();
 };
-$('#fsBtn').onclick = () => {
-    if (document.fullscreenElement) document.exitFullscreen();
-    else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
-};
 $('#setBtn').onclick = () => { syncSetDlg(); $('#setDlg').showModal(); };
 $$('dialog [data-close]').forEach(b => b.onclick = () => b.closest('dialog').close());
 $$('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
@@ -1391,6 +1949,8 @@ $('#vol').oninput = e => { S.vol = +e.target.value; save(); ensureAudio(); setVo
         }
     }
     $('#tempo').value = S.tempo;
+    if (!METERS[S.meter]) S.meter = 4;
+    rhyUI(); muteUI();
     $('#guideBtn').classList.toggle('on', S.guide);
     $('#guideBtn').setAttribute('aria-pressed', S.guide);
     if (!findSong(S.songId)) S.songId = 'kaeru';
@@ -1401,7 +1961,7 @@ $('#vol').oninput = e => { S.vol = +e.target.value; save(); ensureAudio(); setVo
 })();
 
 // ためし用（tests から よぶ）
-window.__gakki = { parseMelody, fitShift, S, song, press, release, render, V, INST, WH };
+window.__gakki = { parseMelody, fitShift, S, song, press, release, render, V, INST, WH, notesToText, parseMusicXML, parseMidi, mxlText, quantize, RHY, get cap(){ return cap; }, get ctx(){ return ctx; } };
 </script>
 </body>
 </html>
