@@ -109,7 +109,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 .wline { height: 11mm; border-bottom: .35mm dashed #888; }
 .copy-box { border: .4mm solid #ccc; border-radius: 3mm; padding: 2mm 4mm 3mm; }
 .pic-frame { border: .5mm dashed #999; border-radius: 4mm; height: 55mm; position: relative; }
-.pic-frame.tall { flex: 1; min-height: 50mm; }
+.pic-frame.tall { flex: 1; min-height: 34mm; }
 .pic-frame span { position: absolute; left: 3mm; top: 2mm; font-size: 3.6mm; color: #888; }
 .red { color: #d32f2f; }
 .is-answer .red, .is-answer b.red { color: #d32f2f; }
@@ -206,7 +206,13 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 .dice-table th, .dice-table td { border: .35mm solid #555; padding: 1.8mm 1.5mm; text-align: center; }
 .dice-table thead th { background: var(--sl); font-size: 4.2mm; }
 .dice-table th.dice { font-size: 8mm; width: 12mm; font-weight: normal; line-height: 1; }
-.dice-roll { display: flex; gap: 6mm; font-size: 4mm; margin-bottom: 1mm; }
+.dice-roll { display: flex; flex-wrap: wrap; gap: 1.5mm 5mm; font-size: 3.8mm; margin-bottom: 1mm; }
+.dice-table { table-layout: fixed; }
+.dice-table thead th:first-child { width: 11mm; }
+.dice-table thead th small { font-size: 2.8mm; margin-right: .5mm; }
+.dice-table.n7 thead th, .dice-table.n8 thead th { font-size: 2.9mm; }
+.dice-table.n6 thead th { font-size: 3.4mm; }
+.dice-table.n7 td, .dice-table.n8 td, .dice-table.n7 th, .dice-table.n8 th { padding: 1.5mm .4mm; letter-spacing: -.1mm; }
 .dbox { display: inline-block; width: 8mm; height: 8mm; border: .4mm solid #333; vertical-align: middle; }
 
 /* --- けいさん めいろ --- */
