@@ -112,28 +112,32 @@
     };
 
     /* ---------- ものがたり めいろ ---------- */
+    const storyText = s => s.parts.map(p => typeof p === 'string' ? p : p.ok).join('');
     const storyMaze = {
         id: 'storymaze', title: 'ものがたり めいろ', icon: '🗺️',
-        desc: '1マスずつ よんで すすむと おはなしに なる めいろ。まちがった みちに すすむと、へんな おはなしに…！',
+        desc: 'むかしばなしを 1マスずつ よんで ゴールへ。まちがった みちには ちがう むかしばなしが まざって いて、へんな おはなしに…！',
         options: [
-            { key: 'story', label: 'おはなし', type: 'select', def: 'random', choices: [['random', 'くじで きめる'], ['lv1', 'やさしい おはなしから'], ...D.STORIES.map(s => [s.id, `${s.icon} ${s.title}（${'★'.repeat(s.level)}）`])] },
-            { key: 'kabe', label: 'かべにも もじを いれる（むずかしい）', type: 'check', def: false },
+            { key: 'story', label: 'おはなし', type: 'select', def: 'random', choices: [['random', 'くじで きめる'], ['jp', 'にほんの むかしばなしから くじ'], ['world', 'がいこくの むかしばなしから くじ'], ['lv1', 'やさしい おはなしから くじ'],
+                ...D.STORIES.map(s => [s.id, `${s.icon} ${s.title}（${s.country === 'にほん' ? 'にほん' : s.country}・${'★'.repeat(s.level)}）`])] },
+            { key: 'ume', label: 'あいた マスにも ちがう むかしばなしを いれる', type: 'check', def: true },
             { key: 'copy', label: 'かきうつす らんを つける', type: 'check', def: true },
         ],
         build(opt, rng) {
             let pool = D.STORIES;
             if (opt.story === 'lv1') pool = D.STORIES.filter(s => s.level === 1);
+            if (opt.story === 'jp') pool = D.STORIES.filter(s => s.country === 'にほん');
+            if (opt.story === 'world') pool = D.STORIES.filter(s => s.country !== 'にほん');
             const story = D.STORIES.find(s => s.id === opt.story) || rng.pick(pool);
             let total = 0;
             for (const p of story.parts) total += typeof p === 'string' ? G.chars(p).length : G.chars(p.ok).length + G.chars(p.ng).length;
-            const availH = opt.copy ? 148 : 184;
+            const availH = opt.copy ? 146 : 184;
             let [W, H] = G.mazeDims(total, 186 / availH), m = null;
             while (!m && H < W + 8) { m = G.storyMaze(story, W, H, rng, 300); if (!m) H++; }
             if (!m) return both({ subject: 'kokugo', title: 'ものがたり めいろ' }, '<p>めいろが つくれませんでした。「べつの もんだい」を おして ください。</p>', null);
+            /* あいた マスは ほかの むかしばなしで うめる */
+            if (opt.ume) G.fillMaze(m, D.STORIES.filter(s => s !== story).map(storyText), rng);
 
             const cell = Math.min(16, 186 / W, availH / H);
-            const fill = G.chars(m.text).filter(c => !'、。「」'.includes(c));
-            const kabe = range(W * H).map(() => rng.pick(fill));
             const grid = (answer) => {
                 let h = '';
                 for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -142,23 +146,22 @@
                         const isStart = c.kind === 'main' && c.idx === 0, isGoal = c.kind === 'main' && c.idx === m.main.length - 1;
                         const cls = ['sm', answer && c.kind === 'main' ? 'sm-ok' : '', answer && c.kind === 'ng' ? 'sm-ng' : '', isStart ? 'sm-start' : '', isGoal ? 'sm-goal' : ''].join(' ');
                         h += `<div class="${cls}">${esc(c.ch)}${isStart ? '<i class="flag">スタート</i>' : ''}${isGoal ? '<i class="flag">ゴール</i>' : ''}</div>`;
-                    } else if (opt.kabe) {
-                        h += `<div class="sm sm-kabe-moji">${esc(kabe[y * W + x])}</div>`;
                     } else h += '<div class="sm sm-wall"></div>';
                 }
                 const svg = answer ? pathSvg(m.main, W, H, 'ov-ok') : '';
                 return `<div class="smaze" style="grid-template-columns:repeat(${W},${cell}mm);grid-auto-rows:${cell}mm;font-size:${(cell * 0.62).toFixed(1)}mm">${h}${svg}</div>`;
             };
             const copy = opt.copy ? `<div class="copy-box"><div class="sub-h small">ただしい おはなしを かきうつそう</div>${range(2).map(() => '<div class="wline"></div>').join('')}
-               <div class="sub-h small" style="margin-top:2mm">へんな おはなしで いちばん おもしろかったのは？</div><div class="wline"></div></div>` : '';
+               <div class="sub-h small" style="margin-top:2mm">まちがいの みちには ちがう むかしばなしが まざって いたよ。なんの おはなしか わかるかな？</div><div class="wline"></div></div>` : '';
             const texts = [];
-            for (const p of story.parts) if (typeof p !== 'string') texts.push(`<span class="ok">${esc(p.ok)}</span> ／ <span class="ng">${esc(p.ng)}</span>`);
-            const ans = `${grid(true)}<div class="ans-text"><b>こたえ：</b>${esc(m.text)}</div><div class="ans-text small"><b>わかれみち：</b>${texts.join('　')}</div>`;
+            for (const p of story.parts) if (typeof p !== 'string') texts.push(`<span class="ok">${esc(p.ok)}</span> ／ <span class="ng">${esc(p.ng)}</span>${p.from ? `<small>（${esc(p.from)}）</small>` : ''}`);
+            const ans = `${grid(true)}<div class="ans-text"><b>こたえ：</b>${esc(m.text)}</div><div class="ans-text small"><b>わかれみち（ただしい ／ まちがい）：</b>${texts.join('　')}</div>`;
+            const where = story.country === 'にほん' ? 'にほんの むかしばなし' : `がいこくの むかしばなし・${story.country}`;
             return both({
-                subject: 'kokugo', catchline: `おはなし「${story.title}」を よみながら ゴールを めざそう！`, title: 'ものがたり めいろ', icon: story.icon,
+                subject: 'kokugo', catchline: `${where}「${story.title}」を よみながら ゴールを めざそう！`, title: 'ものがたり めいろ', icon: story.icon,
                 rules: ['<b>スタート</b>の もじから、となりの マスへ 1もじずつ よんで すすもう（ななめは ×）。',
                     'みちが わかれて いたら、<b>おはなしが ただしく つながる ほう</b>へ すすもう。',
-                    'へんな おはなしに なったら もどって やりなおそう。'],
+                    opt.ume ? 'ほかの むかしばなしが まざって へんに なったら、もどって やりなおそう。' : 'へんな おはなしに なったら もどって やりなおそう。'],
             }, grid(false) + copy, ans);
         },
     };
@@ -311,20 +314,24 @@
     const DICE = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
     const diceStory = {
         id: 'dicestory', title: 'へんてこ ぶんづくり', icon: '🎲',
-        desc: 'サイコロで「いつ・どこで・だれが・なにを した」を きめて、へんてこな ぶんと えを かく。',
-        options: [],
+        desc: 'サイコロで「いつ・どこで・だれが・なにを した」を きめて、へんてこな ぶんと えを かく。4〜8つの くみあわせ。',
+        options: [
+            { key: 'n', label: 'くみあわせの かず', type: 'select', def: '4', choices: Object.entries(D.DICE_SETS).map(([n, ks]) => [n, `${n}つ（${ks.map(k => D.DICE_POOLS[k].head).join('・')}）`]) },
+        ],
         build(opt, rng) {
-            const cols = D.DICE_COLS.map(c => ({ ...c, six: rng.sample(c.pool, 6) }));
-            const table = `<table class="dice-table"><thead><tr><th></th>${cols.map(c => `<th>${c.icon}<br>${esc(c.head)}</th>`).join('')}</tr></thead>
+            const n = D.DICE_SETS[opt.n] ? +opt.n : 4;
+            const cols = D.DICE_SETS[n].map(k => ({ ...D.DICE_POOLS[k], six: rng.sample(D.DICE_POOLS[k].pool, 6) }));
+            const fz = [4.2, 3.9, 3.5, 3.1, 2.85][n - 4];
+            const table = `<table class="dice-table n${n}" style="font-size:${fz}mm"><thead><tr><th></th>${cols.map((c, i) => `<th>${c.icon}<br><small>${MARU[i]}</small>${esc(c.head)}</th>`).join('')}</tr></thead>
               <tbody>${range(6).map(i => `<tr><th class="dice">${DICE[i]}</th>${cols.map(c => `<td>${esc(c.six[i])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
             const body = `${table}
               <div class="copy-box"><div class="sub-h">できた ぶん</div>
-                <div class="dice-roll">${cols.map(c => `<span>${esc(c.head)} <span class="dbox"></span></span>`).join('')}</div>
-                <div class="wline"></div><div class="wline"></div></div>
+                <div class="dice-roll">${cols.map((c, i) => `<span>${MARU[i]}${esc(c.head)} <span class="dbox"></span></span>`).join('')}</div>
+                ${range(n <= 5 ? 2 : 3).map(() => '<div class="wline"></div>').join('')}</div>
               <div class="pic-frame tall"><span>ぶんの えを かこう</span></div>`;
             return both({
-                subject: 'kokugo', catchline: 'サイコロで おはなしを つくろう！', title: 'へんてこ ぶんづくり', icon: '🎲',
-                rules: ['サイコロを 4かい ふって、でた めを □ に かこう。', 'でた めの ことばを じゅんばんに つなげて ぶんを つくろう。', 'へんてこな ぶんが できたら、えに かいて みよう！'],
+                subject: 'kokugo', catchline: `サイコロで おはなしを つくろう！（${n}つの くみあわせ）`, title: 'へんてこ ぶんづくり', icon: '🎲',
+                rules: [`サイコロを ${n}かい ふって、でた めを ①〜${'①②③④⑤⑥⑦⑧'[n - 1]} の □ に かこう。`, 'でた めの ことばを ①から じゅんばんに つなげて ぶんを つくろう。', 'へんてこな ぶんが できたら、えに かいて みよう！'],
             }, body, null);
         },
     };

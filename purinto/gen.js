@@ -177,6 +177,55 @@
         return [W, Math.max(7, Math.ceil(area / W))];
     }
 
+    /**
+     * めいろの あいた マスを、ほかの おはなしの 文で うめる（空きマスを なくす）。
+     * となりの マスへ ひと筆がきで ならべるので、まちがえて 入っても ほかの おはなしが 読める。
+     * texts … うめる 文の ならび（ほかの むかしばなし）
+     * ただしい みちの つぎの もじと おなじ もじが、ただしい みちの となりに こない ように する
+     * （こたえが 2つに 見えない ように）。
+     */
+    function fillMaze(m, texts, rng) {
+        const { W, H, cells } = m;
+        const empty = new Set();
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (!cells.has(key(x, y))) empty.add(key(x, y));
+        const nb = k => { const [x, y] = k.split(',').map(Number); return DIR4.map(([dx, dy]) => key(x + dx, y + dy)).filter(q => empty.has(q)); };
+        const pool = texts.map(t => chars(t)).filter(t => t.length);
+        let walk = 0;
+        while (empty.size) {
+            /* となりの あきが すくない マスから はじめる（ぽつんと のこらない ように） */
+            let start = null, best = 9;
+            for (const k of rng.shuffle([...empty])) { const n = nb(k).length; if (n < best) { best = n; start = k; } if (n === 0) break; }
+            const text = rng.pick(pool);
+            let i = rng.int(0, Math.max(0, text.length - 4));
+            let cur = start;
+            while (cur) {
+                cells.set(cur, { ch: text[i % text.length], kind: 'fill', walk });
+                empty.delete(cur);
+                i++;
+                const next = nb(cur);
+                if (!next.length) break;
+                /* ワーンスドルフ：さきが すくない ほうへ */
+                next.sort((a, b) => nb(a).length - nb(b).length || rng.next() - 0.5);
+                cur = next[0];
+            }
+            walk++;
+        }
+        /* ただしい みちの となりに「つぎの もじ」と おなじ もじが あったら かえる */
+        const allCh = pool.flat().filter(c => !'、。「」！'.includes(c));
+        for (let i = 0; i < m.main.length - 1; i++) {
+            const [x, y] = m.main[i], want = cells.get(key(...m.main[i + 1])).ch;
+            for (const [dx, dy] of DIR4) {
+                const c = cells.get(key(x + dx, y + dy));
+                if (c && c.kind === 'fill' && c.ch === want) {
+                    let r = want;
+                    for (let t = 0; t < 20 && r === want; t++) r = rng.pick(allCh);
+                    c.ch = r;
+                }
+            }
+        }
+        return m;
+    }
+
     /** けいさん めいろ の みち（ひだりうえ → みぎした） */
     function cornerPath(W, H, minLen, rng, tries = 300) {
         for (let t = 0; t < tries; t++) {
@@ -623,7 +672,7 @@
 
     const api = {
         makeRng, hashSeed, moraSplit, toHira, chars, SMALL,
-        canPlace, growPath, storyMaze, mazeDims, cornerPath, makeExpr, makeDecoy,
+        canPlace, growPath, storyMaze, mazeDims, fillMaze, cornerPath, makeExpr, makeDecoy,
         wordSearch, countWord, WS_DIRS,
         LO_SHU, symmetries, isMagic, magicSolutions, magicSquare,
         pyramidFrom, pyramidSolvable, pyramid,

@@ -243,6 +243,45 @@
         const tbL = S.buildSheet(tbE, { grade: 'all', kata: 'list' }, 1).page;
         t('チャレンジ カードは 学年ごとに 1まい', (tbL.match(/<section/g) || []).length === 3);
 
+
+        /* むかしばなし めいろ（あいた マスを うめる） */
+        t(`むかしばなしが 12わ いじょう（${D.STORIES.length}わ）`, D.STORIES.length >= 12);
+        t('にほんと がいこくの むかしばなしが ある', D.STORIES.some(s => s.country === 'にほん') && D.STORIES.some(s => s.country !== 'にほん'));
+        t('まちがいの みちは ちがう むかしばなし（from が ある）', D.STORIES.every(s => s.parts.filter(p => typeof p !== 'string').every(p => p.from && p.from !== s.title)));
+        let fillOk = true, fillDetail = '';
+        for (const s of D.STORIES) {
+            let tot = 0;
+            for (const p of s.parts) tot += typeof p === 'string' ? G.chars(p).length : G.chars(p.ok).length + G.chars(p.ng).length;
+            const [mw, mh] = G.mazeDims(tot, 186 / 146);
+            const rr = G.makeRng(21);
+            const m = G.storyMaze(s, mw, mh, rr) || G.storyMaze(s, mw, mh + 1, rr);
+            if (!m) { fillOk = false; fillDetail = s.id + ' めいろが できない'; continue; }
+            const others = D.STORIES.filter(o => o !== s).map(o => o.parts.map(p => typeof p === 'string' ? p : p.ok).join(''));
+            G.fillMaze(m, others, rr);
+            if (m.cells.size !== m.W * m.H) { fillOk = false; fillDetail = s.id + ' あきマスが ある'; }
+            for (let i = 0; i < m.main.length - 1; i++) {
+                const [x, y] = m.main[i], want = m.cells.get(m.main[i + 1].join(',')).ch;
+                for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                    const c = m.cells.get((x + dx) + ',' + (y + dy));
+                    if (c && c.kind === 'fill' && c.ch === want) { fillOk = false; fillDetail = `${s.id} ${i}ばんめの となり`; }
+                }
+            }
+            if (m.main.map(p => m.cells.get(p.join(',')).ch).join('') !== m.text) { fillOk = false; fillDetail = s.id + ' ただしい みちが かわった'; }
+        }
+        t('あいた マスを ぜんぶ うめても、ただしい みちは 1つに 読める', fillOk, fillDetail);
+        const smE = S.CATALOG.find(c => c.id === 'storymaze');
+        t('めいろの プリントに あいた マス（かべ）が ない', !S.buildSheet(smE, {}, 5).page.includes('sm-wall'));
+        t('「うめない」に すると かべが でる', S.buildSheet(smE, { ume: false }, 5).page.includes('sm-wall'));
+
+        /* へんてこ ぶんづくり（4〜8つ） */
+        const dsE = S.CATALOG.find(c => c.id === 'dicestory');
+        for (const n of [4, 5, 6, 7, 8]) {
+            const ks = D.DICE_SETS[n];
+            t(`へんてこ ぶんづくり ${n}つ：はこが ${n}こ・どれも 6こ いじょう`, ks && ks.length === n && ks.every(k => D.DICE_POOLS[k] && D.DICE_POOLS[k].pool.length >= 6));
+            const h = S.buildSheet(dsE, { n: String(n) }, 2).page;
+            t(`へんてこ ぶんづくり ${n}つ：ひょうに ${n * 6}マス`, (h.match(/<td>/g) || []).length === n * 6);
+        }
+
         /* ぜんぶの プリント */
         for (const e of S.CATALOG) {
             let ok = true, err = '';
