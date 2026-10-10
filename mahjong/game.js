@@ -132,7 +132,6 @@ export class GameView {
   <div class="river"></div>
   <div class="melds"></div>
   <div class="backs"></div>
-  <div class="rstick"></div>
   <div class="plate"><div class="pl-in" style="transform:rotate(${-ANGLES[p]}deg)"></div></div>
 </div>`).join('');
         this.root.addEventListener('click', e => this.onClick(e));
@@ -146,8 +145,8 @@ export class GameView {
         const landscape = W > H * 1.15;
         this.root.classList.toggle('landscape', landscape);
         // 手牌の 牌の 大きさ（14枚＋すきまが 画面の はばに おさまる）
-        const n = 14.6;
-        let tw = Math.floor((Math.min(W, 1100) - 12) / n);
+        // 14枚 ＋ ツモ牌の すきま（0.45枚）＋ 左右の よはく
+        let tw = Math.floor((Math.min(W, 1100) - 12) / 14.5);
         tw = Math.min(tw, landscape ? Math.floor(H * 0.1) : 64);
         this.handTw = Math.max(18, tw);
         this.root.style.setProperty('--htw', this.handTw + 'px');
@@ -225,7 +224,7 @@ export class GameView {
             const el = this.$('.cw' + p);
             const active = s.hands && s.turn === seat && this.g.phase === 'play';
             el.className = `cw cw${p}${active ? ' active' : ''}${wind === 0 ? ' dealer' : ''}${s.riichi && s.riichi[seat] ? ' riichi' : ''}`;
-            el.innerHTML = `<span class="wd">${WIND_NAMES[wind]}</span><span class="sc">${s.scores[seat]}</span>`;
+            el.innerHTML = `${s.riichi && s.riichi[seat] ? '<i class="cstick"></i>' : ''}<span class="wd">${WIND_NAMES[wind]}</span><span class="sc">${s.scores[seat]}</span>`;
         }
         this.$('.cinfo').innerHTML = s.hands
             ? `<div class="ci-round">${WIND_NAMES[s.roundWind]}${KYOKU_NUM[s.kyoku]}局</div>
@@ -317,8 +316,6 @@ export class GameView {
         const active = s.hands && s.turn === seat && this.g.phase === 'play';
         el.parentElement.className = `plate${active ? ' active' : ''}${riichi ? ' riichi' : ''}`;
         el.innerHTML = `<img src="${pl.avatar}" alt=""><div class="pl-name">${esc(pl.name)}</div>`;
-        const st = this.$(`.seat.pos${p} .rstick`);
-        st.classList.toggle('on', !!riichi);
     }
 
     /* ── 自分の 手牌 ── */
@@ -413,7 +410,6 @@ export class GameView {
         case 'riichi':
             this.riichiMode = !this.riichiMode;
             if (this.riichiMode && p && !p.options.riichi.includes(this.selected)) this.selected = null;
-            if (this.riichiMode && p && p.options.riichi.length === 1) this.selected = p.options.riichi[0];
             this.renderActions(); this.renderHand(); this.updateStatus();
             return;
         case 'pass':
@@ -464,7 +460,8 @@ export class GameView {
         this.riichiMode = false;
         this.stopTimer();
         if (this.cfg.role === 'guest') {
-            this.cfg.send(action);
+            this.sentKey = this.g.decisionKey();
+            this.cfg.send(action, this.sentKey);
             this.$('.g-status').textContent = 'おくっています…';
             return;
         }
@@ -491,19 +488,31 @@ export class GameView {
 
     /** ゲスト／やりなおし：ホストの 手を じゅんに うけとる */
     receive(idx, action) {
+        if (idx < this.actionCount) return;
         this.pendingLog.set(idx, action);
         while (this.pendingLog.has(this.actionCount)) {
             const a = this.pendingLog.get(this.actionCount);
             this.pendingLog.delete(this.actionCount);
             // たくさん たまって いる ときは アニメを とばす
-            this.fast = this.pendingLog.size > 2 || this.catchingUp;
+            if (!this.fastDrain) this.fast = this.pendingLog.size > 2;
             if (!this.applyAction(a, false)) { this.actionCount++; }
         }
     }
 
-    /** ホスト：ゲストから とどいた 手 */
-    handleRequest(action) {
+    /** もどってきた とき：いままでの 手を アニメなしで ぜんぶ ならべる */
+    catchUp(actions) {
+        if (!actions.length) return;
+        this.fast = true;
+        this.fastDrain = true;
+        this.openingDone = true;
+        actions.forEach((a, i) => { if (a) this.receive(i, a); });
+        if (!this.busy && !this.queue.length) { this.fastDrain = false; this.fast = false; }
+    }
+
+    /** ホスト：ゲストから とどいた 手（key：ゲストが 見ていた 場面） */
+    handleRequest(action, key) {
         if (this.cfg.role !== 'host') return;
+        if (key !== undefined && key !== this.g.decisionKey()) return;
         const p = this.g.prompt();
         const guestSeat = this.players.findIndex(x => x.kind === 'remote');
         if (action.s !== guestSeat) return;
@@ -514,7 +523,7 @@ export class GameView {
     }
 
     async pump() {
-        if (this.busy) return;
+        if (this.busy || this.openingRunning) return;
         this.busy = true;
         try {
             while (this.queue.length && !this.disposed) {
@@ -524,6 +533,7 @@ export class GameView {
         } finally {
             this.busy = false;
         }
+        if (this.fastDrain) { this.fastDrain = false; this.fast = false; }
         if (!this.disposed) this.step();
     }
 
@@ -594,6 +604,7 @@ export class GameView {
 
     askTurn(p, stamp) {
         if (this.uiStamp === stamp) return;
+        if (this.cfg.role === 'guest' && this.sentKey === this.g.decisionKey()) return;
         this.uiStamp = stamp;
         this.myPrompt = p;
         this.selected = null;
@@ -624,6 +635,7 @@ export class GameView {
 
     askClaim(p, stamp) {
         if (this.uiStamp === stamp) return;
+        if (this.cfg.role === 'guest' && this.sentKey === this.g.decisionKey()) return;
         this.uiStamp = stamp;
         const o = p.seats[this.me];
         if (o.ron && this.auto.win) { this.submit({ s: this.me, a: 'ron' }); return; }
@@ -693,7 +705,14 @@ export class GameView {
                     if (w.length) {
                         const vis = this.visibleCounts();
                         const parts = w.map(k => `${tileName(k)}<small>${Math.max(0, 4 - vis[k] - c[k])}</small>`);
-                        txt = `<span class="waits">${this.selected !== null && hand.length % 3 === 2 ? 'これを 切ると ' : ''}待ち：${parts.join(' ')}</span>` + (p ? '' : '');
+                        let furiten = false;
+                        if (hand.length % 3 === 1 && this.g.phase === 'play') {
+                            try { furiten = this.g.isFuriten(this.me); } catch (e) { furiten = false; }
+                        } else {
+                            const disc = new Set(s.discards[this.me].map(d => kindOf(d.tile)));
+                            furiten = w.some(k => disc.has(k));
+                        }
+                        txt = `<span class="waits">${this.selected !== null && hand.length % 3 === 2 ? 'これを 切ると ' : ''}待ち：${parts.join(' ')}</span>${furiten ? '<span class="furiten">フリテン</span>' : ''}`;
                         if (p && p.type === 'claim') txt = (p.seats[this.me].ron ? 'ロン できます！ ' : '') + txt;
                     }
                 }
@@ -794,6 +813,7 @@ export class GameView {
             break;
         }
         case 'draw': {
+            if (e.seat !== this.me) this.$('.g-status').textContent = `${this.players[e.seat].name} の 番です`;
             this.renderCenter();
             this.renderPlates();
             if (e.seat === this.me) {
@@ -836,6 +856,7 @@ export class GameView {
             this.renderAll();
             if (fast) break;
             const word = { chi: 'チー', pon: 'ポン', minkan: 'カン' }[e.call];
+            this.$('.g-status').textContent = `${this.players[e.seat].name}：${word}`;
             await this.callFx(e.seat, word);
             break;
         }
@@ -924,7 +945,7 @@ export class GameView {
     async opening() {
         this.openingRunning = true;
         const g = this.g;
-        if (this.fast || this.catchingUp) {
+        if (this.fast) {
             this.openingDone = true; this.openingRunning = false; this.step(); return;
         }
         const m = this.$('.g-modal');
@@ -979,7 +1000,7 @@ export class GameView {
         this.openingRunning = false;
         void skipped;
         void seatsOfPlayers;
-        this.step();
+        if (this.queue.length) this.pump(); else this.step();
     }
 
     async opDice(m, dice, caption) {
@@ -1165,10 +1186,10 @@ export class GameView {
         this.renderBacksAll();
         const name = REASON_NAMES[e.reason] || '流局';
         if (!this.fast) {
-            this.fx.bigText(name, { style: 'ryuukyoku', dur: 1500 });
+            this.fx.bigText(name, { style: 'ryuukyoku', dur: 1300 });
             sfx.ryuukyoku();
             say(name, null);
-            await this.sleep(1500);
+            await this.sleep(1450);
         }
         m.hidden = false;
         const rows = [0, 1, 2, 3].map(p => this.seatAt(p)).map(seat => {

@@ -284,7 +284,7 @@ export async function readLog(code, game) {
     return out;
 }
 
-/** ゲスト：ホストへ 手を おくる（n = いま 何手め まで 見ているか） */
+/** ゲスト：ホストへ 手を おくる（n = ゲストが 見ていた 場面の しるし） */
 let reqCount = 0;
 export async function sendRequest(code, game, n, action) {
     const db = await connect();

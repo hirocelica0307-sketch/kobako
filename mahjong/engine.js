@@ -153,7 +153,8 @@ export class Mahjong {
             pao: [null, null, null, null],   // 大三元・大四喜の 責任払いの 相手
             firstWinds: [],
             lastDiscard: null,
-            justKakan: null
+            justKakan: null,
+            seq: 0                    // きめる 場面の 番号（ツモ・打牌・鳴きで ふえる）
         };
         this.h = h;
         this.phase = 'play';
@@ -198,6 +199,9 @@ export class Mahjong {
         };
     }
 
+    /** いまの「きめる 場面」の しるし（友だちとの 対戦で ふるい 手を すてる ため） */
+    decisionKey() { return this.h ? `${this.handNo}:${this.h.seq}` : `${this.handNo}:-`; }
+
     remaining() { return this.h ? this.h.liveEnd - this.h.pos : 0; }
     doraIndicators() { return this.h.doraInd.slice(0, this.h.doraShown).map(kindOf); }
     doraIndicatorIds() { return this.h.doraInd.slice(0, this.h.doraShown); }
@@ -214,6 +218,7 @@ export class Mahjong {
             tile = h.live[h.pos++];
         }
         h.hands[seat].push(tile);
+        h.seq++;
         h.turn = seat;
         h.drawn = tile;
         h.rinshanDraw = rinshan;
@@ -569,6 +574,7 @@ export class Mahjong {
         if (h.ippatsu[s]) h.ippatsu[s] = false;   // じぶんの つぎの 打牌で 一発は きえる
         h.furitenTemp[s] = false;
         h.discards[s].push({ tile: t, riichi, called: false, tsumogiri });
+        h.seq++;
         h.discardCount[s]++;
         h.drawn = null;
         h.kuikae = [];
@@ -726,6 +732,8 @@ export class Mahjong {
         const meld = { type, tiles: [...used, tile], from, called: tile };
         h.melds[caller].push(meld);
         this.checkPao(caller, from, kindOf(tile), type);
+        h.turn = caller;
+        h.drawn = null;
         this.emit(ev, { type: 'call', seat: caller, call: type, from, tile, tiles: meld.tiles });
         if (type === 'minkan') {
             h.kans[caller]++; h.totalKans++;
@@ -733,6 +741,7 @@ export class Mahjong {
             return this.afterKan(caller, ev);
         }
         h.turn = caller;
+        h.seq++;
         h.state = 'afterCall';
         h.drawn = null;
         h.rinshanDraw = false;

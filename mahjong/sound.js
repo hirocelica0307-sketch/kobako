@@ -9,6 +9,7 @@
    ------------------------------------------------------------------ */
 import { store } from './store.js';
 
+const DEBUG = typeof location !== 'undefined' && /[?&]debug\b/.test(location.search);
 let ctx = null;
 let master = null;
 let verb = null;
@@ -134,7 +135,7 @@ function play(fn) {
         const a = ac();
         if (!a) return;
         fn(a.currentTime + 0.005);
-    } catch (e) { /* むし */ }
+    } catch (e) { if (DEBUG) console.error('sound', e); }
 }
 
 /* 牌の 音：樹脂の 牌どうし・牌と 卓が あたる 音を 部品で つくる */

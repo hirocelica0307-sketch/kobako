@@ -358,7 +358,7 @@ async function startOnlineGame(meta) {
     const v = openGame({
         engine: g, mySeat, players, role: isHost ? 'host' : 'guest',
         log: (i, a) => net.pushMove(code, game, i, JSON.parse(JSON.stringify(a))),
-        send: a => net.sendRequest(code, game, view ? view.actionCount : 0, a),
+        send: (a, key) => net.sendRequest(code, game, key, a),
         onReady: hand => net.sendReady(code, game, hand),
         peerReady: hand => !!(online.ready && online.ready[hand]),
         onExit: () => { exitRoom(true); show('home'); },
@@ -372,23 +372,16 @@ async function startOnlineGame(meta) {
             }
         }
     });
-    if (past.length) {
-        v.catchingUp = true;
-        v.fast = true;
-        past.forEach((a, i) => { if (a) v.receive(i, a); });
-        v.catchingUp = false;
-        v.fast = false;
-    }
+    v.catchUp(past);
     // 新しい 手（ゲストは ホストの 手を、ホストは ゲストの ねがいを）
     net.watchLog(code, game, (i, a) => {
         if (!view || view !== v) return;
-        if (!isHost) { v.fast = false; v.receive(i, a); }
+        if (!isHost) v.receive(i, a);
     }).then(f => online.unsub.push(f));
     if (isHost) {
         net.watchRequests(code, game, req => {
             if (!view || view !== v) return;
-            if (req.n !== v.actionCount) return;     // ふるい ねがいは すてる
-            v.handleRequest(req.action);
+            v.handleRequest(req.action, req.n);     // ちがう 場面の ねがいは すてる
         }).then(f => online.unsub.push(f));
         net.watchReady(code, game, r => { online.ready = r || {}; }).then(f => online.unsub.push(f));
     }
