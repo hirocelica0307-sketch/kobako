@@ -16,6 +16,7 @@
 .subj-taiiku { --sc: #ef8a00; --sl: #fff2df; }
 .subj-zuko { --sc: #8e5bd6; --sl: #f2ebfc; }
 .subj-cog { --sc: #0f98ab; --sl: #e3f6f8; }
+.subj-meate { --sc: #f07a4a; --sl: #ffeadf; }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -25,6 +26,12 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 .top { background: var(--accent); color: #fff; padding: 10px 18px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
 .logo { margin: 0; font-family: var(--title-font); font-size: 22px; font-weight: normal; letter-spacing: .04em; }
 .lead { margin: 0; font-size: 13px; opacity: .95; }
+.apptabs { display: flex; gap: 6px; margin-left: auto; align-self: center; }
+.apptabs a { color: #fff; text-decoration: none; font: 700 14px var(--ui-font); padding: 5px 14px; border-radius: 999px; border: 2px solid rgba(255,255,255,.75); white-space: nowrap; }
+.apptabs a:hover { background: rgba(255,255,255,.2); }
+.apptabs a.on { background: #fff; color: var(--accent); border-color: #fff; }
+.subj.subj-meate { text-decoration: none; display: inline-block; }
+
 
 .layout { display: grid; grid-template-columns: 330px 1fr; min-height: calc(100vh - 52px); }
 .side { border-right: 1px solid var(--line); background: #fffdf9; padding: 12px; overflow-y: auto; max-height: calc(100vh - 52px); position: sticky; top: 0; }
