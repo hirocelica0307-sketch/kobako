@@ -46,6 +46,8 @@
         const list = [['all', '✨', 'ぜんぶ'], ...Object.entries(S.SUBJECTS).map(([k, v]) => [k, v.icon, v.label])];
         nav.innerHTML = list.map(([k, ic, lb]) =>
             `<button type="button" class="subj subj-${k}${state.subject === k ? ' on' : ''}" data-s="${k}">${ic} ${S.esc(lb)}</button>`).join('');
+        /* めあてカード（となりの ページ） */
+        nav.insertAdjacentHTML('beforeend', '<a class="subj subj-meate" href="meate.html" title="めあてカード の ページへ">✏️ めあてカード</a>');
         nav.querySelectorAll('button').forEach(b => b.onclick = () => { state.subject = b.dataset.s; renderSubjects(); renderCards(); });
     }
 
