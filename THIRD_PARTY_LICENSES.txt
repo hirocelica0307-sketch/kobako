@@ -4,6 +4,7 @@
 ================================================================
 Microsoft Fluent Emoji（3D）
   つかう ところ: purinto/assets/emoji/（プリント・メニューの え）
+                mizu-kasa/assets/emoji/（かさ はかせ の キャラクター・物の え）
   入手もと: https://github.com/microsoft/fluentui-emoji
   ライセンス: MIT License
 ================================================================
@@ -32,6 +33,7 @@ SOFTWARE
 ================================================================
 Phosphor Icons（duotone）
   つかう ところ: purinto/assets/icons.js（ボタン・メニューの アイコン）
+                mizu-kasa/assets/icons.js（かさ はかせ の ボタンの アイコン）
   入手もと: Iconify の Phosphor（ph）データ https://github.com/iconify/icon-sets/blob/master/json/ph.json
             もとの プロジェクト https://github.com/phosphor-icons/core
   ライセンス: MIT License

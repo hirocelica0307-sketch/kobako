@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#bfe6ff">
+<meta name="description" content="2年生の「水の かさの たんい」（L・dL・mL）を、水が そそがれる アニメーションで まなぶ 一問一答ゲーム。">
+<title>かさ はかせ</title>
+<link rel="icon" href="assets/emoji/pouring-liquid.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-scr="menu">
+
+<!-- ========== はじめの 画面 ========== -->
+<section id="menu" class="screen">
+  <div class="menu-card">
+    <div class="title">
+      <img src="assets/emoji/pouring-liquid.webp" alt="" class="t-img">
+      <div>
+        <h1>かさ はかせ</h1>
+        <p class="lead">水の かさの たんい　<b>L</b>（リットル）・<b>dL</b>（デシリットル）・<b>mL</b>（ミリリットル）</p>
+      </div>
+      <img src="assets/emoji/frog.webp" alt="" class="t-frog">
+    </div>
+
+    <h2>どれで あそぶ？</h2>
+    <div id="modes" class="modes"></div>
+
+    <div class="settings">
+      <div class="set">
+        <span class="set-name">もんだいの 数</span>
+        <div class="seg" id="setN">
+          <button data-v="5">5もん</button><button data-v="10">10もん</button><button data-v="15">15もん</button>
+        </div>
+      </div>
+      <div class="set">
+        <span class="set-name">mL（ミリリットル）</span>
+        <div class="seg" id="setMl">
+          <button data-v="1">出す</button><button data-v="0">まだ ならって いない</button>
+        </div>
+      </div>
+      <div class="set">
+        <span class="set-name">おと</span>
+        <div class="seg" id="setSound">
+          <button data-v="1">あり</button><button data-v="0">なし</button>
+        </div>
+      </div>
+      <button id="tableBtn" class="ghost"><span class="ic" data-ic="list-numbers"></span>たんいの ひょう</button>
+    </div>
+  </div>
+</section>
+
+<!-- ========== あそぶ 画面 ========== -->
+<section id="game" class="screen">
+  <header class="bar">
+    <button id="homeBtn" class="round" aria-label="はじめの 画面へ"><span class="ic" data-ic="house"></span></button>
+    <div id="modeName" class="mode-name"></div>
+    <div id="dots" class="dots" aria-label="すすみぐあい"></div>
+    <div class="starbox"><img src="assets/emoji/star.webp" alt="ほし"><b id="starNum">0</b></div>
+  </header>
+
+  <main class="play">
+    <div class="stage-wrap">
+      <div id="qTag" class="qtag" hidden>もういちど！</div>
+      <div id="stage" class="stage"></div>
+      <div id="tapHint" class="tap-hint">タップで はやおくり</div>
+    </div>
+
+    <aside class="panel">
+      <div class="qcard">
+        <div id="qText" class="qtext"></div>
+        <div id="qSub" class="qsub"></div>
+      </div>
+
+      <div id="answer" class="answer"></div>
+
+      <div id="pad" class="pad">
+        <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+        <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+        <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+        <button data-k="del" class="del" aria-label="けす"><span class="ic" data-ic="backspace"></span></button>
+        <button data-k="0">0</button>
+        <button data-k="ok" class="ok"><span class="ic" data-ic="check-circle"></span>こたえる</button>
+      </div>
+      <div id="choices" class="choices"></div>
+      <div id="build" class="build">
+        <button data-b="1000" class="bL">1Lます で<br>入れる</button>
+        <button data-b="100" class="bdL">1dLます で<br>入れる</button>
+        <button data-b="reset" class="bReset"><span class="ic" data-ic="arrow-counter-clockwise"></span>やりなおし</button>
+        <button data-b="ok" class="ok"><span class="ic" data-ic="check-circle"></span>できた！</button>
+      </div>
+
+      <div class="talk">
+        <img src="assets/emoji/frog.webp" alt="" id="frog" class="frog">
+        <div id="bubble" class="bubble"></div>
+      </div>
+
+      <div class="actions">
+        <button id="hintBtn" class="ghost"><span class="ic" data-ic="lightbulb"></span>ヒント</button>
+        <button id="nextBtn" class="next" hidden>つぎへ<span class="ic" data-ic="arrow-right"></span></button>
+      </div>
+    </aside>
+  </main>
+</section>
+
+<!-- ========== おわりの 画面 ========== -->
+<section id="result" class="screen">
+  <div class="menu-card result-card">
+    <div class="res-top">
+      <img src="assets/emoji/party-popper.webp" alt="" class="res-pop">
+      <img src="assets/emoji/frog.webp" alt="" class="res-frog">
+      <img src="assets/emoji/party-popper.webp" alt="" class="res-pop flip">
+    </div>
+    <div id="resStars" class="res-stars"></div>
+    <div id="resScore" class="res-score"></div>
+    <div id="resWord" class="res-word"></div>
+    <div id="resBest" class="res-best"></div>
+    <div id="resMiss" class="res-miss"></div>
+    <div class="res-actions">
+      <button id="againBtn" class="next"><span class="ic" data-ic="play"></span>もういちど</button>
+      <button id="menuBtn" class="ghost"><span class="ic" data-ic="house"></span>はじめの 画面</button>
+    </div>
+  </div>
+</section>
+
+<!-- ========== たんいの ひょう ========== -->
+<div id="table" class="overlay" hidden>
+  <div class="table-card">
+    <h2>たんいの ひょう</h2>
+    <div class="ladder">
+      <div class="lrow"><span class="u uL">1L</span><span class="eq">＝</span><span class="u udL">10dL</span><span class="eq">＝</span><span class="u umL">1000mL</span></div>
+      <div class="lrow"><span class="u udL">1dL</span><span class="eq">＝</span><span class="u umL">100mL</span></div>
+    </div>
+    <div id="tableFig" class="table-fig"></div>
+    <p class="note">1Lます には 目もりが 10こ。目もり 1つ分が 1dL（＝100mL）。</p>
+    <button id="tableClose" class="next">とじる</button>
+  </div>
+</div>
+
+<script src="assets/icons.js"></script>
+<script src="logic.js"></script>
+<script src="scene.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
