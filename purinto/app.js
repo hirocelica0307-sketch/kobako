@@ -9,6 +9,12 @@
     const S = window.PurintoSheets;
     const $ = id => document.getElementById(id);
 
+    /* きょうかの ボタンの アイコン（Phosphor duotone） */
+    const SUBJ_IC = { all: 'sparkle', kokugo: 'book', sansu: 'calculator', seikatsu: 'plant', dotoku: 'heart', taiiku: 'run', zuko: 'palette', cog: 'brain' };
+    const icons = el => { if (window.PurintoIcons) window.PurintoIcons.fill(el); };
+    const emojify = el => { if (window.PurintoEmoji) window.PurintoEmoji.inDom(el); };
+    const noEmoji = s => window.PurintoEmoji ? window.PurintoEmoji.strip(s) : s;
+
     const state = { subject: 'all', entry: S.CATALOG[0], opt: {}, seed: newSeed(), copies: 1, answer: false, showAnswer: true };
 
     function newSeed() { return 1 + Math.floor(Math.random() * 999999); }
@@ -45,9 +51,10 @@
         const nav = $('subjects');
         const list = [['all', '✨', 'ぜんぶ'], ...Object.entries(S.SUBJECTS).map(([k, v]) => [k, v.icon, v.label])];
         nav.innerHTML = list.map(([k, ic, lb]) =>
-            `<button type="button" class="subj subj-${k}${state.subject === k ? ' on' : ''}" data-s="${k}">${ic} ${S.esc(lb)}</button>`).join('');
+            `<button type="button" class="subj subj-${k}${state.subject === k ? ' on' : ''}" data-s="${k}"><span class="ui-ic" data-ic="${SUBJ_IC[k] || 'star'}"></span> ${S.esc(lb)}</button>`).join('');
         /* めあてカード（となりの ページ） */
-        nav.insertAdjacentHTML('beforeend', '<a class="subj subj-meate" href="meate.html" title="めあてカード の ページへ">✏️ めあてカード</a>');
+        nav.insertAdjacentHTML('beforeend', '<a class="subj subj-meate" href="meate.html" title="めあてカード の ページへ"><span class="ui-ic" data-ic="pencil"></span> めあてカード</a>');
+        icons(nav);
         nav.querySelectorAll('button').forEach(b => b.onclick = () => { state.subject = b.dataset.s; renderSubjects(); renderCards(); });
     }
 
@@ -55,7 +62,8 @@
         const box = $('cards');
         const list = S.CATALOG.filter(c => state.subject === 'all' || c.subject === state.subject);
         box.innerHTML = list.map(c => `<button type="button" class="card subj-${c.subject}${c.id === state.entry.id ? ' on' : ''}" data-id="${c.id}">
-            <span class="c-icon">${c.icon}</span><span class="c-text"><b>${S.esc(c.title)}</b><small>${S.SUBJECTS[c.subject].icon} ${S.esc(S.SUBJECTS[c.subject].label)}</small><span>${S.esc(c.desc)}</span></span></button>`).join('');
+            <span class="c-icon">${c.icon}</span><span class="c-text"><b>${S.esc(c.title)}</b><small><span class="ui-ic" data-ic="${SUBJ_IC[c.subject]}"></span> ${S.esc(S.SUBJECTS[c.subject].label)}</small><span>${S.esc(noEmoji(c.desc))}</span></span></button>`).join('');
+        emojify(box); icons(box);
         box.querySelectorAll('.card').forEach(b => b.onclick = () => {
             state.entry = S.CATALOG.find(c => c.id === b.dataset.id);
             state.opt = {};
@@ -70,13 +78,14 @@
     function renderPanel() {
         const e = state.entry, sheet = S.SHEETS[e.sheet];
         $('pIcon').textContent = e.icon;
+        emojify($('pIcon'));
         $('pTitle').textContent = e.title;
-        $('pDesc').textContent = e.desc;
+        $('pDesc').textContent = noEmoji(e.desc);
         const opt = S.resolveOptions(e, state.opt);
         const form = $('opts');
         form.innerHTML = sheet.options.map(o => {
             if (o.type === 'select') return `<label class="field">${S.esc(o.label)}<select data-k="${o.key}">${o.choices.map(([k, lb]) =>
-                `<option value="${S.esc(k)}"${String(opt[o.key]) === String(k) ? ' selected' : ''}>${S.esc(lb)}</option>`).join('')}</select></label>`;
+                `<option value="${S.esc(k)}"${String(opt[o.key]) === String(k) ? ' selected' : ''}>${S.esc(noEmoji(lb))}</option>`).join('')}</select></label>`;
             if (o.type === 'check') return `<label class="check"><input type="checkbox" data-k="${o.key}"${opt[o.key] ? ' checked' : ''}> ${S.esc(o.label)}</label>`;
             return `<label class="field">${S.esc(o.label)}<input type="text" maxlength="12" data-k="${o.key}" value="${S.esc(opt[o.key] || '')}" placeholder="${S.esc(o.placeholder || '')}"></label>`;
         }).join('') || '<p class="noopt">せっていは ありません。「べつの もんだい」で なかみが かわります。</p>';
@@ -112,9 +121,11 @@
         /* こたえは さいごに まとめる（くばる ときに ぬきやすい） */
         const withAns = state.answer && as.length;
         $('pages').innerHTML = qs.join('') + (withAns ? as.join('') : '')
-            + (!withAns && as.length ? `<div class="ans-peek no-print"><button type="button" class="btn btn-sub" id="peek">👀 こたえを みる</button><div id="peekBox" hidden>${as[0]}</div></div>` : '');
+            + (!withAns && as.length ? `<div class="ans-peek no-print"><button type="button" class="btn btn-sub" id="peek"></button><div id="peekBox" hidden>${as[0]}</div></div>` : '');
         const peek = $('peek');
-        if (peek) peek.onclick = () => { $('peekBox').hidden = !$('peekBox').hidden; peek.textContent = $('peekBox').hidden ? '👀 こたえを みる' : '🙈 こたえを かくす'; fit(); };
+        const peekLabel = () => { peek.innerHTML = $('peekBox').hidden ? '<span class="ui-ic" data-ic="eye"></span> こたえを みる' : '<span class="ui-ic" data-ic="eyeOff"></span> こたえを かくす'; icons(peek); };
+        if (peek) { peekLabel(); peek.onclick = () => { $('peekBox').hidden = !$('peekBox').hidden; peekLabel(); fit(); }; }
+        emojify($('pages'));
         writeHash();
         fit();
     }
@@ -139,9 +150,10 @@
     $('btnNew').onclick = () => { state.seed = newSeed(); render(); };
     $('copies').onchange = () => { state.copies = +$('copies').value || 1; render(); };
     $('withAnswer').onchange = () => { state.answer = $('withAnswer').checked; render(); };
-    $('btnPrint').onclick = () => {
-        /* いんさつ の ときは ちぢめない */
+    $('btnPrint').onclick = async () => {
+        /* いんさつ の ときは ちぢめない。え（がぞう）が ぜんぶ よみこまれてから */
         $('pages').style.zoom = 1;
+        await Promise.all([...$('pages').querySelectorAll('img')].map(im => im.complete ? 0 : im.decode().catch(() => 0)));
         window.print();
     };
     window.addEventListener('afterprint', fit);
@@ -152,6 +164,8 @@
     };
     window.addEventListener('resize', fit);
 
+    emojify(document.querySelector('.top'));
+    icons(document);
     readHash();
     renderSubjects();
     renderCards();

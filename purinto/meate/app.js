@@ -12,6 +12,10 @@ const CAT_GROUPS = [
   ['かかり', ['kakari', 'ichiran']],
 ];
 const CAT_ORDER = CAT_GROUPS.flatMap(g => g[1]);
+/* メニューの え（Fluent Emoji 3D。../assets/emoji の がぞうで でる） */
+const CAT_ICONS = { jiko: '🙋', g1: '🌸', g2: '🍁', g3: '⛄', matome: '📔', shoujou: '🏅', undo: '🏃', ongaku: '🎵', ensoku: '🚌', natsu: '🌻',
+  dokusho: '📚', ganbari: '💪', nawa: '🪢', arigato: '💌', tanjoubi: '🎂', seicho: '🌱', sotsugyo: '🎓', kakari: '🧹', ichiran: '📋' };
+const emojify = el => { if (window.PurintoEmoji) window.PurintoEmoji.inDom(el); };
 
 function saveOpts() {
   try { localStorage.setItem('mokuhyou-card', JSON.stringify({ nen: S.nen, kumi: S.kumi, term: S.term, ruby: S.ruby, wobble: S.wobble, cat: S.cat, cur: S.cur, grade: S.grade, kk: S.kk, ichiran: S.ichiran })); } catch (e) { /* なくても うごく */ }
@@ -40,8 +44,9 @@ const visible = () => DESIGNS.filter(d => d.cat === S.cat && (S.grade === 'all' 
 function renderCats() {
   $('cats').innerHTML = CAT_GROUPS.map(([gname, keys]) => `<h3 class="cgroup">${esc(gname)}</h3>` + keys.map(k => {
     const c = CATS[k], cnt = DESIGNS.filter(d => d.cat === k).length;
-    return `<button type="button" class="cat${k === S.cat ? ' on' : ''}" data-cat="${k}"><b>${esc(c.name)}</b><small>${esc(c.when)}・${cnt}しゅるい</small></button>`;
+    return `<button type="button" class="cat${k === S.cat ? ' on' : ''}" data-cat="${k}"><span class="cat-ic">${CAT_ICONS[k] || '📝'}</span><span class="cat-t"><b>${esc(c.name)}</b><small>${esc(c.when)}・${cnt}しゅるい</small></span></button>`;
   }).join('')).join('');
+  emojify($('cats'));
 }
 function renderStrip() {
   const hasMid = DESIGNS.some(d => d.cat === S.cat && d.grade === 'mid');
@@ -64,7 +69,8 @@ function renderMain() {
   $('kakariOpts').hidden = ds.cat !== 'kakari';
   $('ichiranOpts').hidden = ds.cat !== 'ichiran';
   $('kTobanWrap').hidden = !S.kk.items.toban;
-  $('btnCat').textContent = `🖨️ 「${c.name}」${DESIGNS.filter(d => d.cat === ds.cat).length}しゅるいを 1まいずつ`;
+  $('btnCat').innerHTML = `<span class="ui-ic" data-ic="files"></span> 「${esc(c.name)}」${DESIGNS.filter(d => d.cat === ds.cat).length}しゅるいを 1まいずつ`;
+  if (window.PurintoIcons) window.PurintoIcons.fill($('btnCat'));
   $('view').innerHTML = renderDesign(ds);
 }
 function renderAll() { renderCats(); renderStrip(); renderMain(); }

@@ -31,6 +31,11 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 .apptabs a:hover { background: rgba(255,255,255,.2); }
 .apptabs a.on { background: #fff; color: var(--accent); border-color: #fff; }
 .subj.subj-meate { text-decoration: none; display: inline-block; }
+/* アイコン（Phosphor duotone）と 3D の え（Fluent Emoji） */
+.ui-ic { display: inline-flex; width: 1.25em; height: 1.25em; vertical-align: -.25em; }
+.ui-ic svg { width: 100%; height: 100%; }
+img.e3d { height: 1.15em; width: 1.15em; vertical-align: -.22em; object-fit: contain; }
+.page img.e3d { height: 1.1em; width: 1.1em; vertical-align: -.18em; }
 
 
 .layout { display: grid; grid-template-columns: 330px 1fr; min-height: calc(100vh - 52px); }
@@ -42,7 +47,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 .card { display: flex; gap: 10px; text-align: left; border: 2px solid transparent; border-left: 6px solid var(--sc); background: #fff; border-radius: 12px; padding: 9px 10px; cursor: pointer; font-family: var(--ui-font); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 .card:hover { background: var(--sl); }
 .card.on { border-color: var(--sc); background: var(--sl); }
-.c-icon { font-size: 28px; line-height: 1.1; }
+.c-icon { font-size: 34px; line-height: 1.05; flex: none; }
 .c-text { display: flex; flex-direction: column; gap: 2px; }
 .c-text b { font-size: 15px; }
 .c-text small { font-size: 11px; color: var(--sc); font-weight: 700; }
@@ -51,7 +56,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 .main { padding: 14px 18px 40px; min-width: 0; }
 .panel { background: #fff; border-radius: 16px; padding: 14px 16px; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 16px; }
 .panel-head { display: flex; gap: 12px; align-items: center; }
-.panel-icon { font-size: 40px; }
+.panel-icon { font-size: 48px; line-height: 1; }
 .panel h2 { margin: 0; font-size: 20px; }
 .panel p { margin: 2px 0 0; font-size: 13px; color: #6b5d4f; }
 .opts { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 12px 0 8px; padding: 10px 0; border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); }
@@ -416,15 +421,6 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 
 
 /* --- てつぼう わざ カード --- */
-.tb-fig .fg, .tb-fig .fg2 { fill: none; stroke: #222; stroke-width: .15; stroke-linecap: round; stroke-linejoin: round; }
-.tb-fig .fg2 { stroke: #9a9a9a; }
-.tb-fig .fhead { fill: #fff; stroke: #222; stroke-width: .1; }
-.tb-fig .fbar { fill: #c62828; }
-.tb-fig .fpost { stroke: #c9c9c9; stroke-width: .06; }
-.tb-fig .fground { stroke: #888; stroke-width: .06; }
-.tb-fig .farr { fill: none; stroke: var(--gc, #2f6fdc); stroke-width: .08; stroke-dasharray: .16 .1; }
-.tb-fig .farrh { fill: var(--gc, #2f6fdc); }
-.tb-fig .fboard { fill: #e3e3e3; stroke: #999; stroke-width: .03; }
 .tb-safety { display: flex; flex-wrap: wrap; gap: .5mm 3mm; font-size: 3.2mm; border: .4mm solid #e53935; background: #fff3f3; border-radius: 2mm; padding: .8mm 3mm; line-height: 1.6; flex: none; }
 .tb-safety b { color: #c62828; }
 .tb-cards { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 3mm; flex: 1; min-height: 0; }
@@ -437,14 +433,15 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 .tb-stars i { font-style: normal; color: rgba(255, 255, 255, .35); }
 .tb-sub { display: flex; align-items: center; }
 .tb-group { border: .3mm solid var(--gc); color: var(--gc); border-radius: 99px; padding: 0 2mm; font-size: 2.8mm; line-height: 1.5; }
-.tb-frames { display: flex; align-items: flex-start; justify-content: center; flex: none; }
-.tb-frames figure { margin: 0; display: flex; flex-direction: column; align-items: center; }
-.tb-frames .tb-fig { height: 21mm; width: auto; }
-.tb-frames.n2 .tb-fig { height: 23mm; }
-.tb-frames.n1 .tb-fig { height: 24mm; }
-.tb-frames figure { width: 22mm; }
-.tb-frames figcaption { font-size: 2.6mm; line-height: 1.3; text-align: center; }
-.tb-to { color: var(--gc); font-size: 3.6mm; margin: 8mm .3mm 0; }
+.tb-body { display: flex; gap: 3mm; align-items: center; flex: none; padding: .5mm 0; }
+.tb-icon { font-size: 19mm; line-height: 1; flex: none; width: 24mm; text-align: center; }
+.tb-steps { flex: 1; display: flex; flex-direction: column; gap: 1.2mm; min-width: 0; }
+.tb-sh { font-size: 2.7mm; color: var(--gc); }
+.tb-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 1mm .8mm; }
+.tb-step { background: var(--sl, #f3f6f9); border: .35mm solid var(--gc); border-radius: 2mm; padding: .3mm 1.6mm; font-size: 3.1mm; line-height: 1.5; }
+.tb-step i { font-style: normal; color: var(--gc); margin-right: .6mm; }
+.tb-to { color: var(--gc); font-size: 3.2mm; }
+.tb-turn { align-self: flex-start; font-size: 2.9mm; border-radius: 99px; padding: .2mm 2.4mm; color: #fff; background: var(--gc); }
 .tb-points { margin: 0; padding-left: 4mm; font-size: 3mm; line-height: 1.45; }
 .tb-drill { font-size: 2.7mm; background: #f3f6f9; border-radius: 1.5mm; padding: .3mm 2mm; line-height: 1.55; }
 .tb-drill b { color: var(--gc); margin-right: 1.5mm; }
@@ -459,9 +456,7 @@ table.tl { width: 100%; border-collapse: collapse; }
 .tl .tb-stars { color: #f5a623; }
 .tl .tb-stars i { color: #ddd; }
 .tl-no { width: 7mm; text-align: center; font: 700 3.2mm var(--ui-font); white-space: nowrap; }
-.tl-fig { width: 15mm; text-align: center; }
-.tl-fig div { display: flex; justify-content: center; }
-.tl-fig .tb-fig { height: 100%; width: auto; }
+.tl-fig { width: 15mm; text-align: center; line-height: 1; }
 .tl-name { font-size: 3.6mm; line-height: 1.5; }
 .tl-name small { font-size: 2.7mm; color: #666; }
 .tl-point { font-size: 3.1mm; line-height: 1.5; }
