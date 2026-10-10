@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="テレビに うつして 子どもたちに 見せる 九九の フラッシュカード。あがり・さがり・バラバラ、回数や 時間、秒数を えらべる。">
+<title>九九フラッシュカード</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap">
+<style>
+/* 九九フラッシュカード ── 見ため
+   ------------------------------------------------------------------
+   テレビで 遠くからでも 読める ように、カードは しき と こたえ だけ。
+   文字は UD フォント（BIZ UDPゴシック）の 太字。大きさは 画面に あわせて
+   JS で きめる（Chromebook 1366×768 でも テレビ 1920×1080 でも はみ出さない）。
+   いろ は 2しゅるい：しろ（白地に 黒・こたえ 赤）／くろ（黒地に 白・こたえ 赤）。
+   せってい画面も えらんだ いろで 出す。
+   ------------------------------------------------------------------ */
+:root{
+    --font: "BIZ UDPGothic","Hiragino Kaku Gothic ProN","Noto Sans JP","Noto Sans CJK JP","Yu Gothic",Meiryo,sans-serif;
+    /* しろ */
+    --bg:    #ffffff;
+    --fg:    #111111;
+    --ans:   #d4001a;   /* こたえの 赤（白地で 5.9:1） */
+    --sub:   #5d6068;
+    --line:  #d8d9de;
+    --chip:  #f2f3f5;
+    --on:    #111111;
+    --on-fg: #ffffff;
+    color-scheme: light;
+}
+:root[data-look="dark"]{
+    /* くろ */
+    --bg:    #000000;
+    --fg:    #ffffff;
+    --ans:   #ff4436;   /* こたえの 赤（黒地で 6.1:1） */
+    --sub:   #a5a8b0;
+    --line:  #3b3d44;
+    --chip:  #17181b;
+    --on:    #ffffff;
+    --on-fg: #000000;
+    color-scheme: dark;
+}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+[hidden]{display:none!important}
+
+/* ── せってい ─────────────────────────────── */
+#setup{
+    box-sizing:border-box;min-height:100%;max-width:1180px;margin:0 auto;
+    padding-block:18px 20px;padding-inline:24px;
+    display:flex;flex-direction:column;gap:16px;
+}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:8px 20px;flex-wrap:wrap;
+     border-bottom:3px solid var(--fg);padding-bottom:10px}
+.top h1{margin:0;font-size:30px;font-weight:700;letter-spacing:.02em;text-wrap:balance}
+.top h1 em{font-style:normal;color:var(--ans)}
+.keys{margin:0;font-size:13px;color:var(--sub);line-height:1.6}
+.keys kbd{font-family:inherit;font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--chip)}
+
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px 40px}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.grp{border:0;margin:0;padding:0;min-width:0}
+.grp legend{padding:0;margin-bottom:7px;font-size:14px;font-weight:700;color:var(--sub);letter-spacing:.08em}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips + .chips{margin-top:8px}
+.chip{position:relative;display:block}
+.chip input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
+.chip span{
+    box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-height:52px;min-width:64px;padding:5px 14px;line-height:1.15;
+    border:2px solid var(--line);border-radius:10px;background:var(--bg);
+    font-size:20px;font-weight:700;cursor:pointer;user-select:none;
+}
+.chip small{font-size:12px;font-weight:400;color:var(--sub);margin-top:3px;font-variant-numeric:tabular-nums}
+.chip:hover span{border-color:var(--sub)}
+.chip input:checked + span{background:var(--on);color:var(--on-fg);border-color:var(--on)}
+.chip input:checked + span small{color:inherit;opacity:.8}
+.chip input:focus-visible + span{outline:3px solid var(--ans);outline-offset:2px}
+.chip.dan span{width:52px;min-width:52px;padding:0;font-size:26px;font-variant-numeric:tabular-nums}
+.chips.small .chip span{min-height:42px;min-width:56px;font-size:17px}
+.dan-tools{display:flex;gap:6px;align-items:center;margin-left:4px}
+.link{border:0;background:none;padding:6px 6px;font-size:15px;color:var(--sub);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.link:hover{color:var(--fg)}
+.link:focus-visible{outline:3px solid var(--ans);outline-offset:2px;border-radius:4px}
+
+/* いろの みほん は それぞれの いろを そのまま 見せる */
+.chip.look span{min-width:150px;padding:6px;gap:5px}
+.sw{font-style:normal;display:flex;align-items:center;justify-content:center;width:100%;min-width:136px;height:40px;border-radius:6px;
+    font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.sw.light{background:#ffffff;color:#111111;box-shadow:inset 0 0 0 1px #c9cad0}
+.sw.light b{color:#d4001a}
+.sw.dark{background:#000000;color:#ffffff;box-shadow:inset 0 0 0 1px #3b3d44}
+.sw.dark b{color:#ff4436}
+.chip.look small{margin-top:0}
+
+.go{margin-top:auto;display:flex;align-items:center;gap:12px 24px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:14px}
+#summary{flex:1 1 360px;min-width:0;margin:0;font-size:17px;line-height:1.55}
+#summary .warn{color:var(--ans);font-weight:700}
+.check{display:flex;align-items:center;gap:8px;font-size:15px;color:var(--sub);cursor:pointer}
+.check input{width:20px;height:20px;accent-color:var(--fg)}
+.big{border:0;border-radius:12px;padding:14px 36px;font-size:26px;font-weight:700;cursor:pointer;
+     background:var(--ans);color:#ffffff}
+.big:disabled{opacity:.35;cursor:not-allowed}
+.big.plain{background:var(--chip);color:var(--fg);border:2px solid var(--line)}
+.big:focus-visible{outline:3px solid var(--fg);outline-offset:3px}
+
+@media (max-width:860px){
+    .cols{grid-template-columns:1fr}
+    #setup{padding-inline:16px}
+    .top h1{font-size:24px}
+}
+
+/* ── カード ─────────────────────────────── */
+#play{position:fixed;inset:0;background:var(--bg);user-select:none;-webkit-user-select:none;touch-action:manipulation;overflow:hidden}
+#stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.card{display:flex;align-items:center;justify-content:center;white-space:nowrap;
+      font-weight:700;line-height:1;font-variant-numeric:tabular-nums;color:var(--fg)}
+.card .op{margin:0 .15em}
+.card .ans{color:var(--ans)}
+.card.line .ans{min-width:2ch;text-align:left}
+.card.line.q .ans{visibility:hidden}
+.card.flip.q .eq,.card.flip.q .ans{display:none}
+.card.flip.a .n1,.card.flip.a .x,.card.flip.a .n2,.card.flip.a .eq{display:none}
+.card.reveal .ans{animation:pop .16s ease-out}
+.card.flip.reveal{animation:pop .16s ease-out}
+@keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.card.reveal .ans,.card.flip.reveal{animation:none}}
+#measure{position:absolute;left:-9999px;top:0;visibility:hidden;font-size:100px}
+
+#bar{position:absolute;left:0;right:0;bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;
+     padding-inline:16px;transition:opacity .3s}
+#info{font-size:18px;color:var(--sub);font-variant-numeric:tabular-nums;min-width:0}
+#info b{color:var(--fg)}
+.btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.btns button{font-size:16px;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--chip);cursor:pointer}
+.btns button:hover{border-color:var(--sub)}
+.btns button:focus-visible{outline:3px solid var(--ans);outline-offset:2px}
+#meter{position:absolute;left:0;right:0;bottom:0;height:5px}
+#meter i{display:block;height:100%;width:0;background:var(--line);transition:width .25s linear}
+#play.idle,#play.idle #stage{cursor:none}
+#play.idle #bar{opacity:0;pointer-events:none}
+
+/* ── おしまい ─────────────────────────────── */
+#done{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vh;padding-inline:16px}
+.done-big{margin:0;font-size:min(20vh,15vw);font-weight:700;line-height:1.1}
+#done-info{margin:0;font-size:min(5vh,6vw);color:var(--sub);font-variant-numeric:tabular-nums}
+.row{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+</style>
+</head>
+<body>
+
+<main id="setup">
+    <header class="top">
+        <h1>九九 フラッシュ<em>カード</em></h1>
+        <p class="keys">すすむ <kbd>スペース</kbd> <kbd>→</kbd> クリック ／ もどる <kbd>←</kbd> ／ とめる <kbd>P</kbd> ／ がめん いっぱい <kbd>F</kbd> ／ おわる <kbd>Esc</kbd></p>
+    </header>
+
+    <div class="cols">
+        <div class="col">
+            <fieldset class="grp">
+                <legend>だん（いくつでも えらべます）</legend>
+                <div class="chips" id="g-dans"></div>
+                <div class="dan-tools" style="margin-top:6px">
+                    <button type="button" class="link" id="dan-all">ぜんぶ えらぶ</button>
+                    <button type="button" class="link" id="dan-none">ぜんぶ けす</button>
+                </div>
+            </fieldset>
+            <fieldset class="grp">
+                <legend>じゅんばん</legend>
+                <div class="chips" id="g-order"></div>
+            </fieldset>
+            <fieldset class="grp">
+                <legend>どれだけ 出す</legend>
+                <div class="chips" id="g-amount"></div>
+                <div class="chips small" id="g-minutes"></div>
+            </fieldset>
+        </div>
+        <div class="col">
+            <fieldset class="grp">
+                <legend>しき を 見せる じかん</legend>
+                <div class="chips" id="g-qsec"></div>
+            </fieldset>
+            <fieldset class="grp">
+                <legend>こたえ を 見せる じかん</legend>
+                <div class="chips" id="g-asec"></div>
+            </fieldset>
+            <fieldset class="grp">
+                <legend>こたえの 出しかた</legend>
+                <div class="chips" id="g-style"></div>
+            </fieldset>
+            <fieldset class="grp">
+                <legend>いろ</legend>
+                <div class="chips" id="g-look"></div>
+            </fieldset>
+        </div>
+    </div>
+
+    <footer class="go">
+        <p id="summary"></p>
+        <label class="check"><input type="checkbox" id="fs"> がめん いっぱいで はじめる</label>
+        <button type="button" class="big" id="start">はじめる ▶</button>
+    </footer>
+</main>
+
+<section id="play" hidden>
+    <div id="stage">
+        <div class="card line q" id="card"><span class="n1"></span><span class="op x">×</span><span class="n2"></span><span class="op eq">=</span><span class="ans"></span></div>
+    </div>
+    <div id="bar">
+        <span id="info"></span>
+        <span class="btns">
+            <button type="button" id="b-back">◀ もどる</button>
+            <button type="button" id="b-pause">⏸ とめる</button>
+            <button type="button" id="b-next">つぎ ▶</button>
+            <button type="button" id="b-fs" title="がめん いっぱい（F）">⛶</button>
+            <button type="button" id="b-stop">✕ おわる</button>
+        </span>
+    </div>
+    <div id="meter"><i></i></div>
+</section>
+
+<section id="done" hidden>
+    <p class="done-big">おしまい</p>
+    <p id="done-info"></p>
+    <div class="row">
+        <button type="button" class="big" id="again">もう いちど</button>
+        <button type="button" class="big plain" id="to-setup">せっていに もどる</button>
+    </div>
+</section>
+
+<div class="card" id="measure" aria-hidden="true"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ── せってい ─────────────────────────────── */
+const KEY = 'kuku-flash-v1';
+const DEFAULTS = { dans:[5], order:'up', amount:'1', minutes:3, qsec:0, asec:0, style:'line', look:'light', fs:true };
+const MIN_LABEL = { 1:'1ぷん', 2:'2ふん', 3:'3ぷん', 5:'5ふん', 10:'10ぷん' };
+const SEQ_TO_RAND = { '1':'10', '2':'20', '3':'30', time:'time' };
+const RAND_TO_SEQ = { '10':'1', '20':'2', '30':'3', time:'time' };
+
+let cfg = load();
+
+function load(){
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) {}
+    const c = Object.assign({}, DEFAULTS, saved);
+    c.dans = Array.isArray(c.dans) ? c.dans.filter(d => d >= 1 && d <= 9) : DEFAULTS.dans;
+    return c;
+}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch (e) {} }
+
+const $ = id => document.getElementById(id);
+
+function chips(boxId, name, opts, value, onPick, extraClass){
+    const box = $(boxId);
+    box.innerHTML = '';
+    for (const o of opts){
+        const id = `${name}-${o.v}`;
+        const lab = document.createElement('label');
+        lab.className = 'chip' + (extraClass ? ' ' + extraClass : '');
+        lab.innerHTML = `<input type="radio" name="${name}" id="${id}" value="${o.v}"><span>${o.html || o.label}${o.sub ? `<small>${o.sub}</small>` : ''}</span>`;
+        const inp = lab.querySelector('input');
+        inp.checked = String(o.v) === String(value);
+        inp.addEventListener('change', () => { onPick(o.v); });
+        box.appendChild(lab);
+    }
+}
+
+function secOpts(){
+    return [{ v:0, label:'手どう', sub:'ボタンで' }, 1, 2, 3, 5].map(s => typeof s === 'object' ? s : { v:s, label:`${s}びょう` });
+}
+
+function renderSetup(){
+    document.documentElement.dataset.look = cfg.look;
+
+    // だん
+    const db = $('g-dans');
+    db.innerHTML = '';
+    for (let d = 1; d <= 9; d++){
+        const lab = document.createElement('label');
+        lab.className = 'chip dan';
+        lab.title = `${d}のだん`;
+        lab.innerHTML = `<input type="checkbox" id="dan-${d}" value="${d}"><span>${d}</span>`;
+        const inp = lab.querySelector('input');
+        inp.checked = cfg.dans.includes(d);
+        inp.addEventListener('change', () => {
+            cfg.dans = inp.checked ? [...cfg.dans, d] : cfg.dans.filter(x => x !== d);
+            cfg.dans.sort((a, b) => a - b);
+            changed(false);
+        });
+        db.appendChild(lab);
+    }
+
+    chips('g-order', 'order', [
+        { v:'up',   label:'あがり',   sub:'×1 → ×9' },
+        { v:'down', label:'さがり',   sub:'×9 → ×1' },
+        { v:'rand', label:'バラバラ', sub:'ランダム' },
+    ], cfg.order, v => {
+        const wasRand = cfg.order === 'rand';
+        cfg.order = v;
+        if (wasRand && v !== 'rand') cfg.amount = RAND_TO_SEQ[cfg.amount] || '1';
+        if (!wasRand && v === 'rand') cfg.amount = SEQ_TO_RAND[cfg.amount] || '10';
+        changed(true);
+    });
+
+    const amountOpts = cfg.order === 'rand'
+        ? [{ v:'10', label:'10もん' }, { v:'20', label:'20もん' }, { v:'30', label:'30もん' }]
+        : [{ v:'1', label:'1しゅう' }, { v:'2', label:'2しゅう' }, { v:'3', label:'3しゅう' }];
+    amountOpts.push({ v:'time', label:'じかんで', sub:'くりかえす' });
+    chips('g-amount', 'amount', amountOpts, cfg.amount, v => { cfg.amount = v; changed(true); });
+
+    const mb = $('g-minutes');
+    mb.hidden = cfg.amount !== 'time';
+    chips('g-minutes', 'minutes', [1, 2, 3, 5, 10].map(m => ({ v:m, label:MIN_LABEL[m] })), cfg.minutes,
+          v => { cfg.minutes = v; changed(false); });
+
+    chips('g-qsec', 'qsec', secOpts(), cfg.qsec, v => { cfg.qsec = v; changed(false); });
+    chips('g-asec', 'asec', secOpts(), cfg.asec, v => { cfg.asec = v; changed(false); });
+
+    chips('g-style', 'style', [
+        { v:'line', label:'しきの となりに', sub:'5 × 3 = 15' },
+        { v:'flip', label:'めくる',          sub:'こたえだけ 出す' },
+    ], cfg.style, v => { cfg.style = v; changed(false); });
+
+    chips('g-look', 'look', [
+        { v:'light', html:'<i class="sw light">5×3=<b>15</b></i>', sub:'白地に 黒' },
+        { v:'dark',  html:'<i class="sw dark">5×3=<b>15</b></i>',  sub:'黒地に 白' },
+    ], cfg.look, v => { cfg.look = v; document.documentElement.dataset.look = v; changed(false); }, 'look');
+
+    $('fs').checked = !!cfg.fs;
+    renderSummary();
+}
+
+// rebuild=true は ボタンの ならびが かわる とき（フォーカスを もどす）
+function changed(rebuild){
+    save();
+    if (rebuild){
+        const fid = document.activeElement && document.activeElement.id;
+        renderSetup();
+        const el = fid && $(fid);
+        if (el) el.focus();
+    } else {
+        $('g-minutes').hidden = cfg.amount !== 'time';
+        renderSummary();
+    }
+}
+
+function danText(dans){
+    if (dans.length === 9) return '1〜9の だん';
+    return dans.join('・') + 'の だん';
+}
+function secText(s){ return s ? `${s}びょう` : '手どう'; }
+
+function renderSummary(){
+    const el = $('summary');
+    if (!cfg.dans.length){
+        el.innerHTML = '<span class="warn">だんを 1つ いじょう えらんでください。</span>';
+        $('start').disabled = true;
+        return;
+    }
+    $('start').disabled = false;
+    const order = { up:'あがり', down:'さがり', rand:'バラバラ' }[cfg.order];
+    let amount;
+    if (cfg.amount === 'time') amount = `${MIN_LABEL[cfg.minutes]} くりかえす`;
+    else if (cfg.order === 'rand') amount = `${cfg.amount}もん`;
+    else amount = `${cfg.amount}しゅう（${cfg.dans.length * 9 * Number(cfg.amount)}まい）`;
+    const timing = (!cfg.qsec && !cfg.asec)
+        ? 'ぜんぶ 手どうで すすめる'
+        : `しき ${secText(cfg.qsec)} → こたえ ${secText(cfg.asec)}`;
+    el.innerHTML = `<b>${danText(cfg.dans)}</b>・${order}・${amount}<br>${timing}`;
+}
+
+$('dan-all').addEventListener('click', () => { cfg.dans = [1,2,3,4,5,6,7,8,9]; save(); renderSetup(); });
+$('dan-none').addEventListener('click', () => { cfg.dans = []; save(); renderSetup(); });
+$('fs').addEventListener('change', e => { cfg.fs = e.target.checked; save(); });
+
+/* ── もんだいの ならび ─────────────────────── */
+function shuffle(a){
+    for (let i = a.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+function makeGen(c){
+    const dans = [...c.dans].sort((a, b) => a - b);
+    const timed = c.amount === 'time';
+    if (c.order !== 'rand'){
+        const base = [];
+        for (const d of dans) for (let k = 1; k <= 9; k++) base.push([d, c.order === 'up' ? k : 10 - k]);
+        const total = timed ? Infinity : base.length * Number(c.amount);
+        let i = 0;
+        return { total, next(){ if (i >= total) return null; return base[i++ % base.length]; } };
+    }
+    const pool = [];
+    for (const d of dans) for (let m = 1; m <= 9; m++) pool.push([d, m]);
+    const total = timed ? Infinity : Number(c.amount);
+    let bag = [], last = null, i = 0;
+    return {
+        total,
+        next(){
+            if (i >= total) return null;
+            if (!bag.length){
+                bag = shuffle(pool.slice());
+                // ふくろの つなぎめで おなじ もんだいが つづかない ように
+                const end = bag[bag.length - 1];
+                if (last && bag.length > 1 && end[0] === last[0] && end[1] === last[1]){
+                    [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];
+                }
+            }
+            i++;
+            return (last = bag.pop());
+        }
+    };
+}
+
+/* ── カードを すすめる ─────────────────────── */
+let S = null;              // いまの セッション
+let runCfg = null;         // はじめた ときの せってい
+const card = $('card');
+const play = $('play');
+
+function now(){ return performance.now(); }
+function elapsed(){ return S.used + (S.runFrom != null ? now() - S.runFrom : 0); }
+function timeUp(){ return S.limit > 0 && elapsed() >= S.limit; }
+
+function start(){
+    if (!cfg.dans.length) return;
+    runCfg = Object.assign({}, cfg, { dans:[...cfg.dans] });
+    S = {
+        gen: makeGen(runCfg), hist: [], idx: -1, phase: 'q',
+        paused: false, timer: 0,
+        limit: runCfg.amount === 'time' ? runCfg.minutes * 60000 : 0,
+        used: 0, runFrom: now(),
+    };
+    $('setup').hidden = true;
+    $('done').hidden = true;
+    play.hidden = false;
+    card.className = 'card ' + runCfg.style + ' q';
+    $('b-pause').hidden = !runCfg.qsec && !runCfg.asec;
+    if (runCfg.fs) enterFs();
+    lockWake();
+    fit();
+    advance();
+    poke();
+}
+
+function advance(){
+    if (!S || S.done) return;
+    if (S.idx >= 0 && S.phase === 'q'){
+        S.phase = 'a';
+    } else if (S.idx < S.hist.length - 1){
+        S.idx++; S.phase = 'q';
+    } else {
+        if (timeUp()) return finish();
+        const c = S.gen.next();
+        if (!c) return finish();
+        S.hist.push(c); S.idx++; S.phase = 'q';
+    }
+    render(true);
+    schedule();
+}
+
+function back(){
+    if (!S || S.done) return;
+    if (S.phase === 'a') S.phase = 'q';
+    else if (S.idx > 0){ S.idx--; S.phase = 'a'; }
+    else return;
+    render(false);
+    schedule();
+}
+
+function schedule(){
+    clearTimeout(S.timer);
+    if (S.paused) return;
+    const sec = S.phase === 'q' ? runCfg.qsec : runCfg.asec;
+    if (sec > 0) S.timer = setTimeout(advance, sec * 1000);
+}
+
+function togglePause(){
+    if (!S || S.done || $('b-pause').hidden) return;
+    S.paused = !S.paused;
+    if (S.paused){
+        clearTimeout(S.timer);
+        S.used += now() - S.runFrom; S.runFrom = null;
+    } else {
+        S.runFrom = now();
+        schedule();
+    }
+    $('b-pause').textContent = S.paused ? '▶ つづける' : '⏸ とめる';
+    updateInfo();
+    poke();
+}
+
+function render(forward){
+    const [a, b] = S.hist[S.idx];
+    card.querySelector('.n1').textContent = a;
+    card.querySelector('.n2').textContent = b;
+    card.querySelector('.ans').textContent = a * b;
+    const cls = 'card ' + runCfg.style + ' ' + S.phase;
+    card.className = cls;
+    card.style.fontSize = sizeFor(runCfg.style, S.phase) + 'px';
+    if (forward && S.phase === 'a'){
+        void card.offsetWidth;          // アニメーションを はじめから
+        card.className = cls + ' reveal';
+    }
+    updateInfo();
+}
+
+function fmt(ms){
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function updateInfo(){
+    if (!S || S.done) return;
+    let txt, ratio;
+    if (S.limit){
+        const left = S.limit - elapsed();
+        txt = left > 0 ? `のこり <b>${fmt(left)}</b>` : '<b>じかんです</b>・この カードで おしまい';
+        ratio = Math.min(1, elapsed() / S.limit);
+    } else {
+        txt = `<b>${S.idx + 1}</b> / ${S.gen.total}まい`;
+        ratio = (S.idx + (S.phase === 'a' ? 1 : 0.5)) / S.gen.total;
+    }
+    if (S.paused) txt += '　⏸ とまっています';
+    $('info').innerHTML = txt;
+    $('meter').firstElementChild.style.width = (ratio * 100).toFixed(2) + '%';
+}
+setInterval(() => { if (S && !S.done && S.limit && !play.hidden) updateInfo(); }, 250);
+
+function finish(){
+    clearTimeout(S.timer);
+    S.done = true;
+    play.hidden = true;
+    $('done').hidden = false;
+    $('done-info').textContent = `${S.hist.length}まい できました`;
+    releaseWake();
+}
+
+function stop(){
+    if (S) clearTimeout(S.timer);
+    S = null;
+    play.hidden = true;
+    $('done').hidden = true;
+    $('setup').hidden = false;
+    releaseWake();
+    exitFs();
+}
+
+/* ── 文字の 大きさ ─────────────────────────── */
+// 数字は 等幅なので、いちばん ながい しき（8×9=72）が はいる 大きさに そろえる
+const measureEl = $('measure');
+let sizes = { line:200, flipQ:200, flipA:200 };
+
+function measure(cls){
+    measureEl.className = 'card ' + cls;
+    measureEl.innerHTML = card.innerHTML;
+    measureEl.querySelector('.n1').textContent = '8';
+    measureEl.querySelector('.n2').textContent = '9';
+    measureEl.querySelector('.ans').textContent = '72';
+    const r = measureEl.getBoundingClientRect();
+    return { w: r.width / 100, h: r.height / 100 };   // 1px あたり
+}
+
+function fit(){
+    const W = window.innerWidth, H = window.innerHeight;
+    const line = measure('line a');
+    const fq = measure('flip q');
+    const fa = measure('flip a');
+    sizes.line  = Math.min(W * 0.92 / line.w, H * 0.62 / line.h);
+    sizes.flipQ = Math.min(W * 0.90 / fq.w,   H * 0.66 / fq.h);
+    sizes.flipA = Math.min(W * 0.90 / fa.w,   H * 0.72 / fa.h, sizes.flipQ * 1.4);
+    if (S && !S.done && S.idx >= 0) card.style.fontSize = sizeFor(runCfg.style, S.phase) + 'px';
+}
+function sizeFor(style, phase){
+    if (style === 'line') return Math.floor(sizes.line);
+    return Math.floor(phase === 'q' ? sizes.flipQ : sizes.flipA);
+}
+window.addEventListener('resize', fit);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+
+/* ── そうさ ─────────────────────────────── */
+$('start').addEventListener('click', start);
+$('again').addEventListener('click', start);
+$('to-setup').addEventListener('click', stop);
+$('stage').addEventListener('click', () => { advance(); poke(); });
+
+function barBtn(id, fn){
+    $(id).addEventListener('click', e => { e.stopPropagation(); fn(); e.currentTarget.blur(); poke(); });
+}
+barBtn('b-back', back);
+barBtn('b-pause', togglePause);
+barBtn('b-next', advance);
+barBtn('b-fs', toggleFs);
+barBtn('b-stop', stop);
+
+document.addEventListener('keydown', e => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    if (!play.hidden){
+        switch (e.key){
+            case ' ': case 'Enter': case 'ArrowRight': case 'ArrowDown': case 'PageDown':
+                e.preventDefault(); advance(); return;
+            case 'ArrowLeft': case 'ArrowUp': case 'PageUp': case 'Backspace':
+                e.preventDefault(); back(); return;
+            case 'p': case 'P': case 'k': case 'K':
+                e.preventDefault(); togglePause(); return;
+            case 'f': case 'F':
+                e.preventDefault(); toggleFs(); return;
+            case 'Escape':
+                stop(); return;
+        }
+        return;
+    }
+    if (!$('done').hidden){
+        if (e.key === 'Escape') stop();
+        if (e.key === 'f' || e.key === 'F') toggleFs();
+    }
+});
+
+// マウスを うごかさない あいだは ボタンと カーソルを かくす
+let idleT = 0;
+function poke(){
+    play.classList.remove('idle');
+    clearTimeout(idleT);
+    idleT = setTimeout(() => {
+        if (S && !S.paused && !play.hidden && !$('bar').matches(':hover')) play.classList.add('idle');
+    }, 2500);
+}
+play.addEventListener('pointermove', poke);
+
+/* ── がめん いっぱい・スリープ よけ ─────────── */
+function enterFs(){
+    const el = document.documentElement;
+    if (!document.fullscreenElement && el.requestFullscreen){
+        try { el.requestFullscreen().catch(() => {}); } catch (e) {}
+    }
+}
+function exitFs(){
+    if (document.fullscreenElement && document.exitFullscreen){
+        try { document.exitFullscreen().catch(() => {}); } catch (e) {}
+    }
+}
+function toggleFs(){ document.fullscreenElement ? exitFs() : enterFs(); }
+
+let wake = null;
+function lockWake(){
+    if (!('wakeLock' in navigator)) return;
+    navigator.wakeLock.request('screen').then(l => { wake = l; }).catch(() => {});
+}
+function releaseWake(){
+    if (wake){ wake.release().catch(() => {}); wake = null; }
+}
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && S && !S.done && !play.hidden) lockWake();
+});
+
+renderSetup();
+})();
+</script>
+</body>
+</html>
