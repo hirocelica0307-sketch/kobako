@@ -994,17 +994,16 @@
        ================================================================ */
     const TB_GRADES = ['low', 'mid', 'high'];
     const tbStars = n => `<span class="tb-stars" title="むずかしさ">${'★'.repeat(n)}<i>${'★'.repeat(3 - n)}</i></span>`;
-    /** いちばん わかりやすい コマ（まわる やじるしの ある コマ、なければ さいごの コマ） */
-    const tbKeyFrame = w => w.frames.find(f => f.arrow) || w.frames[w.frames.length - 1];
+    /** まわる むき（まえ・うしろ）の しるし */
+    const tbTurn = w => { const t = (w.steps.find(x => x.turn) || {}).turn; return t ? `<span class="tb-turn ${t}">${t === 'cw' ? '↻' : '↺'} ${T.TURN[t]}</span>` : ''; };
 
     function tbCard(w, R, cut) {
         const g = T.GRADES[w.grade];
-        const vb = T.viewBoxOf(w.frames);
-        const frames = w.frames.map((f, i) => `${i ? '<span class="tb-to">➡</span>' : ''}<figure>${T.frameSvg(f, vb)}<figcaption>${MARU[i]} ${R(f.cap)}</figcaption></figure>`).join('');
+        const steps = w.steps.map((st, i) => `${i ? '<span class="tb-to">➡</span>' : ''}<span class="tb-step"><i>${MARU[i]}</i>${R(st.s)}</span>`).join('');
         return `<div class="tb-card${cut ? ' cut' : ''}" style="--gc:${g.color}">
           <div class="tb-head"><span class="tb-grade">${R(g.label)}</span><b class="tb-name">${R(w.name)}</b>${tbStars(w.stars)}</div>
           <div class="tb-sub"><span class="tb-group">${R(w.group)}</span><span class="tb-date">${R('できた{日|ひ}')}（　　/　　）</span></div>
-          <div class="tb-frames n${w.frames.length}">${frames}</div>
+          <div class="tb-body"><span class="tb-icon">${w.icon}</span><div class="tb-steps"><div class="tb-sh">${R('うごきの じゅんばん')}</div><div class="tb-flow">${steps}</div>${tbTurn(w)}</div></div>
           <ul class="tb-points">${w.points.map(p => `<li>${R(p)}</li>`).join('')}</ul>
           <div class="tb-drill"><b>${R('やさしい れんしゅう')}</b>${R(w.drill)}</div>
           <div class="tb-check">${R('できたら ぬろう')}：<span><i></i>1かい</span><span><i></i>3かい つづけて</span><span><i></i>きれいに</span></div>
@@ -1030,9 +1029,8 @@
                     const g = T.GRADES[gk], list = T.WAZA.filter(w => w.grade === gk);
                     const rowH = Math.min(19, 176 / list.length);
                     const rows = list.map((w, i) => {
-                        const kf = tbKeyFrame(w);
                         return `<tr style="height:${rowH.toFixed(1)}mm"><td class="tl-no">${i + 1}</td>
-                          <td class="tl-fig"><div style="height:${(rowH - 1.5).toFixed(1)}mm">${T.frameSvg(kf, T.viewBoxOf([kf]))}</div></td>
+                          <td class="tl-fig" style="font-size:${(rowH * 0.62).toFixed(1)}mm">${w.icon}</td>
                           <td class="tl-name"><b>${R(w.name)}</b><br>${tbStars(w.stars)} <small>${R(w.group)}</small></td>
                           <td class="tl-point">${R(w.points[0])}</td>
                           <td class="tl-ck"><i></i><i></i><i></i></td>

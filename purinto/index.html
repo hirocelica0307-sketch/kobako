@@ -17,8 +17,8 @@
   <h1 class="logo">🖨️ たのしい プリント こうぼう</h1>
   <p class="lead">えらんで・きめて・いんさつ。まい回 ちがう もんだいが できます。</p>
   <nav class="apptabs" aria-label="こうぼう">
-    <a href="index.html" class="on" aria-current="page">🖨️ プリント</a>
-    <a href="meate.html">✏️ めあてカード</a>
+    <a href="index.html" class="on" aria-current="page"><span class="ui-ic" data-ic="printer"></span> プリント</a>
+    <a href="meate.html"><span class="ui-ic" data-ic="pencil"></span> めあてカード</a>
   </nav>
 </header>
 
@@ -39,7 +39,7 @@
       </div>
       <form class="opts" id="opts" onsubmit="return false"></form>
       <div class="actions">
-        <button type="button" class="btn" id="btnNew">🎲 べつの もんだい</button>
+        <button type="button" class="btn" id="btnNew"><span class="ui-ic" data-ic="dice"></span> べつの もんだい</button>
         <label class="field">まいすう
           <select id="copies">
             <option value="1">1まい</option><option value="2">2まい</option><option value="4">4まい</option>
@@ -47,8 +47,8 @@
           </select>
         </label>
         <label class="check"><input type="checkbox" id="withAnswer"> こたえの ページも いんさつ</label>
-        <button type="button" class="btn btn-print" id="btnPrint">🖨️ いんさつ</button>
-        <button type="button" class="btn btn-sub" id="btnLink">🔗 この プリントの URL</button>
+        <button type="button" class="btn btn-print" id="btnPrint"><span class="ui-ic" data-ic="printer"></span> いんさつ</button>
+        <button type="button" class="btn btn-sub" id="btnLink"><span class="ui-ic" data-ic="link"></span> この プリントの URL</button>
       </div>
       <p class="hint" id="hint">「まいすう」を ふやすと、1まいずつ ちがう もんだいに なります（クラスで くばる とき べんり）。おなじ URL を ひらけば、いつでも おなじ プリントが でます。</p>
     </div>
@@ -61,6 +61,9 @@
 
 <div class="toast" id="toast" hidden></div>
 
+<script src="assets/emoji-map.js"></script>
+<script src="assets/emojify.js"></script>
+<script src="assets/icons.js"></script>
 <script src="gen.js"></script>
 <script src="data.js"></script>
 <script src="sakubun.js"></script>
