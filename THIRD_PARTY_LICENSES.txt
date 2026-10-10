@@ -31,9 +31,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE
 
 ================================================================
-Phosphor Icons（duotone）
+Phosphor Icons（duotone・fill）
   つかう ところ: purinto/assets/icons.js（ボタン・メニューの アイコン）
                 mizu-kasa/assets/icons.js（かさ はかせ の ボタンの アイコン）
+                mahjong/assets/icons.js（雷鳴麻雀 の ボタン・サイコロの アイコン。fill）
   入手もと: Iconify の Phosphor（ph）データ https://github.com/iconify/icon-sets/blob/master/json/ph.json
             もとの プロジェクト https://github.com/phosphor-icons/core
   ライセンス: MIT License

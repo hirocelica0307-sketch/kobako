@@ -119,6 +119,49 @@
           }
         }
       }
+    },
+    "mahjong": {
+      "rooms": {
+        "$code": {
+          ".read": "auth != null",
+          ".write": "auth != null && !newData.exists()",
+          ".validate": "$code.matches(/^[0-9]{4}$/)",
+          "meta": {
+            ".write": "auth != null",
+            ".validate": "newData.hasChildren(['host', 't'])"
+          },
+          "online": {
+            "$role": {
+              ".write": "auth != null",
+              ".validate": "($role === 'host' || $role === 'guest') && newData.isBoolean()"
+            }
+          },
+          "log": {
+            "$game": {
+              "$i": {
+                ".write": "auth != null && !data.exists()",
+                ".validate": "$i.matches(/^[0-9]{5}$/) && newData.hasChildren(['a'])"
+              }
+            }
+          },
+          "req": {
+            "$game": {
+              "$k": {
+                ".write": "auth != null && !data.exists()",
+                ".validate": "newData.hasChildren(['n', 'action', 't'])"
+              }
+            }
+          },
+          "ready": {
+            "$game": {
+              "$hand": {
+                ".write": "auth != null",
+                ".validate": "newData.isBoolean()"
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
