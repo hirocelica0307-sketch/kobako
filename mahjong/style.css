@@ -153,6 +153,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .members { display: grid; gap: 8px; }
 .mem { display: grid; grid-template-columns: 48px 1fr; grid-template-rows: auto auto; column-gap: 12px; align-items: center; background: var(--panel); border-radius: 12px; padding: 8px 12px; }
 .mem img, .mem > .ic { grid-row: span 2; width: 48px; height: 48px; border-radius: 50%; }
+.mem img { background: #f6e7c8; padding: 4px; }
 .mem > .ic { padding: 10px; background: #0f2a1c; color: var(--muted); }
 .mem small { color: var(--muted); font-size: 12px; }
 .mem.empty { opacity: .55; }
@@ -208,7 +209,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .backs .gap, .rs-hand .gap { width: calc(var(--u) * 1.2); flex: none; }
 .plate { position: absolute; left: calc(var(--u) * 17); top: calc(var(--u) * 75.5); width: calc(var(--u) * 15); height: calc(var(--u) * 15); }
 .pl-in { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
-.pl-in img { width: calc(var(--u) * 10); height: calc(var(--u) * 10); border-radius: 50%; border: 2px solid rgba(255,255,255,.75); box-shadow: 0 2px 6px rgba(0,0,0,.4); background: #fff; transition: box-shadow .2s; }
+.pl-in img { width: calc(var(--u) * 10); height: calc(var(--u) * 10); border-radius: 50%; border: 2px solid rgba(255,255,255,.75); box-shadow: 0 2px 6px rgba(0,0,0,.4); background: #f6e7c8; padding: 2px; transition: box-shadow .2s; }
 .pl-name { font-size: max(9px, calc(var(--u) * 2.6)); font-weight: 700; background: rgba(0,0,0,.45); padding: 1px 6px; border-radius: 6px; max-width: calc(var(--u) * 17); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .plate.active img { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255, 210, 87, .5), 0 0 14px rgba(255, 210, 87, .9); }
 .plate.riichi .pl-name { background: #b3261e; }
@@ -330,7 +331,7 @@ body.peer-off .g-top::after { content: "ともだちの つうしんが 切れ�
 .cutin { position: absolute; left: 0; right: 0; top: 20%; height: 96px; animation: cutin 1.4s both; }
 .ci-band { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,0), rgba(10, 10, 20, .85) 15%, rgba(10, 10, 20, .85) 85%, rgba(0,0,0,0)); display: flex; align-items: center; justify-content: center; gap: 14px;
   border-top: 2px solid var(--gold); border-bottom: 2px solid var(--gold); transform: skewY(-4deg); }
-.ci-band img { width: 76px; height: 76px; border-radius: 50%; border: 3px solid var(--gold); background: #fff; transform: skewY(4deg); }
+.ci-band img { width: 76px; height: 76px; border-radius: 50%; border: 3px solid var(--gold); background: #f6e7c8; padding: 4px; transform: skewY(4deg); }
 .ci-txt { transform: skewY(4deg); display: flex; flex-direction: column; }
 .ci-txt b { font-family: var(--mincho); font-size: 36px; color: var(--gold); text-shadow: 0 0 12px rgba(255, 200, 50, .8); }
 .ci-txt span { font-size: 14px; color: #fff; }
@@ -344,7 +345,7 @@ body.peer-off .g-top::after { content: "ともだちの つうしんが 切れ�
 @keyframes pop { from { transform: scale(.8); opacity: 0; } }
 .result h2 { margin: 2px 0 12px; text-align: center; font-family: var(--mincho); font-size: 26px; color: var(--gold); }
 .rs-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
-.rs-head img { width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--gold); background: #fff; }
+.rs-head img { width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--gold); background: #f6e7c8; padding: 3px; }
 .rs-head b { font-size: 18px; display: block; }
 .rs-how { font-family: var(--mincho); font-weight: 800; font-size: 22px; color: #ff8a5c; margin-right: 8px; }
 .rs-how.tsumo { color: #6cc4ff; }
@@ -385,7 +386,7 @@ body.peer-off .g-top::after { content: "ともだちの つうしんが 切れ�
 .result.lv5 { border-color: #fff; box-shadow: 0 0 60px rgba(255, 255, 255, .6); animation: pop .3s cubic-bezier(.2, 1.4, .4, 1), glowcycle 2s linear infinite; }
 @keyframes glowcycle { 0% { box-shadow: 0 0 50px #ff5d5d; } 33% { box-shadow: 0 0 50px #6bff95; } 66% { box-shadow: 0 0 50px #6bc8ff; } 100% { box-shadow: 0 0 50px #ff5d5d; } }
 .rk-row, .sc-row, .fr-row { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,.08); }
-.rk-row img, .sc-row img, .fr-row img { width: 40px; height: 40px; border-radius: 50%; background: #fff; flex: none; }
+.rk-row img, .sc-row img, .fr-row img { width: 40px; height: 40px; border-radius: 50%; background: #f6e7c8; padding: 2px; flex: none; }
 .rk-main { flex: 1; min-width: 0; }
 .rk-hand { display: flex; flex-wrap: wrap; margin-top: 4px; }
 .rk-hand .t { --tw: min(5.6vw, 24px); }
@@ -422,7 +423,7 @@ body.peer-off .g-top::after { content: "ともだちの つうしんが 切れ�
 .op-face { transform: rotateY(180deg); }
 .op-card.flipped .op-flip > .t.back { transform: rotateY(180deg); }
 .op-card.flipped .op-face { transform: rotateY(360deg); }
-.op-card img { width: 40px; height: 40px; border-radius: 50%; background: #fff; margin-top: 6px; }
+.op-card img { width: 40px; height: 40px; border-radius: 50%; background: #f6e7c8; padding: 2px; margin-top: 6px; }
 .op-name { font-size: 12px; font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .op-wind { font-size: 11px; color: var(--gold); min-height: 1.3em; }
 .op-dice { min-height: 110px; margin-top: 10px; }
@@ -442,7 +443,7 @@ body.peer-off .g-top::after { content: "ともだちの つうしんが 切れ�
 .win-intro.tsumo .wi-ring { background: conic-gradient(#bfefff, #3fb6ff, #bfefff, #ffffff, #bfefff); box-shadow: 0 0 30px rgba(80, 190, 255, .9); }
 .win-intro.lv5 .wi-ring { background: conic-gradient(#ff5d5d, #ffd93d, #6bff95, #6bc8ff, #c86bff, #ff5d5d); }
 @keyframes ring { to { filter: hue-rotate(40deg); } }
-.wi-ring img { width: 100%; height: 100%; border-radius: 50%; background: #fff; display: block; }
+.wi-ring img { width: 100%; height: 100%; border-radius: 50%; background: #f6e7c8; padding: 8px; display: block; box-sizing: border-box; }
 .wi-name { font-size: 20px; color: #fff; text-shadow: 0 2px 6px #000; }
 .wi-one small { color: #ffd7d0; font-size: 13px; text-shadow: 0 1px 3px #000; }
 .bigtext-static { font-family: var(--mincho); font-weight: 800; line-height: 1; }
@@ -523,3 +524,10 @@ body.peer-off .g-top::after { content: "ともだちの つうしんが 切れ�
 .q-modes button small { color: var(--muted); font-size: 12px; }
 .q-modes button.on { border-color: var(--gold); }
 .q-score { text-align: right; color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+
+/* キャラクターを えらぶ */
+.char-pick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.char { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 2px solid var(--line); background: var(--panel); border-radius: 14px; padding: 6px 2px; font-size: 11.5px; font-weight: 700; }
+.char img { width: 52px; height: 52px; border-radius: 50%; background: #f6e7c8; padding: 4px; }
+.char.on { border-color: var(--gold); background: #21533a; box-shadow: 0 0 0 3px rgba(255, 210, 87, .25); }
+.char.on span { color: var(--gold); }

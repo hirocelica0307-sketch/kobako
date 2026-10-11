@@ -5,6 +5,7 @@
 Microsoft Fluent Emoji（3D）
   つかう ところ: purinto/assets/emoji/（プリント・メニューの え）
                 mizu-kasa/assets/emoji/（かさ はかせ の キャラクター・物の え）
+                mahjong/assets/chars/（雷鳴麻雀 の キャラクター：3D の 動物）
   入手もと: https://github.com/microsoft/fluentui-emoji
   ライセンス: MIT License
 ================================================================

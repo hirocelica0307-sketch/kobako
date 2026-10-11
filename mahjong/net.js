@@ -225,15 +225,15 @@ const roomPath = code => (pathMode === 'shared' ? `rooms/${code}/mahjong` : `${R
 export const storageMode = () => pathMode;
 
 /** 部屋を つくって 番号を かえします */
-export async function createRoom(name, rules, level) {
+export async function createRoom(name, rules, level, char = 'shiba') {
     try {
-        return await createRoomInner(name, rules, level);
+        return await createRoomInner(name, rules, level, char);
     } catch (e) {
         throw new Error(explainError(e));
     }
 }
 
-async function createRoomInner(name, rules, level) {
+async function createRoomInner(name, rules, level, char) {
     const db = await connect();
     const me = memberId();
     for (let attempt = 0; attempt < 12; attempt++) {
@@ -243,7 +243,7 @@ async function createRoomInner(name, rules, level) {
         if (old) await db.remove(roomPath(code)).catch(() => {});
         const res = await db.transact(`${roomPath(code)}/meta`, cur => {
             if (cur && db.now() - (cur.t || 0) < ROOM_STALE) return undefined;
-            return { host: me, hostName: name, guest: '', guestName: '', t: db.now(), rules, level, status: 'wait', game: 0, seed: '' };
+            return { host: me, hostName: name, hostChar: char, guest: '', guestName: '', guestChar: '', t: db.now(), rules, level, status: 'wait', game: 0, seed: '' };
         });
         if (res.committed) {
             await db.presence(`${roomPath(code)}/online/host`);
@@ -255,15 +255,15 @@ async function createRoomInner(name, rules, level) {
 }
 
 /** 番号の 部屋に 入ります */
-export async function joinRoom(code, name) {
+export async function joinRoom(code, name, char = 'cat') {
     try {
-        return await joinRoomInner(code, name);
+        return await joinRoomInner(code, name, char);
     } catch (e) {
         throw new Error(explainError(e));
     }
 }
 
-async function joinRoomInner(code, name) {
+async function joinRoomInner(code, name, char) {
     const db = await connect();
     const me = memberId();
     let why = '';
@@ -279,7 +279,7 @@ async function joinRoomInner(code, name) {
     const res = await db.transact(`${roomPath(code)}/meta`, cur => {
         if (cur === null) return null;
         if (cur.guest && cur.guest !== me) { why = 'その 部屋は もう いっぱいです'; return undefined; }
-        return { ...cur, guest: me, guestName: name, t: db.now() };
+        return { ...cur, guest: me, guestName: name, guestChar: char, t: db.now() };
     });
     if (!res.committed || !res.value || res.value.guest !== me) throw new Error(why || '部屋に 入れませんでした。もう一度 ためしてください');
     await db.presence(`${roomPath(code)}/online/guest`);
