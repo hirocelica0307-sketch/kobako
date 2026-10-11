@@ -164,17 +164,24 @@ async function fakeBackend() {
     const denied = p => denyM && p.startsWith(denyM[1] + '/');
     const guard = p => { if (denied(p)) throw new Error('PERMISSION_DENIED: Permission denied'); };
     const lag0 = () => new Promise(res => setTimeout(res, 30 + Math.random() * 60));
+    const seen = new Set();   // トランザクションで 1回でも サーバーの 値を 見た 場所
 
     const presenceKeys = [];
     window.addEventListener('pagehide', () => write(t => presenceKeys.forEach(p => setAt(t, p, null))));
     return {
         now: () => Date.now(),
-        async get(p) { await lag0(); guard(p); return getAt(readAll(), p) ?? null; },
+        async get(p) { await lag0(); guard(p); return getAt(readAll(), p) ?? null; },   // get は キャッシュに のこさない（本物と 同じ）
         async set(p, v) { await lag0(); guard(p); write(t => setAt(t, p, v)); },
         async update(p, v) { await lag0(); guard(p); write(t => { for (const [k, x] of Object.entries(v)) setAt(t, p + '/' + k, x); }); },
         async remove(p) { await lag0(); guard(p); write(t => setAt(t, p, null)); },
         async transact(p, fn) {
             await lag0(); guard(p);
+            // 本物の Firebase と 同じく、まだ 見て いない 場所は さいしょに null で よぶ
+            if (!seen.has(p)) {
+                seen.add(p);
+                const first = fn(null);
+                if (first === undefined) return { committed: false, value: null };
+            }
             let committed = false, value;
             write(t => {
                 const cur = getAt(t, p) ?? null;
@@ -260,14 +267,21 @@ async function joinRoomInner(code, name) {
     const db = await connect();
     const me = memberId();
     let why = '';
+    // まず サーバーから 部屋を よむ（ない ときは ここで わかる）
+    const meta = await db.get(`${roomPath(code)}/meta`);
+    if (!meta) throw new Error('その 合言葉の 部屋は ありません。ホストの 画面の 4けたの 数字を たしかめてください');
+    if (db.now() - (meta.t || 0) > ROOM_STALE) throw new Error('その 部屋は もう おわっています');
+    if (meta.host === me) throw new Error('じぶんの 部屋には 入れません');
+    if (meta.guest && meta.guest !== me) throw new Error('その 部屋は もう いっぱいです');
+    // Firebase の トランザクションは、さいしょに 手もとの ふるい 値（まだ よんで いない ときは null）で
+    // よばれる ことが ある。null の ときに やめて しまうと「部屋が ない」に なって しまうので、
+    // null は そのまま かえして サーバーの 本当の 値で もう一度 よんで もらう。
     const res = await db.transact(`${roomPath(code)}/meta`, cur => {
-        if (!cur) { why = 'その 合言葉の 部屋は ありません'; return undefined; }
-        if (db.now() - (cur.t || 0) > ROOM_STALE) { why = 'その 部屋は もう おわっています'; return undefined; }
-        if (cur.host === me) { why = 'じぶんの 部屋には 入れません'; return undefined; }
+        if (cur === null) return null;
         if (cur.guest && cur.guest !== me) { why = 'その 部屋は もう いっぱいです'; return undefined; }
         return { ...cur, guest: me, guestName: name, t: db.now() };
     });
-    if (!res.committed) throw new Error(why || '部屋に 入れませんでした');
+    if (!res.committed || !res.value || res.value.guest !== me) throw new Error(why || '部屋に 入れませんでした。もう一度 ためしてください');
     await db.presence(`${roomPath(code)}/online/guest`);
     saveRoom({ code, role: 'guest' });
     return res.value;
