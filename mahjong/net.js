@@ -47,8 +47,45 @@ const useFake = /[?&]fake\b/.test(location.search);
 let backend = null;
 
 export function connect() {
-    if (!backend) backend = (useFake ? fakeBackend() : firebaseBackend()).catch(e => { backend = null; throw e; });
+    if (!backend) {
+        backend = (useFake ? fakeBackend() : firebaseBackend())
+            .then(async db => { await detectPath(db); return db; })
+            .catch(e => { backend = null; throw e; });
+    }
     return backend;
+}
+
+/* ── しまう 場所 ─────────────────────────────
+   ふつうは mahjong/rooms/{合言葉}。
+   Firebase の ルールを まだ はりかえて いない（mahjong の 場所が ことわられる）ときは、
+   どの 版の ルールにも ある rooms/{合言葉}/mahjong に しまう（「かいて あてて」と 同じ 場所の 下。
+   あちらは rooms/{合言葉} の 中の きまった 名まえ だけ さわるので ぶつからない）。
+   ホストも ゲストも 同じ ルールで しらべるので、2人は かならず 同じ 場所を つかいます。 */
+let pathMode = 'main';
+const isDenied = e => /permission|denied/i.test(String(e && (e.code || e.message || e)));
+
+async function detectPath(db) {
+    try {
+        await db.get(`${ROOT}/0000/meta`);
+        pathMode = 'main';
+        return;
+    } catch (e) {
+        if (!isDenied(e)) throw new Error(explainError(e));
+    }
+    try {
+        await db.get('rooms/0000/mahjong/meta');
+        pathMode = 'shared';
+    } catch (e) {
+        throw new Error(explainError(e));
+    }
+}
+
+/** つうしんの エラーを 日本語の 説明に */
+export function explainError(e) {
+    const s = String(e && (e.code || e.message || e));
+    if (/permission|denied/i.test(s)) return 'Firebase の ルールで ことわられました。README の「Firebase の 設定」の とおりに、Realtime Database の ルールを database.rules.json の 中身に はりかえてください';
+    if (/network|offline|failed to fetch|timeout|unavailable/i.test(s)) return 'つうしんが できませんでした。ネットに つながっているか たしかめて、もう一度 ためしてください';
+    return s;
 }
 
 async function firebaseBackend() {
@@ -122,17 +159,22 @@ async function fakeBackend() {
         setTimeout(() => listeners.forEach(f => f()), 0);
     };
     window.addEventListener('storage', e => { if (e.key === KEY) listeners.forEach(f => f()); });
-    const lag = () => new Promise(res => setTimeout(res, 30 + Math.random() * 60));
+    // ?fake&deny=mahjong で「ルールを はりかえて いない」ときを まねる（その 名まえで はじまる 場所を ことわる）
+    const denyM = location.search.match(/[?&]deny=([a-z]+)/);
+    const denied = p => denyM && p.startsWith(denyM[1] + '/');
+    const guard = p => { if (denied(p)) throw new Error('PERMISSION_DENIED: Permission denied'); };
+    const lag0 = () => new Promise(res => setTimeout(res, 30 + Math.random() * 60));
+
     const presenceKeys = [];
     window.addEventListener('pagehide', () => write(t => presenceKeys.forEach(p => setAt(t, p, null))));
     return {
         now: () => Date.now(),
-        async get(p) { await lag(); return getAt(readAll(), p) ?? null; },
-        async set(p, v) { await lag(); write(t => setAt(t, p, v)); },
-        async update(p, v) { await lag(); write(t => { for (const [k, x] of Object.entries(v)) setAt(t, p + '/' + k, x); }); },
-        async remove(p) { await lag(); write(t => setAt(t, p, null)); },
+        async get(p) { await lag0(); guard(p); return getAt(readAll(), p) ?? null; },
+        async set(p, v) { await lag0(); guard(p); write(t => setAt(t, p, v)); },
+        async update(p, v) { await lag0(); guard(p); write(t => { for (const [k, x] of Object.entries(v)) setAt(t, p + '/' + k, x); }); },
+        async remove(p) { await lag0(); guard(p); write(t => setAt(t, p, null)); },
         async transact(p, fn) {
-            await lag();
+            await lag0(); guard(p);
             let committed = false, value;
             write(t => {
                 const cur = getAt(t, p) ?? null;
@@ -172,10 +214,19 @@ async function fakeBackend() {
 
 /* ── 部屋 ──────────────────────────────────── */
 
-const roomPath = code => `${ROOT}/${code}`;
+const roomPath = code => (pathMode === 'shared' ? `rooms/${code}/mahjong` : `${ROOT}/${code}`);
+export const storageMode = () => pathMode;
 
 /** 部屋を つくって 番号を かえします */
 export async function createRoom(name, rules, level) {
+    try {
+        return await createRoomInner(name, rules, level);
+    } catch (e) {
+        throw new Error(explainError(e));
+    }
+}
+
+async function createRoomInner(name, rules, level) {
     const db = await connect();
     const me = memberId();
     for (let attempt = 0; attempt < 12; attempt++) {
@@ -198,6 +249,14 @@ export async function createRoom(name, rules, level) {
 
 /** 番号の 部屋に 入ります */
 export async function joinRoom(code, name) {
+    try {
+        return await joinRoomInner(code, name);
+    } catch (e) {
+        throw new Error(explainError(e));
+    }
+}
+
+async function joinRoomInner(code, name) {
     const db = await connect();
     const me = memberId();
     let why = '';

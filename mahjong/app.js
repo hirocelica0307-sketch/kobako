@@ -197,6 +197,7 @@ ${back()}
 <p class="note">あなたと ともだち、それに コンピューター 2人の 4人で 打ちます。座席は ランダムです。</p>
 <h3>名まえ</h3>
 <input class="name-in" maxlength="8" placeholder="あなた" value="${esc(store.name)}">
+<p class="msg" role="status"></p>
 <div class="on-cards">
   <div class="on-card">
     <h3>${icon('plus-circle')} 部屋を つくる</h3>
@@ -216,7 +217,6 @@ ${back()}
     <div class="keypad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button data-k="${n}">${n}</button>`).join('')}<button data-k="del">${icon('backspace')}</button><button data-k="0">0</button><button data-k="ok" class="ok">入る</button></div>
   </div>
 </div>
-<p class="msg"></p>
 </div>`;
     bindSeg(root);
     root.querySelector('[data-lv]').addEventListener('click', e => {
