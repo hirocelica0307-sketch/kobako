@@ -10,19 +10,30 @@ import { GameView, rulesSummary } from './game.js';
 import { icon } from './assets/icons.js';
 import { tileImage } from './tiles.js';
 import * as net from './net.js';
+import { CHARS, charById, charImg } from './chars.js';
 import { renderKeisan } from './keisan.js';
 
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const CPU_CHARS = [
-    { name: 'ハル', avatar: 'assets/avatars/cpu1.svg' },
-    { name: 'ミオ', avatar: 'assets/avatars/cpu2.svg' },
-    { name: 'ソラ', avatar: 'assets/avatars/cpu3.svg' },
-    { name: 'ジン', avatar: 'assets/avatars/cpu4.svg' },
-    { name: 'リン', avatar: 'assets/avatars/cpu5.svg' },
-    { name: 'ケイ', avatar: 'assets/avatars/cpu6.svg' }
-];
+/** キャラクターを えらぶ 一覧（タップで えらぶ） */
+function charPicker() {
+    const cur = charById(store.char).id;
+    return `<div class="char-pick">${CHARS.map(c => `<button class="char${c.id === cur ? ' on' : ''}" data-char="${c.id}"><img src="${charImg(c.id)}" alt=""><span>${c.name}</span></button>`).join('')}</div>`;
+}
+
+function bindCharPicker(root) {
+    const box = root.querySelector('.char-pick');
+    if (!box) return;
+    box.addEventListener('click', e => {
+        const b = e.target.closest('[data-char]');
+        if (!b) return;
+        sfx.select();
+        store.char = b.dataset.char;
+        save();
+        box.querySelectorAll('.char').forEach(x => x.classList.toggle('on', x === b));
+    });
+}
 
 let view = null;
 let current = '';
@@ -106,6 +117,8 @@ ${back()}
 </div>
 <h3>あなたの 名まえ</h3>
 <input class="name-in" maxlength="8" placeholder="あなた" value="${esc(store.name)}">
+<h3>あなたの キャラクター</h3>
+${charPicker()}
 <p class="note">持ち点 ${r.startPoints.toLocaleString()} 点。座席は 毎回 ランダムで、サイコロで 親を きめます。<br>こまかい ルールは <button class="link" data-go="rules">ルール設定</button> で かえられます。</p>
 <button class="btn primary big start">${icon('play')}<span>対局 開始</span></button>
 </div>`;
@@ -114,6 +127,7 @@ ${back()}
         root.querySelectorAll('[data-lv]').forEach(x => x.classList.toggle('on', x === b));
     }));
     bindSeg(root);
+    bindCharPicker(root);
     root.querySelector('.name-in').addEventListener('change', e => { store.name = e.target.value.trim().slice(0, 8); save(); });
     root.querySelector('.start').addEventListener('click', () => {
         sfx.button();
@@ -137,17 +151,20 @@ function bindSeg(root) {
     });
 }
 
-function cpuPlayers(seed, n) {
+/** コンピューターの キャラクター（人が えらんだ ものとは かぶらない） */
+function cpuPlayers(seed, n, taken = []) {
     const rng = makeRng(seed + ':chars');
-    return shuffle(CPU_CHARS.slice(), rng).slice(0, n);
+    return shuffle(CHARS.filter(c => !taken.includes(c.id)), rng).slice(0, n)
+        .map(c => ({ name: c.name, avatar: charImg(c.id) }));
 }
 
 function startCpuGame() {
     const seed = Math.random().toString(36).slice(2) + Date.now().toString(36);
     const g = new Mahjong(store.rules, seed);
-    const chars = cpuPlayers(seed, 3);
+    const myChar = charById(store.char).id;
+    const chars = cpuPlayers(seed, 3, [myChar]);
     const parts = [
-        { name: store.name || 'あなた', avatar: 'assets/avatars/you.svg', kind: 'me' },
+        { name: store.name || 'あなた', avatar: charImg(myChar), kind: 'me' },
         ...chars.map(c => ({ ...c, kind: 'cpu', level: store.level }))
     ];
     const players = [];
@@ -197,6 +214,8 @@ ${back()}
 <p class="note">あなたと ともだち、それに コンピューター 2人の 4人で 打ちます。座席は ランダムです。</p>
 <h3>名まえ</h3>
 <input class="name-in" maxlength="8" placeholder="あなた" value="${esc(store.name)}">
+<h3>あなたの キャラクター</h3>
+${charPicker()}
 <p class="msg" role="status"></p>
 <div class="on-cards">
   <div class="on-card">
@@ -219,6 +238,7 @@ ${back()}
 </div>
 </div>`;
     bindSeg(root);
+    bindCharPicker(root);
     root.querySelector('[data-lv]').addEventListener('click', e => {
         const b = e.target.closest('button'); if (!b) return;
         store.level = Number(b.dataset.v); save();
@@ -240,7 +260,7 @@ ${back()}
             if (code.length !== 4) { msg.textContent = '4けたの 合言葉を 入れてください'; return; }
             msg.textContent = 'つないでいます…';
             try {
-                const meta = await net.joinRoom(code, getName());
+                const meta = await net.joinRoom(code, getName(), charById(store.char).id);
                 online.code = code; online.role = 'guest'; online.meta = meta;
                 watchRoom();
                 renderRoom(root);
@@ -253,7 +273,7 @@ ${back()}
         sfx.button();
         msg.textContent = '部屋を つくっています…';
         try {
-            const c = await net.createRoom(getName(), store.rules, store.level);
+            const c = await net.createRoom(getName(), store.rules, store.level, charById(store.char).id);
             online.code = c; online.role = 'host'; online.meta = null;
             watchRoom();
             renderRoom(root);
@@ -304,8 +324,8 @@ function renderRoom(root) {
 <h2>部屋</h2>
 <div class="pass"><small>合言葉</small><b>${esc(online.code)}</b>${host ? '<span>ともだちに つたえてください</span>' : ''}</div>
 <div class="members">
-  <div class="mem"><img src="assets/avatars/you.svg" alt=""><b>${esc(m ? m.hostName : store.name || 'あなた')}</b><small>ホスト${on.host ? '' : '（つながっていない）'}</small></div>
-  <div class="mem ${guestIn ? '' : 'empty'}"><img src="assets/avatars/friend.svg" alt=""><b>${guestIn ? esc(m.guestName) : 'まっています…'}</b><small>${guestIn ? (on.guest ? 'ゲスト' : 'ゲスト（つながっていない）') : ''}</small></div>
+  <div class="mem"><img src="${charImg(m && m.hostChar ? m.hostChar : store.char)}" alt=""><b>${esc(m ? m.hostName : store.name || 'あなた')}</b><small>ホスト${on.host ? '' : '（つながっていない）'}</small></div>
+  <div class="mem ${guestIn ? '' : 'empty'}"><img src="${guestIn ? charImg(m.guestChar || 'cat') : charImg('owl')}" alt=""><b>${guestIn ? esc(m.guestName) : 'まっています…'}</b><small>${guestIn ? (on.guest ? 'ゲスト' : 'ゲスト（つながっていない）') : ''}</small></div>
   <div class="mem cpu">${icon('robot')}<b>コンピューター ×2</b><small>${m ? LEVELS[(m.level || 2) - 1].name : ''}</small></div>
 </div>
 ${m ? `<details class="rule-sum"><summary>ルール（ホストの 設定）</summary>${rulesSummary({ ...DEFAULT_RULES, ...m.rules })}</details>` : ''}
@@ -343,10 +363,12 @@ async function startOnlineGame(meta) {
     online.reqSeen = new Set();
     const g = new Mahjong(meta.rules, meta.seed);
     const isHost = online.role === 'host';
-    const chars = cpuPlayers(meta.seed, 2);
+    const hostChar = charById(meta.hostChar || 'shiba').id;
+    const guestChar = charById(meta.guestChar || 'cat').id;
+    const chars = cpuPlayers(meta.seed, 2, [hostChar, guestChar]);
     const parts = [
-        { name: meta.hostName || 'ホスト', avatar: 'assets/avatars/you.svg', kind: isHost ? 'me' : 'remote' },
-        { name: meta.guestName || 'ゲスト', avatar: 'assets/avatars/friend.svg', kind: isHost ? 'remote' : 'me' },
+        { name: meta.hostName || 'ホスト', avatar: charImg(hostChar), kind: isHost ? 'me' : 'remote' },
+        { name: meta.guestName || 'ゲスト', avatar: charImg(guestChar), kind: isHost ? 'remote' : 'me' },
         ...chars.map(c => ({ ...c, kind: 'cpu', level: meta.level || 2 }))
     ];
     const players = [];

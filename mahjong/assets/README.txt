@@ -14,21 +14,31 @@
    ファイル: Man1〜9（萬子）・Pin1〜9（筒子）・Sou1〜9（索子）・Man5-Dora / Pin5-Dora / Sou5-Dora（赤5）・
              Ton 東・Nan 南・Shaa 西・Pei 北・Haku 白・Hatsu 發・Chun 中
 
-2. avatars/*.svg … プレイヤーの アバター（DiceBear「Notionists」）
-   入手もと: DiceBear https://www.dicebear.com/styles/notionists/ （npm @dicebear/core 9・@dicebear/collection 9 で この 場で 生成）
-   ライセンス: デザインは CC0 1.0（Notionists by Zoish）
-   ライセンス確認: npm パッケージ @dicebear/notionists の LICENSE
-     「Source: Notionists (https://heyzoish.gumroad.com/l/notionists) / Designer: Zoish / License: CC0 1.0」
-   生成に つかった 文字（シード）と 背景色。実名は つかって いません。
-     you.svg     あなた        seed: cpu-04  背景 #ffd88a
-     friend.svg  ともだち      seed: cpu-13  背景 #a8e6cf
-     cpu1.svg    コンピューター seed: cpu-01  背景 #ffb3a7
-     cpu2.svg    コンピューター seed: cpu-05  背景 #c7b8ff
-     cpu3.svg    コンピューター seed: cpu-07  背景 #9fd8ff
-     cpu4.svg    コンピューター seed: cpu-09  背景 #ffe0a3
-     cpu5.svg    コンピューター seed: cpu-10  背景 #f8b4d9
-     cpu6.svg    コンピューター seed: cpu-14  背景 #b9f0a6
-   加工: svgo で 小さく しました。
+2. chars/*.webp … キャラクター（Microsoft Fluent Emoji「3D」の 動物）
+   入手もと: https://github.com/microsoft/fluentui-emoji （assets/<名前>/3D/*_3d.png）
+   ライセンス: MIT License（全文は リポジトリ直下の THIRD_PARTY_LICENSES.txt）
+   ライセンス確認: https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE（MIT）
+   加工: 256×256 の PNG を 160×160 に 縮めて WebP（品質 90）に しました。
+   2026-10-11 に 依頼者に 候補の 一覧を 見せて「ぜんぶ 3D の 動物に そろえる」「柴犬は Dog（全身）」と きめました。
+   （柴犬 そのものの 素材は 表記不要の ライブラリに なかったので、茶色で しっぽが まいた Dog を 柴犬と して つかう）
+   ファイル・Fluent Emoji の 名前・画面の 名まえ:
+     shiba.webp    Dog          柴犬      https://github.com/microsoft/fluentui-emoji/blob/main/assets/Dog/3D/dog_3d.png
+     cat.webp      Cat face     ねこ      https://github.com/microsoft/fluentui-emoji/blob/main/assets/Cat%20face/3D/cat_face_3d.png
+     fox.webp      Fox          きつね    https://github.com/microsoft/fluentui-emoji/blob/main/assets/Fox/3D/fox_3d.png
+     rabbit.webp   Rabbit face  うさぎ    https://github.com/microsoft/fluentui-emoji/blob/main/assets/Rabbit%20face/3D/rabbit_face_3d.png
+     panda.webp    Panda        パンダ    https://github.com/microsoft/fluentui-emoji/blob/main/assets/Panda/3D/panda_3d.png
+     bear.webp     Bear         くま      https://github.com/microsoft/fluentui-emoji/blob/main/assets/Bear/3D/bear_3d.png
+     tiger.webp    Tiger face   とら      https://github.com/microsoft/fluentui-emoji/blob/main/assets/Tiger%20face/3D/tiger_face_3d.png
+     hamster.webp  Hamster      ハムスター https://github.com/microsoft/fluentui-emoji/blob/main/assets/Hamster/3D/hamster_3d.png
+     monkey.webp   Monkey face  さる      https://github.com/microsoft/fluentui-emoji/blob/main/assets/Monkey%20face/3D/monkey_face_3d.png
+     frog.webp     Frog         かえる    https://github.com/microsoft/fluentui-emoji/blob/main/assets/Frog/3D/frog_3d.png
+     penguin.webp  Penguin      ペンギン  https://github.com/microsoft/fluentui-emoji/blob/main/assets/Penguin/3D/penguin_3d.png
+     koala.webp    Koala        コアラ    https://github.com/microsoft/fluentui-emoji/blob/main/assets/Koala/3D/koala_3d.png
+     lion.webp     Lion         ライオン  https://github.com/microsoft/fluentui-emoji/blob/main/assets/Lion/3D/lion_3d.png
+     mouse.webp    Mouse face   ねずみ    https://github.com/microsoft/fluentui-emoji/blob/main/assets/Mouse%20face/3D/mouse_face_3d.png
+     owl.webp      Owl          ふくろう  https://github.com/microsoft/fluentui-emoji/blob/main/assets/Owl/3D/owl_3d.png
+     dog.webp      Dog face     いぬ      https://github.com/microsoft/fluentui-emoji/blob/main/assets/Dog%20face/3D/dog_face_3d.png
+   （まえは DiceBear Notionists の 人の アバターを つかって いましたが、画風を 3D に そろえる ため やめました）
 
 3. icons.js … ボタンの アイコン（Phosphor Icons「fill」）
    入手もと: Iconify の アイコンセット データ（npm @iconify-json/ph。https://github.com/iconify/icon-sets/blob/master/json/ph.json と 同じ もの）

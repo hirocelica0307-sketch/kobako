@@ -34,6 +34,7 @@ data.rules = { ...DEFAULT_RULES, ...(data.rules || {}) };
 data.record = data.record || {};       // { 'lv1': { games, ranks:[1位,2位,3位,4位] }, online: {...} }
 data.name = data.name || '';
 data.level = data.level || 2;
+data.char = data.char || 'shiba';   // 自分の キャラクター（chars.js）
 
 export function save() {
     try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* むし */ }
