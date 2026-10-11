@@ -435,6 +435,7 @@ async function watchRoom() {
             if (current !== 'online') show('online'); else renderOnline($('#s-online'));
             return;
         }
+        // 対局は status が 'play' の ときだけ はじめる（おわった 対局は 'done' に なる）
         if (meta.status === 'play' && meta.game && meta.game !== playingGame && meta.seed) {
             playingGame = meta.game;
             startOnlineGame(meta);
@@ -458,9 +459,13 @@ function startOnlineGame(meta) {
         room: { code: st.code, role: st.role, game: meta.game },
         onFinish: res => addRecord('online', res),
         onAgain: () => net.startMatch(st.code, (st.meta.game || 0) + 1),
+        onMatchOver: () => { if (st.code && st.role === 'host') net.updateMeta(st.code, { status: 'done' }).catch(() => {}); },
         onExit: async () => { await leaveOnline(); show('home'); }
     });
 }
+
+// ためす とき 用（?debug）
+if (/[?&]debug\b/.test(location.search)) window.__hf = { get game() { return game; } };
 
 /* ── はじまり ─────────────────────────────── */
 

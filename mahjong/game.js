@@ -75,12 +75,16 @@ export class GameView {
 
     dispose() {
         this.disposed = true;
+        this.root.removeEventListener('click', this.onRootClick);
         for (const t of this.timers) clearTimeout(t);
         window.removeEventListener('resize', this.onResize);
         window.removeEventListener('orientationchange', this.onResize);
         this.fx.dispose();
         stopVoice();
-        this.root.innerHTML = '';
+        // 画面の 部品は はずして しまって おく（のこった 処理が つぎの 対局の 画面を さわらない ように）
+        const old = document.createElement('div');
+        while (this.root.firstChild) old.appendChild(this.root.firstChild);
+        this.root = old;
     }
 
     later(fn, ms) {
@@ -139,7 +143,9 @@ export class GameView {
   <div class="backs"></div>
   <div class="plate"><div class="pl-in" style="transform:rotate(${-ANGLES[p]}deg)"></div></div>
 </div>`).join('');
-        this.root.addEventListener('click', e => this.onClick(e));
+        // dispose() で かならず はずす（はずさないと、つぎの 対局で まえの 対局の 画面が 手牌を 上書きする）
+        this.onRootClick = e => { if (!this.disposed) this.onClick(e); };
+        this.root.addEventListener('click', this.onRootClick);
         this.$ = sel => this.root.querySelector(sel);
         this.bindDrag();
     }
@@ -1041,6 +1047,7 @@ export class GameView {
             break;
         case 'matchEnd':
             this.finalResult = e.final;
+            if (this.cfg.onMatchOver) this.cfg.onMatchOver(e.final);
             break;
         case 'handEnd':
             this.showHandEndButton(e.over);
@@ -1487,7 +1494,14 @@ export class GameView {
             return `<div class="fr-row rank${r.rank}${r.seat === this.me ? ' me' : ''}"><span class="fr-rank">${r.rank}<small>位</small></span><img src="${pl.avatar}" alt=""><b>${esc(pl.name)}</b><span class="fr-score">${r.score.toLocaleString()}</span><span class="fr-pt ${r.point >= 0 ? 'plus' : 'minus'}">${r.point >= 0 ? '+' : ''}${r.point.toFixed(1)}</span></div>`;
         }).join('');
         const reason = { tobi: '飛びで 終了', agariyame: 'あがりやめ', end: '' }[f.reason] || '';
-        m.innerHTML = `<div class="result final"><h2>${icon('trophy')} 対局 終了</h2>${reason ? `<p class="fr-reason">${reason}</p>` : ''}${rows}<div class="rs-btns"><button class="btn primary" data-fin="again">もう一度</button><button class="btn" data-fin="home">ホームへ</button></div></div>`;
+        // ボタン：ひとりは「もう一度／ホームへ」、ホストは「もう一度（同じ 部屋で）／部屋に もどる」、ゲストは「部屋に もどる」
+        const role = this.cfg.role;
+        const btns = role === 'solo'
+            ? '<button class="btn primary" data-fin="again">もう一度</button><button class="btn" data-fin="home">ホームへ</button>'
+            : role === 'host'
+                ? '<button class="btn primary" data-fin="again">もう一度（同じ 部屋で）</button><button class="btn" data-fin="room">部屋に もどる</button>'
+                : '<button class="btn primary" data-fin="room">部屋に もどる</button><p class="wait">ホストが「もう一度」を おすと つぎの 対局が はじまります</p>';
+        m.innerHTML = `<div class="result final"><h2>${icon('trophy')} 対局 終了</h2>${reason ? `<p class="fr-reason">${reason}</p>` : ''}${rows}<div class="rs-btns">${btns}</div></div>`;
         if (myRow && myRow.rank === 1) {
             sfx.win(); say('トップです！', null);
             this.fx.rain(3500, {});
@@ -1495,10 +1509,11 @@ export class GameView {
         } else if (myRow) {
             sfx.lose();
         }
-        m.querySelector('[data-fin="again"]').addEventListener('click', () => { sfx.button(); this.cfg.onRematch && this.cfg.onRematch(); });
-        m.querySelector('[data-fin="home"]').addEventListener('click', () => { sfx.button(); this.cfg.onExit(); });
+        const on = (sel, fn) => { const b = m.querySelector(sel); if (b) b.addEventListener('click', () => { sfx.button(); fn(); }); };
+        on('[data-fin="again"]', () => this.cfg.onRematch && this.cfg.onRematch());
+        on('[data-fin="home"]', () => this.cfg.onExit());
+        on('[data-fin="room"]', () => (this.cfg.onBackToRoom ? this.cfg.onBackToRoom() : this.cfg.onExit()));
         if (!this.finishedReported) { this.finishedReported = true; this.cfg.onFinish && this.cfg.onFinish(f); }
-        if (this.cfg.role === 'guest') m.querySelector('[data-fin="again"]').remove();
     }
 
     /* ── メニュー ── */

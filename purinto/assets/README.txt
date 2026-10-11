@@ -379,3 +379,12 @@ emoji/ の ファイル いちらん（ファイル・えもじ・Fluent Emoji �
 1faa2.webp	🪢	Knot	https://github.com/microsoft/fluentui-emoji/blob/main/assets/Knot/3D/knot_3d.png
 1faa8.webp	🪨	Rock	https://github.com/microsoft/fluentui-emoji/blob/main/assets/Rock/3D/rock_3d.png
 1fab2.webp	🪲	Beetle	https://github.com/microsoft/fluentui-emoji/blob/main/assets/Beetle/3D/beetle_3d.png
+
+
+アプリの アイコン（ブラウザの タブ・ホーム画面に 追加した ときの アイコン）
+  app-icon.png（64×64・すきとおし）・app-icon-180.png（180×180・白い 地）
+  もと: Microsoft Fluent Emoji「3D」の Printer
+  入手もと: https://github.com/microsoft/fluentui-emoji/blob/main/assets/Printer/3D/printer_3d.png
+  ライセンス: MIT License（全文は リポジトリ直下の THIRD_PARTY_LICENSES.txt。画面には 表示しない）
+  ライセンス確認: https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE（MIT）
+  加工: 256×256 の PNG を 縮めた（180 は 白い 地に のせた）。2026-10-11 に 依頼者に 候補を 見せて きめた。

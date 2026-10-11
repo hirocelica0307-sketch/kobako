@@ -317,6 +317,11 @@ export async function startMatch(code, game) {
     return seed;
 }
 
+/** 対局が おわった（ホストだけ）。部屋は のこり、つぎは startMatch で はじまる */
+export async function finishMatch(code, game) {
+    await updateMeta(code, { status: 'done', doneGame: game });
+}
+
 export async function watchLog(code, game, cb) {
     const db = await connect();
     return db.watchChildren(`${roomPath(code)}/log/${game}`, (k, v) => cb(Number(k), v));

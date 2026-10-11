@@ -96,7 +96,12 @@ export class Game {
         this.unsubs.forEach(f => { try { f(); } catch (e) { /* むし */ } });
         clearTimeout(this.cpuTimer);
         clearTimeout(this.zTimer);
-        this.root.innerHTML = '';
+        clearTimeout(this.offTimer);
+        // 画面の 部品は 画面から はずして しまって おく。まだ のこって いる 処理が あっても、
+        // つぎの 対局の 画面（同じ #s-game）を さわらない ように する
+        const old = document.createElement('div');
+        while (this.root.firstChild) old.appendChild(this.root.firstChild);
+        this.root = old;
     }
 
     /* ── 画面の くみたて ─────────────────────── */
@@ -922,6 +927,8 @@ ${adv ? `<p class="advice">💡 ${esc(adv.reason)}<br>おすすめ：<b>${adv.ac
         const title = { w: 'あなたの 勝ち！', l: '負けました…', d: '引き分け' }[res];
         if (res === 'w') sfx.win();
         if (this.o.onFinish) this.o.onFinish(res, s.scores.slice());
+        // ホスト：部屋を「おわった」に する（入りなおしても おわった 対局が また はじまらない）
+        if (this.o.mode === 'online' && this.o.room.role === 'host' && this.o.onMatchOver) this.o.onMatchOver();
         const buttons = [];
         if (this.o.mode === 'online') {
             if (this.o.room.role === 'host') buttons.push({ label: 'もう一度 たいせん', value: 'again', cls: 'primary' });
@@ -1043,7 +1050,9 @@ ${this.o.mode === 'online' && this.o.room.role !== 'host' ? '<p class="explain">
     async connectOnline() {
         const { code, game } = this.o.room;
         try {
-            this.unsubs.push(await net.watchLog(code, game, (idx, a) => {
+            const keep = f => { if (this.disposed) { try { f(); } catch (e) { /* むし */ } } else this.unsubs.push(f); };
+            keep(await net.watchLog(code, game, (idx, a) => {
+                if (this.disposed) return;
                 if (idx !== this.logCount) {
                     // じゅんばんが とんだ（ふつうは おきない）
                     if (idx < this.logCount) return;
@@ -1052,7 +1061,8 @@ ${this.o.mode === 'online' && this.o.room.role !== 'host' ? '<p class="explain">
                 this.waitingNet = false;
                 this.enqueue(a);
             }));
-            this.unsubs.push(await net.watchOnline(code, on => {
+            keep(await net.watchOnline(code, on => {
+                if (this.disposed) return;
                 const role = this.o.room.role === 'host' ? 'guest' : 'host';
                 const w = this.q('.net-warn');
                 if (!on[role]) {

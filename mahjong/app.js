@@ -194,7 +194,21 @@ function openGame(cfg) {
 
 /* ── 友だちと 対戦 ───────────────────────────── */
 
-const online = { code: '', role: '', unsub: [], meta: null, gameNo: -1, ready: {}, reqSeen: new Set() };
+const online = { code: '', role: '', unsub: [], gameUnsub: [], meta: null, gameNo: -1, ready: {}, reqSeen: new Set() };
+
+/** 1回の 対局ぶんの 見はり（手・ねがい・OK）を とめる。つぎの 対局を はじめる ときに かならず よぶ */
+function cleanupGameListeners() {
+    online.gameUnsub.forEach(f => { try { f(); } catch (e) { /* むし */ } });
+    online.gameUnsub = [];
+}
+
+/** 「ともだちの つうしんが 切れています」の 表示を いまの ようすに あわせる */
+function updatePeerBanner() {
+    const on = online.onlineState || {};
+    const other = online.role === 'host' ? 'guest' : 'host';
+    const off = !!(view && online.inGame && online.meta && online.meta[other] && !on[other]);
+    document.body.classList.toggle('peer-off', off);
+}
 
 function cleanupOnline() {
     online.unsub.forEach(f => { try { f(); } catch (e) { /* むし */ } });
@@ -204,6 +218,7 @@ function cleanupOnline() {
 function leaveOnlineGame() {
     // 対局画面を ぬけた だけでは 部屋は のこす（ホームから もどれる）
     online.inGame = false;
+    document.body.classList.remove('peer-off');
 }
 
 function renderOnline(root) {
@@ -296,20 +311,18 @@ function watchRoom() {
         const prev = online.meta;
         online.meta = meta;
         if (current === 'online') renderRoom($('#s-online'));
-        // 対局 開始（ゲスト）／ もう一度
-        if (meta.status === 'play' && meta.seed && (!prev || prev.game !== meta.game || prev.status !== 'play' || !online.inGame) && online.gameNo !== meta.game) {
+        // 対局 開始／もう一度（status が 'play' の ときだけ。おわった 対局 'done' は はじめない）
+        if (meta.status === 'play' && meta.seed && online.gameNo !== meta.game) {
             startOnlineGame(meta);
         }
+        updatePeerBanner();
         if (online.role === 'host' && meta.left === 'guest' && view && online.inGame) {
             view.$('.g-status').textContent = 'ともだちが 部屋を 出ました';
         }
     }).then(f => online.unsub.push(f));
     net.watchOnline(online.code, on => {
         online.onlineState = on;
-        const other = online.role === 'host' ? 'guest' : 'host';
-        if (view && online.inGame) {
-            document.body.classList.toggle('peer-off', !on[other] && !!(online.meta && online.meta[other]));
-        }
+        updatePeerBanner();
         if (current === 'online') renderRoom($('#s-online'));
     }).then(f => online.unsub.push(f));
 }
@@ -329,7 +342,8 @@ function renderRoom(root) {
   <div class="mem cpu">${icon('robot')}<b>コンピューター ×2</b><small>${m ? LEVELS[(m.level || 2) - 1].name : ''}</small></div>
 </div>
 ${m ? `<details class="rule-sum"><summary>ルール（ホストの 設定）</summary>${rulesSummary({ ...DEFAULT_RULES, ...m.rules })}</details>` : ''}
-${host ? `<button class="btn primary big start" ${guestIn ? '' : 'disabled'}>${icon('play')}<span>対局を はじめる</span></button>` : '<p class="note">ホストが はじめるのを まっています…</p>'}
+${m && m.status === 'done' ? `<p class="note">${m.game}回めの 対局は おわりました。${host ? '「対局を はじめる」で つぎの 対局です。' : 'ホストが つぎの 対局を はじめるのを まっています…'}</p>` : ''}
+${host ? `<button class="btn primary big start" ${guestIn && on.guest ? '' : 'disabled'}>${icon('play')}<span>${m && m.game ? 'つぎの 対局を はじめる' : '対局を はじめる'}</span></button>${guestIn && !on.guest ? '<p class="note">ともだちが つながるのを まっています…</p>' : ''}` : (m && m.status === 'done' ? '' : '<p class="note">ホストが はじめるのを まっています…</p>')}
 ${m && m.status === 'play' && !online.inGame ? '<button class="btn primary big back-game">対局に もどる</button>' : ''}
 </div>`;
     root.querySelector('[data-leave]').addEventListener('click', () => {
@@ -350,13 +364,17 @@ ${m && m.status === 'play' && !online.inGame ? '<button class="btn primary big b
 async function exitRoom(notify) {
     const { code, role } = online;
     cleanupOnline();
+    cleanupGameListeners();
     online.code = ''; online.role = ''; online.meta = null; online.gameNo = -1; online.inGame = false;
+    document.body.classList.remove('peer-off');
     if (view) { view.dispose(); view = null; }
     if (notify && code) await net.leaveRoom(code, role);
     else net.saveRoom(null);
 }
 
 async function startOnlineGame(meta) {
+    // まえの 対局の 見はりは ここで とめる（のこって いると まえの 手が まざる）
+    cleanupGameListeners();
     online.gameNo = meta.game;
     online.inGame = true;
     online.ready = {};
@@ -390,24 +408,34 @@ async function startOnlineGame(meta) {
             const row = final.rows.find(r => r.seat === mySeat);
             if (row) addRecord('online', row.rank);
         },
+        // 対局が おわったら ホストが 部屋を「おわった」に する（あとから 入りなおしても まえの 対局は はじまらない）
+        onMatchOver: () => { if (isHost && online.code === code) net.finishMatch(code, game).catch(() => {}); },
         onRematch: async () => {
-            if (isHost) {
-                await net.startMatch(code, game + 1);
+            if (!isHost) return;
+            const on = online.onlineState || {};
+            if (!on.guest || !(online.meta && online.meta.guest)) {
+                alert('ともだちが 部屋に いません。部屋の 画面で ともだちを まってから はじめてください');
+                show('online');
+                return;
             }
-        }
+            await net.startMatch(code, game + 1);
+        },
+        onBackToRoom: () => show('online')
     });
     v.catchUp(past);
-    // 新しい 手（ゲストは ホストの 手を、ホストは ゲストの ねがいを）
+    updatePeerBanner();
+    // 新しい 手（ゲストは ホストの 手を、ホストは ゲストの ねがいを）。この 対局が おわったら とめる
+    const keep = f => { if (view === v) online.gameUnsub.push(f); else { try { f(); } catch (e) { /* むし */ } } };
     net.watchLog(code, game, (i, a) => {
         if (!view || view !== v) return;
         if (!isHost) v.receive(i, a);
-    }).then(f => online.unsub.push(f));
+    }).then(keep);
     if (isHost) {
         net.watchRequests(code, game, req => {
             if (!view || view !== v) return;
             v.handleRequest(req.action, req.n);     // ちがう 場面の ねがいは すてる
-        }).then(f => online.unsub.push(f));
-        net.watchReady(code, game, r => { online.ready = r || {}; }).then(f => online.unsub.push(f));
+        }).then(keep);
+        net.watchReady(code, game, r => { if (view === v) online.ready = r || {}; }).then(keep);
     }
     net.saveRoom({ code, role: online.role });
 }
