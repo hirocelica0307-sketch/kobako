@@ -58,7 +58,7 @@ export function tileImage(id, redRule = true) {
 }
 
 /** 牌の ならべかえ用の キー（赤5は ふつうの 5の すぐ前） */
-export const sortKey = id => kindOf(id) * 4 + (isRedId(id) ? 0 : 1 + (id & 3));
+export const sortKey = id => kindOf(id) * 8 + (isRedId(id) ? 0 : 1 + (id & 3));   // 種類ごとに 8 あける（となりの 種類と かさならない）
 export const sortTiles = ids => ids.slice().sort((a, b) => sortKey(a) - sortKey(b));
 
 /** id の ならびを 種類ごとの 数（34こ）に */

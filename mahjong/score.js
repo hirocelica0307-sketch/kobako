@@ -121,7 +121,7 @@ export function evaluateWin(ctx) {
         addFlush(yaku, ym, kinds, true);
         if (kinds.every(isHonor)) ym.push(['字一色', 1]);
         if (ym.length) candidates.push(finishYakuman(ym));
-        else candidates.push({ yaku, fu: 25 });
+        else candidates.push({ yaku, fu: 25, fuParts: Object.assign([['七対子は 25符 きまり', 25]], { raw: 25 }) });
     }
 
     // ふつうの 形
@@ -279,37 +279,53 @@ function evalNormal(ctx, head, all, closedSets, wait, menzen, situational, situa
     if (kindList.every(isYaochu)) yaku.push(['混老頭', 2]);
     addFlush(yaku, ym, kindList, menzen);
 
-    // 符
+    // 符（内わけも のこす：点数計算の 練習・結果画面で 見せる）
+    const parts = [];
     let fu;
+    const TN = k => tileShortName(k);
     if (pinfu) {
         fu = ctx.tsumo ? 20 : 30;
+        parts.push(ctx.tsumo ? ['平和ツモは 20符 きまり', 20] : ['平和ロンは 30符 きまり（副底20＋門前ロン10）', 30]);
     } else {
         fu = 20;
-        if (menzen && !ctx.tsumo) fu += 10;
-        if (ctx.tsumo) fu += 2;
+        parts.push(['副底（ふうてい）', 20]);
+        if (menzen && !ctx.tsumo) { fu += 10; parts.push(['門前で ロン', 10]); }
+        if (ctx.tsumo) { fu += 2; parts.push(['ツモ', 2]); }
         for (const s of triplets) {
             let f = 2;
             if (isYaochu(s.k)) f *= 2;
             if (!s.open) f *= 2;
             if (s.type === 'kantsu') f *= 4;
             fu += f;
+            const kind = s.type === 'kantsu' ? (s.open ? '明槓' : '暗槓') : (s.open ? '明刻' : '暗刻');
+            parts.push([`${kind} ${TN(s.k)}（${isYaochu(s.k) ? '么九牌' : '中張牌'}）`, f]);
         }
-        if (head >= 31) fu += 2;
-        if (head === yw.seat) fu += 2;
-        if (head === yw.round) fu += 2;
-        if (wait === 'kanchan' || wait === 'penchan' || wait === 'tanki') fu += 2;
+        if (head >= 31) { fu += 2; parts.push([`雀頭が 三元牌 ${TN(head)}`, 2]); }
+        if (head === yw.seat) { fu += 2; parts.push([`雀頭が 自風 ${TN(head)}`, 2]); }
+        if (head === yw.round) { fu += 2; parts.push([`雀頭が 場風 ${TN(head)}`, 2]); }
+        if (wait === 'kanchan' || wait === 'penchan' || wait === 'tanki') {
+            fu += 2;
+            parts.push([{ kanchan: '嵌張（カンチャン）待ち', penchan: '辺張（ペンチャン）待ち', tanki: '単騎（タンキ）待ち' }[wait], 2]);
+        }
+        const raw = fu;
         fu = Math.ceil(fu / 10) * 10;
         if (fu === 20) fu = 30;   // 鳴いて 符が ない ときは 30符
+        parts.raw = raw;
+        if (raw !== fu) parts.round = raw <= 20 && !menzen ? '鳴いた 手で 20符なら 30符に する' : `${raw}符 → 1の位を 切り上げて ${fu}符`;
     }
-    return { yaku, fu };
+    return { yaku, fu, fuParts: parts, wait };
 }
+
+const SHORT = ['一萬', '二萬', '三萬', '四萬', '五萬', '六萬', '七萬', '八萬', '九萬', '一筒', '二筒', '三筒', '四筒', '五筒', '六筒', '七筒', '八筒', '九筒',
+    '一索', '二索', '三索', '四索', '五索', '六索', '七索', '八索', '九索', '東', '南', '西', '北', '白', '發', '中'];
+const tileShortName = k => SHORT[k];
 
 function scoreNormal(c, menzen, dora, aka, ura, rules) {
     if (!c.yaku.length) return null;
     const yaku = c.yaku.map(([name, han]) => ({ name, han }));
     let han = yaku.reduce((s, y) => s + y.han, 0);
     han += dora + aka + ura;
-    return { yaku, han, fu: c.fu, yakuman: 0 };
+    return { yaku, han, fu: c.fu, yakuman: 0, fuParts: c.fuParts || null, wait: c.wait || null };
 }
 
 /** 役が 1つでも あるか（ドラを のぞく）。あがれるか しらべる とき 用 */

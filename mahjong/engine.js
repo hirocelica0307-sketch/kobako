@@ -803,7 +803,9 @@ export class Mahjong {
                 melds: h.melds[w.seat].map(m => ({ ...m, tiles: m.tiles.slice() })),
                 uraInd: h.riichi[w.seat] && this.rules.ura ? h.uraInd.slice(0, this.rules.kandora ? h.doraShown : 1) : [],
                 doraInd: this.doraIndicatorIds(),
-                riichi: h.riichi[w.seat]
+                riichi: h.riichi[w.seat],
+                // 点数計算の 説明 用
+                isDealer, seatWind: this.seatWind(w.seat), roundWind: this.roundWind, honba: hb, sticks: w.seat === stickTaker ? this.sticks : 0
             });
         });
         const before = this.scores.slice();

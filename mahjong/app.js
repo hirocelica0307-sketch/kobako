@@ -10,6 +10,7 @@ import { GameView, rulesSummary } from './game.js';
 import { icon } from './assets/icons.js';
 import { tileImage } from './tiles.js';
 import * as net from './net.js';
+import { renderKeisan } from './keisan.js';
 
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -28,7 +29,7 @@ let current = '';
 
 /* ── 画面の きりかえ（スマホの「もどる」でも もどれる ように #で きりかえる） ── */
 
-const SCREENS = ['home', 'cpu', 'online', 'rules', 'yakuref', 'settings', 'game'];
+const SCREENS = ['home', 'cpu', 'online', 'rules', 'yakuref', 'keisan', 'settings', 'game'];
 
 function show(name, push = true) {
     if (!SCREENS.includes(name)) name = 'home';
@@ -76,6 +77,7 @@ function renderHome(root) {
   ${saved ? `<button class="btn primary big" data-rejoin>合言葉 ${esc(saved.code)} の 部屋に もどる</button>` : ''}
   <button class="btn big primary" data-go="cpu">${icon('robot')}<span>コンピューターと 対戦<small>つよさ 3段階</small></span></button>
   <button class="btn big" data-go="online">${icon('users-three')}<span>友だちと 対戦<small>合言葉で 部屋に 入る（2人＋コンピューター2人）</small></span></button>
+  <button class="btn big" data-go="keisan">${icon('lightbulb')}<span>点数計算を おぼえる<small>やりかた・練習問題・早見表</small></span></button>
   <div class="home-row">
     <button class="btn" data-go="rules">${icon('gear-six')}ルール</button>
     <button class="btn" data-go="yakuref">${icon('book-open-text')}役の 一覧</button>
@@ -492,7 +494,9 @@ ${item('fx', '演出（雷・光・ゆれ）', [['full', 'はでに'], ['lite', 
 ${item('speed', 'うごきの はやさ', [['slow', 'ゆっくり'], ['normal', 'ふつう'], ['fast', 'はやい']])}
 ${item('showWaits', 'テンパイの とき 待ちを 出す', [[true, 'あり'], [false, 'なし']])}
 ${item('hint', 'おすすめの 牌に しるし', [[false, 'なし'], [true, 'あり']])}
-${item('sortHand', '手牌を ならべる', [[true, 'あり'], [false, 'なし']])}
+${item('handMode', '手牌の ならべかた', [['auto', '自動で ならべる'], ['manual', '自分で ならべる（ドラッグ）']])}
+${item('riverStyle', '捨て牌の 置きかた', [['natural', '手で 置いたように'], ['neat', 'きっちり']])}
+${item('showPoints', 'テンパイの とき あがりの 点数を 出す', [[true, 'あり'], [false, 'なし']])}
 </div>
 <button class="btn test-sound">${icon('speaker-high')} 音と こえを ためす</button>
 </div>`;
@@ -513,7 +517,7 @@ ${item('sortHand', '手牌を ならべる', [[true, 'あり'], [false, 'なし'
     });
 }
 
-const RENDER = { home: renderHome, cpu: renderCpu, online: renderOnline, rules: renderRules, yakuref: renderYakuref, settings: renderSettings };
+const RENDER = { home: renderHome, cpu: renderCpu, online: renderOnline, rules: renderRules, yakuref: renderYakuref, keisan: root => renderKeisan(root, back()), settings: renderSettings };
 
 // ためす とき 用（?debug）
 if (/[?&]debug\b/.test(location.search)) window.__mj = { get view() { return view; }, startCpuGame };
