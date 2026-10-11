@@ -12,7 +12,9 @@ import { kindOf, tileImage, tileName, sortTiles, toCounts, WIND_NAMES, isRedId, 
 import { waits as waitKinds, shanten } from './hand.js';
 import { tierLevel } from './score.js';
 import { decide, recommendDiscard } from './ai.js';
-import { sfx, say, stopVoice, YAKU_READING } from './sound.js';
+import { sfx, say, stopVoice, YAKU_READING, roundReading, TIER_READING, REASON_READING, doraReading } from './sound.js';
+import { evaluateWin } from './score.js';
+import { explainHTML, pointsLabel, quickTableHTML, totalOf as calcTotal } from './calc.js';
 import { FX } from './fx.js';
 import { store, save, speedFactor } from './store.js';
 import { icon } from './assets/icons.js';
@@ -60,6 +62,8 @@ export class GameView {
         this.auto = { win: false, noCall: false, tsumogiri: false };
         this.lastDiscardKey = null;
         this.result = null;
+        this.handOrder = [];
+        this.showDiff = false;
         this.build();
         this.fx = new FX(this.root.querySelector('.g-fxlayer'));
         this.onResize = () => this.layout();
@@ -118,6 +122,7 @@ export class GameView {
       <button class="auto" data-auto="win">自動和了</button>
       <button class="auto" data-auto="noCall">鳴きなし</button>
       <button class="auto" data-auto="tsumogiri">ツモ切り</button>
+      <button class="auto sortonce" data-act="sortonce" hidden>理牌</button>
     </div>
   </div>
   <div class="g-spacer"></div>
@@ -136,6 +141,7 @@ export class GameView {
 </div>`).join('');
         this.root.addEventListener('click', e => this.onClick(e));
         this.$ = sel => this.root.querySelector(sel);
+        this.bindDrag();
     }
 
     layout() {
@@ -181,10 +187,11 @@ export class GameView {
 
     /* ── 牌の 部品 ─────────────────────────── */
 
-    tileHTML(id, { side = false, back = false, cls = '', data = '' } = {}) {
-        if (back) return `<div class="t back ${side ? 'side' : ''} ${cls}" ${data}></div>`;
+    tileHTML(id, { side = false, back = false, cls = '', data = '', style = '' } = {}) {
+        const st = style ? ` style="${style}"` : '';
+        if (back) return `<div class="t back ${side ? 'side' : ''} ${cls}" ${data}${st}></div>`;
         const img = tileImage(id, this.g.rules.aka);
-        return `<div class="t ${side ? 'side' : ''} ${cls}" ${data}><i style="background-image:url(${img})"></i></div>`;
+        return `<div class="t ${side ? 'side' : ''} ${cls}" ${data}${st}><i style="background-image:url(${img})"></i></div>`;
     }
 
     /* ── ぜんぶ えがく ─────────────────────── */
@@ -223,8 +230,14 @@ export class GameView {
             const wind = (seat - s.dealer + 4) % 4;
             const el = this.$('.cw' + p);
             const active = s.hands && s.turn === seat && this.g.phase === 'play';
-            el.className = `cw cw${p}${active ? ' active' : ''}${wind === 0 ? ' dealer' : ''}${s.riichi && s.riichi[seat] ? ' riichi' : ''}`;
-            el.innerHTML = `${s.riichi && s.riichi[seat] ? '<i class="cstick"></i>' : ''}<span class="wd">${WIND_NAMES[wind]}</span><span class="sc">${s.scores[seat]}</span>`;
+            el.className = `cw cw${p}${active ? ' active' : ''}${wind === 0 ? ' dealer' : ''}${s.riichi && s.riichi[seat] ? ' riichi' : ''}${this.showDiff ? ' diffmode' : ''}`;
+            // 自分の 点数を タッチすると、ほかの 人との 差を 出す（もう一度で もとに もどる）
+            let sc = String(s.scores[seat]);
+            if (this.showDiff && seat !== this.me) {
+                const d = s.scores[seat] - s.scores[this.me];
+                sc = `<em class="${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d > 0 ? '+' : d < 0 ? '−' : '±'}${Math.abs(d)}</em>`;
+            }
+            el.innerHTML = `${s.riichi && s.riichi[seat] ? '<i class="cstick"></i>' : ''}<span class="wd">${WIND_NAMES[wind]}</span><span class="sc">${sc}</span>`;
         }
         this.$('.cinfo').innerHTML = s.hands
             ? `<div class="ci-round">${WIND_NAMES[s.roundWind]}${KYOKU_NUM[s.kyoku]}局</div>
@@ -248,10 +261,19 @@ export class GameView {
             if (d.called) { if (d.riichi) sideNext = true; return; }
             const row = Math.min(2, Math.floor(n / 6));
             const cls = [d.tsumogiri ? 'tg' : '', isLast && this.lastDiscardKey === `${seat}:${i}` ? 'last' : ''].join(' ');
-            rows[row].push(this.tileHTML(d.tile, { side, cls }));
+            rows[row].push(this.tileHTML(d.tile, { side, cls, style: this.jitter(seat, i, d.tile) }));
             n++;
         });
         el.innerHTML = rows.map(r => `<div class="rrow">${r.join('')}</div>`).join('');
+    }
+
+    /** 手で 置いたような 少しの ずれ（同じ 牌は いつも 同じ ずれ） */
+    jitter(seat, i, tile) {
+        if (store.settings.riverStyle === 'neat') return '';
+        let h = (seat * 7919 + i * 104729 + tile * 1299709) >>> 0;
+        const r = () => { h = (Math.imul(h ^ (h >>> 15), 2246822519) + 0x9e3779b9) >>> 0; return (h % 1000) / 1000 - 0.5; };
+        const jx = (r() * 0.7).toFixed(2), jy = (r() * 0.8).toFixed(2), jr = (r() * 5).toFixed(1);
+        return `--jx:calc(var(--u) * ${jx});--jy:calc(var(--u) * ${jy});--jr:${jr}deg`;
     }
 
     renderMelds(seat) {
@@ -326,9 +348,17 @@ export class GameView {
         if (!s.hands) { el.innerHTML = ''; return; }
         const hand = s.hands[this.me].slice();
         const p = this.myPrompt;
-        const drawn = (s.turn === this.me && hand.length % 3 === 2 && s.drawn !== null && hand.includes(s.drawn)) ? s.drawn : null;
+        const manual = store.settings.handMode === 'manual';
+        let drawn = (s.turn === this.me && hand.length % 3 === 2 && s.drawn !== null && hand.includes(s.drawn)) ? s.drawn : null;
+        // 手で ならべる ときに ツモ牌を 列に 入れたら、もう はなさない
+        if (manual && drawn !== null && this.handOrder.includes(drawn)) drawn = null;
         const rest = drawn !== null ? hand.filter(t => t !== drawn) : hand;
-        const list = store.settings.sortHand ? sortTiles(rest) : rest;
+        let list;
+        if (manual) {
+            this.handOrder = this.handOrder.filter(t => rest.includes(t));
+            for (const t of rest) if (!this.handOrder.includes(t)) this.handOrder.push(t);
+            list = this.handOrder.slice();
+        } else list = sortTiles(rest);
         const canDiscard = p && p.type === 'turn' ? new Set(this.riichiMode ? p.options.riichi : p.options.discard) : null;
         const doras = new Set((s.doraIds || []).map(id => doraFromIndicator(kindOf(id))));
         const rec = this.recommendTile;
@@ -345,6 +375,57 @@ export class GameView {
         el.innerHTML = `<div class="hand-row">${html}</div>`;
         el.classList.toggle('my-turn', !!(p && p.type === 'turn'));
         el.classList.toggle('riichi-mode', this.riichiMode);
+        el.classList.toggle('manual', manual);
+        const so = this.root.querySelector('[data-act="sortonce"]');
+        if (so) so.hidden = !manual;
+    }
+
+    /* ── 手牌を ドラッグして ならべかえる（手で ならべる とき） ── */
+
+    bindDrag() {
+        const hand = this.$('.g-hand');
+        hand.addEventListener('pointerdown', e => {
+            if (store.settings.handMode !== 'manual') return;
+            const t = e.target.closest('[data-tile]');
+            if (!t) return;
+            this.drag = { id: Number(t.dataset.tile), el: t, x0: e.clientX, y0: e.clientY, moved: false };
+            try { t.setPointerCapture(e.pointerId); } catch (err) { /* むし */ }
+        });
+        hand.addEventListener('pointermove', e => {
+            const d = this.drag;
+            if (!d) return;
+            const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
+            if (!d.moved && Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+            d.moved = true;
+            d.el.classList.add('dragging');
+            d.el.style.transform = `translate(${dx}px, ${Math.min(0, dy) - 8}px)`;
+            const tiles = [...hand.querySelectorAll('[data-tile]')].filter(x => x !== d.el);
+            let idx = tiles.length;
+            for (let i = 0; i < tiles.length; i++) {
+                const r = tiles[i].getBoundingClientRect();
+                if (e.clientX < r.left + r.width / 2) { idx = i; break; }
+            }
+            tiles.forEach((x, i) => { x.classList.toggle('ins-l', i === idx); x.classList.toggle('ins-r', idx === tiles.length && i === tiles.length - 1); });
+            d.idx = idx;
+            d.order = tiles.map(x => Number(x.dataset.tile));
+        });
+        const end = () => {
+            const d = this.drag;
+            this.drag = null;
+            if (!d || !d.moved) return;
+            const order = d.order || [];
+            order.splice(d.idx ?? order.length, 0, d.id);
+            // ツモ牌（はなれて いる 牌）は、うごかして いなければ 列に 入れない
+            const s = this.snap;
+            const drawnSep = s.drawn !== null && !this.handOrder.includes(s.drawn) && d.id !== s.drawn ? s.drawn : null;
+            this.handOrder = order.filter(t => t !== drawnSep);
+            this.suppressClick = true;
+            setTimeout(() => { this.suppressClick = false; }, 60);
+            sfx.select();
+            this.renderHand();
+        };
+        hand.addEventListener('pointerup', end);
+        hand.addEventListener('pointercancel', () => { const d = this.drag; this.drag = null; if (d) this.renderHand(); });
     }
 
     /* ── クリック ─────────────────────────── */
@@ -362,7 +443,15 @@ export class GameView {
             return;
         }
         const t = e.target.closest('.g-hand [data-tile]');
-        if (t) { this.onTile(Number(t.dataset.tile)); return; }
+        if (t) { if (!this.suppressClick) this.onTile(Number(t.dataset.tile)); return; }
+        if (e.target.closest('.cw0')) {
+            this.showDiff = !this.showDiff;
+            sfx.button();
+            this.renderCenter();
+            return;
+        }
+        const pv = e.target.closest('.g-status .pts-btn');
+        if (pv) { sfx.button(); this.showPointPreview(); return; }
         const m = e.target.closest('.g-modal');
         if (m && this.skippable) { this.skip = true; }
     }
@@ -404,6 +493,14 @@ export class GameView {
             el.innerHTML = icon(store.settings.sound ? 'speaker-high' : 'speaker-slash');
             if (!store.settings.sound) stopVoice();
             return;
+        case 'sortonce': {
+            // 手で ならべる とき：いちど だけ きれいに ならべる
+            const hand = this.snap.hands ? this.snap.hands[this.me] : [];
+            const keep = this.handOrder.filter(t => hand.includes(t));
+            this.handOrder = sortTiles(keep);
+            this.renderHand();
+            return;
+        }
         case 'tsumo': this.clearMyUI(); this.submit({ s: this.me, a: 'tsumo' }); return;
         case 'ron': this.clearMyUI(); this.submit({ s: this.me, a: 'ron' }); return;
         case 'kyuushu': this.clearMyUI(); this.submit({ s: this.me, a: 'kyuushu' }); return;
@@ -713,12 +810,67 @@ export class GameView {
                             furiten = w.some(k => disc.has(k));
                         }
                         txt = `<span class="waits">${this.selected !== null && hand.length % 3 === 2 ? 'これを 切ると ' : ''}待ち：${parts.join(' ')}</span>${furiten ? '<span class="furiten">フリテン</span>' : ''}`;
+                        // あがったら 何点か（実戦で 点数計算を おぼえる）
+                        if (store.settings.showPoints && this.g.phase === 'play') {
+                            const pv = this.previewPoints(base, w);
+                            this.preview = pv;
+                            if (pv.length) {
+                                const ron = pv.filter(x => x.ron).map(x => x.ron.total);
+                                const tsu = pv.filter(x => x.tsumo).map(x => x.tsumo.total);
+                                const range = a => (a.length ? (Math.min(...a) === Math.max(...a) ? `${Math.min(...a)}` : `${Math.min(...a)}〜${Math.max(...a)}`) : '役なし');
+                                txt += `<button class="pts-btn">ロン ${furiten ? 'フリテン' : range(ron)}／ツモ ${range(tsu)} ${icon('info')}</button>`;
+                            }
+                        }
                         if (p && p.type === 'claim') txt = (p.seats[this.me].ron ? 'ロン できます！ ' : '') + txt;
                     }
                 }
             }
         }
         el.innerHTML = txt;
+    }
+
+    /** テンパイの とき、待ちごとに ロン・ツモで 何点か（裏ドラ・一発は ふくめない） */
+    previewPoints(base, waits) {
+        const g = this.g;
+        const me = this.me;
+        const isDealer = g.dealer === me;
+        const out = [];
+        for (const k of waits) {
+            let id = [1, 2, 3, 0].map(j => k * 4 + j).find(x => !base.includes(x));
+            if (id === undefined) continue;
+            const row = { k };
+            try {
+                const ctxR = g.winContext(me, [...base, id], id, false, {});
+                ctxR.uraInd = [];
+                const rr = evaluateWin(ctxR);
+                if (rr) row.ron = { r: rr, label: pointsLabel(rr.base, isDealer, false), total: calcTotal(rr.base, isDealer, false) };
+                const ctxT = g.winContext(me, [...base, id], id, true, {});
+                ctxT.uraInd = [];
+                const rt = evaluateWin(ctxT);
+                if (rt) row.tsumo = { r: rt, label: pointsLabel(rt.base, isDealer, true), total: calcTotal(rt.base, isDealer, true) };
+            } catch (e) { /* むし */ }
+            out.push(row);
+        }
+        return out;
+    }
+
+    /** 待ちごとの 点数と 計算の しかた */
+    showPointPreview() {
+        const pv = this.preview || [];
+        if (!pv.length) return;
+        const isDealer = this.g.dealer === this.me;
+        const m = this.$('.g-modal');
+        if (!m.hidden) return;
+        m.hidden = false;
+        const blocks = pv.map(row => {
+            const head = `<div class="pv-head">${this.tileHTML(row.k * 4 + 1, { cls: 'pv-t' })}<b>${tileName(row.k)} で あがると</b></div>`;
+            const part = (x, tsumo) => x
+                ? `<details class="pv-d"><summary>${tsumo ? 'ツモ' : 'ロン'}：<b>${x.label}</b>（${x.r.name || (x.r.fu + '符 ' + x.r.han + '翻')}）</summary>${explainHTML(x.r, { isDealer, tsumo })}</details>`
+                : `<div class="pv-none">${tsumo ? 'ツモ' : 'ロン'}：役なし（あがれない）</div>`;
+            return `<div class="pv-row">${head}${part(row.ron, false)}${part(row.tsumo, true)}</div>`;
+        }).join('');
+        m.innerHTML = `<div class="result preview"><h2>あがったら 何点？</h2><p class="note">いまの 手（${isDealer ? '親' : '子'}）。裏ドラ・一発・海底などは ふくみません。</p>${blocks}<div class="rs-btns"><button class="btn primary pv-close">とじる</button></div></div>`;
+        m.querySelector('.pv-close').addEventListener('click', () => { sfx.button(); m.hidden = true; m.innerHTML = ''; });
     }
 
     visibleCounts() {
@@ -788,6 +940,8 @@ export class GameView {
         switch (e.type) {
         case 'handStart': {
             this.revealSeats = null;
+            this.handOrder = [];
+            this.selected = null;
             this.closeModal();
             this.bank = 30;
             this.lastDiscardKey = null;
@@ -906,7 +1060,7 @@ export class GameView {
         this.fx.bigText(`${rw}${KYOKU_NUM[e.kyoku]}局`, { style: 'round', dur: 1400 });
         if (e.honba) this.fx.bigText(`${e.honba}本場`, { style: 'honba', dur: 1400, at: this.centerPoint(0.12) });
         sfx.shuffle();
-        say(`${rw}${KYOKU_NUM[e.kyoku]}局`, null);
+        say(roundReading(e.roundWind, e.kyoku, e.honba), null);
         await this.sleep(1300);
         // 親が サイコロを ふって 配牌を とる 山を きめる
         const owner = (e.wallOwner - e.dealer + 4) % 4;
@@ -1061,29 +1215,58 @@ export class GameView {
         const tsumo = e.tsumo;
         const levels = e.wins.map(w => tierLevel(w.result.name || ''));
         const top = Math.max(...levels);
-        // 1) 宣言：画面を くらく → 雷 → 大きな「ロン」「ツモ」
+        // 1) 宣言：画面を くらく → あがった 人の アイコン → 雷
+        //    ツモは 卓の まんなか、ロンは ふりこんだ 人が 出した 牌に 雷が おちる
         if (!this.fast) {
             const wrap = this.$('.g-wrap');
-            this.fx.dim(1500 + top * 250, 0.45 + top * 0.06);
-            for (const w of e.wins) {
-                const pt = this.seatPoint(w.seat, 0.28);
-                say(tsumo ? 'ツモ' : 'ロン', this.pos(w.seat));
-                this.fx.bigText(tsumo ? 'ツモ' : 'ロン', { style: tsumo ? 'tsumo' : 'ron', at: pt, dur: 1500 + top * 200, level: levels[e.wins.indexOf(w)] });
-            }
             const lv = top;
-            const tgt = this.seatPoint(e.wins[0].seat, 0.28);
+            let tgt;
+            if (tsumo) tgt = this.centerPoint(0);
+            else {
+                const from = e.wins[0].from;
+                const hit = this.root.querySelector(`.seat.pos${this.pos(from)} .river .t.last`);
+                if (hit) {
+                    const r = hit.getBoundingClientRect();
+                    tgt = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+                    hit.classList.add('hit');
+                } else tgt = this.seatPoint(from, 0.26);
+            }
+            this.fx.dim(2300 + top * 250, 0.5 + top * 0.06);
+            // あがった 人の アイコンを 大きく
+            this.winnerIntro(e.wins, tsumo, levels, tgt);
+            e.wins.forEach((w, i) => this.later(() => say(tsumo ? 'ツモ' : 'ロン', this.pos(w.seat), { interrupt: i === 0 }), i * 120));
+            sfx.yaku(0);
+            await this.sleep(850);
+            // 雷
             this.fx.lightning(lv, tgt);
             sfx.thunder(lv);
             if (store.settings.fx !== 'lite') this.fx.shake(wrap, 3 + lv * 3, 400 + lv * 120);
             if (lv >= 3) this.fx.rays(tgt.x, tgt.y, 1600 + lv * 300, { rainbow: lv >= 5 });
-            if (lv >= 5) { this.later(() => { this.fx.lightning(5, null); sfx.thunder(5); }, 900); this.fx.rain(3200, { rainbow: true }); }
-            this.cutIn(e.wins[0].seat, tsumo ? 'ツモ' : 'ロン', lv);
+            if (lv >= 5) { this.later(() => { this.fx.lightning(5, tgt); sfx.thunder(5); }, 900); this.fx.rain(3200, { rainbow: true }); }
             await this.sleep(1500 + top * 250);
+            this.fx.text.querySelectorAll('.win-intro').forEach(x => x.remove());
         }
         // 2) 結果の 画面（1人ずつ）
         for (const w of e.wins) await this.showWin(w, e);
         // 3) 点数の うごき
         await this.showScoreChange(e.before, e.deltas, e.scores);
+    }
+
+    /** あがった 人の アイコンを 大きく 出す（雷の まえ） */
+    winnerIntro(wins, tsumo, levels, tgt) {
+        const el = document.createElement('div');
+        el.className = `win-intro ${tsumo ? 'tsumo' : 'ron'} lv${Math.max(...levels)}`;
+        el.innerHTML = wins.map((w, i) => {
+            const pl = this.players[w.seat];
+            const from = w.from !== null ? `<small>${esc(this.players[w.from].name)} から</small>` : '';
+            return `<div class="wi-one"><div class="wi-ring"><img src="${pl.avatar}" alt=""></div><b class="wi-name">${esc(pl.name)}</b><div class="bigtext-static bt-${tsumo ? 'tsumo' : 'ron'} lv${levels[i]}"><span>${tsumo ? 'ツモ' : 'ロン'}</span></div>${from}</div>`;
+        }).join('');
+        // 雷の おちる 場所と かさならない ように、上か 下に よせる
+        const h = window.innerHeight;
+        el.style.top = (tgt.y > h * 0.45 ? h * 0.24 : h * 0.62) + 'px';
+        this.fx.text.appendChild(el);
+        this.later(() => el.classList.add('out'), 2100 + Math.max(...levels) * 250);
+        this.later(() => el.remove(), 2500 + Math.max(...levels) * 250);
     }
 
     async showWin(w, e) {
@@ -1125,7 +1308,7 @@ export class GameView {
         if (r.dora) lines.push({ name: 'ドラ', han: `${r.dora}翻` });
         if (r.aka) lines.push({ name: '赤ドラ', han: `${r.aka}翻` });
         if (r.ura) lines.push({ name: '裏ドラ', han: `${r.ura}翻` });
-        const readList = [];
+        const reads = yakuReadings(lines, r);
         for (let i = 0; i < lines.length; i++) {
             const li = document.createElement('div');
             li.className = 'yl';
@@ -1133,8 +1316,7 @@ export class GameView {
             box.appendChild(li);
             if (!this.skip) {
                 sfx.yaku(i);
-                if (store.settings.yakuVoice) say(YAKU_READING[lines[i].name] || lines[i].name, null, { interrupt: false, rate: 1.25 });
-                readList.push(lines[i].name);
+                if (store.settings.yakuVoice && reads[i]) say(reads[i], null, { interrupt: false, rate: 1.1 });
                 await this.sleep(r.yakuman ? 700 : 480);
             }
         }
@@ -1146,7 +1328,7 @@ export class GameView {
         tot.innerHTML = `<div class="rs-fh">${fuhan}</div>${r.name ? `<div class="stamp lv${lv}">${esc(r.name)}</div>` : ''}<div class="rs-pts"><b>0</b>点</div>`;
         sfx.stamp(lv);
         if (r.name) {
-            if (store.settings.voice) say(r.name, null, { interrupt: !store.settings.yakuVoice, rate: 0.95, pitch: 0.9 });
+            if (store.settings.voice) say(TIER_READING[r.name] || r.name, null, { interrupt: !store.settings.yakuVoice, rate: 0.95, pitch: 0.9 });
             const st = tot.querySelector('.stamp');
             const rect = st.getBoundingClientRect();
             const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
@@ -1169,6 +1351,17 @@ export class GameView {
         b.textContent = pts.toLocaleString();
         if (stickBonus) tot.insertAdjacentHTML('beforeend', `<div class="rs-stick">＋ 供託 ${stickBonus.toLocaleString()}</div>`);
         if (w.pao !== null && w.pao !== undefined) tot.insertAdjacentHTML('beforeend', `<div class="rs-pao">責任払い：${esc(this.players[w.pao].name)}</div>`);
+        // 点数の 計算の しかた
+        const label = pointsLabel(r.base, w.isDealer, tsumo);
+        tot.insertAdjacentHTML('beforeend', `<div class="rs-label">${w.isDealer ? '親' : '子'}の ${tsumo ? 'ツモ' : 'ロン'}：${label}</div><button class="btn small calc-btn">${icon('info')} 点数の 計算を 見る</button><div class="calc-box" hidden>${explainHTML(r, { isDealer: w.isDealer, tsumo, honba: w.honba, sticks: w.sticks })}</div>`);
+        const cb = tot.querySelector('.calc-btn');
+        cb.addEventListener('click', ev => {
+            ev.stopPropagation();
+            sfx.button();
+            const box = tot.querySelector('.calc-box');
+            box.hidden = !box.hidden;
+            cb.innerHTML = box.hidden ? `${icon('info')} 点数の 計算を 見る` : `${icon('x')} 計算を とじる`;
+        });
         this.skip = false;
         this.skippable = false;
         await this.waitTap(m.querySelector('.rs-btns'), 'つぎへ');
@@ -1188,7 +1381,7 @@ export class GameView {
         if (!this.fast) {
             this.fx.bigText(name, { style: 'ryuukyoku', dur: 1300 });
             sfx.ryuukyoku();
-            say(name, null);
+            say(REASON_READING[name] || name, null);
             await this.sleep(1450);
         }
         m.hidden = false;
@@ -1326,6 +1519,10 @@ export class GameView {
   <button class="btn" data-mn="waits">${st.showWaits ? '待ちの 表示：あり' : '待ちの 表示：なし'}</button>
   <button class="btn" data-mn="hint">${st.hint ? 'おすすめ牌：あり' : 'おすすめ牌：なし'}</button>
   <button class="btn" data-mn="speed">はやさ：${{ slow: 'ゆっくり', normal: 'ふつう', fast: 'はやい' }[st.speed]}</button>
+  <button class="btn" data-mn="hand">手牌：${st.handMode === 'manual' ? '自分で ならべる（ドラッグ）' : '自動で ならべる'}</button>
+  <button class="btn" data-mn="river">捨て牌：${st.riverStyle === 'neat' ? 'きっちり' : '手で 置いたように'}</button>
+  <button class="btn" data-mn="points">テンパイの 点数：${st.showPoints ? '出す' : '出さない'}</button>
+  <button class="btn" data-mn="table">${icon('book-open-text')} 点数の 早見表</button>
   <button class="btn danger" data-mn="quit">${icon('sign-out')} 対局を やめる</button>
 </div>
 <div class="mn-rules">${rulesSummary(r)}</div>
@@ -1345,11 +1542,43 @@ export class GameView {
             if (k === 'waits') st.showWaits = !st.showWaits;
             if (k === 'hint') st.hint = !st.hint;
             if (k === 'speed') st.speed = { slow: 'normal', normal: 'fast', fast: 'slow' }[st.speed];
+            if (k === 'hand') { st.handMode = st.handMode === 'manual' ? 'auto' : 'manual'; this.handOrder = this.snap.hands ? this.snap.hands[this.me].slice() : []; }
+            if (k === 'river') st.riverStyle = st.riverStyle === 'neat' ? 'natural' : 'neat';
+            if (k === 'points') st.showPoints = !st.showPoints;
+            if (k === 'table') {
+                m.innerHTML = `<div class="result menu"><h2>点数の 早見表</h2><div class="seg small qt-tab"><button class="on" data-d="0">子</button><button data-d="1">親</button></div><div class="qt-box">${quickTableHTML(false)}</div><div class="rs-btns"><button class="btn primary qt-back">もどる</button></div></div>`;
+                m.querySelector('.qt-tab').addEventListener('click', ev => {
+                    const b = ev.target.closest('button'); if (!b) return;
+                    m.querySelectorAll('.qt-tab button').forEach(x => x.classList.toggle('on', x === b));
+                    m.querySelector('.qt-box').innerHTML = quickTableHTML(b.dataset.d === '1');
+                });
+                m.querySelector('.qt-back').addEventListener('click', () => { this.menuOpen = false; this.showMenu(); });
+                return;
+            }
+            this.renderAll();
             save();
             this.menuOpen = false;
             this.showMenu();
         });
     }
+}
+
+/** 役の 読みあげ（ドラは「ドラドラ」「ウラサン」、ダブ東は 1回に まとめる） */
+function yakuReadings(lines, r) {
+    const out = lines.map(l => {
+        if (l.name === 'ドラ') return doraReading('ドラ', r.dora);
+        if (l.name === '赤ドラ') return doraReading('赤ドラ', r.aka);
+        if (l.name === '裏ドラ') return doraReading('裏ドラ', r.ura);
+        return YAKU_READING[l.name] || l.name;
+    });
+    const WR = { '東': 'トン', '南': 'ナン', '西': 'シャー', '北': 'ペー' };
+    lines.forEach((l, i) => {
+        const m = l.name.match(/^場風 (.)$/);
+        if (!m) return;
+        const j = lines.findIndex(x => x.name === '自風 ' + m[1]);
+        if (j >= 0) { out[i] = 'ダブ' + WR[m[1]]; out[j] = ''; }
+    });
+    return out;
 }
 
 function uniqueChi(list) {

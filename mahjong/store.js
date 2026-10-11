@@ -12,7 +12,9 @@ export const SETTINGS_DEFAULTS = {
     speed: 'normal',      // slow / normal / fast
     showWaits: true,      // テンパイの とき 待ちを 出す
     hint: false,          // おすすめの 牌に しるし
-    sortHand: true        // 手牌を ならべる
+    handMode: 'auto',     // 手牌：'auto'（自動で ならべる）/ 'manual'（自分で ドラッグして ならべる）
+    riverStyle: 'natural',// 捨て牌：'natural'（手で 置いたように 少し ずれる）/ 'neat'（きっちり）
+    showPoints: true      // テンパイの とき あがりの 点数を 出す
 };
 
 function load() {
@@ -25,6 +27,9 @@ function load() {
 
 const data = load();
 data.settings = { ...SETTINGS_DEFAULTS, ...(data.settings || {}) };
+if (data.settings.sortHand === false && !data.settings.handModeSet) data.settings.handMode = 'manual';   // まえの 設定から
+delete data.settings.sortHand;
+data.keisan = data.keisan || { done: 0, ok: 0 };   // 点数計算の 練習の きろく
 data.rules = { ...DEFAULT_RULES, ...(data.rules || {}) };
 data.record = data.record || {};       // { 'lv1': { games, ranks:[1位,2位,3位,4位] }, online: {...} }
 data.name = data.name || '';

@@ -1,11 +1,12 @@
 /* ルールの たしかめ
    ブラウザで tests.html を ひらくか、`node mahjong/tests.js` で うごきます。
    画面と つうしんを つかわない ところ（牌・手牌・役・点数・ルールエンジン・コンピューター）を しらべます。 */
-import { kindOf, toCounts, doraFromIndicator, tileName } from './tiles.js';
+import { kindOf, toCounts, doraFromIndicator, tileName, sortTiles, isRedId } from './tiles.js';
 import { shanten, waits, isAgari } from './hand.js';
 import { evaluateWin, basePoints, ceil100 } from './score.js';
 import { Mahjong, DEFAULT_RULES, makeRng } from './engine.js';
 import { decide } from './ai.js';
+import { pointsLabel } from './calc.js';
 
 /** '123m456p789s11z' → 牌の id（同じ 種類は 0,1,2,3 ばんめの 牌を じゅんに つかう。0 は 赤5） */
 export function P(str) {
@@ -70,6 +71,23 @@ export function runTests({ quick = false } = {}) {
     t('ドラ表示 9萬 → 1萬', doraFromIndicator(8) === 0);
     t('ドラ表示 北 → 東・中 → 白', doraFromIndicator(30) === 27 && doraFromIndicator(33) === 31);
     t('牌の なまえ', tileName(4, true) === '赤五萬' && tileName(31) === '白');
+
+    /* 牌の ならび（赤5 ふくむ） */
+    {
+        let ok = true, bad = '';
+        for (let n = 0; n < 300 && ok; n++) {
+            const rng = makeRng('sort' + n);
+            const ids = [...Array(136).keys()].sort(() => rng() - 0.5).slice(0, 14);
+            const sorted = sortTiles(ids);
+            for (let i = 1; i < sorted.length; i++) {
+                const a = sorted[i - 1], b = sorted[i];
+                if (kindOf(a) > kindOf(b) || (kindOf(a) === kindOf(b) && !isRedId(a) && isRedId(b))) { ok = false; bad = sorted.map(x => tileName(kindOf(x), isRedId(x))).join(' '); }
+            }
+        }
+        t('手牌の ならび：萬→筒→索→字、同じ 数は 赤5が 先（300回）', ok, bad);
+        const s4 = sortTiles([16, 15, 14, 17, 52, 51, 88, 87]).map(x => tileName(kindOf(x), isRedId(x))).join(' ');
+        t('4と 赤5 の じゅんばん', s4 === '四萬 四萬 赤五萬 五萬 四筒 赤五筒 四索 赤五索', s4);
+    }
 
     /* シャンテン・待ち */
     t('テンパイ（シャンテン 0）', shanten(C('123m456p789s1122z')) === 0);
@@ -139,6 +157,17 @@ export function runTests({ quick = false } = {}) {
     t('6索なら 平和のみ', r && names(r) === '平和', names(r));
     r = win('123m789m123p99p11z', '1z'.replace('1z', '1z'), { riichi: true });
     t('混全帯么九', r && names(r).includes('混全帯么九'), names(r));
+
+    /* 点数の 言いかた（計算の 説明 用） */
+    {
+        const L = (han, fu, d, ts) => pointsLabel(basePoints(han, fu, 0, DEFAULT_RULES), d, ts);
+        t('子 30符3翻 ロン 3900・ツモ 1000・2000', L(3, 30, false, false) === '3,900' && L(3, 30, false, true) === '1,000・2,000');
+        t('親 40符2翻 ロン 3900・ツモ 1300オール', L(2, 40, true, false) === '3,900' && L(2, 40, true, true) === '1,300オール');
+        t('子 20符2翻 ツモ 400・700', L(2, 20, false, true) === '400・700');
+        t('子 25符3翻 ツモ 800・1600', L(3, 25, false, true) === '800・1,600');
+        r = win('234m77p345s88s', '7p', { tsumo: true, melds: [{ type: 'pon', tiles: P('777z') }] });
+        t('符の 内わけ（副底・ツモ・暗刻・明刻）', r && r.fuParts && r.fuParts.map(x => x[1]).join('+') === '20+2+4+4' && r.fu === 30, r && JSON.stringify(r.fuParts));
+    }
 
     /* 局の 場面ごとの たしかめ */
     {
