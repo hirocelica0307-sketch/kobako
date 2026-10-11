@@ -81,7 +81,10 @@ export class GameView {
         window.removeEventListener('orientationchange', this.onResize);
         this.fx.dispose();
         stopVoice();
-        this.root.innerHTML = '';
+        // 画面の 部品は はずして しまって おく（のこった 処理が つぎの 対局の 画面を さわらない ように）
+        const old = document.createElement('div');
+        while (this.root.firstChild) old.appendChild(this.root.firstChild);
+        this.root = old;
     }
 
     later(fn, ms) {
