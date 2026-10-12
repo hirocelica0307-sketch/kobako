@@ -177,7 +177,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .flipin { animation: flipin .45s both; }
 @keyframes flipin { from { transform: rotateY(90deg); filter: brightness(2); } to { transform: none; } }
 
-.g-tablebox { position: relative; width: var(--S); flex: none; }
+.g-tablebox { position: relative; width: var(--TW, var(--S)); flex: none; }
 .g-table { position: absolute; inset: 0; --u: calc(var(--S) / 100); }
 .felt { position: absolute; inset: 0; border-radius: calc(var(--u) * 3);
   background:
@@ -186,8 +186,13 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     radial-gradient(circle at 50% 45%, var(--felt1) 0%, var(--felt2) 55%, var(--felt3) 100%);
   box-shadow: inset 0 0 calc(var(--u) * 6) rgba(0,0,0,.45), 0 0 0 calc(var(--u) * .9) #5a3a1c, 0 0 0 calc(var(--u) * 1.4) #2e1d0d, 0 6px 18px rgba(0,0,0,.5); }
 .seats { position: absolute; inset: 0; }
-.seat { position: absolute; inset: 0; transform-origin: 50% 50%; pointer-events: none; }
-.river { position: absolute; left: calc(var(--u) * 32.9); top: calc(var(--u) * 67.6); width: calc(var(--u) * 50); --tw: calc(var(--u) * 5.7); }
+.seat { position: absolute; left: 50%; top: 50%; width: var(--S); height: var(--S); margin: calc(var(--S) / -2) 0 0 calc(var(--S) / -2); transform-origin: 50% 50%; pointer-events: none;
+  transform: rotate(var(--ang)) translateY(var(--off, 0px)); }
+/* 卓が 正方形より 大きい とき：山・鳴き・名札は 外がわへ、捨て牌は まん中に くっつけた まま 大きく する */
+.seat.pos0, .seat.pos2 { --off: var(--dy, 0px); --rk: var(--rkTB, 1); }
+.seat.pos1, .seat.pos3 { --off: var(--dx, 0px); --rk: var(--rkLR, 1); }
+.river { position: absolute; left: calc(var(--u) * 32.9); top: calc(var(--u) * 67.6); width: calc(var(--u) * 50); --tw: calc(var(--u) * 5.7);
+  transform: translateY(calc(var(--off, 0px) * -1)) scale(var(--rk, 1)); transform-origin: calc(var(--u) * 17.1) 0; }
 .rrow { display: flex; align-items: center; height: calc(var(--u) * 7.9); }
 .river .t { --tw: calc(var(--u) * 5.7); transform: translate(var(--jx, 0px), var(--jy, 0px)) rotate(var(--jr, 0deg)); }
 .river .t.tg { filter: brightness(.7) saturate(.8); }   /* ツモ切りは 少し くらく */
@@ -207,7 +212,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .backs { position: absolute; left: calc(var(--u) * 8); bottom: calc(var(--u) * .9); display: flex; align-items: flex-end; }
 .backs .t { --tw: calc(var(--u) * 4.5); margin-right: 1px; }
 .backs .gap, .rs-hand .gap { width: calc(var(--u) * 1.2); flex: none; }
-.plate { position: absolute; left: calc(var(--u) * 17); top: calc(var(--u) * 75.5); width: calc(var(--u) * 15); height: calc(var(--u) * 15); }
+.plate { position: absolute; left: calc(var(--u) * (17 - 17.1 * (var(--rk, 1) - 1))); top: calc(var(--u) * 75.5); width: calc(var(--u) * 15); height: calc(var(--u) * 15); }
 .pl-in { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
 .pl-in img { width: calc(var(--u) * 10); height: calc(var(--u) * 10); border-radius: 50%; border: 2px solid rgba(255,255,255,.75); box-shadow: 0 2px 6px rgba(0,0,0,.4); background: #f6e7c8; padding: 2px; transition: box-shadow .2s; }
 .pl-name { font-size: max(9px, calc(var(--u) * 2.6)); font-weight: 700; background: rgba(0,0,0,.45); padding: 1px 6px; border-radius: 6px; max-width: calc(var(--u) * 17); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -217,7 +222,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
   border-radius: 99px; background: linear-gradient(#fff, #e9e4d6); box-shadow: 0 1px 2px rgba(0,0,0,.5); }
 .cstick::after { content: ""; position: absolute; left: 50%; top: 50%; width: calc(var(--u) * 1); height: calc(var(--u) * 1); margin: calc(var(--u) * -.5) 0 0 calc(var(--u) * -.5); border-radius: 50%; background: #d42a1e; }
 
-.center { position: absolute; left: calc(var(--u) * 33); top: calc(var(--u) * 33); width: calc(var(--u) * 34); height: calc(var(--u) * 34);
+.center { position: absolute; left: calc(50% - var(--u) * 17); top: calc(50% - var(--u) * 17); width: calc(var(--u) * 34); height: calc(var(--u) * 34);
   border-radius: calc(var(--u) * 2.4); background: linear-gradient(145deg, #1b2721, #0b120e); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 3px 10px rgba(0,0,0,.5); }
 .cw { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; padding-bottom: calc(var(--u) * 1.2); pointer-events: none; }
 .cw1 { transform: rotate(-90deg); } .cw2 { transform: rotate(180deg); } .cw3 { transform: rotate(90deg); }
@@ -290,7 +295,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 body.peer-off .g-top::after { content: "ともだちの つうしんが 切れています"; position: fixed; top: 52px; left: 50%; transform: translateX(-50%); background: #b3261e; color: #fff; font-size: 12px; padding: 4px 10px; border-radius: 8px; z-index: 30; }
 
 /* 横向き：卓を 高さ いっぱいに、上の 行・ボタンは 卓の 左右に（iPhone の 切りかき〔safe area〕を よける） */
-.landscape { --sl: max(8px, env(safe-area-inset-left)); --sr: max(8px, env(safe-area-inset-right)); --side: calc(50% - var(--S) / 2 - 14px); }
+.landscape { --sl: max(8px, env(safe-area-inset-left)); --sr: max(8px, env(safe-area-inset-right)); --side: calc(50% - var(--TW, var(--S)) / 2 - 14px); }
 .landscape .g-wrap { justify-content: flex-start; padding: 4px 0 0; }
 .landscape .g-top { position: absolute; top: 0; left: 0; right: 0; max-width: none; pointer-events: none; align-items: flex-start; padding: 6px var(--sr) 0 var(--sl); }
 .landscape .g-top > * { pointer-events: auto; }
@@ -603,3 +608,64 @@ img[src*="assets/avatars/"] { padding: 0 !important; }
 .tc-hand { position: absolute; max-width: none; transform-origin: 82% 39%; opacity: 0;
   filter: saturate(.45) brightness(1.2) drop-shadow(0 0 2px #fff) drop-shadow(0 0 12px rgba(120, 210, 255, .95)); }
 .tsumo-cut.lv5 .tc-hand { filter: saturate(.4) brightness(1.25) drop-shadow(0 0 2px #fff) drop-shadow(0 0 14px rgba(255, 226, 140, .95)); }
+
+/* ── 音量 ── */
+.vol-box { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.vol-row { display: grid; grid-template-columns: 4.5em 3.6em 1fr; align-items: center; gap: 8px; font-size: 14px; }
+.vol-row label { font-weight: 700; }
+.vol-on { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 6px 0; font-size: 13px; font-weight: 700; color: var(--muted); }
+.vol-on.on { border-color: var(--gold); color: var(--gold); }
+.vol-row input[type=range] { width: 100%; accent-color: #ffd257; height: 28px; }
+.vol-item { flex-direction: column; align-items: stretch; }
+.mn-sub { font-size: 13px; color: var(--gold); font-weight: 700; margin: 12px 0 6px; text-align: left; }
+.result.menu .vol-box { margin-bottom: 8px; }
+
+/* ── 妖精の アドバイス ── */
+.g-adv { padding: 0; overflow: hidden; }
+.g-adv img { width: 30px; height: 30px; opacity: .35; filter: grayscale(1); transition: opacity .2s, filter .2s; }
+.g-adv.on { border-color: var(--gold); }
+.g-adv.on img { opacity: 1; filter: none; }
+.g-fairy { position: absolute; left: 6px; bottom: calc(var(--handH) + 44px); z-index: 25; display: flex; align-items: flex-end; gap: 2px; pointer-events: none; max-width: calc(100% - 12px); }
+.g-fairy[hidden] { display: none; }
+.gf-img { pointer-events: auto; width: 58px; height: 58px; flex: none; border: 0; background: none; padding: 0; animation: gf-float 2.6s ease-in-out infinite; filter: drop-shadow(0 0 8px rgba(160, 230, 255, .8)); }
+.gf-img img { width: 100%; height: 100%; }
+@keyframes gf-float { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-6px) rotate(3deg); } }
+.g-bubble { pointer-events: auto; position: relative; margin-bottom: 30px; max-width: min(80vw, 380px); background: #fffbea; color: #2b2a22; border-radius: 14px; padding: 8px 12px 9px; box-shadow: 0 6px 18px rgba(0, 0, 0, .45); font-size: 12.5px; line-height: 1.5;
+  opacity: 0; transform: translateY(8px) scale(.96); transform-origin: 0 100%; transition: opacity .2s, transform .2s; visibility: hidden; }
+.g-bubble::before { content: ""; position: absolute; left: -7px; bottom: 10px; border: 8px solid transparent; border-right-color: #fffbea; border-left: 0; }
+.g-fairy.talk .g-bubble { opacity: 1; transform: none; visibility: visible; }
+.gb-title { display: block; font-size: 14px; color: #1d5b3a; margin-bottom: 2px; }
+.mood-worry .gb-title { color: #b3261e; }
+.mood-happy .gb-title { color: #c25b00; }
+.gb-lines p { margin: 2px 0 0; }
+.landscape .g-fairy { left: auto; right: var(--sr); bottom: auto; top: 58px; flex-direction: row-reverse; align-items: flex-start; max-width: calc(100% - var(--sl) - var(--sr)); }
+.landscape .g-bubble { max-width: min(48vw, 360px); margin: 18px 0 0; transform-origin: 100% 0; }
+.landscape .g-bubble::before { left: auto; right: -7px; bottom: auto; top: 12px; border: 8px solid transparent; border-left-color: #fffbea; border-right: 0; }
+@media (orientation: landscape) and (max-height: 420px) {
+  .landscape .gf-img { width: 46px; height: 46px; }
+  .landscape .g-bubble { font-size: 11px; line-height: 1.4; padding: 6px 10px; max-width: min(44vw, 300px); }
+  .landscape .gb-title { font-size: 12.5px; }
+}
+
+/* ── ふりかえり ── */
+.result.review { max-height: 92vh; overflow: auto; width: min(96vw, 560px); }
+.rv-sum { display: flex; gap: 8px; align-items: center; text-align: left; font-size: 13px; background: rgba(255, 255, 255, .06); border-radius: 12px; padding: 8px; }
+.rv-sum img { width: 52px; height: 52px; flex: none; }
+.rv-sum p { margin: 0; }
+.rv-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; text-align: left; }
+.rv-item { background: rgba(0, 0, 0, .25); border: 1px solid var(--line); border-radius: 12px; padding: 8px; }
+.rv-head { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.rv-head b { color: var(--gold); }
+.rv-hand { display: flex; flex-wrap: wrap; gap: 1px; align-items: flex-end; }
+.rv-t { --tw: min(22px, calc((min(96vw, 560px) - 64px) / 15)); }
+.rv-hand { flex-wrap: nowrap; }
+.rv-gap { width: 6px; }
+.rv-cmp { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; }
+.rv-cmp span { display: inline-flex; align-items: center; gap: 4px; }
+.rv-cmp .rv-t { --tw: 28px; }
+.rv-rec { color: #8fe3b0; font-weight: 700; }
+.rv-arrow { color: var(--muted); }
+.rv-why { margin: 6px 0 0; font-size: 12.5px; }
+.rv-open { margin-top: 10px; width: 100%; }
+.landscape .g-top > .g-adv { margin-left: auto; }
+.landscape .g-top > .g-adv ~ .g-icon { margin-left: 0 !important; }

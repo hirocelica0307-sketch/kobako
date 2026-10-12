@@ -22,12 +22,15 @@ const isFullscreen = () => !!(document.fullscreenElement || document.webkitFulls
 /** ホーム画面から ひらいて いる（もう 全画面） */
 const isStandalone = () => !!(navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches));
 import { buzz } from './haptic.js';
+import { bgm, volumeHTML, bindVolume } from './bgm.js';
+import { turnAdvice, claimAdvice, riichiAlert, yakuHints } from './advisor.js';
 import { store, save, speedFactor } from './store.js';
 import { icon } from './assets/icons.js';
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ANGLES = [0, -90, 180, 90];
 const KYOKU_NUM = ['一', '二', '三', '四'];
+const DEBUG = /[?&]debug\b/.test(location.search);
 const REASON_NAMES = {
     exhaust: '流局', nagashi: '流し満貫', kyuushu: '九種九牌', suufon: '四風連打', suucha: '四家立直', suukan: '四槓散了', sancha: '三家和'
 };
@@ -78,8 +81,11 @@ export class GameView {
         this.onFsChange = () => { const b = this.$('.g-fs'); if (b) b.innerHTML = icon(isFullscreen() ? 'corners-in' : 'corners-out'); this.layout(); };
         document.addEventListener('fullscreenchange', this.onFsChange);
         document.addEventListener('webkitfullscreenchange', this.onFsChange);
+        this.review = [];
+        this.$('.g-fairy').hidden = !store.settings.advice;
         this.layout();
         this.renderAll();
+        bgm.play('game');
     }
 
     dispose() {
@@ -120,6 +126,7 @@ export class GameView {
     <button class="g-icon" data-act="menu" aria-label="メニュー">${icon('list')}</button>
     <div class="g-round"></div>
     <div class="g-dora"><span class="lbl">ドラ<br>表示</span><div class="dora-tiles"></div></div>
+    <button class="g-icon g-adv${store.settings.advice ? ' on' : ''}" data-act="advice" aria-label="妖精の アドバイス"><img src="assets/fx/fairy.webp" alt=""></button>
     <button class="g-icon g-fs" data-act="fs" aria-label="全画面"${isStandalone() ? ' hidden' : ''}>${icon(isFullscreen() ? 'corners-in' : 'corners-out')}</button>
     <button class="g-icon" data-act="sound" aria-label="音">${icon(store.settings.sound ? 'speaker-high' : 'speaker-slash')}</button>
   </header>
@@ -141,6 +148,10 @@ export class GameView {
       <button class="auto sortonce" data-act="sortonce" hidden>理牌</button>
     </div>
   </div>
+  <div class="g-fairy" hidden>
+    <button class="gf-img" data-act="fairy" aria-label="妖精"><img src="assets/fx/fairy.webp" alt=""></button>
+    <div class="g-bubble" data-act="bubble"><b class="gb-title"></b><div class="gb-lines"></div></div>
+  </div>
   <div class="g-spacer"></div>
   <div class="g-actions"></div>
   <div class="g-hand"></div>
@@ -149,7 +160,7 @@ export class GameView {
 <div class="g-modal" hidden></div>`;
         const seats = this.root.querySelector('.seats');
         seats.innerHTML = [0, 1, 2, 3].map(p => `
-<div class="seat pos${p}" style="transform:rotate(${ANGLES[p]}deg)">
+<div class="seat pos${p}" style="--ang:${ANGLES[p]}deg">
   <div class="river"></div>
   <div class="melds"></div>
   <div class="backs"></div>
@@ -188,10 +199,28 @@ export class GameView {
             S = Math.floor(Math.min(W - 4, H - top - info - act - handH - 8));
         }
         S = Math.max(200, S);
-        this.root.style.setProperty('--handH', handH + 'px');
-        this.root.style.setProperty('--S', S + 'px');
-        this.root.style.setProperty('--u', (S / 100) + 'px');
-        tb.style.height = S + 'px';
+        // 卓を あいて いる ところまで ひろげる（横向きは 横に、たて向きは たてに）。
+        // 遊ぶ ところ（S の 正方形）は まん中。ひろげた ぶん 山・鳴き・名札を 外へ、捨て牌を 大きく
+        let TW = S, TH = S;
+        if (landscape) TW = Math.max(S, Math.min(W - 300, Math.round(S * 1.7)));
+        else {
+            const top = this.$('.g-top').offsetHeight || 46;
+            const info = this.$('.g-info').offsetHeight || 28;
+            TH = Math.max(S, Math.min(H - top - info - 56 - handH - 8, Math.round(S * 1.45)));
+        }
+        const u = S / 100;
+        const dx = (TW - S) / 2, dy = (TH - S) / 2;
+        const rk = (d, max) => Math.max(1, Math.min(max, 1 + (d - u * 1.5) / (u * 23.7)));
+        const st = this.root.style;
+        st.setProperty('--handH', handH + 'px');
+        st.setProperty('--S', S + 'px');
+        st.setProperty('--u', u + 'px');
+        st.setProperty('--TW', TW + 'px');
+        st.setProperty('--dx', dx + 'px');
+        st.setProperty('--dy', dy + 'px');
+        st.setProperty('--rkLR', landscape ? rk(dx, 1.45).toFixed(3) : '1');
+        st.setProperty('--rkTB', landscape ? '1' : rk(dy, 1.3).toFixed(3));
+        tb.style.height = TH + 'px';
         hand.style.minHeight = handH + 'px';
         this.S = S;
     }
@@ -211,6 +240,99 @@ export class GameView {
         if (back) return `<div class="t back ${side ? 'side' : ''} ${cls}" ${data}${st}></div>`;
         const img = tileImage(id, this.g.rules.aka);
         return `<div class="t ${side ? 'side' : ''} ${cls}" ${data}${st}><i style="background-image:url(${img})"></i></div>`;
+    }
+
+    /* ── 妖精の アドバイス ── */
+
+    nameOf(q) { return q === this.me ? 'あなた' : `${this.players[q].name}さん`; }
+
+    applyAdviceSetting() {
+        const on = store.settings.advice;
+        const b = this.$('.g-adv');
+        if (b) b.classList.toggle('on', on);
+        const f = this.$('.g-fairy');
+        if (f) f.hidden = !on;
+        if (!on) { this.hideBubble(); this.renderHand(); return; }
+        if (this.myPrompt && this.myPrompt.type === 'turn' && this.turnAdv) { this.showTurnAdvice(true); this.renderHand(); }
+        else this.advise({ mood: 'happy', title: 'アドバイス オン！', lines: ['自分の 番に なったら 教えるね。わたしを タップすると もう一度 言うよ'] });
+    }
+
+    /** 自分の 番の アドバイスを 出す（「だいじな ときだけ」の ときは ふつうの 番は だまる） */
+    showTurnAdvice(force = false) {
+        const adv = this.turnAdv;
+        if (!store.settings.advice || !adv) return;
+        const show = { ...adv, lines: adv.lines.slice() };
+        // 作れそうな 役（この 局で まだ 言って いない もの 1つ）
+        try {
+            if (!this.hintShown) this.hintShown = new Set();
+            const hint = yakuHints(this.g, this.me).find(x => !this.hintShown.has(x.key));
+            if (hint && !(adv.ana && adv.ana.riichiSeats.length)) { this.hintShown.add(hint.key); show.lines.push('役の ヒント：' + hint.text); show.hint = true; }
+        } catch (e) { if (DEBUG) console.error(e); }
+        const key = store.settings.adviceLevel === 'key';
+        if (!force && key && show.mood === 'normal' && !show.hint) { this.lastAdvice = show; return; }
+        this.advise(show);
+    }
+
+    advise(adv) {
+        if (!store.settings.advice || !adv) return;
+        this.lastAdvice = adv;
+        const f = this.$('.g-fairy');
+        if (!f) return;
+        f.hidden = false;
+        f.classList.remove('talk', 'mood-normal', 'mood-happy', 'mood-worry');
+        f.querySelector('.gb-title').textContent = adv.title || '';
+        f.querySelector('.gb-lines').innerHTML = (adv.lines || []).map(l => `<p>${esc(l)}</p>`).join('');
+        void f.offsetWidth;
+        f.classList.add('talk', 'mood-' + (adv.mood || 'normal'));
+    }
+
+    hideBubble() {
+        const f = this.$('.g-fairy');
+        if (f) f.classList.remove('talk');
+    }
+
+    /* ── ふりかえり（自分の 打牌と 妖精の おすすめ） ── */
+
+    recordReview(action) {
+        const adv = this.turnAdv;
+        const ana = adv.ana;
+        if (!ana) return;
+        const mk = kindOf(action.t), rk = kindOf(ana.tile);
+        const mine = ana.rows.find(r => r.k === mk), rec = ana.rows.find(r => r.k === rk);
+        let bad = false, why = '';
+        if (mk !== rk && mine && rec) {
+            if (mine.shanten > rec.shanten) { bad = true; why = `${tileName(rk)} を 切れば テンパイに ちかい まま（あなたの 牌だと 1歩 とおく なる）`; }
+            else if (ana.riichiSeats.length && mine.danger - rec.danger > 0.2) { bad = true; why = `リーチの 人が いた。${tileName(rk)} の ほうが あんぜん`; }
+            else if (rec.ukeire - mine.ukeire >= 4) { bad = true; why = `${tileName(rk)} を 切ると 手が すすむ 牌が ${rec.ukeire - mine.ukeire}枚 多い（${mine.ukeire}枚 → ${rec.ukeire}枚）`; }
+        }
+        const s = this.snap;
+        const hand = sortTiles(s.hands[this.me].filter(t => t !== s.drawn));
+        this.review.push({
+            round: `${WIND_NAMES[s.roundWind] || '東'}${KYOKU_NUM[s.kyoku]}局${s.honba ? ' ' + s.honba + '本場' : ''}`,
+            turn: s.discards[this.me].length + 1, hand, drawn: s.drawn, mine: action.t, rec: ana.tile, same: mk === rk, bad, why,
+            title: adv.title
+        });
+    }
+
+    /** ふりかえりの 画面 */
+    showReview() {
+        const m = this.$('.g-modal');
+        const rv = this.review || [];
+        const same = rv.filter(r => r.same).length;
+        const bad = rv.filter(r => r.bad);
+        const pct = rv.length ? Math.round(same / rv.length * 100) : 0;
+        const mini = id => this.tileHTML(id, { cls: 'rv-t' });
+        const items = bad.map(r => `<div class="rv-item">
+<div class="rv-head"><b>${r.round}</b> ${r.turn}巡め</div>
+<div class="rv-hand">${r.hand.map(t => mini(t)).join('')}${r.drawn !== null && r.drawn !== undefined ? '<span class="rv-gap"></span>' + mini(r.drawn) : ''}</div>
+<div class="rv-cmp"><span>あなた ${mini(r.mine)}</span><span class="rv-arrow">→</span><span class="rv-rec">おすすめ ${mini(r.rec)}</span></div>
+<p class="rv-why">${esc(r.why)}</p></div>`).join('');
+        m.hidden = false;
+        m.innerHTML = `<div class="result review"><h2>${icon('lightbulb')} ふりかえり</h2>
+<div class="rv-sum"><img src="assets/fx/fairy.webp" alt=""><p>妖精の おすすめと 同じ 牌を 切ったのは <b>${rv.length}回 中 ${same}回（${pct}%）</b>。${bad.length ? `とくに 見なおすと よい ところが ${bad.length}つ あるよ` : 'おおきな まちがいは なかったよ。すごい！'}</p></div>
+<div class="rv-list">${items}</div>
+<div class="rs-btns"><button class="btn primary rv-back">もどる</button></div></div>`;
+        m.querySelector('.rv-back').addEventListener('click', () => { sfx.button(); this.showFinal(); });
     }
 
     /** 全画面に する／やめる（iPhone の Safari には この しくみが ないので ホーム画面に 追加する 方法を 出す） */
@@ -411,7 +533,7 @@ export class GameView {
             if (this.selected === t) cls.push('sel');
             if (canDiscard && !canDiscard.has(t)) cls.push('dim');
             if (doras.has(kindOf(t)) || (this.g.rules.aka && isRedId(t))) cls.push('dora');
-            if (rec === t && store.settings.hint) cls.push('rec');
+            if (rec === t && (store.settings.hint || store.settings.advice)) cls.push('rec');
             return this.tileHTML(t, { cls: cls.join(' ') + extra, data: `data-tile="${t}"` });
         };
         let html = list.map(t => one(t)).join('');
@@ -533,8 +655,19 @@ export class GameView {
         switch (name) {
         case 'menu': this.showMenu(); return;
         case 'fs': this.toggleFullscreen(); return;
+        case 'advice':
+            store.settings.advice = !store.settings.advice; save();
+            this.applyAdviceSetting();
+            return;
+        case 'fairy':
+            if (this.$('.g-fairy').classList.contains('talk')) this.hideBubble();
+            else if (this.lastAdvice) this.advise(this.lastAdvice);
+            else this.advise({ mood: 'normal', title: 'こんにちは！', lines: ['自分の 番に なったら どの 牌を 切ると いいか 教えるよ', '上の 妖精の ボタンで いつでも オン／オフ できるよ'] });
+            return;
+        case 'bubble': this.hideBubble(); return;
         case 'sound':
             store.settings.sound = !store.settings.sound; save();
+            bgm.refresh();
             el.innerHTML = icon(store.settings.sound ? 'speaker-high' : 'speaker-slash');
             if (!store.settings.sound) stopVoice();
             return;
@@ -597,6 +730,9 @@ export class GameView {
 
     /** 自分の 手を きめた */
     submit(action) {
+        this.hideBubble();
+        if (action.a === 'discard' && this.turnAdv) this.recordReview(action);
+        this.turnAdv = null;
         this.myPrompt = null;
         this.selected = null;
         this.riichiMode = false;
@@ -765,9 +901,14 @@ export class GameView {
             this.later(() => { if (this.myPrompt === p) this.submit({ s: this.me, a: 'discard', t: this.snap.drawn }); }, 350 * speedFactor());
             return;
         }
-        if (store.settings.hint) {
+        // 妖精の アドバイス（ふりかえり 用に、出さない ときも 考えて おく）
+        this.turnAdv = null;
+        try { this.turnAdv = turnAdvice(this.g, this.me, o, q => this.nameOf(q)); } catch (e) { if (DEBUG) console.error(e); }
+        this.recommendTile = this.turnAdv ? this.turnAdv.tile : null;
+        if (!this.recommendTile && store.settings.hint) {
             try { this.recommendTile = recommendDiscard(this.g, this.me, o); } catch (e) { this.recommendTile = null; }
-        } else this.recommendTile = null;
+        }
+        this.showTurnAdvice();
         sfx.myTurn();
         buzz(o.tsumo ? 'win' : (o.riichi.length || o.ankan.length || o.kakan.length) ? 'call' : 'turn');
         this.renderHand();
@@ -784,6 +925,9 @@ export class GameView {
         if (o.ron && this.auto.win) { this.submit({ s: this.me, a: 'ron' }); return; }
         if (!o.ron && this.auto.noCall) { this.submit({ s: this.me, a: 'pass' }); return; }
         this.myPrompt = p;
+        if (store.settings.advice) {
+            try { this.advise(claimAdvice(this.g, this.me, o, p.tile, p.from, q => this.nameOf(q))); } catch (e) { if (DEBUG) console.error(e); }
+        }
         buzz(o.ron ? 'win' : 'call');
         this.renderActions();
         this.updateStatus();
@@ -986,6 +1130,11 @@ export class GameView {
         const fast = this.fast;
         switch (e.type) {
         case 'handStart': {
+            bgm.duck(1);
+            bgm.play('game');
+            this.hideBubble();
+            this.lastAdvice = null;
+            this.hintShown = new Set();
             this.revealSeats = null;
             this.handOrder = [];
             this.selected = null;
@@ -1040,6 +1189,8 @@ export class GameView {
             const t = this.$(`.seat.pos${this.pos(e.seat)} .river .t.last`);
             if (t) t.classList.add(e.riichi ? 'slam' : 'drop');
             if (e.riichi) {
+                bgm.play('riichi');
+                if (e.seat !== this.me && store.settings.advice) this.advise(riichiAlert(this.g, this.me, e.seat, q => this.nameOf(q)));
                 await this.riichiFx(e.seat);
             } else {
                 sfx.discard(e.tsumogiri ? 0.8 : 1);
@@ -1078,11 +1229,13 @@ export class GameView {
             }
             break;
         case 'agari':
+            bgm.duck(0.25);
             this.snapBefore = prev;
             this.renderAll();
             await this.agariFx(e, prev);
             break;
         case 'ryuukyoku':
+            bgm.duck(0.35);
             this.renderAll();
             await this.ryuukyokuFx(e);
             break;
@@ -1318,14 +1471,14 @@ export class GameView {
         const F = speedFactor();
         const ms = x => x * F;
         const T = this.$('.g-table').getBoundingClientRect();
-        const W = T.width, H = T.height;
+        const W = this.S, H = this.S;   // あそぶ ところ（まん中の 正方形）
         const tw = Math.round(W * (yakuman ? 0.15 : 0.13));
         const hs = Math.round(tw * 2.6);
         const rot = [0, -90, 180, 90][this.pos(w.seat)];
         const el = document.createElement('div');
         el.className = `tsumo-cut lv${lv}`;
         el.innerHTML = `${yakuman ? '<div class="tc-dark"></div>' : ''}
-<div class="tc-stage" style="left:${T.left + W / 2}px;top:${T.top + H / 2}px;width:${W}px;height:${H}px;transform:translate(-50%,-50%) rotate(${rot}deg)">
+<div class="tc-stage" style="left:${T.left + T.width / 2}px;top:${T.top + T.height / 2}px;width:${W}px;height:${H}px;transform:translate(-50%,-50%) rotate(${rot}deg)">
   <div class="tc-grip" style="--tw:${tw}px">
     <div class="tc-tile">${this.tileHTML(w.tile)}</div>
     <img class="tc-hand" src="assets/fx/hand.webp" alt="" style="width:${hs}px;height:${hs}px;left:${-0.82 * hs}px;top:${tw * 0.42 - 0.39 * hs}px">
@@ -1627,6 +1780,8 @@ export class GameView {
         if (!f) return;
         const m = this.$('.g-modal');
         m.hidden = false;
+        bgm.duck(1);
+        bgm.play('menu');
         const myRow = f.rows.find(r => r.seat === this.me);
         const rows = f.rows.map(r => {
             const pl = this.players[r.seat];
@@ -1640,7 +1795,11 @@ export class GameView {
             : role === 'host'
                 ? '<button class="btn primary" data-fin="again">もう一度（同じ 部屋で）</button><button class="btn" data-fin="room">部屋に もどる</button>'
                 : '<button class="btn primary" data-fin="room">部屋に もどる</button><p class="wait">ホストが「もう一度」を おすと つぎの 対局が はじまります</p>';
-        m.innerHTML = `<div class="result final"><h2>${icon('trophy')} 対局 終了</h2>${reason ? `<p class="fr-reason">${reason}</p>` : ''}${rows}<div class="rs-btns">${btns}</div></div>`;
+        const rv = this.review || [];
+        const rvBtn = rv.length ? `<button class="btn rv-open">${icon('lightbulb')} ふりかえり（妖精の おすすめと くらべる）</button>` : '';
+        m.innerHTML = `<div class="result final"><h2>${icon('trophy')} 対局 終了</h2>${reason ? `<p class="fr-reason">${reason}</p>` : ''}${rows}${rvBtn}<div class="rs-btns">${btns}</div></div>`;
+        const ro = m.querySelector('.rv-open');
+        if (ro) ro.addEventListener('click', () => { sfx.button(); this.showReview(); });
         if (myRow && myRow.rank === 1) {
             sfx.win(); say('トップです！', null);
             this.fx.rain(3500, {});
@@ -1668,7 +1827,7 @@ export class GameView {
 <h2>メニュー</h2>
 <div class="mn-btns">
   <button class="btn" data-mn="close">${icon('play')} つづける</button>
-  <button class="btn" data-mn="voice">${st.voice ? 'こえ：あり' : 'こえ：なし'}</button>
+  <button class="btn" data-mn="advice">妖精の アドバイス：${!st.advice ? 'なし' : st.adviceLevel === 'key' ? 'だいじな ときだけ' : 'いつも'}</button>
   <button class="btn" data-mn="vibe">${st.vibe ? 'バイブ：あり' : 'バイブ：なし'}</button>
   <button class="btn" data-mn="fx">${st.fx === 'full' ? '演出：はでに' : '演出：ひかえめ'}</button>
   <button class="btn" data-mn="waits">${st.showWaits ? '待ちの 表示：あり' : '待ちの 表示：なし'}</button>
@@ -1680,8 +1839,11 @@ export class GameView {
   <button class="btn" data-mn="table">${icon('book-open-text')} 点数の 早見表</button>
   <button class="btn danger" data-mn="quit">${icon('sign-out')} 対局を やめる</button>
 </div>
+<div class="mn-sub">音量</div>
+${volumeHTML()}
 <div class="mn-rules">${rulesSummary(r)}</div>
 </div>`;
+        bindVolume(m, () => { const b = this.$('[data-act="sound"]'); if (b) b.innerHTML = icon(st.sound ? 'speaker-high' : 'speaker-slash'); });
         m.querySelector('.mn-btns').addEventListener('click', e => {
             const b = e.target.closest('[data-mn]');
             if (!b) return;
@@ -1692,7 +1854,13 @@ export class GameView {
                 if (confirm('対局を やめて ホームに もどりますか？')) { this.menuOpen = false; this.cfg.onExit(); }
                 return;
             }
-            if (k === 'voice') st.voice = !st.voice;
+            if (k === 'advice') {
+                if (!st.advice) { st.advice = true; st.adviceLevel = 'often'; }
+                else if (st.adviceLevel === 'often') st.adviceLevel = 'key';
+                else st.advice = false;
+                save();
+                this.applyAdviceSetting();
+            }
             if (k === 'vibe') { st.vibe = !st.vibe; if (st.vibe) buzz('call'); }
             if (k === 'fx') st.fx = st.fx === 'full' ? 'lite' : 'full';
             if (k === 'waits') st.showWaits = !st.showWaits;

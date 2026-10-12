@@ -1,4 +1,4 @@
-雷鳴麻雀 ― つかって いる 素材（assets/）
+なみ麻雀 ― つかって いる 素材（assets/）
 ==================================================================
 
 この フォルダーの 素材は、すべて 下の ライブラリから ダウンロードして 保存した ものです。
@@ -61,6 +61,20 @@
      cpu6.svg    seed: cpu-14  背景 #b9f0a6  ケイ
    加工: svgo で 小さく しました。
 
+2d. fx/fairy.webp … アドバイスを する 妖精（Microsoft Fluent Emoji「3D」の Man fairy・Light）
+   入手もと: https://github.com/microsoft/fluentui-emoji/blob/main/assets/Man%20fairy/Light/3D/man_fairy_3d_light.png
+   ライセンス: MIT License（全文は リポジトリ直下の THIRD_PARTY_LICENSES.txt）
+   加工: 256×256 の PNG を 192×192 の WebP（品質 90）に しました。
+   2026-10-12 に 候補（妖精 女の子・男の子／エルフ／天使の子）を 見せて「C 妖精（男の子）」に きめました。
+
+2e. icon/*.png … ホーム画面の アイコン（Android・iPhone）
+   つかった 絵: FluffyStuff「riichi-mahjong-tiles」Regular の Front.svg（牌の 表面）と Chun.svg（中）… CC0 1.0（上の 1. と 同じ）
+     https://github.com/FluffyStuff/riichi-mahjong-tiles/blob/master/Regular/Front.svg
+     https://github.com/FluffyStuff/riichi-mahjong-tiles/blob/master/Regular/Chun.svg
+   加工: 2つを かさねて、卓の みどり（#1b6b45）の 四角の まん中に おき、PNG に しました。
+         app-icon-192.png・app-icon-512.png（ふつう）／maskable-512.png（Android の まるい わく用に 小さめ）／apple-touch-icon.png（iPhone 180×180）
+   2026-10-12 に 背景の 色の 候補（卓の みどり／こい みどり／キャラメル）を 見せて「卓の みどり」に きめました。
+
 3. icons.js … ボタンの アイコン（Phosphor Icons「fill」）
    入手もと: Iconify の アイコンセット データ（npm @iconify-json/ph。https://github.com/iconify/icon-sets/blob/master/json/ph.json と 同じ もの）
              Iconify の コレクション情報 info.license が MIT で ある ことを 確認
@@ -74,6 +88,7 @@
 
 4. 素材では ない もの（プログラムで その場で つくる もの）
    ・効果音（牌を えらぶ カチッ・卓に 当たる 音・雷 など）… sound.js で Web Audio を つかって 合成
+   ・BGM（メニュー・対局・リーチ）… bgm.js で Web Audio を つかって その場で 演奏（楽譜は bgm.js の 中に 書いた オリジナル）
    ・ポン／チー／カン／リーチ／ロン／ツモ の こえ … 端末の 日本語 読みあげ（speechSynthesis）
    ・雷・光・ゆれ・火花・役満の ツモ牌の キラキラ などの 演出 … fx.js で Canvas に 線や 光を えがく 画面効果
    （2026-10-10 に 依頼者に たしかめて、この 方法で よいと きめました）

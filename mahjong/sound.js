@@ -13,6 +13,8 @@ const DEBUG = typeof location !== 'undefined' && /[?&]debug\b/.test(location.sea
 let ctx = null;
 let master = null;
 let verb = null;
+let seBus = null;    // 効果音の 音量
+let bgmBus = null;   // BGM の 音量（bgm.js）
 
 function ac() {
     if (!ctx) {
@@ -23,8 +25,13 @@ function ac() {
         master.threshold.value = -10;
         master.ratio.value = 4;
         master.connect(ctx.destination);
+        seBus = ctx.createGain();
+        seBus.connect(master);
+        bgmBus = ctx.createGain();
+        bgmBus.connect(master);
         verb = makeReverb(ctx);
-        verb.connect(master);
+        verb.connect(seBus);
+        applyVolumes();
     }
     if (ctx.state === 'suspended') ctx.resume().catch(() => {});
     return ctx;
@@ -48,6 +55,21 @@ function makeReverb(a) {
     input.out = g;
     // input に つなぐと ひびきが master へ
     return { connect: n => g.connect(n), input };
+}
+
+/** 設定の 音量（効果音・BGM）を 音に つたえる */
+export function applyVolumes() {
+    if (!ctx) return;
+    const s = store.settings, t = ctx.currentTime;
+    seBus.gain.setTargetAtTime(s.sound ? s.seVol : 0, t, 0.03);
+    bgmBus.gain.setTargetAtTime(s.sound && s.bgm ? s.bgmVol * 0.55 : 0, t, 0.08);
+}
+
+/** BGM 用：音の 部品（bgm.js から つかう） */
+export function audioParts() {
+    const a = ac();
+    if (!a) return null;
+    return { ctx: a, out: bgmBus, verbIn: verb.input };
 }
 
 /** 画面を はじめて さわった ときに 音の じゅんびを します（スマホの きまり） */
@@ -83,7 +105,7 @@ function noiseBuffer(a, kind = 'white', dur = 1) {
 
 function out(a, wet = 0) {
     const g = a.createGain();
-    g.connect(master);
+    g.connect(seBus);
     if (wet > 0) {
         const w = a.createGain();
         w.gain.value = wet;
@@ -300,7 +322,7 @@ export function say(text, pos = null, { interrupt = true, rate = null, pitch = n
         const sv = pos === null ? { pitch: 1, rate: 1.05 } : SEAT_VOICE[pos];
         u.rate = rate ?? sv.rate;
         u.pitch = pitch ?? sv.pitch;
-        u.volume = volume;
+        u.volume = Math.max(0, Math.min(1, volume * (store.settings.voiceVol ?? 1)));
         if (interrupt) speechSynthesis.cancel();
         speechSynthesis.speak(u);
     } catch (e) { /* むし */ }
