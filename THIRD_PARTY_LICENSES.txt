@@ -5,7 +5,8 @@
 Microsoft Fluent Emoji（3D）
   つかう ところ: purinto/assets/emoji/（プリント・メニューの え）
                 mizu-kasa/assets/emoji/（かさ はかせ の キャラクター・物の え）
-                mahjong/assets/chars/（雷鳴麻雀 の キャラクター：3D の 動物）
+                mahjong/assets/chars/（雷鳴麻雀 の キャラクター：十二支の 3D の 動物）
+                mahjong/assets/fx/hand.webp（雷鳴麻雀 の ツモの 演出の 手）
                 各アプリの assets/app-icon.png・app-icon-180.png（ブラウザの タブ・ホーム画面の アイコン）
   入手もと: https://github.com/microsoft/fluentui-emoji
   ライセンス: MIT License

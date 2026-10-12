@@ -341,7 +341,7 @@ function renderRoom(root) {
 <div class="pass"><small>合言葉</small><b>${esc(online.code)}</b>${host ? '<span>ともだちに つたえてください</span>' : ''}</div>
 <div class="members">
   <div class="mem"><img src="${charImg(m && m.hostChar ? m.hostChar : store.char)}" alt=""><b>${esc(m ? m.hostName : store.name || 'あなた')}</b><small>ホスト${on.host ? '' : '（つながっていない）'}</small></div>
-  <div class="mem ${guestIn ? '' : 'empty'}"><img src="${guestIn ? charImg(m.guestChar || 'cat') : charImg('owl')}" alt=""><b>${guestIn ? esc(m.guestName) : 'まっています…'}</b><small>${guestIn ? (on.guest ? 'ゲスト' : 'ゲスト（つながっていない）') : ''}</small></div>
+  <div class="mem ${guestIn ? '' : 'empty'}"><img src="${guestIn ? charImg(m.guestChar || 'rabbit') : charImg('mouse')}" alt=""><b>${guestIn ? esc(m.guestName) : 'まっています…'}</b><small>${guestIn ? (on.guest ? 'ゲスト' : 'ゲスト（つながっていない）') : ''}</small></div>
   <div class="mem cpu">${icon('robot')}<b>コンピューター ×2</b><small>${m ? LEVELS[(m.level || 2) - 1].name : ''}</small></div>
 </div>
 ${m ? `<details class="rule-sum"><summary>ルール（ホストの 設定）</summary>${rulesSummary({ ...DEFAULT_RULES, ...m.rules })}</details>` : ''}
@@ -385,7 +385,7 @@ async function startOnlineGame(meta) {
     const g = new Mahjong(meta.rules, meta.seed);
     const isHost = online.role === 'host';
     const hostChar = charById(meta.hostChar || 'shiba').id;
-    const guestChar = charById(meta.guestChar || 'cat').id;
+    const guestChar = charById(meta.guestChar || 'rabbit').id;
     const chars = cpuPlayers(meta.seed, 2, [hostChar, guestChar]);
     const parts = [
         { name: meta.hostName || 'ホスト', avatar: charImg(hostChar), kind: isHost ? 'me' : 'remote' },
@@ -549,7 +549,7 @@ ${item('speed', 'うごきの はやさ', [['slow', 'ゆっくり'], ['normal', 
 ${item('showWaits', 'テンパイの とき 待ちを 出す', [[true, 'あり'], [false, 'なし']])}
 ${item('hint', 'おすすめの 牌に しるし', [[false, 'なし'], [true, 'あり']])}
 ${item('handMode', '手牌の ならべかた', [['auto', '自動で ならべる'], ['manual', '自分で ならべる（ドラッグ）']])}
-${item('riverStyle', '捨て牌の 置きかた', [['natural', '手で 置いたように'], ['neat', 'きっちり']])}
+${item('riverStyle', '捨て牌の 置きかた', [['neat', 'きっちり そろえる'], ['natural', '手で 置いたように']])}
 ${item('showPoints', 'テンパイの とき あがりの 点数を 出す', [[true, 'あり'], [false, 'なし']])}
 </div>
 <button class="btn test-sound">${icon('speaker-high')} 音と こえを ためす</button>

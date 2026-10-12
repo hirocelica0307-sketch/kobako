@@ -1,27 +1,24 @@
 /* キャラクター（自分で えらぶ・コンピューターにも つかう）
    ------------------------------------------------------------------
-   どうぶつ：Microsoft Fluent Emoji「3D」の 動物（MIT）。assets/chars/
-             柴犬は Fluent Emoji の「Dog」（茶色で しっぽが まいた 全身の 犬）を つかう。
+   どうぶつ：十二支。Microsoft Fluent Emoji「3D」の 動物（MIT）。assets/chars/
+             いぬ（柴犬）は Fluent Emoji の「Dog」（茶色で しっぽが まいた 全身の 犬）を つかう。
    ひと    ：DiceBear「Notionists」（CC0）。まえの 版の 人の アバター。assets/avatars/
    くわしくは assets/README.txt。
    ------------------------------------------------------------------ */
 export const CHARS = [
-    { id: 'shiba', name: '柴犬', group: 'animal' },
-    { id: 'cat', name: 'ねこ', group: 'animal' },
-    { id: 'fox', name: 'きつね', group: 'animal' },
-    { id: 'rabbit', name: 'うさぎ', group: 'animal' },
-    { id: 'panda', name: 'パンダ', group: 'animal' },
-    { id: 'bear', name: 'くま', group: 'animal' },
-    { id: 'tiger', name: 'とら', group: 'animal' },
-    { id: 'hamster', name: 'ハムスター', group: 'animal' },
-    { id: 'monkey', name: 'さる', group: 'animal' },
-    { id: 'frog', name: 'かえる', group: 'animal' },
-    { id: 'penguin', name: 'ペンギン', group: 'animal' },
-    { id: 'koala', name: 'コアラ', group: 'animal' },
-    { id: 'lion', name: 'ライオン', group: 'animal' },
+    // 十二支（ねずみ → いのしし の じゅん）。いぬは 柴犬
     { id: 'mouse', name: 'ねずみ', group: 'animal' },
-    { id: 'owl', name: 'ふくろう', group: 'animal' },
-    { id: 'dog', name: 'いぬ', group: 'animal' },
+    { id: 'cow', name: 'うし', group: 'animal' },
+    { id: 'tiger', name: 'とら', group: 'animal' },
+    { id: 'rabbit', name: 'うさぎ', group: 'animal' },
+    { id: 'dragon', name: 'たつ', group: 'animal' },
+    { id: 'snake', name: 'へび', group: 'animal' },
+    { id: 'horse', name: 'うま', group: 'animal' },
+    { id: 'sheep', name: 'ひつじ', group: 'animal' },
+    { id: 'monkey', name: 'さる', group: 'animal' },
+    { id: 'chicken', name: 'とり', group: 'animal' },
+    { id: 'shiba', name: '柴犬', group: 'animal' },
+    { id: 'boar', name: 'いのしし', group: 'animal' },
     // ひと（まえの 版の アバター。名まえは 仮の 名まえ）
     { id: 'p-you', name: 'アオ', group: 'human', file: 'you' },
     { id: 'p-friend', name: 'ユウ', group: 'human', file: 'friend' },
@@ -34,7 +31,7 @@ export const CHARS = [
 ];
 
 export const GROUPS = [
-    { id: 'animal', name: 'どうぶつ' },
+    { id: 'animal', name: 'どうぶつ（十二支）' },
     { id: 'human', name: 'ひと' }
 ];
 
