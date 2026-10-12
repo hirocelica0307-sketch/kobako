@@ -69,7 +69,8 @@
    つかって いる アイコン（すべて -fill）:
      house / gear-six / robot / users-three / door-open / plus-circle / arrow-left / list / x / check / copy /
      speaker-high / speaker-slash / lightning / trophy / book-open-text / play / dice-one〜dice-six（サイコロ）/
-     sign-out / lightbulb / arrow-clockwise / info / backspace / hand-pointing / eye / user / crown-simple / timer / wifi-slash
+     sign-out / lightbulb / arrow-clockwise / info / backspace / hand-pointing / eye / user / crown-simple / timer / wifi-slash /
+     corners-out / corners-in（全画面ボタン。2026-10-12 に 候補を 見せて きめた）
 
 4. 素材では ない もの（プログラムで その場で つくる もの）
    ・効果音（牌を えらぶ カチッ・卓に 当たる 音・雷 など）… sound.js で Web Audio を つかって 合成

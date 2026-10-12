@@ -16,6 +16,11 @@ import { sfx, say, stopVoice, YAKU_READING, roundReading, TIER_READING, REASON_R
 import { evaluateWin } from './score.js';
 import { explainHTML, pointsLabel, quickTableHTML, totalOf as calcTotal } from './calc.js';
 import { FX } from './fx.js';
+
+/** 全画面か どうか */
+const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+/** ホーム画面から ひらいて いる（もう 全画面） */
+const isStandalone = () => !!(navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches));
 import { buzz } from './haptic.js';
 import { store, save, speedFactor } from './store.js';
 import { icon } from './assets/icons.js';
@@ -70,6 +75,9 @@ export class GameView {
         this.onResize = () => this.layout();
         window.addEventListener('resize', this.onResize);
         window.addEventListener('orientationchange', this.onResize);
+        this.onFsChange = () => { const b = this.$('.g-fs'); if (b) b.innerHTML = icon(isFullscreen() ? 'corners-in' : 'corners-out'); this.layout(); };
+        document.addEventListener('fullscreenchange', this.onFsChange);
+        document.addEventListener('webkitfullscreenchange', this.onFsChange);
         this.layout();
         this.renderAll();
     }
@@ -80,6 +88,8 @@ export class GameView {
         for (const t of this.timers) clearTimeout(t);
         window.removeEventListener('resize', this.onResize);
         window.removeEventListener('orientationchange', this.onResize);
+        document.removeEventListener('fullscreenchange', this.onFsChange);
+        document.removeEventListener('webkitfullscreenchange', this.onFsChange);
         this.fx.dispose();
         stopVoice();
         // 画面の 部品は はずして しまって おく（のこった 処理が つぎの 対局の 画面を さわらない ように）
@@ -110,6 +120,7 @@ export class GameView {
     <button class="g-icon" data-act="menu" aria-label="メニュー">${icon('list')}</button>
     <div class="g-round"></div>
     <div class="g-dora"><span class="lbl">ドラ<br>表示</span><div class="dora-tiles"></div></div>
+    <button class="g-icon g-fs" data-act="fs" aria-label="全画面"${isStandalone() ? ' hidden' : ''}>${icon(isFullscreen() ? 'corners-in' : 'corners-out')}</button>
     <button class="g-icon" data-act="sound" aria-label="音">${icon(store.settings.sound ? 'speaker-high' : 'speaker-slash')}</button>
   </header>
   <div class="g-tablebox"><div class="g-table">
@@ -200,6 +211,31 @@ export class GameView {
         if (back) return `<div class="t back ${side ? 'side' : ''} ${cls}" ${data}${st}></div>`;
         const img = tileImage(id, this.g.rules.aka);
         return `<div class="t ${side ? 'side' : ''} ${cls}" ${data}${st}><i style="background-image:url(${img})"></i></div>`;
+    }
+
+    /** 全画面に する／やめる（iPhone の Safari には この しくみが ないので ホーム画面に 追加する 方法を 出す） */
+    toggleFullscreen() {
+        const d = document, el = d.documentElement;
+        if (isFullscreen()) {
+            (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+            return;
+        }
+        const req = el.requestFullscreen || el.webkitRequestFullscreen;
+        if (!req) { this.tip('この ブラウザは 全画面に できません。<br>iPhone は 共有ボタン →「ホーム画面に 追加」<br>から ひらくと 全画面で あそべます'); return; }
+        Promise.resolve(req.call(el, { navigationUI: 'hide' })).then(() => {
+            // 横向きの まま に する（できる 端末だけ）
+            try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (e) { /* むし */ }
+        }).catch(() => this.tip('全画面に できませんでした'));
+    }
+
+    tip(html) {
+        this.root.querySelectorAll('.g-tip').forEach(x => x.remove());
+        const el = document.createElement('div');
+        el.className = 'g-tip';
+        el.innerHTML = html;
+        this.root.appendChild(el);
+        el.addEventListener('click', () => el.remove());
+        this.later(() => el.remove(), 5000);
     }
 
     /* ── ぜんぶ えがく ─────────────────────── */
@@ -496,6 +532,7 @@ export class GameView {
         sfx.button();
         switch (name) {
         case 'menu': this.showMenu(); return;
+        case 'fs': this.toggleFullscreen(); return;
         case 'sound':
             store.settings.sound = !store.settings.sound; save();
             el.innerHTML = icon(store.settings.sound ? 'speaker-high' : 'speaker-slash');
