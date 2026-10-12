@@ -379,3 +379,77 @@ export function recommendDiscard(g, seat, opt) {
     const r = chooseDiscard(g, seat, opt, 3, () => 0.5);
     return r.t;
 }
+
+/* ── アドバイス用（妖精）：level 3 の 考えを くわしく かえす ── */
+
+/** k が q に 対して どのくらい あんぜんか（ことばで） */
+export function safetyLabel(g, seat, k, q) {
+    const vis = visibleCounts(g, seat);
+    const safe = safeAgainst(g, q);
+    if (safe.has(k)) return { rank: 0, label: '現物', why: 'その 人が もう 捨てた 牌（リーチの あとに だれかが 捨てて とおった 牌も）なので、その 人には ロンされない' };
+    if (isHonor(k)) {
+        const seen = vis[k];
+        if (seen >= 3) return { rank: 1, label: '字牌', why: `もう ${seen}枚 見えて いる 字牌なので、ほとんど あたらない` };
+        if (seen === 2) return { rank: 2, label: '字牌', why: '2枚 見えて いる 字牌なので、わりと あんぜん' };
+        return { rank: 3, label: '字牌', why: 'まだ あまり 見えて いない 字牌なので すこし あぶない' };
+    }
+    const n = k % 9, s = Math.floor(k / 9) * 9;
+    const has = x => x >= 0 && x <= 8 && safe.has(s + x);
+    const wall = x => x >= 0 && x <= 8 && vis[s + x] >= 4;
+    if ((n <= 1 && wall(n + 1)) || (n >= 7 && wall(n - 1)) || (wall(n - 1) && wall(n + 1))) return { rank: 1, label: '壁', why: 'となりの 牌が 4枚 見えて いる（壁）ので、両面待ちでは あたらない' };
+    const suji = n <= 2 ? has(n + 3) : n >= 6 ? has(n - 3) : has(n - 3) && has(n + 3);
+    if (suji) return { rank: 2, label: 'スジ', why: `${n <= 2 ? n + 4 : n >= 6 ? n - 2 : (n - 2) + 'と' + (n + 4)} が 捨てて あるので、両面待ちでは あたらない（スジ）` };
+    if (n > 2 && n < 6 && (has(n - 3) || has(n + 3))) return { rank: 3, label: '片スジ', why: '片がわだけ スジに なって いる。すこし あぶない' };
+    if (n === 0 || n === 8) return { rank: 3, label: '端の 牌', why: '1・9 は まん中の 牌より すこし あたりにくい' };
+    return { rank: 4, label: 'あぶない', why: 'まん中に ちかい 数牌で、スジでも 現物でも ない' };
+}
+
+/** 手番の くわしい 分析 */
+export function analyzeTurn(g, seat, opt) {
+    const h = g.h;
+    const rows = evaluateDiscards(g, seat, opt.discard, 3, () => 0.5);
+    const minS = Math.min(...rows.map(r => r.shanten));
+    const threats = threatSeats(g, seat);
+    const c = toCounts(h.hands[seat]);
+    const vh = valueHint(g, seat, c, h.melds[seat]) + (h.melds[seat].length === 0 ? 1 : 0);
+    const fold = shouldFold(g, seat, minS, threats, vh);
+    const choice = chooseDiscard(g, seat, opt, 3, () => 0.5);
+    const vis = visibleCounts(g, seat);
+    const mc = h.melds[seat].length;
+    // えらんだ 牌を 切った あとの 受け入れ
+    const cc = toCounts(h.hands[seat]);
+    cc[kindOf(choice.t)]--;
+    const after = ukeire(cc, mc, vis);
+    const wait = after.shanten === 0 ? waits(cc, mc).map(k => ({ k, left: Math.max(0, 4 - vis[k]) })) : [];
+    return {
+        tile: choice.t, riichi: choice.riichi, rows, minS, fold, after, wait, vis,
+        riichiSeats: threats.filter(t => t.w >= 1).map(t => t.q),
+        openThreats: threats.filter(t => t.w < 1).map(t => t.q)
+    };
+}
+
+/** 鳴くか どうかの 分析 */
+export function analyzeClaim(g, seat, opt, tile, from) {
+    const act = decideClaim(g, seat, opt, tile, from, 3, () => 0.9);
+    const h = g.h;
+    const k = kindOf(tile);
+    const c = toCounts(h.hands[seat]);
+    const mc = h.melds[seat].length;
+    const now = shanten(c, mc);
+    const yh = yakuhaiKinds(g, seat);
+    let path = null, after = now;
+    const used = act.a === 'pon' || act.a === 'chi' ? act.t : (opt.pon[0] || opt.chi[0] || null);
+    if (used) {
+        const cc = c.slice();
+        for (const t of used) cc[kindOf(t)]--;
+        const type = act.a === 'chi' || (!opt.pon.length && opt.chi.length) ? 'chi' : 'pon';
+        const melds = [...h.melds[seat], { type, tiles: [...used, tile] }];
+        let best = 9;
+        for (let x = 0; x < KINDS; x++) { if (!cc[x] || x === k) continue; cc[x]--; best = Math.min(best, shanten(cc, mc + 1)); cc[x]++; }
+        after = best;
+        path = openYakuPath(g, seat, cc, melds);
+    }
+    return { act, now, after, path, yakuhai: yh.includes(k), menzen: h.melds[seat].every(m => m.type === 'ankan'), riichiSeats: threatSeats(g, seat).filter(t => t.w >= 1).map(t => t.q) };
+}
+
+export { yakuhaiKinds };

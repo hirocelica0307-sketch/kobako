@@ -15,7 +15,13 @@ export const SETTINGS_DEFAULTS = {
     handMode: 'auto',     // 手牌：'auto'（自動で ならべる）/ 'manual'（自分で ドラッグして ならべる）
     riverStyle: 'neat',   // 捨て牌：'neat'（きっちり そろえる）/ 'natural'（手で 置いたように 少し ずれる）
     showPoints: true,     // テンパイの とき あがりの 点数を 出す
-    vibe: true            // 自分の 番・鳴ける とき バイブ
+    vibe: true,           // 自分の 番・鳴ける とき バイブ
+    bgm: true,            // BGM
+    bgmVol: 0.6,          // 音量（0〜1）：BGM
+    seVol: 0.9,           //              効果音
+    voiceVol: 1,          //              こえ
+    advice: true,         // 妖精の アドバイス
+    adviceLevel: 'often'  // アドバイスの 多さ：'often'（いつも）/ 'key'（だいじな ときだけ）
 };
 
 function load() {

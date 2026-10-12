@@ -1,4 +1,4 @@
-/* 雷鳴麻雀 ── 画面の きりかえ
+/* なみ麻雀 ── 画面の きりかえ
    ------------------------------------------------------------------
    画面：ホーム / コンピューターと 対戦 / 友だちと 対戦（部屋）/ ルール設定 / 役の 一覧 / 設定 / 対局
    ------------------------------------------------------------------ */
@@ -6,6 +6,7 @@ import { Mahjong, DEFAULT_RULES, makeRng, shuffle } from './engine.js';
 import { LEVELS } from './ai.js';
 import { store, save, addRecord } from './store.js';
 import { sfx, unlockAudio, say } from './sound.js';
+import { bgm, volumeHTML, bindVolume } from './bgm.js';
 import { GameView, rulesSummary } from './game.js';
 import { icon } from './assets/icons.js';
 import { tileImage } from './tiles.js';
@@ -52,6 +53,7 @@ function show(name, push = true) {
     if (push && location.hash !== '#' + name) history.pushState(null, '', '#' + name);
     const r = RENDER[name];
     if (r) r($('#s-' + name));
+    if (name !== 'game') { bgm.duck(1); bgm.play('menu'); }
     window.scrollTo(0, 0);
 }
 
@@ -82,7 +84,7 @@ function renderHome(root) {
     const recHTML = rec.length ? `<div class="home-rec">${rec.map(([k, r]) => `<div><b>${LEVELS[Number(k.slice(2)) - 1].short}</b> ${r.games}戦 1位${r.ranks[0]} 2位${r.ranks[1]} 3位${r.ranks[2]} 4位${r.ranks[3]}</div>`).join('')}</div>` : '';
     root.innerHTML = `<div class="home">
 <div class="title-deco">${deco}</div>
-<h1 class="title"><span class="t1">雷鳴</span><span class="t2">麻雀</span></h1>
+<h1 class="title"><span class="t1">なみ</span><span class="t2">麻雀</span></h1>
 <p class="subtitle">${icon('lightning')} ロン！ツモ！ 雷が おちる 4人麻雀</p>
 <div class="home-btns">
   ${saved ? `<button class="btn primary big" data-rejoin>合言葉 ${esc(saved.code)} の 部屋に もどる</button>` : ''}
@@ -540,9 +542,11 @@ function renderSettings(root) {
 ${back()}
 <h2>設定</h2>
 <div class="rules-list">
-${item('sound', '効果音', [[true, 'あり'], [false, 'なし']])}
-${item('voice', 'こえ（ポン・ロン など）', [[true, 'あり'], [false, 'なし']])}
+${item('sound', '音（BGM・効果音・こえ ぜんぶ）', [[true, 'あり'], [false, 'なし']])}
+<div class="rule-item vol-item"><div class="ri-label">音量（こえは ポン・ロン などの 読みあげ）</div>${volumeHTML()}</div>
 ${item('yakuVoice', 'あがりの 役を 読みあげる', [[true, 'あり'], [false, 'なし']])}
+${item('advice', '妖精の アドバイス（どれを 切るか・役・リーチの ときの まもりかた）', [[true, 'あり'], [false, 'なし']])}
+${item('adviceLevel', 'アドバイスの 多さ', [['often', 'いつも'], ['key', 'だいじな ときだけ']])}
 ${item('vibe', '自分の 番・鳴ける とき バイブ（iPhone は iOS 18 から・機種に よる）', [[true, 'あり'], [false, 'なし']])}
 ${item('fx', '演出（雷・光・ゆれ）', [['full', 'はでに'], ['lite', 'ひかえめ']])}
 ${item('speed', 'うごきの はやさ', [['slow', 'ゆっくり'], ['normal', 'ふつう'], ['fast', 'はやい']])}
@@ -561,7 +565,9 @@ ${item('showPoints', 'テンパイの とき あがりの 点数を 出す', [[t
         s[seg.dataset.skey] = v; save();
         sfx.button();
         seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+        if (seg.dataset.skey === 'sound') bgm.refresh();
     }));
+    bindVolume(root);
     root.querySelector('.test-sound').addEventListener('click', () => {
         unlockAudio();
         sfx.select();
