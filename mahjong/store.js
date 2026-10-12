@@ -14,7 +14,8 @@ export const SETTINGS_DEFAULTS = {
     hint: false,          // おすすめの 牌に しるし
     handMode: 'auto',     // 手牌：'auto'（自動で ならべる）/ 'manual'（自分で ドラッグして ならべる）
     riverStyle: 'natural',// 捨て牌：'natural'（手で 置いたように 少し ずれる）/ 'neat'（きっちり）
-    showPoints: true      // テンパイの とき あがりの 点数を 出す
+    showPoints: true,     // テンパイの とき あがりの 点数を 出す
+    vibe: true            // 自分の 番・鳴ける とき バイブ
 };
 
 function load() {

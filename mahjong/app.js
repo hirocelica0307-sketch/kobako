@@ -10,7 +10,7 @@ import { GameView, rulesSummary } from './game.js';
 import { icon } from './assets/icons.js';
 import { tileImage } from './tiles.js';
 import * as net from './net.js';
-import { CHARS, charById, charImg } from './chars.js';
+import { CHARS, GROUPS, charById, charImg } from './chars.js';
 import { renderKeisan } from './keisan.js';
 
 const $ = sel => document.querySelector(sel);
@@ -19,11 +19,11 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 /** キャラクターを えらぶ 一覧（タップで えらぶ） */
 function charPicker() {
     const cur = charById(store.char).id;
-    return `<div class="char-pick">${CHARS.map(c => `<button class="char${c.id === cur ? ' on' : ''}" data-char="${c.id}"><img src="${charImg(c.id)}" alt=""><span>${c.name}</span></button>`).join('')}</div>`;
+    return `<div class="char-picker">${GROUPS.map(g => `<div class="char-group">${g.name}</div><div class="char-pick">${CHARS.filter(c => c.group === g.id).map(c => `<button class="char${c.id === cur ? ' on' : ''}" data-char="${c.id}"><img src="${charImg(c.id)}" alt=""><span>${c.name}</span></button>`).join('')}</div>`).join('')}</div>`;
 }
 
 function bindCharPicker(root) {
-    const box = root.querySelector('.char-pick');
+    const box = root.querySelector('.char-picker');
     if (!box) return;
     box.addEventListener('click', e => {
         const b = e.target.closest('[data-char]');
@@ -151,11 +151,14 @@ function bindSeg(root) {
     });
 }
 
-/** コンピューターの キャラクター（人が えらんだ ものとは かぶらない） */
+/** コンピューターの キャラクター（人が えらんだ ものとは かぶらない）。
+    卓の 画風が そろう ように、1人めの 人（自分／ホスト）と 同じ なかま（どうぶつ／ひと）から えらぶ */
 function cpuPlayers(seed, n, taken = []) {
     const rng = makeRng(seed + ':chars');
-    return shuffle(CHARS.filter(c => !taken.includes(c.id)), rng).slice(0, n)
-        .map(c => ({ name: c.name, avatar: charImg(c.id) }));
+    const group = charById(taken[0]).group;
+    let pool = CHARS.filter(c => c.group === group && !taken.includes(c.id));
+    if (pool.length < n) pool = CHARS.filter(c => !taken.includes(c.id));
+    return shuffle(pool, rng).slice(0, n).map(c => ({ name: c.name, avatar: charImg(c.id) }));
 }
 
 function startCpuGame() {
@@ -540,6 +543,7 @@ ${back()}
 ${item('sound', '効果音', [[true, 'あり'], [false, 'なし']])}
 ${item('voice', 'こえ（ポン・ロン など）', [[true, 'あり'], [false, 'なし']])}
 ${item('yakuVoice', 'あがりの 役を 読みあげる', [[true, 'あり'], [false, 'なし']])}
+${item('vibe', '自分の 番・鳴ける とき バイブ（iPhone は iOS 18 から・機種に よる）', [[true, 'あり'], [false, 'なし']])}
 ${item('fx', '演出（雷・光・ゆれ）', [['full', 'はでに'], ['lite', 'ひかえめ']])}
 ${item('speed', 'うごきの はやさ', [['slow', 'ゆっくり'], ['normal', 'ふつう'], ['fast', 'はやい']])}
 ${item('showWaits', 'テンパイの とき 待ちを 出す', [[true, 'あり'], [false, 'なし']])}

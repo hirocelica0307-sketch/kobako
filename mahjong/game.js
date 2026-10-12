@@ -16,6 +16,7 @@ import { sfx, say, stopVoice, YAKU_READING, roundReading, TIER_READING, REASON_R
 import { evaluateWin } from './score.js';
 import { explainHTML, pointsLabel, quickTableHTML, totalOf as calcTotal } from './calc.js';
 import { FX } from './fx.js';
+import { buzz } from './haptic.js';
 import { store, save, speedFactor } from './store.js';
 import { icon } from './assets/icons.js';
 
@@ -159,7 +160,7 @@ export class GameView {
         // 手牌の 牌の 大きさ（14枚＋すきまが 画面の はばに おさまる）
         // 14枚 ＋ ツモ牌の すきま（0.45枚）＋ 左右の よはく
         let tw = Math.floor((Math.min(W, 1100) - 12) / 14.5);
-        tw = Math.min(tw, landscape ? Math.floor(H * 0.1) : 64);
+        tw = Math.min(tw, landscape ? Math.floor(H * 0.105) : 64);
         this.handTw = Math.max(18, tw);
         this.root.style.setProperty('--htw', this.handTw + 'px');
         // 卓：のこりの 高さと はばの 小さい ほうの 正方形
@@ -167,7 +168,8 @@ export class GameView {
         let S;
         if (landscape) {
             // 横向き：上の 行・ボタンは 卓の 左右に おく
-            S = Math.floor(Math.min(W - 300, H - handH - 14));
+            // 横向き：上の 行・ボタンは 卓の 左右に おく（左右の はばは 最低 150px ずつ）
+            S = Math.floor(Math.min(W - 300, H - handH - 8));
         } else {
             const top = this.$('.g-top').offsetHeight || 46;
             const info = this.$('.g-info').offsetHeight || 28;
@@ -730,6 +732,7 @@ export class GameView {
             try { this.recommendTile = recommendDiscard(this.g, this.me, o); } catch (e) { this.recommendTile = null; }
         } else this.recommendTile = null;
         sfx.myTurn();
+        buzz(o.tsumo ? 'win' : (o.riichi.length || o.ankan.length || o.kakan.length) ? 'call' : 'turn');
         this.renderHand();
         this.renderActions();
         this.updateStatus();
@@ -744,6 +747,7 @@ export class GameView {
         if (o.ron && this.auto.win) { this.submit({ s: this.me, a: 'ron' }); return; }
         if (!o.ron && this.auto.noCall) { this.submit({ s: this.me, a: 'pass' }); return; }
         this.myPrompt = p;
+        buzz(o.ron ? 'win' : 'call');
         this.renderActions();
         this.updateStatus();
         this.startTimer(p, 'claim');
@@ -1268,9 +1272,14 @@ export class GameView {
             const from = w.from !== null ? `<small>${esc(this.players[w.from].name)} から</small>` : '';
             return `<div class="wi-one"><div class="wi-ring"><img src="${pl.avatar}" alt=""></div><b class="wi-name">${esc(pl.name)}</b><div class="bigtext-static bt-${tsumo ? 'tsumo' : 'ron'} lv${levels[i]}"><span>${tsumo ? 'ツモ' : 'ロン'}</span></div>${from}</div>`;
         }).join('');
-        // 雷の おちる 場所と かさならない ように、上か 下に よせる
+        // 雷の おちる 場所と かさならない ように、上か 下に よせる（横向きは 卓の 左の あいた ところ）
         const h = window.innerHeight;
-        el.style.top = (tgt.y > h * 0.45 ? h * 0.24 : h * 0.62) + 'px';
+        if (this.root.classList.contains('landscape')) {
+            const t = this.$('.g-table').getBoundingClientRect();
+            el.classList.add('side');
+            el.style.top = (h * 0.45) + 'px';
+            el.style.left = Math.max(80, t.left / 2) + 'px';
+        } else el.style.top = (tgt.y > h * 0.45 ? h * 0.24 : h * 0.62) + 'px';
         this.fx.text.appendChild(el);
         this.later(() => el.classList.add('out'), 2100 + Math.max(...levels) * 250);
         this.later(() => el.remove(), 2500 + Math.max(...levels) * 250);
@@ -1375,7 +1384,8 @@ export class GameView {
     }
 
     resultTw(n) {
-        const W = Math.min(window.innerWidth * 0.96, 560) - 48;
+        // 横向きは 結果を 左右 2列に するので、手牌の 列は はばの 半分
+        const W = this.root.classList.contains('landscape') ? Math.min(window.innerWidth * 0.96, 920) / 2 - 40 : Math.min(window.innerWidth * 0.96, 560) - 48;
         return Math.max(14, Math.min(34, Math.floor(W / (n + 0.6))));
     }
 
@@ -1530,6 +1540,7 @@ export class GameView {
 <div class="mn-btns">
   <button class="btn" data-mn="close">${icon('play')} つづける</button>
   <button class="btn" data-mn="voice">${st.voice ? 'こえ：あり' : 'こえ：なし'}</button>
+  <button class="btn" data-mn="vibe">${st.vibe ? 'バイブ：あり' : 'バイブ：なし'}</button>
   <button class="btn" data-mn="fx">${st.fx === 'full' ? '演出：はでに' : '演出：ひかえめ'}</button>
   <button class="btn" data-mn="waits">${st.showWaits ? '待ちの 表示：あり' : '待ちの 表示：なし'}</button>
   <button class="btn" data-mn="hint">${st.hint ? 'おすすめ牌：あり' : 'おすすめ牌：なし'}</button>
@@ -1553,6 +1564,7 @@ export class GameView {
                 return;
             }
             if (k === 'voice') st.voice = !st.voice;
+            if (k === 'vibe') { st.vibe = !st.vibe; if (st.vibe) buzz('call'); }
             if (k === 'fx') st.fx = st.fx === 'full' ? 'lite' : 'full';
             if (k === 'waits') st.showWaits = !st.showWaits;
             if (k === 'hint') st.hint = !st.hint;

@@ -38,7 +38,24 @@
      mouse.webp    Mouse face   ねずみ    https://github.com/microsoft/fluentui-emoji/blob/main/assets/Mouse%20face/3D/mouse_face_3d.png
      owl.webp      Owl          ふくろう  https://github.com/microsoft/fluentui-emoji/blob/main/assets/Owl/3D/owl_3d.png
      dog.webp      Dog face     いぬ      https://github.com/microsoft/fluentui-emoji/blob/main/assets/Dog%20face/3D/dog_face_3d.png
-   （まえは DiceBear Notionists の 人の アバターを つかって いましたが、画風を 3D に そろえる ため やめました）
+
+2b. avatars/*.svg … キャラクター「ひと」（DiceBear「Notionists」。まえの 版の 人の アバター）
+   入手もと: DiceBear https://www.dicebear.com/styles/notionists/ （npm @dicebear/core 9・@dicebear/collection 9 で この 場で 生成）
+   ライセンス: デザインは CC0 1.0（Notionists by Zoish）
+   ライセンス確認: npm パッケージ @dicebear/notionists の LICENSE
+     「Source: Notionists (https://heyzoish.gumroad.com/l/notionists) / Designer: Zoish / License: CC0 1.0」
+   2026-10-12 に 依頼者から「まえの 人の バージョンも えらべる ように」と たのまれて もどしました
+   （どうぶつ〔3D〕と ひと〔平面〕で 画風が ちがうので、コンピューターは 1人めの 人と 同じ なかまから えらぶ）。
+   生成に つかった 文字（シード）・背景色・画面の 名まえ（仮の 名まえ。実名は つかって いません）:
+     you.svg     seed: cpu-04  背景 #ffd88a  アオ
+     friend.svg  seed: cpu-13  背景 #a8e6cf  ユウ
+     cpu1.svg    seed: cpu-01  背景 #ffb3a7  ハル
+     cpu2.svg    seed: cpu-05  背景 #c7b8ff  ミオ
+     cpu3.svg    seed: cpu-07  背景 #9fd8ff  ソラ
+     cpu4.svg    seed: cpu-09  背景 #ffe0a3  ジン
+     cpu5.svg    seed: cpu-10  背景 #f8b4d9  リン
+     cpu6.svg    seed: cpu-14  背景 #b9f0a6  ケイ
+   加工: svgo で 小さく しました。
 
 3. icons.js … ボタンの アイコン（Phosphor Icons「fill」）
    入手もと: Iconify の アイコンセット データ（npm @iconify-json/ph。https://github.com/iconify/icon-sets/blob/master/json/ph.json と 同じ もの）
