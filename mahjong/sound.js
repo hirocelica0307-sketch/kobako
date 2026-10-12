@@ -213,6 +213,17 @@ export const sfx = {
     sparkle: () => play(t => {
         [2093, 2637, 3136, 4186].forEach((f, i) => tone(t + i * 0.045, { freq: f, dur: 0.35, type: 'sine', gain: 0.06, wet: 0.8 }));
     }),
+    /** 役満の ツモ：画面が くらく なる「ガン！」 */
+    gan: () => play(t => {
+        noise(t, { dur: 0.05, type: 'bandpass', freq: 1400, q: 1.2, gain: 0.8, attack: 0.001 });
+        tone(t, { freq: 230, to: 120, dur: 0.18, type: 'square', gain: 0.12, attack: 0.001 });
+        tone(t, { freq: 62, to: 30, dur: 1.4, type: 'sine', gain: 0.75, attack: 0.002 });
+        tone(t, { freq: 110, dur: 2.2, type: 'triangle', gain: 0.12, attack: 0.002, wet: 0.9 });
+        tone(t, { freq: 164, dur: 1.8, type: 'triangle', gain: 0.07, attack: 0.002, wet: 0.9, detune: 8 });
+        noise(t, { dur: 1.8, type: 'lowpass', freq: 220, gain: 0.7, attack: 0.005, kind: 'brown', wet: 0.8 });
+    }),
+    /** ツモの 手が 牌を つまむ */
+    pinch: () => play(t => { noise(t, { dur: 0.05, type: 'bandpass', freq: 2600, q: 2, gain: 0.25 }); clack(t + 0.02, 0.5); }),
     /** 雷（level 0〜5 で 大きく なる） */
     thunder: (level = 1) => play(t => {
         const p = 0.6 + level * 0.18;

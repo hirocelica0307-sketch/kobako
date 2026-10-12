@@ -172,6 +172,45 @@ export class FX {
         });
     }
 
+    /**
+     * キラキラ（4本の 光の 星）を ある 場所の まわりに 出しつづける（役満の ツモ牌）
+     * at：() => {x, y, r} を かえす 関数（うごく ものに ついて いく）
+     */
+    twinkle(at, dur = 2000, { rate = 3, rainbow = false } = {}) {
+        if (reduceMotion()) rate = Math.max(1, Math.round(rate / 3));
+        const ps = [];
+        this.add({
+            draw: (c, t) => {
+                if (t < dur) {
+                    const p = at();
+                    if (p) for (let i = 0; i < rate; i++) {
+                        if (Math.random() > 0.6) continue;
+                        const ang = Math.random() * Math.PI * 2, d = p.r * (0.3 + Math.random() * 0.9);
+                        ps.push({ x: p.x + Math.cos(ang) * d, y: p.y + Math.sin(ang) * d, t0: t, life: 450 + Math.random() * 500,
+                            s: 4 + Math.random() * 9, hue: Math.floor(Math.random() * 360), vy: -0.2 - Math.random() * 0.5 });
+                    }
+                }
+                c.globalCompositeOperation = 'lighter';
+                for (let i = ps.length - 1; i >= 0; i--) {
+                    const q = ps[i], k = (t - q.t0) / q.life;
+                    if (k >= 1) { ps.splice(i, 1); continue; }
+                    q.y += q.vy;
+                    const s = q.s * Math.sin(Math.PI * k);
+                    c.globalAlpha = 1 - k * 0.6;
+                    c.fillStyle = rainbow ? `hsl(${q.hue} 100% 80%)` : (i % 3 ? '#fff6c8' : '#ffffff');
+                    c.beginPath();
+                    c.moveTo(q.x, q.y - s);
+                    c.quadraticCurveTo(q.x, q.y, q.x + s, q.y);
+                    c.quadraticCurveTo(q.x, q.y, q.x, q.y + s);
+                    c.quadraticCurveTo(q.x, q.y, q.x - s, q.y);
+                    c.quadraticCurveTo(q.x, q.y, q.x, q.y - s);
+                    c.fill();
+                }
+                return t < dur || ps.length > 0;
+            }
+        });
+    }
+
     /** 上から ふる 光の つぶ（役満・トップ） */
     rain(dur = 3000, { colors = ['#fff4b0', '#ffd34d', '#ffffff'], count = 90, rainbow = false } = {}) {
         if (reduceMotion()) count = 25;

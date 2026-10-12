@@ -16,6 +16,7 @@ import { sfx, say, stopVoice, YAKU_READING, roundReading, TIER_READING, REASON_R
 import { evaluateWin } from './score.js';
 import { explainHTML, pointsLabel, quickTableHTML, totalOf as calcTotal } from './calc.js';
 import { FX } from './fx.js';
+import { buzz } from './haptic.js';
 import { store, save, speedFactor } from './store.js';
 import { icon } from './assets/icons.js';
 
@@ -159,7 +160,7 @@ export class GameView {
         // 手牌の 牌の 大きさ（14枚＋すきまが 画面の はばに おさまる）
         // 14枚 ＋ ツモ牌の すきま（0.45枚）＋ 左右の よはく
         let tw = Math.floor((Math.min(W, 1100) - 12) / 14.5);
-        tw = Math.min(tw, landscape ? Math.floor(H * 0.1) : 64);
+        tw = Math.min(tw, landscape ? Math.floor(H * 0.105) : 64);
         this.handTw = Math.max(18, tw);
         this.root.style.setProperty('--htw', this.handTw + 'px');
         // 卓：のこりの 高さと はばの 小さい ほうの 正方形
@@ -167,7 +168,8 @@ export class GameView {
         let S;
         if (landscape) {
             // 横向き：上の 行・ボタンは 卓の 左右に おく
-            S = Math.floor(Math.min(W - 300, H - handH - 14));
+            // 横向き：上の 行・ボタンは 卓の 左右に おく（左右の はばは 最低 150px ずつ）
+            S = Math.floor(Math.min(W - 300, H - handH - 8));
         } else {
             const top = this.$('.g-top').offsetHeight || 46;
             const info = this.$('.g-info').offsetHeight || 28;
@@ -730,6 +732,7 @@ export class GameView {
             try { this.recommendTile = recommendDiscard(this.g, this.me, o); } catch (e) { this.recommendTile = null; }
         } else this.recommendTile = null;
         sfx.myTurn();
+        buzz(o.tsumo ? 'win' : (o.riichi.length || o.ankan.length || o.kakan.length) ? 'call' : 'turn');
         this.renderHand();
         this.renderActions();
         this.updateStatus();
@@ -744,6 +747,7 @@ export class GameView {
         if (o.ron && this.auto.win) { this.submit({ s: this.me, a: 'ron' }); return; }
         if (!o.ron && this.auto.noCall) { this.submit({ s: this.me, a: 'pass' }); return; }
         this.myPrompt = p;
+        buzz(o.ron ? 'win' : 'call');
         this.renderActions();
         this.updateStatus();
         this.startTimer(p, 'claim');
@@ -1238,10 +1242,16 @@ export class GameView {
                     hit.classList.add('hit');
                 } else tgt = this.seatPoint(from, 0.26);
             }
+            // 満貫いじょうの ツモ：半透明の 手が 牌を 引いて きて 卓に たたきつける（役満は 画面が 暗転してから）
+            const cut = tsumo && top >= 1 && store.settings.fx !== 'lite';
+            if (cut) {
+                say('ツモ', this.pos(e.wins[0].seat));
+                await this.tsumoCut(e.wins[0], top);
+            }
             this.fx.dim(2300 + top * 250, 0.5 + top * 0.06);
             // あがった 人の アイコンを 大きく
             this.winnerIntro(e.wins, tsumo, levels, tgt);
-            e.wins.forEach((w, i) => this.later(() => say(tsumo ? 'ツモ' : 'ロン', this.pos(w.seat), { interrupt: i === 0 }), i * 120));
+            if (!cut) e.wins.forEach((w, i) => this.later(() => say(tsumo ? 'ツモ' : 'ロン', this.pos(w.seat), { interrupt: i === 0 }), i * 120));
             sfx.yaku(0);
             await this.sleep(850);
             // 雷
@@ -1252,11 +1262,97 @@ export class GameView {
             if (lv >= 5) { this.later(() => { this.fx.lightning(5, tgt); sfx.thunder(5); }, 900); this.fx.rain(3200, { rainbow: true }); }
             await this.sleep(1500 + top * 250);
             this.fx.text.querySelectorAll('.win-intro').forEach(x => x.remove());
+            this.root.querySelectorAll('.tsumo-cut').forEach(x => x.remove());
         }
         // 2) 結果の 画面（1人ずつ）
         for (const w of e.wins) await this.showWin(w, e);
         // 3) 点数の うごき
         await this.showScoreChange(e.before, e.deltas, e.scores);
+    }
+
+    /**
+     * ツモの 手（MJ の あがり演出を 参考に）
+     * 半透明の 手が 山の 牌を つまんで 引いて きて、もちあげて 卓の まんなかに たたきつける。
+     * 役満（lv 5）は「ガン！」と 画面が 暗転 → 光る 牌を 手が とりに くる。
+     * 手の 絵は Fluent Emoji 3D の Pinching hand（assets/fx/hand.webp）。手は あがった 人の 方向から 出る。
+     */
+    async tsumoCut(w, lv) {
+        const yakuman = lv >= 5;
+        const F = speedFactor();
+        const ms = x => x * F;
+        const T = this.$('.g-table').getBoundingClientRect();
+        const W = T.width, H = T.height;
+        const tw = Math.round(W * (yakuman ? 0.15 : 0.13));
+        const hs = Math.round(tw * 2.6);
+        const rot = [0, -90, 180, 90][this.pos(w.seat)];
+        const el = document.createElement('div');
+        el.className = `tsumo-cut lv${lv}`;
+        el.innerHTML = `${yakuman ? '<div class="tc-dark"></div>' : ''}
+<div class="tc-stage" style="left:${T.left + W / 2}px;top:${T.top + H / 2}px;width:${W}px;height:${H}px;transform:translate(-50%,-50%) rotate(${rot}deg)">
+  <div class="tc-grip" style="--tw:${tw}px">
+    <div class="tc-tile">${this.tileHTML(w.tile)}</div>
+    <img class="tc-hand" src="assets/fx/hand.webp" alt="" style="width:${hs}px;height:${hs}px;left:${-0.82 * hs}px;top:${tw * 0.42 - 0.39 * hs}px">
+  </div>
+</div>`;
+        this.fx.canvas.before(el);   // 火花・キラキラ（Canvas）は 手と 牌の 上に
+        const grip = el.querySelector('.tc-grip'), hand = el.querySelector('.tc-hand'), tile = el.querySelector('.tc-tile');
+        const dark = el.querySelector('.tc-dark');
+        // 卓の 中の 位置（ステージの まんなかが 0,0。下が あがった 人の 方）
+        const P = `translate(0px, ${-H * 0.3}px)`;           // 山の 牌を とる ところ
+        const C = 'translate(0px, 0px)';                      // 卓の まんなか（雷が おちる ところ）
+        const tilePt = () => { const r = tile.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, r: Math.max(r.width, r.height) * 0.9 }; };
+        const anim = (node, frames, dur, opt = {}) => node.animate(frames, { duration: ms(dur), fill: 'forwards', easing: 'ease-out', ...opt }).finished.catch(() => {});
+        grip.style.transform = P;
+        const wrap = this.$('.g-wrap');
+        if (yakuman) {
+            // ガン！（いきなり 暗転）
+            sfx.gan();
+            this.fx.shake(wrap, 10, 500);
+            await this.sleep(650);
+            // 山に 光る 牌が うかびあがる
+            const p = tilePt();
+            dark.style.setProperty('--sx', p.x + 'px'); dark.style.setProperty('--sy', p.y + 'px');
+            dark.classList.add('spot');
+            tile.classList.add('shine');
+            anim(tile, [{ opacity: 0, transform: 'scale(.7)' }, { opacity: 1, transform: 'scale(1)' }], 420);
+            sfx.sparkle();
+            this.fx.twinkle(tilePt, ms(3400), { rate: 4, rainbow: true });
+            await this.sleep(650);
+        } else {
+            tile.style.opacity = 0;
+        }
+        // 手が のびて きて つまむ
+        await anim(hand, [{ transform: `translateY(${H * 0.75}px) rotate(-80deg)`, opacity: 0 }, { transform: 'translateY(0) rotate(-80deg)', opacity: .78 }], yakuman ? 700 : 380);
+        sfx.pinch();
+        if (!yakuman) {
+            tile.style.opacity = 1;
+            anim(tile, [{ transform: 'scale(.6)' }, { transform: 'scale(1)' }], 140);
+            const p = tilePt(); this.fx.burst(p.x, p.y, { count: 10, colors: ['#fff', '#d8f1ff'], speed: 2.5, life: 500 });
+        }
+        if (yakuman) dark.classList.add('follow');
+        // 手前に 引いて くる → もちあげる → たたきつける
+        const pull = yakuman ? 700 : 400, lift = yakuman ? 280 : 180;
+        let followTimer = null;
+        if (yakuman) {
+            const follow = () => { const p = tilePt(); dark.style.setProperty('--sx', p.x + 'px'); dark.style.setProperty('--sy', p.y + 'px'); followTimer = requestAnimationFrame(follow); };
+            follow();
+        }
+        await anim(grip, [{ transform: P }, { transform: C }], pull, { easing: 'cubic-bezier(.4, 0, .2, 1)' });
+        if (yakuman) sfx.riichi();
+        await anim(grip, [{ transform: C }, { transform: `translate(0px, ${-H * 0.05}px) scale(${yakuman ? 1.35 : 1.18}) rotate(-6deg)` }], lift);
+        await anim(grip, [{ transform: `translate(0px, ${-H * 0.05}px) scale(${yakuman ? 1.35 : 1.18}) rotate(-6deg)` }, { transform: `${C} scale(.94)` }, { transform: `${C} scale(1)` }], 110, { easing: 'ease-in' });
+        if (followTimer) cancelAnimationFrame(followTimer);
+        // ドン！
+        sfx.slam();
+        const p = tilePt();
+        this.fx.shake(wrap, yakuman ? 12 : 6, yakuman ? 600 : 380);
+        this.fx.flash(yakuman ? '#ffffff' : '#fff6d0', yakuman ? 420 : 240, yakuman ? 0.95 : 0.5);
+        this.fx.burst(p.x, p.y, { count: yakuman ? 70 : 30, colors: yakuman ? ['#ff6b6b', '#ffd93d', '#6bff95', '#6bc8ff', '#c86bff', '#fff'] : ['#fff', '#ffe58a', '#ffc94d'], speed: yakuman ? 7 : 4.5 });
+        tile.classList.add('landed');
+        if (dark) dark.classList.add('out');
+        // 手は もどって いく（牌は 雷が おちるまで のこす）
+        anim(hand, [{ transform: 'translateY(0) rotate(-80deg)', opacity: .78 }, { transform: `translateY(${H * 0.6}px) rotate(-80deg)`, opacity: 0 }], 420, { easing: 'ease-in' });
+        await this.sleep(yakuman ? 500 : 250);
     }
 
     /** あがった 人の アイコンを 大きく 出す（雷の まえ） */
@@ -1268,9 +1364,14 @@ export class GameView {
             const from = w.from !== null ? `<small>${esc(this.players[w.from].name)} から</small>` : '';
             return `<div class="wi-one"><div class="wi-ring"><img src="${pl.avatar}" alt=""></div><b class="wi-name">${esc(pl.name)}</b><div class="bigtext-static bt-${tsumo ? 'tsumo' : 'ron'} lv${levels[i]}"><span>${tsumo ? 'ツモ' : 'ロン'}</span></div>${from}</div>`;
         }).join('');
-        // 雷の おちる 場所と かさならない ように、上か 下に よせる
+        // 雷の おちる 場所と かさならない ように、上か 下に よせる（横向きは 卓の 左の あいた ところ）
         const h = window.innerHeight;
-        el.style.top = (tgt.y > h * 0.45 ? h * 0.24 : h * 0.62) + 'px';
+        if (this.root.classList.contains('landscape')) {
+            const t = this.$('.g-table').getBoundingClientRect();
+            el.classList.add('side');
+            el.style.top = (h * 0.45) + 'px';
+            el.style.left = Math.max(80, t.left / 2) + 'px';
+        } else el.style.top = (tgt.y > h * 0.45 ? h * 0.24 : h * 0.62) + 'px';
         this.fx.text.appendChild(el);
         this.later(() => el.classList.add('out'), 2100 + Math.max(...levels) * 250);
         this.later(() => el.remove(), 2500 + Math.max(...levels) * 250);
@@ -1375,7 +1476,8 @@ export class GameView {
     }
 
     resultTw(n) {
-        const W = Math.min(window.innerWidth * 0.96, 560) - 48;
+        // 横向きは 結果を 左右 2列に するので、手牌の 列は はばの 半分
+        const W = this.root.classList.contains('landscape') ? Math.min(window.innerWidth * 0.96, 920) / 2 - 40 : Math.min(window.innerWidth * 0.96, 560) - 48;
         return Math.max(14, Math.min(34, Math.floor(W / (n + 0.6))));
     }
 
@@ -1530,6 +1632,7 @@ export class GameView {
 <div class="mn-btns">
   <button class="btn" data-mn="close">${icon('play')} つづける</button>
   <button class="btn" data-mn="voice">${st.voice ? 'こえ：あり' : 'こえ：なし'}</button>
+  <button class="btn" data-mn="vibe">${st.vibe ? 'バイブ：あり' : 'バイブ：なし'}</button>
   <button class="btn" data-mn="fx">${st.fx === 'full' ? '演出：はでに' : '演出：ひかえめ'}</button>
   <button class="btn" data-mn="waits">${st.showWaits ? '待ちの 表示：あり' : '待ちの 表示：なし'}</button>
   <button class="btn" data-mn="hint">${st.hint ? 'おすすめ牌：あり' : 'おすすめ牌：なし'}</button>
@@ -1553,6 +1656,7 @@ export class GameView {
                 return;
             }
             if (k === 'voice') st.voice = !st.voice;
+            if (k === 'vibe') { st.vibe = !st.vibe; if (st.vibe) buzz('call'); }
             if (k === 'fx') st.fx = st.fx === 'full' ? 'lite' : 'full';
             if (k === 'waits') st.showWaits = !st.showWaits;
             if (k === 'hint') st.hint = !st.hint;
