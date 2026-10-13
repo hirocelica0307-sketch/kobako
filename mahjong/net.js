@@ -131,7 +131,15 @@ async function firebaseBackend() {
                 }
             });
         },
-        cancelPresence(p) { return fb.onDisconnect(r(p)).cancel().catch(() => {}); }
+        cancelPresence(p) { return fb.onDisconnect(r(p)).cancel().catch(() => {}); },
+        /** 値つきの 「いる」しるし（切れたら 消える。つながりなおしたら また 書く） */
+        async presenceValue(p, get) {
+            await fb.onDisconnect(r(p)).remove();
+            await fb.set(r(p), get());
+            fb.onValue(r('.info/connected'), s => {
+                if (s.val() === true) { fb.onDisconnect(r(p)).remove(); fb.set(r(p), get()).catch(() => {}); }
+            });
+        }
     };
 }
 
@@ -215,7 +223,8 @@ async function fakeBackend() {
             return () => listeners.delete(f);
         },
         async presence(p) { presenceKeys.push(p); await this.set(p, true); },
-        async cancelPresence(p) { /* むし */ }
+        async cancelPresence(p) { /* むし */ },
+        async presenceValue(p, get) { presenceKeys.push(p); await this.set(p, get()); }
     };
 }
 
@@ -236,6 +245,7 @@ export async function createRoom(name, rules, level, char = 'shiba') {
 async function createRoomInner(name, rules, level, char) {
     const db = await connect();
     const me = memberId();
+    const fid = friendId();
     for (let attempt = 0; attempt < 12; attempt++) {
         const code = String(1000 + Math.floor(Math.random() * 9000));
         const old = await db.get(`${roomPath(code)}/meta`);
@@ -243,7 +253,7 @@ async function createRoomInner(name, rules, level, char) {
         if (old) await db.remove(roomPath(code)).catch(() => {});
         const res = await db.transact(`${roomPath(code)}/meta`, cur => {
             if (cur && db.now() - (cur.t || 0) < ROOM_STALE) return undefined;
-            return { host: me, hostName: name, hostChar: char, guest: '', guestName: '', guestChar: '', t: db.now(), rules, level, status: 'wait', game: 0, seed: '' };
+            return { host: me, hostName: name, hostChar: char, hostFid: fid, guest: '', guestName: '', guestChar: '', guestFid: '', t: db.now(), rules, level, status: 'wait', game: 0, seed: '' };
         });
         if (res.committed) {
             await db.presence(`${roomPath(code)}/online/host`);
@@ -279,7 +289,7 @@ async function joinRoomInner(code, name, char) {
     const res = await db.transact(`${roomPath(code)}/meta`, cur => {
         if (cur === null) return null;
         if (cur.guest && cur.guest !== me) { why = 'その 部屋は もう いっぱいです'; return undefined; }
-        return { ...cur, guest: me, guestName: name, guestChar: char, t: db.now() };
+        return { ...cur, guest: me, guestName: name, guestChar: char, guestFid: friendId(), t: db.now() };
     });
     if (!res.committed || !res.value || res.value.guest !== me) throw new Error(why || '部屋に 入れませんでした。もう一度 ためしてください');
     await db.presence(`${roomPath(code)}/online/guest`);
@@ -384,4 +394,60 @@ export async function sendReady(code, game, hand) {
 export async function watchReady(code, game, cb) {
     const db = await connect();
     return db.watch(`${roomPath(code)}/ready/${game}`, v => cb(v || {}));
+}
+
+/* ── なかま（いっしょに 部屋に 入った ことの ある 人）─────────────
+   この 端末の「なかまID」は ずっと かわらない（localStorage）。部屋の meta に hostFid / guestFid を 書き、
+   同じ 部屋に 入った 2人は おたがいを なかまに する（app.js）。
+   2人だけの 通り道：rooms/{4けた}/nami/{なかまID_なかまID}/（4けたは 2人の IDから きめる。
+   rooms/{4けた} は どの 版の Firebase ルールでも 書ける 場所。ほかの アプリは きまった 名まえ だけ さわるので ぶつからない）
+     on/{なかまID}  アプリを ひらいて いる しるし（名まえ・キャラ・対局中か）。アプリを とじると 消える
+     inv            さそい（だれから・合言葉・時刻・ask / yes / no / cancel）
+   なかまでない 人には 通り道が わからないので、知らない 人には 見えません。 */
+const profile = (location.search.match(/[?&]profile=([a-z0-9]+)/) || [])[1] || '';   // ためす とき 用（タブごとに べつの 人）
+export function friendId() {
+    const key = 'nami_fid' + (profile ? '_' + profile : '');
+    let id = null;
+    try { id = localStorage.getItem(key); } catch (e) { /* むし */ }
+    if (!id) {
+        id = 'f' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+        try { localStorage.setItem(key, id); } catch (e) { /* むし */ }
+    }
+    return id;
+}
+const pairKey = (a, b) => [a, b].sort().join('_');
+function bucketOf(key) {
+    let h = 2166136261;
+    for (const ch of key) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+    return String(1000 + (h % 9000));
+}
+const chanOf = (me, f) => { const k = pairKey(me, f); return `rooms/${bucketOf(k)}/nami/${k}`; };
+
+/** なかまに「いま ひらいて いる」と しらせる（get は いまの ようすを かえす 関数） */
+export async function announce(friends, get) {
+    const db = await connect();
+    const me = friendId();
+    for (const f of friends) await db.presenceValue(`${chanOf(me, f)}/on/${me}`, get).catch(() => {});
+}
+export async function updateAnnounce(friends, value) {
+    const db = await connect();
+    const me = friendId();
+    for (const f of friends) await db.set(`${chanOf(me, f)}/on/${me}`, value).catch(() => {});
+}
+export async function watchFriend(f, cb) {
+    const db = await connect();
+    return db.watch(`${chanOf(friendId(), f)}/on/${f}`, v => cb(v || null));
+}
+export async function sendInvite(f, data) {
+    const db = await connect();
+    const me = friendId();
+    await db.set(`${chanOf(me, f)}/inv`, { ...data, from: me, t: db.now(), st: 'ask' });
+}
+export async function watchInvite(f, cb) {
+    const db = await connect();
+    return db.watch(`${chanOf(friendId(), f)}/inv`, v => cb(v || null, db.now()));
+}
+export async function answerInvite(f, st) {
+    const db = await connect();
+    await db.update(`${chanOf(friendId(), f)}/inv`, { st }).catch(() => {});
 }

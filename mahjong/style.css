@@ -769,3 +769,29 @@ img[src*="assets/avatars/"] { padding: 0 !important; }
 .yl-gt { display: flex; }
 .yl-gt .t { --tw: 22px; }
 .yl-grp small { font-size: 10.5px; color: var(--muted); }
+
+/* ── なかま・さそい ── */
+.fr-box { margin: 10px auto 12px; max-width: 520px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; text-align: left; }
+.fr-box h3 { margin: 0 0 6px; font-size: 15px; color: var(--gold); }
+.fr-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid rgba(255,255,255,.06); }
+.fr-row:first-of-type { border-top: 0; }
+.fr-row img { width: 40px; height: 40px; border-radius: 50%; background: #f6e7c8; padding: 2px; flex: none; opacity: .55; }
+.fr-row.on img { opacity: 1; box-shadow: 0 0 0 2px #7dff9a; }
+.fr-txt { flex: 1; min-width: 0; }
+.fr-txt b { display: block; font-size: 15px; }
+.fr-txt small { color: var(--muted); font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
+.fr-row.on .fr-txt small { color: #b8f5c9; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #3ddc6b; box-shadow: 0 0 6px #3ddc6b; display: inline-block; }
+.dot.busy { background: #ffb347; box-shadow: 0 0 6px #ffb347; }
+.fr-inv { padding: 8px 14px; font-size: 14px; flex: none; }
+.inv-pop { position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; padding: 16px; animation: inv-in .25s ease-out; }
+@keyframes inv-in { from { opacity: 0; } }
+.inv-card { background: #fffbea; color: #2b2a22; border-radius: 18px; padding: 18px 18px 14px; width: min(92vw, 360px); text-align: center; box-shadow: 0 12px 40px rgba(0,0,0,.5); border: 3px solid #ffd257; animation: inv-pop .4s cubic-bezier(.2, 1.5, .4, 1); }
+@keyframes inv-pop { from { transform: scale(.7); } }
+.inv-card img { width: 76px; height: 76px; border-radius: 50%; background: #f6e7c8; padding: 3px; box-shadow: 0 0 0 3px #ffd257; }
+.inv-card p { margin: 8px 0; font-size: 16px; line-height: 1.5; }
+.inv-card .inv-q { font-weight: 800; color: #1d5b3a; }
+.inv-btns { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; margin-top: 8px; }
+.inv-btns .btn { color: #fff; }
+.inv-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 101; background: rgba(8, 22, 14, .96); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 14px; font-size: 14px; width: min(92vw, 420px); text-align: center; }
+.inv-wait { background: rgba(255, 210, 87, .1); border: 1px solid rgba(255, 210, 87, .4); border-radius: 12px; padding: 8px 10px; font-size: 13.5px; }

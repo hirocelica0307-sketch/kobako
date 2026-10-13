@@ -2,7 +2,9 @@
    ------------------------------------------------------------------ */
 import { DEFAULT_RULES } from './engine.js';
 
-const KEY = 'raimei-mahjong.v1';
+// ?profile=x は ためす とき 用（同じ ブラウザの タブごとに べつの 人に する）
+const PROFILE = (typeof location !== 'undefined' && (location.search.match(/[?&]profile=([a-z0-9]+)/) || [])[1]) || '';
+const KEY = 'raimei-mahjong.v1' + (PROFILE ? '.' + PROFILE : '');
 
 export const SETTINGS_DEFAULTS = {
     sound: true,          // 効果音
@@ -44,6 +46,7 @@ data.record = data.record || {};       // { 'lv1': { games, ranks:[1位,2位,3�
 data.name = data.name || '';
 data.level = data.level || 2;
 data.char = data.char || 'shiba';   // 自分の キャラクター（chars.js）
+data.friends = data.friends || {};   // なかま（いっしょに 部屋に 入った 人）{ なかまID: { name, char, t } }
 
 export function save() {
     try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* むし */ }

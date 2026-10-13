@@ -15,6 +15,7 @@ import { CHARS, GROUPS, charById, charImg } from './chars.js';
 import { renderKeisan } from './keisan.js';
 import { renderDrill, resetDrillView } from './drill.js';
 import { renderYaku, resetYakuView } from './yaku-player.js';
+import { startFriends, setHandlers, addFriend, setBusy, friendsHTML, bindFriends, onFriendsChange, sentInvite, cancelInvite, toast } from './friends.js';
 
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -90,6 +91,7 @@ function renderHome(root) {
 <div class="title-deco">${deco}</div>
 <h1 class="title"><span class="t1">なみ</span><span class="t2">麻雀</span></h1>
 <p class="subtitle">${icon('lightning')} ロン！ツモ！ 雷が おちる 4人麻雀</p>
+${Object.keys(store.friends || {}).length ? `<div class="fr-wrap">${friendsHTML()}</div>` : ''}
 <div class="home-btns">
   ${saved ? `<button class="btn primary big" data-rejoin>合言葉 ${esc(saved.code)} の 部屋に もどる</button>` : ''}
   <button class="btn big primary" data-go="cpu">${icon('robot')}<span>コンピューターと 対戦<small>つよさ 3段階</small></span></button>
@@ -103,8 +105,10 @@ function renderHome(root) {
     <button class="btn" data-go="settings">${icon('speaker-high')}設定</button>
   </div>
 </div>
+${Object.keys(store.friends || {}).length ? '' : `<div class="fr-wrap">${friendsHTML()}</div>`}
 ${recHTML}
 </div>`;
+    bindFriends(root, e => toast(esc(e.message || 'さそえませんでした')));
     const rj = root.querySelector('[data-rejoin]');
     if (rj) rj.addEventListener('click', () => { sfx.button(); rejoinRoom(saved); });
 }
@@ -238,6 +242,7 @@ function renderOnline(root) {
 ${back()}
 <h2>友だちと 対戦</h2>
 <p class="note">あなたと ともだち、それに コンピューター 2人の 4人で 打ちます。座席は ランダムです。</p>
+<div class="fr-wrap">${friendsHTML()}</div>
 <h3>名まえ</h3>
 <input class="name-in" maxlength="8" placeholder="あなた" value="${esc(store.name)}">
 <h3>あなたの キャラクター</h3>
@@ -265,6 +270,7 @@ ${charPicker()}
 </div>`;
     bindSeg(root);
     bindCharPicker(root);
+    bindFriends(root, e => toast(esc(e.message || 'さそえませんでした')));
     root.querySelector('[data-lv]').addEventListener('click', e => {
         const b = e.target.closest('button'); if (!b) return;
         store.level = Number(b.dataset.v); save();
@@ -321,6 +327,13 @@ function watchRoom() {
         }
         const prev = online.meta;
         online.meta = meta;
+        setBusy(true);
+        // 同じ 部屋に 入った 人は なかまに なる
+        if (meta.hostFid && meta.guestFid) {
+            if (online.role === 'host') addFriend(meta.guestFid, meta.guestName, meta.guestChar);
+            else addFriend(meta.hostFid, meta.hostName, meta.hostChar);
+        }
+        autoStartIfInvited();
         if (current === 'online') renderRoom($('#s-online'));
         // 対局 開始／もう一度（status が 'play' の ときだけ。おわった 対局 'done' は はじめない）
         if (meta.status === 'play' && meta.seed && online.gameNo !== meta.game) {
@@ -333,9 +346,20 @@ function watchRoom() {
     }).then(f => online.unsub.push(f));
     net.watchOnline(online.code, on => {
         online.onlineState = on;
+        autoStartIfInvited();
         updatePeerBanner();
         if (current === 'online') renderRoom($('#s-online'));
     }).then(f => online.unsub.push(f));
+}
+
+/** さそって つくった 部屋は、ともだちが 入ったら すぐに 対局を はじめる（ホスト） */
+function autoStartIfInvited() {
+    const m = online.meta, on = online.onlineState || {};
+    if (online.role !== 'host' || !m || !m.inv || online.autoStarted) return;
+    if (m.status !== 'wait' || !m.guest || !on.guest) return;
+    online.autoStarted = true;
+    const code = online.code;
+    setTimeout(() => { if (online.code === code) net.startMatch(code, 1).catch(() => {}); }, 900);
 }
 
 function renderRoom(root) {
@@ -346,7 +370,8 @@ function renderRoom(root) {
     root.innerHTML = `<div class="page room">
 <button class="back" data-leave>${icon('sign-out')}<span>部屋を 出る</span></button>
 <h2>部屋</h2>
-<div class="pass"><small>合言葉</small><b>${esc(online.code)}</b>${host ? '<span>ともだちに つたえてください</span>' : ''}</div>
+<div class="pass"><small>合言葉</small><b>${esc(online.code)}</b>${host ? (m && m.inv ? '' : '<span>ともだちに つたえてください</span>') : ''}</div>
+${host && m && m.inv && !guestIn ? `<p class="inv-wait">${esc(sentName())}さんを さそいました。へんじを まって います…（入ったら すぐに はじまります）</p>` : ''}
 <div class="members">
   <div class="mem"><img src="${charImg(m && m.hostChar ? m.hostChar : store.char)}" alt=""><b>${esc(m ? m.hostName : store.name || 'あなた')}</b><small>ホスト${on.host ? '' : '（つながっていない）'}</small></div>
   <div class="mem ${guestIn ? '' : 'empty'}"><img src="${guestIn ? charImg(m.guestChar || 'rabbit') : charImg('mouse')}" alt=""><b>${guestIn ? esc(m.guestName) : 'まっています…'}</b><small>${guestIn ? (on.guest ? 'ゲスト' : 'ゲスト（つながっていない）') : ''}</small></div>
@@ -372,8 +397,16 @@ ${m && m.status === 'play' && !online.inGame ? '<button class="btn primary big b
     if (bg) bg.addEventListener('click', () => { sfx.button(); startOnlineGame(online.meta); });
 }
 
+function sentName() {
+    const s = sentInvite();
+    return s && store.friends[s.fid] ? store.friends[s.fid].name : 'ともだち';
+}
+
 async function exitRoom(notify) {
     const { code, role } = online;
+    if (role === 'host') cancelInvite();
+    online.autoStarted = false;
+    setBusy(false);
     cleanupOnline();
     cleanupGameListeners();
     online.code = ''; online.role = ''; online.meta = null; online.gameNo = -1; online.inGame = false;
@@ -561,5 +594,34 @@ const RENDER = { home: renderHome, cpu: renderCpu, online: renderOnline, rules: 
 
 // ためす とき 用（?debug）
 if (/[?&]debug\b/.test(location.search)) window.__mj = { get view() { return view; }, startCpuGame };
+
+/* なかま：さそう（部屋を つくる）／さそわれて 入る */
+setHandlers({
+    async createRoom() {
+        if (online.code) await exitRoom(true);
+        const c = await net.createRoom(store.name || 'あなた', store.rules, store.level, charById(store.char).id);
+        online.code = c; online.role = 'host'; online.meta = null; online.autoStarted = false;
+        await net.updateMeta(c, { inv: true });
+        watchRoom();
+        show('online');
+        return c;
+    },
+    async joinRoom(code) {
+        if (online.code) await exitRoom(true);
+        if (current === 'game') show('home');     // コンピューターとの 対局は おわりに する
+        const meta = await net.joinRoom(code, store.name || 'あなた', charById(store.char).id);
+        online.code = code; online.role = 'guest'; online.meta = meta;
+        watchRoom();
+        show('online');
+    }
+});
+onFriendsChange(() => {
+    if (current === 'home' || (current === 'online' && !online.code)) {
+        const root = $('#s-' + current);
+        const box = root && root.querySelector('.fr-wrap');
+        if (box) { box.innerHTML = friendsHTML(); bindFriends(box, e => toast(esc(e.message || 'さそえませんでした'))); }
+    }
+});
+startFriends();
 
 show((location.hash.slice(1) || 'home').replace('game', 'home'), false);
