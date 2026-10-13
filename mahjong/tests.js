@@ -11,6 +11,7 @@ import { ukeire } from './hand.js';
 import { DRILL } from './drill-data.js';
 import * as CK from './drill/check.js';
 import { countsOf, agariOf, tableItems } from './drill/agari.js';
+import { LESSONS, replay, finalCtx } from './yaku-lessons.js';
 
 /** '123m456p789s11z' → 牌の id（同じ 種類は 0,1,2,3 ばんめの 牌を じゅんに つかう。0 は 赤5） */
 export function P(str) {
@@ -414,6 +415,31 @@ export function runTests({ quick = false } = {}) {
         // 同じ 問題が ない
         const dup = Object.entries(DRILL).filter(([, v]) => new Set(v.map(x => JSON.stringify(x))).size !== v.length).map(([k]) => k);
         t('麻雀ドリル：同じ 問題が 2回 入って いない', !dup.length, dup.join(','));
+    }
+
+    /* ── 役を おぼえる：お手本の 手が ルールどおりに すすみ、あがりで その 役が つく ── */
+    {
+        const bad = [];
+        for (const L of LESSONS) {
+            try {
+                const r = replay(L);
+                if (L.special) continue;
+                if (!r.final) { bad.push(L.id + ':あがり なし'); continue; }
+                // 牌の 数（同じ 牌は 4枚まで）
+                const cnt = new Array(34).fill(0);
+                for (const k of r.final.closed) cnt[k]++;
+                for (const m of r.final.melds) for (const k of m.kinds) cnt[k]++;
+                if (cnt.some(n => n > 4)) { bad.push(L.id + ':5枚'); continue; }
+                // あがる まえは テンパイ
+                const before = r.final.closed.slice(); before.splice(before.indexOf(r.final.win), 1);
+                const bc = new Array(34).fill(0); for (const k of before) bc[k]++;
+                if (shanten(bc, r.final.melds.length) !== 0) { bad.push(L.id + ':テンパイで ない'); continue; }
+                const res = evaluateWin(finalCtx(r.final, DEFAULT_RULES));
+                const names = res ? res.yaku.map(y => y.name) : [];
+                if (!res || !L.expect.every(e => (Array.isArray(e) ? e.some(x => names.includes(x)) : names.includes(e)))) bad.push(`${L.id}:${names.join('/')}`);
+            } catch (e) { bad.push(L.id + ':' + e.message); }
+        }
+        t('役を おぼえる：お手本 ' + LESSONS.length + 'こ ぜんぶ、あがりで その 役が つく', !bad.length, bad.join(' '));
     }
     return rows;
 }
