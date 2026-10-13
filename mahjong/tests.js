@@ -7,6 +7,10 @@ import { evaluateWin, basePoints, ceil100 } from './score.js';
 import { Mahjong, DEFAULT_RULES, makeRng } from './engine.js';
 import { decide } from './ai.js';
 import { pointsLabel } from './calc.js';
+import { ukeire } from './hand.js';
+import { DRILL } from './drill-data.js';
+import * as CK from './drill/check.js';
+import { countsOf, agariOf, tableItems } from './drill/agari.js';
 
 /** '123m456p789s11z' → 牌の id（同じ 種類は 0,1,2,3 ばんめの 牌を じゅんに つかう。0 は 赤5） */
 export function P(str) {
@@ -336,6 +340,80 @@ export function runTests({ quick = false } = {}) {
         };
         const r3 = avgRank(3, 1), r2 = avgRank(2, 1);
         t('つよさ：level 3 の 平均順位（相手 level 1）が 2.5 より よい', r3 < 2.5, `level3 ${r3.toFixed(2)} / level2 ${r2.toFixed(2)}`);
+    }
+
+    /* ── 麻雀ドリル：ぜんぶの 問題の こたえを エンジンと べつの 計算の 2とおりで たしかめる ── */
+    {
+        const bad = {};
+        const ng = (cat, i, why) => { (bad[cat] = bad[cat] || []).push(`${i}:${why}`); };
+        // 何切る：エンジン（ukeire）と check.js で 1位の 打牌が こたえと 同じ・2位と 2枚 以上 差
+        for (const cat of ['nk1', 'nk2', 'nk3', 'nk4']) DRILL[cat].forEach(([hs, ans], i) => {
+            const c = countsOf(hs);
+            if (c.reduce((a, b) => a + b, 0) !== 14) return ng(cat, i, '14枚でない');
+            const er = [];
+            for (let d = 0; d < 34; d++) if (c[d]) { const cc = c.slice(); cc[d]--; const u = ukeire(cc, 0, c); er.push({ d, s: u.shanten, total: u.total }); }
+            const cr = CK.discardTable(c);
+            const top = rows => { const m = Math.min(...rows.map(r => r.s)); return rows.filter(r => r.s === m).sort((a, b) => b.total - a.total); };
+            const e = top(er), k = top(cr);
+            if (e[0].d !== ans || k[0].d !== ans) ng(cat, i, 'こたえ');
+            if (e.length < 2 || e[0].total - e[1].total < 2) ng(cat, i, '差');
+        });
+        // 待ち
+        for (const cat of ['wt1', 'wt2']) DRILL[cat].forEach(([hs, w, ds], i) => {
+            const c = countsOf(hs);
+            const e = waits(c.slice(), 0).filter(k => c[k] < 4), k = CK.waitsOf(c.slice(), 0);
+            if (e.join() !== w.join() || k.join() !== w.join()) ng(cat, i, '待ち');
+            if (ds.some(d => d.join() === w.join()) || new Set(ds.map(d => d.join())).size !== 3) ng(cat, i, 'えらび');
+        });
+        // シャンテン数
+        DRILL.sh.forEach(([hs, n], i) => { const c = countsOf(hs); if (shanten(c.slice(), 0) !== n || CK.shanten(c.slice()) !== n) ng('sh', i, 'シャンテン'); });
+        // 符：画面と 同じ 入力で エンジン → 符、check.js の 読みかた ぜんぶ → 同じ 符
+        DRILL.fu.forEach((q, i) => {
+            const a = agariOf(q);
+            if (!a.result || a.result.fu !== q.f) return ng('fu', i, 'エンジン');
+            const c = countsOf(q.c);
+            const h = { closed: c, win: q.w, melds: q.m.map(([type, k]) => ({ type, k })), tsumo: !!q.t, seat: q.s, round: q.r };
+            if (CK.isChiitoiShape(c)) { if (q.f !== 25) ng('fu', i, '七対子'); return; }
+            const fs = new Set(CK.readings(h).map(r => CK.fuOf(h, r).fu));
+            if (fs.size !== 1 || !fs.has(q.f)) ng('fu', i, 'check');
+        });
+        // 点数：エンジン（翻・符・点数）／check.js（役と 翻・符）／早見表（点数）が ぜんぶ 一致
+        DRILL.pt.forEach((q, i) => {
+            const a = agariOf(q);
+            const r = a.result;
+            const dealer = q.s === 0;
+            if (!r || r.han !== q.h || r.fu !== q.f) return ng('pt', i, 'エンジン');
+            const label = pointsLabel(r.base, dealer, !!q.t);
+            if (label !== q.l) ng('pt', i, '点数');
+            if (CK.refLabel(q.h, q.f, dealer, !!q.t) !== q.l) ng('pt', i, '早見表');
+            const c = countsOf(q.c);
+            const h = { closed: c, win: q.w, melds: q.m.map(([type, k]) => ({ type, k })), tsumo: !!q.t, seat: q.s, round: q.r, riichi: !!q.q };
+            const rd = CK.readings(h);
+            if (rd.length !== 1) return ng('pt', i, '読みかた');
+            const sy = CK.simpleYaku(h, rd[0]);
+            const all = c.slice(); for (const [type, k] of q.m) { if (type === 'chi') { all[k]++; all[k + 1]++; all[k + 2]++; } else all[k] += type === 'pon' ? 3 : 4; }
+            const dora = q.d.reduce((s, ind) => s + all[doraFromIndicator(ind)], 0);
+            const aka = (q.c.match(/0/g) || []).length;
+            if (!sy || sy.han + dora + aka !== q.h || CK.fuOf(h, rd[0]).fu !== q.f) ng('pt', i, 'check');
+        });
+        // 早見表の 問題：エンジンの 点数 と 手で 書いた 表
+        tableItems().forEach((x, i) => {
+            const lab = pointsLabel(basePoints(x.han, x.fu, 0, DEFAULT_RULES), x.dealer, x.tsumo);
+            if (lab !== CK.refLabel(x.han, x.fu, x.dealer, x.tsumo)) ng('tb', i, `${x.fu}符${x.han}翻 ${lab}`);
+        });
+        // 現物・スジ
+        DRILL.gb.forEach((q, i) => { const c = countsOf(q.h); const s1 = [...new Set(q.v)].filter(k => c[k]); if (s1.length !== 1 || s1[0] !== q.a) ng('gb', i, '現物'); });
+        DRILL.sj.forEach((q, i) => {
+            const suji = k => { if (k >= 27 || q.v.includes(k)) return false; const n = k % 9, b = k - n; const has = x => q.v.includes(b + x); return n <= 2 ? has(n + 3) : n >= 6 ? has(n - 3) : has(n - 3) && has(n + 3); };
+            if (!suji(q.a) || q.c.filter(suji).length !== 1 || !q.c.includes(q.a)) ng('sj', i, 'スジ');
+        });
+        const counts = Object.fromEntries(Object.entries(DRILL).map(([k, v]) => [k, v.length]));
+        counts.tb = tableItems().length;
+        const total = Object.values(counts).reduce((a, b) => a + b, 0);
+        t('麻雀ドリル：ぜんぶの 問題の こたえが 2とおりの 計算で 一致', !Object.keys(bad).length, Object.keys(bad).length ? JSON.stringify(bad).slice(0, 400) : `${total}問 ${JSON.stringify(counts)}`);
+        // 同じ 問題が ない
+        const dup = Object.entries(DRILL).filter(([, v]) => new Set(v.map(x => JSON.stringify(x))).size !== v.length).map(([k]) => k);
+        t('麻雀ドリル：同じ 問題が 2回 入って いない', !dup.length, dup.join(','));
     }
     return rows;
 }
