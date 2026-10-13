@@ -13,6 +13,7 @@ import { tileImage } from './tiles.js';
 import * as net from './net.js';
 import { CHARS, GROUPS, charById, charImg } from './chars.js';
 import { renderKeisan } from './keisan.js';
+import { renderDrill, resetDrillView } from './drill.js';
 
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -41,12 +42,13 @@ let current = '';
 
 /* ── 画面の きりかえ（スマホの「もどる」でも もどれる ように #で きりかえる） ── */
 
-const SCREENS = ['home', 'cpu', 'online', 'rules', 'yakuref', 'keisan', 'settings', 'game'];
+const SCREENS = ['home', 'cpu', 'online', 'rules', 'yakuref', 'keisan', 'drill', 'settings', 'game'];
 
 function show(name, push = true) {
     if (!SCREENS.includes(name)) name = 'home';
     if (name === 'game' && !view) name = 'home';
     if (current === 'game' && name !== 'game' && view) { view.dispose(); view = null; leaveOnlineGame(); }
+    if (name !== 'drill') resetDrillView();
     current = name;
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + name));
     document.body.classList.toggle('in-game', name === 'game');
@@ -91,6 +93,7 @@ function renderHome(root) {
   <button class="btn big primary" data-go="cpu">${icon('robot')}<span>コンピューターと 対戦<small>つよさ 3段階</small></span></button>
   <button class="btn big" data-go="online">${icon('users-three')}<span>友だちと 対戦<small>合言葉で 部屋に 入る（2人＋コンピューター2人）</small></span></button>
   <button class="btn big" data-go="keisan">${icon('lightbulb')}<span>点数計算を おぼえる<small>やりかた・練習問題・早見表</small></span></button>
+  <button class="btn big" data-go="drill">${icon('book-open-text')}<span>麻雀ドリル<small>何切る・何待ち・何符・何点・リーチへの まもり（1900問 いじょう）</small></span></button>
   <div class="home-row">
     <button class="btn" data-go="rules">${icon('gear-six')}ルール</button>
     <button class="btn" data-go="yakuref">${icon('book-open-text')}役の 一覧</button>
@@ -577,7 +580,7 @@ ${item('showPoints', 'テンパイの とき あがりの 点数を 出す', [[t
     });
 }
 
-const RENDER = { home: renderHome, cpu: renderCpu, online: renderOnline, rules: renderRules, yakuref: renderYakuref, keisan: root => renderKeisan(root, back()), settings: renderSettings };
+const RENDER = { home: renderHome, cpu: renderCpu, online: renderOnline, rules: renderRules, yakuref: renderYakuref, keisan: root => renderKeisan(root, back()), drill: root => renderDrill(root, back()), settings: renderSettings };
 
 // ためす とき 用（?debug）
 if (/[?&]debug\b/.test(location.search)) window.__mj = { get view() { return view; }, startCpuGame };
