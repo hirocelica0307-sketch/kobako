@@ -14,6 +14,7 @@ import * as net from './net.js';
 import { CHARS, GROUPS, charById, charImg } from './chars.js';
 import { renderKeisan } from './keisan.js';
 import { renderDrill, resetDrillView } from './drill.js';
+import { renderYaku, resetYakuView } from './yaku-player.js';
 
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -49,6 +50,7 @@ function show(name, push = true) {
     if (name === 'game' && !view) name = 'home';
     if (current === 'game' && name !== 'game' && view) { view.dispose(); view = null; leaveOnlineGame(); }
     if (name !== 'drill') resetDrillView();
+    if (name !== 'yakuref') resetYakuView();
     current = name;
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + name));
     document.body.classList.toggle('in-game', name === 'game');
@@ -93,6 +95,7 @@ function renderHome(root) {
   <button class="btn big primary" data-go="cpu">${icon('robot')}<span>コンピューターと 対戦<small>つよさ 3段階</small></span></button>
   <button class="btn big" data-go="online">${icon('users-three')}<span>友だちと 対戦<small>合言葉で 部屋に 入る（2人＋コンピューター2人）</small></span></button>
   <button class="btn big" data-go="keisan">${icon('lightbulb')}<span>点数計算を おぼえる<small>やりかた・練習問題・早見表</small></span></button>
+  <button class="btn big" data-go="yakuref">${icon('play')}<span>役を おぼえる<small>ぜんぶの 役を お手本の 動画と 妖精の 説明・クイズで</small></span></button>
   <button class="btn big" data-go="drill">${icon('book-open-text')}<span>麻雀ドリル<small>何切る・何待ち・何符・何点・リーチへの まもり（1900問 いじょう）</small></span></button>
   <div class="home-row">
     <button class="btn" data-go="rules">${icon('gear-six')}ルール</button>
@@ -510,32 +513,6 @@ ${back()}
 
 /* ── 役の 一覧 ───────────────────────────── */
 
-const YAKU_LIST = [
-    ['1翻', [['立直', 'リーチ', '門前で テンパイして 宣言（1000点）'], ['一発', 'イッパツ', 'リーチ後 1巡以内に あがる'], ['門前清自摸和', 'メンゼンツモ', '鳴かずに ツモで あがる'],
-        ['平和', 'ピンフ', '門前・4面子が 順子・雀頭が 役牌で ない・両面待ち'], ['断么九', 'タンヤオ', '2〜8の 数牌だけ'], ['一盃口', 'イーペーコー', '門前で 同じ 順子 2つ'],
-        ['役牌', 'ヤクハイ', '白・發・中・場風・自風の 刻子'], ['嶺上開花', 'リンシャンカイホー', 'カンの あとの 嶺上牌で ツモ'], ['槍槓', 'チャンカン', '加槓した 牌で ロン'],
-        ['海底摸月', 'ハイテイ', 'さいごの 牌で ツモ'], ['河底撈魚', 'ホーテイ', 'さいごの 捨て牌で ロン']]],
-    ['2翻', [['ダブル立直', 'ダブルリーチ', '第1巡で リーチ'], ['七対子', 'チートイツ', '対子 7つ（25符）'], ['三色同順', 'サンショク', '萬・筒・索で 同じ 数の 順子（鳴き 1翻）'],
-        ['一気通貫', 'イッツー', '同じ 色で 123・456・789（鳴き 1翻）'], ['混全帯么九', 'チャンタ', 'すべての 面子と 雀頭に 么九牌（鳴き 1翻）'], ['対々和', 'トイトイ', '4面子が ぜんぶ 刻子'],
-        ['三暗刻', 'サンアンコー', '暗刻 3つ'], ['三色同刻', 'サンショクドーコー', '3色で 同じ 数の 刻子'], ['三槓子', 'サンカンツ', 'カン 3つ'], ['小三元', 'ショーサンゲン', '三元牌の 刻子 2つ＋雀頭'],
-        ['混老頭', 'ホンロートー', '么九牌だけ']]],
-    ['3翻', [['二盃口', 'リャンペーコー', '一盃口 2つ'], ['純全帯么九', 'ジュンチャン', 'すべてに 1・9（字牌なし。鳴き 2翻）'], ['混一色', 'ホンイツ', '1色＋字牌（鳴き 2翻）']]],
-    ['6翻', [['清一色', 'チンイツ', '1色だけ（鳴き 5翻）']]],
-    ['役満', [['国士無双', 'コクシムソウ', '么九牌 13種 ぜんぶ＋どれか 1つ'], ['四暗刻', 'スーアンコー', '暗刻 4つ'], ['大三元', 'ダイサンゲン', '白・發・中の 刻子'],
-        ['小四喜', 'ショースーシー', '風牌の 刻子 3つ＋雀頭'], ['大四喜', 'ダイスーシー', '風牌の 刻子 4つ'], ['字一色', 'ツーイーソー', '字牌だけ'], ['緑一色', 'リューイーソー', '2・3・4・6・8索と 發だけ'],
-        ['清老頭', 'チンロートー', '1・9の 数牌だけ'], ['九蓮宝燈', 'チューレンポートー', '1色で 1112345678999＋1枚'], ['四槓子', 'スーカンツ', 'カン 4つ'],
-        ['天和', 'テンホー', '親の 配牌で あがり'], ['地和', 'チーホー', '子の 第1ツモで あがり']]]
-];
-
-function renderYakuref(root) {
-    root.innerHTML = `<div class="page">
-${back()}
-<h2>役の 一覧</h2>
-<p class="note">点数の めやす：満貫 8000（親 12000）・跳満 12000・倍満 16000・三倍満 24000・役満 32000（親は 1.5倍）</p>
-${YAKU_LIST.map(([h, list]) => `<h3 class="yk-h">${h}</h3><div class="yk-list">${list.map(([n, r, d]) => `<div class="yk"><b>${n}</b><small>${r}</small><p>${d}</p></div>`).join('')}</div>`).join('')}
-</div>`;
-}
-
 /* ── 設定 ───────────────────────────────── */
 
 function renderSettings(root) {
@@ -580,7 +557,7 @@ ${item('showPoints', 'テンパイの とき あがりの 点数を 出す', [[t
     });
 }
 
-const RENDER = { home: renderHome, cpu: renderCpu, online: renderOnline, rules: renderRules, yakuref: renderYakuref, keisan: root => renderKeisan(root, back()), drill: root => renderDrill(root, back()), settings: renderSettings };
+const RENDER = { home: renderHome, cpu: renderCpu, online: renderOnline, rules: renderRules, yakuref: root => renderYaku(root, back()), keisan: root => renderKeisan(root, back()), drill: root => renderDrill(root, back()), settings: renderSettings };
 
 // ためす とき 用（?debug）
 if (/[?&]debug\b/.test(location.search)) window.__mj = { get view() { return view; }, startCpuGame };

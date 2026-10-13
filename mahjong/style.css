@@ -698,3 +698,74 @@ img[src*="assets/avatars/"] { padding: 0 !important; }
 .dr-river { display: grid; grid-template-columns: repeat(6, max-content); gap: 2px; align-items: end; }
 .dr-river .t { --tw: var(--qtw, 26px); }
 .dr-page .q-ask { font-size: 15px; }
+
+/* ── 役を おぼえる ── */
+.yl-quiz-btn { width: 100%; margin: 4px 0 10px; }
+.yl-list { display: grid; gap: 8px; }
+.yl-item { display: flex; align-items: flex-start; gap: 10px; text-align: left; border: 2px solid var(--line); background: var(--panel); border-radius: 12px; padding: 10px 12px; position: relative; }
+.yl-item.seen { border-color: #3f8a5f; }
+.yl-play { flex: none; width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(#ffd257, #f0a020); color: #2b2005; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
+.yl-play .ic { width: 20px; height: 20px; }
+.yl-txt { flex: 1; min-width: 0; }
+.yl-txt b { display: block; font-size: 15.5px; }
+.yl-txt small { display: block; color: var(--gold); font-size: 12px; margin: 1px 0 3px; }
+.yl-pt { display: block; font-size: 12.5px; color: #d7e6dc; line-height: 1.55; }
+.yl-check { position: absolute; right: 10px; top: 8px; color: #7dff9a; font-weight: 900; }
+.yl-inl { display: inline-flex; vertical-align: -0.35em; margin: 0 1px; }
+.yl-inl .t { --tw: 18px; }
+.yl-title small { font-size: 14px; color: var(--gold); margin-left: 6px; }
+.yl-stage { position: relative; border-radius: 16px; padding: 10px 10px 12px; margin: 8px 0 6px; overflow: hidden;
+  background: radial-gradient(circle at 50% 40%, var(--felt1) 0%, var(--felt2) 60%, var(--felt3) 100%); box-shadow: inset 0 0 30px rgba(0,0,0,.45), 0 0 0 3px #5a3a1c; min-height: 300px; }
+.yl-top { display: flex; justify-content: space-between; gap: 8px; min-height: 64px; }
+.yl-river-wrap small, .yl-other small { display: block; font-size: 10.5px; color: rgba(255,255,255,.7); margin-bottom: 2px; }
+.yl-river { display: grid; grid-template-columns: repeat(6, max-content); gap: 1px; align-items: end; }
+.yl-river .t { --tw: 22px; }
+.yl-other { text-align: center; min-width: 60px; }
+.yl-other .t { --tw: 34px; margin: 0 auto; }
+.yl-cap { display: flex; align-items: flex-start; gap: 6px; margin: 8px 0 6px; min-height: 92px; }
+.yl-cap img { width: 50px; height: 50px; flex: none; animation: gf-float 2.6s ease-in-out infinite; filter: drop-shadow(0 0 8px rgba(160, 230, 255, .8)); }
+.yl-bubble { position: relative; background: #fffbea; color: #2b2a22; border-radius: 14px; padding: 8px 12px; font-size: 13.5px; line-height: 1.6; box-shadow: 0 4px 12px rgba(0,0,0,.35); flex: 1; }
+.yl-bubble::before { content: ""; position: absolute; left: -7px; top: 14px; border: 8px solid transparent; border-right-color: #fffbea; border-left: 0; }
+.yl-cap.pop .yl-bubble { animation: yl-pop .3s ease-out; }
+@keyframes yl-pop { from { transform: scale(.94); opacity: .3; } }
+.yl-status { text-align: center; font-size: 12.5px; color: #fff3c4; font-weight: 700; min-height: 18px; margin-bottom: 4px; }
+.yl-handrow { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: center; gap: 8px; }
+.yl-hand { display: flex; align-items: flex-end; flex-wrap: nowrap; }
+.yl-hand .t { --tw: min(26px, calc((min(100vw, 560px) - 80px) / 15.5)); }
+.yl-hand .gap { width: 6px; flex: none; }
+.yl-melds { display: flex; gap: 4px; }
+.yl-melds .meld { display: flex; align-items: flex-end; }
+.yl-melds .t { --tw: 22px; }
+.t.yl-hl { box-shadow: inset 0 0 0 1px rgba(80,60,30,.18), 0 0 0 2px #ffd400, 0 0 10px 2px rgba(255, 212, 0, .8); animation: yl-glow .8s ease-in-out infinite alternate; }
+@keyframes yl-glow { to { box-shadow: inset 0 0 0 1px rgba(80,60,30,.18), 0 0 0 2px #fff4a0, 0 0 16px 4px rgba(255, 230, 120, .95); } }
+.t.yl-win { box-shadow: inset 0 0 0 1px rgba(80,60,30,.18), 0 0 0 3px #ff5a4f, 0 0 14px #ff7a4f; }
+.t.yl-in { animation: yl-in .45s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes yl-in { from { transform: translateY(-60px) rotate(-10deg); opacity: 0; } }
+.t.yl-drop { animation: yl-drop .4s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes yl-drop { from { transform: translateY(40px) scale(1.6); opacity: .2; } }
+.t.yl-fly { animation: yl-fly .5s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes yl-fly { from { transform: translateY(-40px) scale(1.4); opacity: 0; } }
+.meld.yl-pop { animation: yl-mpop .5s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes yl-mpop { from { transform: scale(1.5); opacity: 0; } }
+.yl-word { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); font-family: var(--mincho); font-size: 54px; font-weight: 900; color: #fff;
+  text-shadow: 0 0 12px #ffcf3f, 0 3px 0 #b36b00; pointer-events: none; opacity: 0; white-space: nowrap; }
+.yl-word.go { animation: yl-word 1.2s ease-out; }
+@keyframes yl-word { 0% { opacity: 0; transform: translate(-50%, -50%) scale(2); } 20% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -60%) scale(1); } }
+.yl-bar { height: 6px; background: rgba(255,255,255,.1); border-radius: 4px; overflow: hidden; margin: 4px 0 8px; }
+.yl-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffd257, #ff9d00); transition: width .3s; }
+.yl-ctrl { display: grid; grid-template-columns: 1fr 1fr 1.3fr 1fr; gap: 6px; }
+.yl-ctrl .btn { padding: 10px 2px; font-size: 12.5px; gap: 3px; white-space: nowrap; }
+.yl-ctrl .btn .ic { width: 16px; height: 16px; }
+.yl-opts { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin: 8px 0; }
+.yl-opts .seg { flex: 1; }
+.yl-voice { padding: 8px 10px; font-size: 13px; }
+.yl-result { margin-top: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.yl-result h3 { margin: 10px 0 6px; font-size: 14px; color: var(--gold); }
+.yl-sum { background: rgba(255, 210, 87, .08); border: 1px solid rgba(255, 210, 87, .35); border-radius: 12px; padding: 8px 10px; text-align: left; }
+.yl-sum b { color: var(--gold); }
+.yl-sum p { margin: 4px 0 0; font-size: 13px; line-height: 1.6; }
+.yl-groups { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.yl-grp { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; }
+.yl-gt { display: flex; }
+.yl-gt .t { --tw: 22px; }
+.yl-grp small { font-size: 10.5px; color: var(--muted); }
