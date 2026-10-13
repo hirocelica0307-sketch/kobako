@@ -11,7 +11,7 @@ import { ukeire } from './hand.js';
 import { DRILL } from './drill-data.js';
 import * as CK from './drill/check.js';
 import { countsOf, agariOf, tableItems } from './drill/agari.js';
-import { LESSONS, replay, finalCtx } from './yaku-lessons.js';
+import { LESSONS, replay, finalCtx, speechText } from './yaku-lessons.js';
 
 /** '123m456p789s11z' → 牌の id（同じ 種類は 0,1,2,3 ばんめの 牌を じゅんに つかう。0 は 赤5） */
 export function P(str) {
@@ -440,6 +440,22 @@ export function runTests({ quick = false } = {}) {
             } catch (e) { bad.push(L.id + ':' + e.message); }
         }
         t('役を おぼえる：お手本 ' + LESSONS.length + 'こ ぜんぶ、あがりで その 役が つく', !bad.length, bad.join(' '));
+    }
+
+    /* ── 読みあげ：麻雀の ことばが 漢字の まま 声に わたらない（端末が まちがえて 読む ため） ── */
+    {
+        const NG = ['雀頭', '順子', '刻子', '槓子', '面子', '対子', '塔子', '暗刻', '明刻', '暗槓', '明槓', '加槓', '牌', '翻', '符', '萬子', '筒子', '索子', '門前', '両面', '単騎', '辺張', '嵌張',
+            '自風', '場風', '東場', '南場', '西家', '上家', '立直', '平和', '断么九', '役満', '満貫', '跳満', '倍満', '流局', '巡', '東', '南', '西', '北', '白', '發', '中', '子', '['];
+        const bad = [];
+        for (const L of LESSONS) {
+            for (const txt of ['【' + L.name + '】' + L.point, ...L.steps.filter(st => st.s).map(st => st.s)]) {
+                const sp = speechText(txt);
+                const hit = NG.filter(w => sp.includes(w));
+                if (/[0-9]{3,}(?![0-9点枚])/.test(sp)) hit.push('数字');
+                if (hit.length) bad.push(`${L.id}:${hit.join(',')}`);
+            }
+        }
+        t('役を おぼえる：読みあげで 麻雀の ことばを 正しい 読みに（雀頭→ジャントウ など）', !bad.length, bad.slice(0, 10).join(' '));
     }
     return rows;
 }
