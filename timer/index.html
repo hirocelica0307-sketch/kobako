@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>タイマー・ストップウォッチ</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#141416;color:#e8e6e0;
+  font-family:"Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",system-ui,sans-serif}
+#app{max-width:1100px;margin:0 auto;padding:16px}
+
+#topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.seg{display:flex;border:1px solid #4a4a50;border-radius:8px;overflow:hidden}
+.seg button{border:none;border-radius:0;background:transparent;color:#c9c8c3;
+  padding:0 18px;height:38px;font-size:15px;font-family:inherit;cursor:pointer}
+.seg button.on{background:#3d7fd6;color:#fff}
+.tool{display:flex;gap:8px}
+
+button.b{background:transparent;border:1px solid #4a4a50;border-radius:8px;color:#e8e6e0;
+  height:38px;padding:0 16px;font-size:15px;font-family:inherit;cursor:pointer}
+button.b:hover{background:#26262a}
+button.b:active{transform:scale(.98)}
+button.big{height:52px;padding:0 32px;font-size:19px;font-weight:bold}
+button.pre{min-width:66px}
+
+#stage{background:#111112;border-radius:12px;aspect-ratio:16/9;position:relative;
+  overflow:hidden;user-select:none}
+#stage:fullscreen{border-radius:0;aspect-ratio:auto;width:100%;height:100%}
+body.big{overflow:hidden}
+body.big #topbar,body.big #panel{display:none}
+body.big #app{max-width:none;padding:0}
+body.big #stage{position:fixed;top:0;right:0;bottom:0;left:0;width:100%;height:100%;
+  border-radius:0;aspect-ratio:auto;margin:0;z-index:9999}
+#safe{position:absolute;inset:0;display:flex;flex-direction:column}
+#top{display:flex;align-items:center;color:#b9b8b3;line-height:1;flex:none;
+  overflow:visible;white-space:nowrap;position:relative;z-index:20}
+#actName{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+#clock{flex:none;pointer-events:none}
+#mid{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;
+  pointer-events:none;position:relative;z-index:1}
+#disp{font-family:"Arial Black","Yu Gothic UI",Arial,sans-serif;font-weight:900;
+  line-height:.85;color:#fff;white-space:nowrap;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums}
+#bot{display:flex;align-items:center;flex:none}
+#track{flex:1;height:100%;background:#232326;border:4px solid #93939a;
+  border-radius:10px;position:relative;overflow:hidden}
+#fill{position:absolute;left:0;top:0;bottom:0;background:#4cc79c}
+.tk{position:absolute;top:0;bottom:0;width:3px;background:#93939a}
+#laps{flex:1;display:flex;align-items:center;height:100%;overflow:hidden;color:#c9c8c3}
+.lap{background:#2a2a2c;border-radius:6px;font-family:"Arial",sans-serif;
+  font-weight:bold;white-space:nowrap}
+#fsctl{display:none;align-items:center;height:100%;flex:none;
+  position:relative;z-index:30;pointer-events:auto}
+#stage:fullscreen #fsctl,#stage:-webkit-full-screen #fsctl,body.big #fsctl{display:flex}
+#fsctl button{background:transparent;border:2px solid #6c6c72;border-radius:10px;
+  color:#c9c8c3;height:100%;font-family:inherit;font-weight:bold;cursor:pointer;
+  white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#fsctl button:active{background:#3d7fd6;color:#fff;border-color:#3d7fd6}
+#fsctl button:hover{background:#2a2a2c}
+
+#stage.lt{background:#f2efe6}
+#stage.lt #disp{color:#141412}
+#stage.lt #top,#stage.lt #laps{color:#55544f}
+#stage.lt #track{background:#e0ddd3;border-color:#3f3f3c}
+#stage.lt .tk{background:#3f3f3c}
+#stage.lt .lap{background:#dcd9cf;color:#3f3f3c}
+#stage.lt #fsctl button{border-color:#8a887f;color:#3f3f3c}
+
+.flash{animation:fl .45s steps(1) infinite}
+@keyframes fl{50%{opacity:.12}}
+@media (prefers-reduced-motion:reduce){.flash{animation-duration:1.2s}}
+
+#panel{margin-top:16px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+.lbl{font-size:14px;color:#a3a29d}
+input,select{background:#1e1e21;border:1px solid #4a4a50;border-radius:8px;color:#e8e6e0;
+  height:38px;padding:0 10px;font-size:15px;font-family:inherit}
+input[type=number]{width:78px}
+input:focus,select:focus,button:focus-visible{outline:2px solid #3d7fd6;outline-offset:1px}
+#hint{font-size:13px;color:#7d7c78;margin-top:16px;line-height:1.8}
+</style>
+</head>
+<body>
+<div id="app">
+
+<div id="topbar">
+  <div class="seg" id="modeSeg">
+    <button data-m="timer" class="on">タイマー</button>
+    <button data-m="watch">ストップウォッチ</button>
+  </div>
+  <div class="tool">
+    <button class="b" id="themeBtn">背景を変える</button>
+    <button class="b" id="fsBtn">大きく表示</button>
+  </div>
+</div>
+
+<div id="stage">
+  <div id="safe">
+    <div id="top">
+      <span id="actName"></span>
+      <div id="fsctl">
+        <button data-a="start">スタート</button>
+        <button data-a="stop">ストップ</button>
+        <button data-a="reset">リセット</button>
+        <button data-a="lap" style="display:none">ラップ</button>
+        <button data-a="exit">もどす</button>
+      </div>
+      <span id="clock"></span>
+    </div>
+    <div id="mid"><div id="disp">5:00</div></div>
+    <div id="bot">
+      <div id="track">
+        <div id="fill" style="width:100%"></div>
+        <div class="tk" style="left:25%"></div>
+        <div class="tk" style="left:50%"></div>
+        <div class="tk" style="left:75%"></div>
+      </div>
+      <div id="laps" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<div id="panel">
+  <div class="row">
+    <button class="b big" id="startBtn">スタート</button>
+    <button class="b big" id="stopBtn">ストップ</button>
+    <button class="b big" id="resetBtn">リセット</button>
+    <button class="b big" id="lapBtn" style="display:none">ラップ</button>
+  </div>
+
+  <div id="timerCtl">
+    <div class="row">
+      <span class="lbl">プリセット</span>
+      <span id="preBox" style="display:flex;flex-wrap:wrap;gap:10px"></span>
+    </div>
+    <div class="row">
+      <span class="lbl">じかん</span>
+      <input type="number" id="mIn" min="0" max="99" step="1" value="5"><span class="lbl">分</span>
+      <input type="number" id="sIn" min="0" max="59" step="1" value="0"><span class="lbl">秒</span>
+      <button class="b" id="setBtn">セット</button>
+      <button class="b" id="plus1">＋1分</button>
+    </div>
+    <div class="row">
+      <span class="lbl">活動名</span>
+      <input type="text" id="actIn" placeholder="音読" maxlength="20" style="flex:1;min-width:150px">
+      <span class="lbl">終わりの音</span>
+      <select id="snd">
+        <option value="chime">チャイム</option>
+        <option value="bell">ベル</option>
+        <option value="beep">ピピピ</option>
+        <option value="none">音なし（点滅だけ）</option>
+      </select>
+    </div>
+  </div>
+
+  <p id="hint">
+    最大 99分59秒　／　終わったら音と点滅が1分間つづきます（画面をクリックすると止まります）<br>
+    キーボード： スペース＝スタート／ストップ　　R＝リセット　　F＝大きく表示　　L＝ラップ　　1〜5＝プリセット<br>
+    設定（じかん・活動名・終わりの音・背景）は、このブラウザに保存されます
+  </p>
+</div>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+/** プリセットボタン。ここを書き換えれば増減できる（最大6個） */
+var PRESETS=[
+  {label:"1分", sec:60},
+  {label:"3分", sec:180},
+  {label:"5分", sec:300},
+  {label:"10分",sec:600},
+  {label:"15分",sec:900}
+];
+var MAX=5999;
+var S={mode:"timer",total:300,left:300,run:false,t0:0,acc:300,laps:[],lt:false,
+        w60:false,w30:false,alarm:null,wl:null,tpl:"5:00"};
+
+var $=function(i){return document.getElementById(i)};
+var stage=$("stage"),safe=$("safe"),topEl=$("top"),mid=$("mid"),disp=$("disp"),
+    bot=$("bot"),track=$("track"),fill=$("fill"),laps=$("laps"),fsctl=$("fsctl"),
+    actName=$("actName"),clock=$("clock");
+
+/* ---------- 保存（このブラウザの localStorage） ---------- */
+var STORE="kTimer",savedOnce=false;
+
+function save(){
+  var d={t:S.total,lt:S.lt,snd:$("snd").value,act:$("actIn").value};
+  try{localStorage.setItem(STORE,JSON.stringify(d))}catch(e){}
+}
+function load(){
+  var d;
+  try{d=JSON.parse(localStorage.getItem(STORE)||"{}")||{}}catch(e){d={}}
+  var t=Math.round(Number(d.t));
+  if(t>=1&&t<=MAX){savedOnce=true;S.total=t;$("mIn").value=Math.floor(t/60);$("sIn").value=t%60}
+  if(["chime","bell","beep","none"].indexOf(d.snd)>=0)$("snd").value=d.snd;
+  if(d.act){var a=String(d.act).slice(0,20);$("actIn").value=a;actName.textContent=a}
+  if(d.lt){S.lt=true;stage.classList.add("lt")}
+}
+
+/* ---------- 音 ---------- */
+var ac=null;
+function initAudio(){if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
+  if(ac&&ac.state==="suspended")ac.resume()}
+function beep(f,t,d,g){if(!ac)return;
+  var o=ac.createOscillator(),v=ac.createGain();
+  o.type="sine";o.frequency.value=f;
+  v.gain.setValueAtTime(0,ac.currentTime+t);
+  v.gain.linearRampToValueAtTime(g,ac.currentTime+t+.02);
+  v.gain.exponentialRampToValueAtTime(.001,ac.currentTime+t+d);
+  o.connect(v);v.connect(ac.destination);
+  o.start(ac.currentTime+t);o.stop(ac.currentTime+t+d+.05)}
+function preAlert(n){if($("snd").value==="none")return;
+  beep(880,0,.18,.22);if(n>1)beep(880,.25,.18,.22)}
+function ringOnce(){var k=$("snd").value;if(k==="none")return;
+  if(k==="chime"){beep(1046,0,.7,.3);beep(784,.35,.9,.3);beep(659,.7,1.5,.3)}
+  else if(k==="bell"){beep(1318,0,1.6,.28);beep(1975,.02,1.2,.12)}
+  else{for(var i=0;i<4;i++)beep(1200,i*.22,.14,.3)}}
+function startAlarm(){stopAlarm();stage.classList.add("flash");ringOnce();
+  var n=0,iv=setInterval(function(){n++;if(n>=20){stopAlarm();return}ringOnce()},3000);
+  S.alarm={iv:iv,to:setTimeout(stopAlarm,60000)}}
+function stopAlarm(){if(S.alarm){clearInterval(S.alarm.iv);clearTimeout(S.alarm.to);S.alarm=null}
+  stage.classList.remove("flash")}
+
+/* ---------- 画面スリープ防止 ---------- */
+function lock(on){try{
+  if(on&&"wakeLock" in navigator&&!S.wl){
+    navigator.wakeLock.request("screen").then(function(w){S.wl=w;
+      w.addEventListener("release",function(){S.wl=null})}).catch(function(){});
+  }else if(!on&&S.wl){S.wl.release();S.wl=null}}catch(e){}}
+document.addEventListener("visibilitychange",function(){
+  if(document.visibilityState==="visible"&&S.run)lock(true)});
+
+/* ---------- 表示 ---------- */
+function pad(n){return (n<10?"0":"")+n}
+function fmt(s){s=Math.min(MAX,Math.max(0,s));return Math.floor(s/60)+":"+pad(Math.floor(s%60))}
+
+function layout(){
+  var W=stage.clientWidth,H=stage.clientHeight;
+  if(!W||!H)return;
+  var px=Math.round(W*.045),py=Math.round(H*.045);
+  safe.style.padding=py+"px "+px+"px";
+  var aW=W-px*2,aH=H-py*2;
+
+  var topH=Math.round(H*.10);
+  topEl.style.height=topH+"px";
+  topEl.style.fontSize=Math.round(H*.06)+"px";
+  topEl.style.gap=Math.round(W*.02)+"px";
+
+  var barH=Math.round(H*.115);
+  bot.style.height=barH+"px";
+  bot.style.marginTop=Math.round(H*.02)+"px";
+  bot.style.gap=Math.round(W*.02)+"px";
+  track.style.borderWidth=Math.max(2,Math.round(H*.009))+"px";
+  track.style.borderRadius=Math.round(barH*.28)+"px";
+  var tks=track.getElementsByClassName("tk");
+  for(var i=0;i<tks.length;i++)tks[i].style.width=Math.max(2,Math.round(H*.007))+"px";
+
+  laps.style.fontSize=Math.round(barH*.42)+"px";
+  laps.style.gap=Math.round(W*.014)+"px";
+  var lp=laps.getElementsByClassName("lap");
+  for(var j=0;j<lp.length;j++){lp[j].style.padding=Math.round(barH*.14)+"px "+Math.round(barH*.3)+"px"}
+
+  fsctl.style.gap=Math.round(W*.01)+"px";
+  var fb=fsctl.getElementsByTagName("button");
+  for(var k=0;k<fb.length;k++){
+    fb[k].style.fontSize=Math.round(topH*.42)+"px";
+    fb[k].style.padding="0 "+Math.round(topH*.5)+"px";
+    fb[k].style.borderRadius=Math.round(topH*.25)+"px";
+    fb[k].style.borderWidth=Math.max(1,Math.round(topH*.025))+"px";
+  }
+
+  var midH=aH-topH-barH-Math.round(H*.02);
+  fitDigits(aW,midH);
+}
+
+function fitDigits(aW,aH){
+  var keep=disp.textContent;
+  disp.textContent=S.tpl;
+  var f=Math.max(10,aH*.99);
+  disp.style.fontSize=f+"px";
+  var w=disp.scrollWidth;
+  if(w>aW)f=f*aW/w*.985;
+  disp.style.fontSize=Math.round(f)+"px";
+  disp.style.webkitTextStroke=Math.max(0,f*.008)+"px currentColor";
+  disp.textContent=keep;
+}
+function setTpl(t){if(t!==S.tpl){S.tpl=t;layout()}}
+
+function draw(){
+  if(S.mode==="timer"){
+    disp.textContent=fmt(Math.ceil(S.left));
+    track.style.display="";laps.style.display="none";
+    var r=S.total>0?Math.max(0,S.left/S.total):0;
+    fill.style.width=(r*100).toFixed(2)+"%";
+    fill.style.background=r>.5?"#4cc79c":(r>.2?"#eda032":"#e8706e");
+  }else{
+    var e=Math.min(MAX,S.acc+(S.run?(Date.now()-S.t0)/1000:0));
+    if(e>=MAX&&S.run){S.run=false;S.acc=MAX;lock(false)}
+    var w=fmt(Math.floor(e));
+    disp.textContent=w;
+    setTpl(w.length>=5?"99:59":"9:59");
+    track.style.display="none";laps.style.display="";
+    var n=S.laps.length,show=S.laps.slice(-3),h="";
+    for(var i=0;i<show.length;i++)
+      h+='<span class="lap">'+(n-show.length+i+1)+"　"+fmt(Math.floor(show[i]))+"</span>";
+    laps.innerHTML=h;
+    if(h)layout();
+  }
+  var d=new Date();
+  clock.textContent=d.getHours()+":"+pad(d.getMinutes());
+}
+
+/* ---------- 動作 ---------- */
+setInterval(function(){
+  if(S.mode==="timer"&&S.run){
+    S.left=Math.max(0,S.acc-(Date.now()-S.t0)/1000);
+    if(S.left<=60&&!S.w60&&S.total>75){S.w60=true;preAlert(1)}
+    if(S.left<=30&&!S.w30&&S.total>45){S.w30=true;preAlert(2)}
+    if(S.left<=0){S.run=false;lock(false);startAlarm()}
+  }
+  draw();
+},100);
+
+function setT(s){stopAlarm();s=Math.min(MAX,Math.max(1,s));
+  S.total=s;S.left=s;S.acc=s;S.run=false;S.w60=false;S.w30=false;
+  lock(false);setTpl(fmt(s));save();draw()}
+
+function doStart(){initAudio();stopAlarm();if(S.run)return;
+  if(S.mode==="timer"){if(S.left<=0)return;S.acc=S.left}
+  S.t0=Date.now();S.run=true;lock(true);draw()}
+function doStop(){stopAlarm();if(!S.run)return;
+  if(S.mode==="timer")S.acc=S.left;else S.acc+=(Date.now()-S.t0)/1000;
+  S.run=false;lock(false);draw()}
+function doReset(){stopAlarm();
+  if(S.mode==="timer"){setT(S.total)}
+  else{S.run=false;S.acc=0;S.laps=[];lock(false);setTpl("9:59");draw()}}
+function doLap(){if(S.mode==="watch"){
+  S.laps.push(S.acc+(S.run?(Date.now()-S.t0)/1000:0));draw()}}
+
+$("startBtn").onclick=doStart;$("stopBtn").onclick=doStop;
+$("resetBtn").onclick=doReset;$("lapBtn").onclick=doLap;
+
+var acts={start:doStart,stop:doStop,reset:doReset,lap:doLap,exit:function(){exitBig()}};
+
+function fsHit(e){
+  var n=e.target;
+  while(n&&n!==fsctl&&n.tagName!=="BUTTON")n=n.parentNode;
+  if(!n||n.tagName!=="BUTTON")return null;
+  return acts[n.getAttribute("data-a")]||null;
+}
+fsctl.addEventListener("pointerdown",function(e){
+  var f=fsHit(e);if(!f)return;
+  e.preventDefault();e.stopPropagation();
+  fsctl.setAttribute("data-hit","1");f();
+},true);
+fsctl.addEventListener("click",function(e){
+  e.stopPropagation();
+  if(fsctl.getAttribute("data-hit")==="1"){fsctl.removeAttribute("data-hit");return}
+  var f=fsHit(e);if(f)f();
+},true);
+
+var preBox=$("preBox");
+PRESETS.forEach(function(p){
+  var b=document.createElement("button");
+  b.className="b pre";b.textContent=p.label;
+  b.onclick=function(){$("mIn").value=Math.floor(p.sec/60);$("sIn").value=p.sec%60;setT(p.sec)};
+  preBox.appendChild(b);
+});
+
+$("setBtn").onclick=function(){setT((+$("mIn").value||0)*60+(+$("sIn").value||0))};
+$("plus1").onclick=function(){stopAlarm();
+  var add=Math.min(60,MAX-S.total);if(add<=0)return;
+  S.total+=add;S.left+=add;S.acc+=add;S.w60=false;S.w30=false;setTpl(fmt(S.total));save();draw()};
+$("actIn").oninput=function(){actName.textContent=this.value;save()};
+$("snd").onchange=save;
+
+var segs=$("modeSeg").getElementsByTagName("button");
+for(var m=0;m<segs.length;m++)(function(b){
+  b.onclick=function(){
+    stopAlarm();
+    for(var x=0;x<segs.length;x++)segs[x].classList.remove("on");
+    b.classList.add("on");
+    S.mode=b.getAttribute("data-m");S.run=false;S.laps=[];lock(false);
+    $("timerCtl").style.display=S.mode==="timer"?"":"none";
+    $("lapBtn").style.display=S.mode==="watch"?"":"none";
+    fsctl.querySelector('[data-a="lap"]').style.display=S.mode==="watch"?"":"none";
+    if(S.mode==="timer"){setT(S.total)}else{S.acc=0;setTpl("9:59");layout();draw()}
+  }})(segs[m]);
+
+$("themeBtn").onclick=function(){S.lt=!S.lt;stage.classList.toggle("lt",S.lt);save()};
+var bigMode=false;
+function setBig(on){
+  bigMode=on;
+  if(on)document.body.classList.add("big");else document.body.classList.remove("big");
+  setTimeout(layout,40);setTimeout(layout,200);
+}
+function enterBig(){
+  setBig(true);
+  try{
+    var r=(stage.requestFullscreen||stage.webkitRequestFullscreen);
+    if(r){var q=r.call(stage);if(q&&q.catch)q.catch(function(){})}
+  }catch(e){}
+}
+function exitBig(){
+  try{
+    if(document.fullscreenElement||document.webkitFullscreenElement)
+      (document.exitFullscreen||document.webkitExitFullscreen).call(document);
+  }catch(e){}
+  setBig(false);
+}
+$("fsBtn").onclick=function(){if(bigMode)exitBig();else enterBig()};
+function stageTap(e){
+  var n=e.target;
+  while(n){if(n===fsctl)return;n=n.parentNode}
+  stopAlarm();
+}
+stage.addEventListener("pointerdown",stageTap);
+stage.addEventListener("click",stageTap);
+
+document.addEventListener("keydown",function(e){
+  var t=e.target.tagName;
+  if(t==="INPUT"||t==="SELECT"||t==="TEXTAREA")return;
+  if(e.code==="Space"||e.key===" "){e.preventDefault();
+    if(S.alarm)stopAlarm();else if(S.run)doStop();else doStart();}
+  else if(e.key==="r"||e.key==="R")doReset();
+  else if(e.key==="f"||e.key==="F")$("fsBtn").click();
+  else if(e.key==="Escape"&&bigMode)exitBig();
+  else if(e.key==="l"||e.key==="L")doLap();
+  else if(e.key>="1"&&e.key<="5"){var q=document.getElementsByClassName("pre");
+    if(q[+e.key-1])q[+e.key-1].click()}
+});
+
+window.addEventListener("resize",layout);
+document.addEventListener("fullscreenchange",function(){
+  if(!document.fullscreenElement&&bigMode)setBig(false);
+  setTimeout(layout,60)});
+document.addEventListener("webkitfullscreenchange",function(){setTimeout(layout,60)});
+
+load();
+if(!savedOnce&&PRESETS.length)setT(PRESETS[Math.min(2,PRESETS.length-1)].sec);
+setTpl(fmt(S.total));
+S.left=S.total;S.acc=S.total;
+layout();draw();
+setTimeout(layout,120);
+})();
+</script>
+</body>
+</html>
