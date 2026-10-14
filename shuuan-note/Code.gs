@@ -149,6 +149,13 @@ function rememberRev_(rev) {
   }
 }
 
+// アカウントごとの鍵（端末の下書きを、同じパソコンを使うほかの先生のものと分けるため）。
+// メールアドレスそのものは画面に渡さない。
+function userKey_() {
+  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, getActiveEmail_());
+  return bytes.slice(0, 12).map(function(b) { return ((b + 256) % 256).toString(16).padStart(2, '0'); }).join('');
+}
+
 function formatStamp_(dt) {
   try {
     return Utilities.formatDate(dt, Session.getScriptTimeZone(), "yyyy/MM/dd HH:mm");
@@ -165,6 +172,7 @@ function loadDataFromServer() {
     parsed.isNewUser = false;
     parsed.rev = normalizeRev_(parsed.rev);
     parsed.savedAt = formatStamp_(file.getLastUpdated());
+    parsed.userKey = userKey_();
     rememberRev_(parsed.rev);
     return parsed;
   }
@@ -180,10 +188,11 @@ function loadDataFromServer() {
     createDataFile_(fileName, JSON.stringify(parsed), DATA_FILE_ID_KEY);
     rememberRev_(parsed.rev);
     parsed.isNewUser = false;
+    parsed.userKey = userKey_();
     return parsed;
   }
 
-  return { settings: {}, data: {}, notes: [], rev: 0, isNewUser: true };
+  return { settings: {}, data: {}, notes: [], rev: 0, isNewUser: true, userKey: userKey_() };
 }
 
 // 別の端末が保存したかどうかを、ファイルを開かずに確かめる
