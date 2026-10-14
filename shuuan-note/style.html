@@ -185,11 +185,6 @@
     .split-3 .subject-tag { font-size: 0.6rem; }
     .split-sep { width: 90%; border-top: 2px dotted var(--line-2); }
 
-    .weight-chip {
-      position: absolute; top: 3px; left: 3px; z-index: 5;
-      background: var(--bell); color: #fff; border: 1px solid #fff;
-      font-size: 0.58rem; font-weight: 800; padding: 0 6px; border-radius: 5px;
-    }
     .attachment-badge {
       position: absolute; bottom: 3px; right: 3px; z-index: 5;
       background: var(--sky); border: 1px solid #fff; color: #fff;
@@ -259,6 +254,16 @@
       clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%); }
     .pd-range { font-size: 0.78rem; color: var(--brown-2); font-weight: 700; margin-right: auto; }
     .csv-row .st.arrow { background: #dcefe0; color: #2a6b34; }
+    /* CSV：1件ずつ、入れる場所（行事・連絡・メモ）をえらぶ */
+    .csv-dest { display: inline-flex; flex: 0 0 auto; border: 1px solid var(--line-2); border-radius: 6px; overflow: hidden; }
+    .csv-dest button {
+      border: none; border-left: 1px solid var(--line-2); background: #fff; color: var(--brown-2); cursor: pointer;
+      font-family: var(--font-ui); font-size: 0.74rem; font-weight: 800; padding: 4px 8px; line-height: 1.2;
+    }
+    .csv-dest button:first-child { border-left: none; }
+    .csv-dest button.on { background: var(--leaf); color: #fff; }
+    .csv-row.skip .csv-dest { opacity: 0.5; }
+    .csv-dest-all { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; font-size: 0.8rem; font-weight: 700; color: var(--brown-2); }
 
     /* ===== ToDo（週案の左に出す） ===== */
     .todo-panel { display: none; min-width: 0; }
@@ -357,10 +362,17 @@
     .td-foot { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
     .td-created { margin-right: auto; font-size: 0.68rem; color: var(--brown-3); }
     .td-done details summary { cursor: pointer; font-family: var(--font-ui); font-size: 0.8rem; font-weight: 700; color: var(--brown-2); padding: 6px 2px; }
+    /* 締切のしるし（曜日の見出し・月の予定）。押すと ToDo を開く */
     .td-day-badge {
-      display: inline-block; margin-top: 2px; background: var(--bell); color: #fff; border-radius: 4px;
-      padding: 0 5px; font-size: 0.6rem; font-weight: 800; line-height: 1.5;
+      display: inline-block; margin-top: 3px; background: #c62828; color: #fff; border: 1px solid #8e1b1b; border-radius: 4px;
+      padding: 1px 6px; font-family: var(--font-ui); font-size: 0.66rem; font-weight: 800; line-height: 1.4;
+      cursor: pointer; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.18);
     }
+    .td-day-badge:hover { filter: brightness(1.1); }
+    .td-day-badge:focus-visible { outline: 2px solid #8e1b1b; outline-offset: 1px; }
+    .td-day-badge.late { background: #fff3cd; color: #8e1b1b; border-color: #c62828; }
+    th .td-day-badge:not(.mini) { display: table; margin: 3px auto 0; }
+    .td-day-badge.mini { display: block; margin-top: 2px; font-size: 0.6rem; padding: 0 4px; }
 
     /* ===== 日課 ===== */
     .nk-badge {
@@ -414,6 +426,11 @@
     td.mv-cell.out { background-image: repeating-linear-gradient(45deg, rgba(0,0,0,0.035) 0 6px, rgba(0,0,0,0) 6px 12px); cursor: not-allowed; }
     td.mv-cell.vac { background-color: #f6f9ff; }
     td.mv-cell.today { box-shadow: inset 0 0 0 2px var(--leaf); }
+    .mv-week {
+      margin-left: auto; border: 1px solid var(--line-2); background: #fff; color: var(--leaf-dk); border-radius: 4px;
+      font-family: var(--font-ui); font-size: 0.6rem; font-weight: 800; padding: 0 5px; line-height: 1.5; cursor: pointer;
+    }
+    .mv-week:hover { background: var(--leaf); color: #fff; border-color: var(--leaf); }
     .mv-date { display: flex; align-items: baseline; gap: 4px; font-family: var(--font-ui); }
     .mv-date b { font-size: 0.86rem; }
     td.mv-cell.hol .mv-date b { color: var(--coral-dk); }
@@ -421,7 +438,6 @@
     .mv-hol { font-size: 0.6rem; font-weight: 700; color: var(--coral-dk); }
     .mv-vac { font-size: 0.62rem; color: var(--sky-dk); font-weight: 700; }
     .mv-ev { word-break: break-word; }
-    .mv-todo { display: inline-block; margin-top: 2px; background: var(--bell); color: #fff; border-radius: 4px; padding: 0 5px; font-size: 0.6rem; font-weight: 800; }
 
     /* 授業なしのコマ */
     .timetable tbody td.off-cell {
@@ -453,6 +469,7 @@
       box-shadow: 0 0 0 1.5px var(--line-2); cursor: pointer; padding: 0;
     }
     .rt-sw:hover { transform: scale(1.15); }
+    .rt-sw.hl { border-radius: 3px; width: 20px; }
     .rt-editor {
       width: 100%; min-height: 44px; padding: 10px 13px; background: #fff;
       border: 1px solid var(--line); border-radius: var(--r-md);
@@ -861,6 +878,35 @@
       margin: 22px 0 10px; padding-bottom: 7px; border-bottom: 3px dotted var(--line);
     }
     .sec-title:first-child { margin-top: 0; }
+    /* ヘルプの中の「設定を開く ›」などのリンク */
+    .help-go {
+      display: inline-block; border: none; background: none; padding: 0 2px; cursor: pointer;
+      font-family: var(--font-ui); font-size: 0.82rem; font-weight: 800; color: var(--leaf);
+      text-decoration: underline; text-underline-offset: 3px;
+    }
+    .help-go:hover { color: var(--leaf-dk); background: #eef3fb; border-radius: 3px; }
+    .help-go:focus-visible { outline: 2px solid var(--leaf); outline-offset: 1px; }
+
+    /* 設定：項目ごとの折りたたみ */
+    .set-lead { margin-bottom: 8px; }
+    .set-sec { border: 1px solid var(--line-2); border-radius: var(--r-lg); margin-bottom: 8px; background: #fff; transition: box-shadow .3s; }
+    .set-sec > summary {
+      list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+      padding: 11px 14px; font-family: var(--font-ui); font-size: 0.95rem; font-weight: 800; color: var(--brown);
+    }
+    .set-sec > summary::-webkit-details-marker { display: none; }
+    .set-sec > summary::before {
+      content: ''; width: 7px; height: 7px; flex: 0 0 auto; margin-right: 2px;
+      border-right: 2px solid var(--brown-2); border-bottom: 2px solid var(--brown-2); transform: rotate(-45deg); transition: transform .15s;
+    }
+    .set-sec[open] > summary::before { transform: rotate(45deg); }
+    .set-sec > summary:hover { background: var(--paper-2); border-radius: var(--r-lg); }
+    .set-sec[open] > summary { border-bottom: 1px solid var(--line); border-radius: var(--r-lg) var(--r-lg) 0 0; }
+    .set-sec > summary:focus-visible { outline: 2px solid var(--leaf); outline-offset: -2px; }
+    .set-body { padding: 12px 14px 14px; }
+    .set-sec.flash { box-shadow: 0 0 0 3px rgba(47,85,151,0.45); }
+    .set-year-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .set-year-row .field-hint { margin: 0; }
     .date-range { display: flex; align-items: center; gap: 7px; }
     .date-range input { flex: 1; min-width: 0; }
 

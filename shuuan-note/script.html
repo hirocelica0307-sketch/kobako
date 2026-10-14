@@ -41,7 +41,9 @@
 
     // 文字かざりで使える色
     const RT_COLORS = [['標準','#5c4e3c'], ['赤','#d3302f'], ['青','#1565c0'], ['緑','#2e7d32'], ['橙','#ef6c00'], ['紫','#7b1fa2']];
-    const RT_HILITE = [['黄','#fff59d'], ['桃','#ffcdd2'], ['水','#b3e5fc']];
+    const RT_HILITE = [['黄','#ffe600'], ['赤','#ff7b7b'], ['青','#7ec8ff'], ['緑','#7dea8c'], ['橙','#ffb347']];
+    // 前の版のうすいマーカーの色 → 新しいはっきりした色
+    const RT_HILITE_LEGACY = { '#fff59d': '#ffe600', '#ffcdd2': '#ff7b7b', '#b3e5fc': '#7ec8ff' };
 
     // 時間割の行の構成（type: lesson=教科を選ぶ / memo=自由記入）
     // 画面での並び。連絡とメモは行事のすぐ下に置き、ふだんは畳んでおく。
@@ -420,6 +422,7 @@
         cleanPeriods();
         migrateNoteTodos();
         cleanTodos();
+        const holCleaned = removeAutoHolidayNames();
 
         const yearInput = document.getElementById('setYear');
         if (yearInput) yearInput.value = currentSetYear;
@@ -435,6 +438,8 @@
         applyColumnDisplay();
         renderTodoCounts();
         if (serverData && !saveBlocked) checkDraftOnStart();
+        // 前の版が入れた祝日の名前を取り除いたときは、保存しておく
+        if (holCleaned && serverData && !saveBlocked && document.getElementById('dialogModal').style.display !== 'flex') requestSave();
 
       } catch (e) {
         console.error('初期化エラー:', e);
@@ -906,6 +911,7 @@
       cleanPeriods();
       migrateNoteTodos();
       cleanTodos();
+      removeAutoHolidayNames();
       refreshAllViews();
 
       // クラウドの内容と食いちがうところ（自分の変更）が残っていれば、保存する
@@ -1103,7 +1109,7 @@
         });
         h += '<span class="rt-sep"></span>';
         RT_HILITE.forEach(function(c) {
-          h += '<button type="button" class="rt-sw" style="background:' + c[1] + ';" onmousedown="event.preventDefault()" ' +
+          h += '<button type="button" class="rt-sw hl" style="background:' + c[1] + ';" onmousedown="event.preventDefault()" ' +
                'onclick="rtCmd(\'hilite\',\'' + c[1] + '\')" title="マーカー：' + c[0] + '"></button>';
         });
         h += '<span class="rt-sep"></span>' +
@@ -1125,7 +1131,8 @@
 
     function rtColorOK(c) {
       const n = rtNormColor(c);
-      return RT_COLORS.some(function(x) { return x[1] === n; }) || RT_HILITE.some(function(x) { return x[1] === n; });
+      return RT_COLORS.some(function(x) { return x[1] === n; }) || RT_HILITE.some(function(x) { return x[1] === n; }) ||
+             !!RT_HILITE_LEGACY[n];
     }
 
     // 文字列のHTMLを、画面には出さずに組み立てる。
@@ -1162,7 +1169,7 @@
           Array.prototype.slice.call(ch.attributes || []).forEach(function(a) { ch.removeAttribute(a.name); });
           if (rtColorOK(color)) ch.style.color = rtNormColor(color);
           if (rtColorOK(attrColor)) ch.style.color = rtNormColor(attrColor);
-          if (rtColorOK(bg)) ch.style.backgroundColor = rtNormColor(bg);
+          if (rtColorOK(bg)) ch.style.backgroundColor = RT_HILITE_LEGACY[rtNormColor(bg)] || rtNormColor(bg);
           if (bold === 'bold' || bold === '700' || bold === 'bolder') ch.style.fontWeight = 'bold';
           if (italic === 'italic') ch.style.fontStyle = 'italic';
           if (deco && deco.indexOf('line-through') !== -1) ch.style.textDecoration = 'line-through';
@@ -1817,7 +1824,7 @@
 
     // ===== その年度の範囲 =====
     // 週案は 4月1日 〜 翌年3月31日 まで。それより前・後には動かさない。
-    // 別の年度を見るときは「年度切替」を使う。
+    // 別の年度を見るときは、設定の「年度を切り替える」を使う。
 
     function mondayOf(dt) {
       const d = new Date(dt);
@@ -1861,7 +1868,7 @@
       const d = new Date(currentMonday); d.setDate(d.getDate() + dIdx);
       const ds = fmtDate(d);
       showToast((d.getMonth() + 1) + '/' + d.getDate() + ' は ' + fiscalYearOf(ds) +
-                '年度です。「年度切替」で移ってから入力してください');
+                '年度です。設定の「年度を切り替える」で移ってから入力してください');
     }
 
     // 年度の外に出ないように、月曜日を範囲内へ収める
@@ -1877,7 +1884,7 @@
     function noticeOutOfYear(which) {
       const r = fiscalRange();
       showToast(r.year + '年度は 4月1日〜' + (r.year + 1) + '年3月31日 までです。' +
-                (which === 'before' ? '前の年度' : '次の年度') + 'は「年度切替」から');
+                (which === 'before' ? '前の年度' : '次の年度') + 'は設定の「年度を切り替える」から');
     }
 
     function changeWeek(offsetWeeks) {
@@ -2295,6 +2302,10 @@
 
     function printTimetable(mode) {
       const isH = (mode === 'hiragana');
+      // 白黒（くっきり）：線と文字を黒で太めにし、うすい色は使わない。
+      // 罫線は0.5pt以上・文字は黒、灰色の地は15%前後までにしておくと、コピーをくり返しても消えにくい。
+      const colorEl = document.querySelector('input[name="printColor"]:checked');
+      const mono = !colorEl || colorEl.value !== 'color';
       const showUnit = document.getElementById('printUnit').checked;
       const showContact = document.getElementById('printContact').checked;
       const goalEl = document.getElementById('printGoal');
@@ -2367,23 +2378,41 @@
       const pill = function(sub, size, weight) {
         const c = subColor(sub);
         const w = weight ? '<span class="wt">' + weight.toFixed(1) + '</span>' : '';
-        return '<div class="subj ' + size + '" style="background:' + c[0] + '; color:' + c[1] + ';">' + w + (escapeHTML(mt(sub)) || '&nbsp;') + '</div>';
+        const st = mono ? '' : ' style="background:' + c[0] + '; color:' + c[1] + ';"';
+        return '<div class="subj ' + size + '"' + st + '>' + w + (escapeHTML(mt(sub)) || '&nbsp;') + '</div>';
       };
 
       const printNikka = getNikka();
       buildUnitCounter();
+      // 印刷の色。白黒は、線と文字を黒にし、地の灰色は15%（#d9d9d9）までにする。
+      const PC = mono ? {
+        sub: '#000', outer: '1.6pt solid #000', inner: '0.75pt solid #000', headLine: '1.4pt solid #000',
+        pcolBg: '#d9d9d9', pcolText: '#000', pnum: '#000', split: '1pt solid #000',
+        subj: ' background: #fff; color: #000; border: 0.9pt solid #000;',
+        unitLine: '0.6pt solid #000', unit: '#000', contact: '#000', goal: '1pt solid #000', accent: '#000',
+        off: 'background-color: #fff; background-image: repeating-linear-gradient(45deg, #000 0 0.7px, rgba(0,0,0,0) 0.7px 9px);',
+        offText: '#000'
+      } : {
+        sub: '#666f7d', outer: '1.2pt solid #98a0ab', inner: '0.5pt solid #ccd2da', headLine: '1.2pt solid #98a0ab',
+        pcolBg: '#eef1f5', pcolText: '#3b424d', pnum: '#98a0ab', split: '0.9pt solid #a6adb8',
+        subj: '', unitLine: '0.5pt dashed #c2c8d1', unit: '#4c5361', contact: '#2b6f8c', goal: '0.8pt solid #98a0ab', accent: '#23616f',
+        off: 'background-color: #e2e5ea; background-image: repeating-linear-gradient(45deg, rgba(0,0,0,0.07) 0 6px, rgba(0,0,0,0) 6px 12px);',
+        offText: '#555'
+      };
       let head = '<th class="pcol"></th>';
       for (let i = 0; i < maxDays; i++) {
         const d = new Date(currentMonday); d.setDate(d.getDate() + i);
         const isHol = holidaysData[fmt(d)] || i === 6;
         const isSat = i === 5;
-        const bg = isHol ? "#ffe7de" : (isSat ? "#ddf3f8" : "#eef1f5");
-        const col = isHol ? "#b8492f" : (isSat ? "#276f81" : "#5c4a35");
+        const bg = mono ? '#d9d9d9' : (isHol ? "#ffe7de" : (isSat ? "#ddf3f8" : "#eef1f5"));
+        const col = mono ? '#000' : (isHol ? "#b8492f" : (isSat ? "#276f81" : "#5c4a35"));
+        const holName = holidaysData[fmt(d)];
         const nkType = nikkaOfDate(fmt(d));
         const nkHead = (nkType === 'normal') ? '' : '<span class="nkh">' + escapeHTML(printNikka[nkType].name) + '日課' +
                        (printNikka[nkType].leave ? ' 下校' + hhmm(printNikka[nkType].leave) : '') + '</span>';
         head += '<th style="background:' + bg + '; color:' + col + ';">' +
-                '<span class="wd">' + mt(days[i]) + '</span><span class="dt">' + (d.getMonth()+1) + '/' + d.getDate() + '</span>' + nkHead + '</th>';
+                '<span class="wd">' + mt(days[i]) + '</span><span class="dt">' + (d.getMonth()+1) + '/' + d.getDate() + '</span>' +
+                (holName ? '<span class="holh">' + escapeHTML(holName) + '</span>' : '') + nkHead + '</th>';
       }
 
       let rows = '';
@@ -2399,13 +2428,13 @@
           const dStr = fmt(dt);
           const hol = holidaysData[dStr] || d === 6;
           const vac = getHolidayPeriodName(dStr);
-          const tint = hol ? 'background:#fffaf8;' : (vac ? 'background:#f8fbff;' : '');
+          const tint = mono ? '' : (hol ? 'background:#fffaf8;' : (vac ? 'background:#f8fbff;' : ''));
           const data = appData[getDataKey(d, r.id)];
 
           if (isMemo) {
             const txt = (data && !rtEmpty(data.record)) ? rtRender(data.record) : '';
             const isEvent = (r.id === 'gyoji');
-            const bars = isEvent ? printPeriodBars(printPl, d) : '';
+            const bars = isEvent ? printPeriodBars(printPl, d, mono) : '';
             const barH = isEvent ? printPl.lanes * PD_LANE_MM : 0;
             const boxH = Math.max(2, h - 0.6 - barH).toFixed(1);
             rows += '<td class="memo-cell" style="' + tint + 'height:' + h.toFixed(1) + 'mm;">' + bars +
@@ -2421,7 +2450,7 @@
           const boxStyle = ' style="height:' + Math.max(2, h - 0.6).toFixed(1) + 'mm;"';
 
           if (data && data.disabled) {
-            rows += '<td class="off-cell" style="height:' + h.toFixed(1) + 'mm;"></td>';
+            rows += '<td class="off-cell" style="height:' + h.toFixed(1) + 'mm;"><div class="offt">授業なし</div></td>';
             continue;
           }
           const cellKey = getDataKey(d, r.id);
@@ -2442,7 +2471,7 @@
                      (showUnit ? '<div class="unit">' + rtRender(sl.unit) +
                        (unitBadgeText(cellKey, sl.idx) ? '<span class="uc">' + unitBadgeText(cellKey, sl.idx) + '</span>' : '') + '</div>' : '') + '</div>';
           });
-          if (showContact && !rtEmpty(data.contact)) inner += '<div class="contact">' + rtRender(data.contact) + '</div>';
+          if (showContact && !rtEmpty(data.contact)) inner += '<div class="contact"><b>連絡</b> ' + rtRender(data.contact) + '</div>';
           rows += '<td class="lesson-cell" style="' + cellStyle + '"><div class="cellbox"' + boxStyle + '>' + ntime + inner + '</div></td>';
         }
         rows += '</tr>';
@@ -2460,52 +2489,63 @@
       '<style>' +
       '@page { size: A4 ' + (isLand ? 'landscape' : 'portrait') + '; margin: 9mm; }' +
       '* { box-sizing: border-box; margin: 0; padding: 0; }' +
-      "body { font-family: 'BIZ UDPGothic', 'Yu Gothic UI', 'Meiryo', sans-serif; color: #1d2127; -webkit-print-color-adjust: exact; print-color-adjust: exact; }" +
+      "body { font-family: 'BIZ UDPGothic', 'Yu Gothic UI', 'Meiryo', sans-serif; color: " + (mono ? '#000' : '#1d2127') + "; -webkit-print-color-adjust: exact; print-color-adjust: exact; }" +
       ".t-main, .pcol, thead th, .subj { font-family: 'Noto Sans JP', 'BIZ UDPGothic', 'Yu Gothic UI', sans-serif; }" +
       '.head-line { display: flex; align-items: baseline; justify-content: space-between; padding: 0 1mm 1.5mm; }' +
       '.t-main { font-size: 15pt; font-weight: 800; letter-spacing: 1px; }' +
-      '.t-sub { font-size: 10pt; font-weight: 700; color: #666f7d; }' +
-      'table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 1.2pt solid #98a0ab; }' +
-      'th, td { border: 0.5pt solid #ccd2da; vertical-align: top; overflow: hidden; }' +
-      'thead th { height: ' + (isLand ? 8 : 9) + 'mm; font-size: 10pt; font-weight: 800; text-align: center; vertical-align: middle; border-bottom: 1.2pt solid #98a0ab; }' +
+      '.t-sub { font-size: 10pt; font-weight: 700; color: ' + PC.sub + '; }' +
+      'table { width: 100%; border-collapse: collapse; table-layout: fixed; border: ' + PC.outer + '; }' +
+      'th, td { border: ' + PC.inner + '; vertical-align: top; overflow: hidden; }' +
+      'thead th { height: ' + (isLand ? 8 : 9) + 'mm; font-size: 10pt; font-weight: 800; text-align: center; vertical-align: middle; border-bottom: ' + PC.headLine + '; line-height: 1.15; }' +
+      'thead th .holh, thead th .nkh { display: block; font-size: 6.5pt; font-weight: 800; }' +
       'thead th .wd { font-size: 11pt; margin-right: 3px; }' +
       'thead th .dt { font-size: 8pt; font-weight: 400; }' +
-      '.pcol { width: 9mm; background: #eef1f5; color: #3b424d; font-weight: 800; text-align: center; vertical-align: middle; font-size: 9pt; }' +
-      '.pnum { display:inline-block; width:6mm; height:6mm; line-height:6mm; background:#98a0ab; color:#fff; border-radius:50%; font-size:9pt; }' +
+      '.pcol { width: 9mm; background: ' + PC.pcolBg + '; color: ' + PC.pcolText + '; font-weight: 800; text-align: center; vertical-align: middle; font-size: 9pt; }' +
+      '.pnum { display:inline-block; width:6mm; height:6mm; line-height:6mm; background:' + PC.pnum + '; color:#fff; border-radius:50%; font-size:9pt; }' +
       '.box { padding: 1mm 1.2mm; overflow: hidden; }' +
       '.memo-cell .box { text-align: left; font-size: 8pt; white-space: pre-wrap; word-break: break-word; line-height: 1.35; }' +
       '.lesson-cell { padding: 0; }' +
       '.cellbox { display: flex; flex-direction: column; padding: 0.8mm; overflow: hidden; }' +
       '.pslot { flex: 1 1 0; display: flex; flex-direction: column; min-height: 0; }' +
-      '.pslot + .pslot { border-top: 0.9pt solid #a6adb8; margin-top: 0.8mm; padding-top: 0.8mm; }' +
-      '.subj { flex: 0 0 auto; border-radius: 3mm; padding: 0.5mm 1mm; font-weight: 800; line-height: 1.25; text-align: center; }' +
+      '.pslot + .pslot { border-top: ' + PC.split + '; margin-top: 0.8mm; padding-top: 0.8mm; }' +
+      '.subj { flex: 0 0 auto; border-radius: 3mm; padding: 0.5mm 1mm; font-weight: 800; line-height: 1.25; text-align: center;' + PC.subj + ' }' +
       '.subj.big { font-size: 11pt; }' +
       '.subj.small { font-size: 9pt; }' +
       '.subj.tiny { font-size: 7.5pt; }' +
-      '.subj.blank { background: transparent !important; }' +
+      '.subj.blank { background: transparent !important; border-color: transparent !important; }' +
       '.subj .wt { font-size: 6.5pt; opacity: 0.75; margin-right: 2px; }' +
       '.unit { flex: 1 1 auto; min-height: 0; overflow: hidden; text-align: left; word-break: break-word;' +
-      ' margin-top: 0.8mm; padding-top: 0.8mm; border-top: 0.5pt dashed #c2c8d1; color: #4c5361; }' +
+      ' margin-top: 0.8mm; padding-top: 0.8mm; border-top: ' + PC.unitLine + '; color: ' + PC.unit + '; }' +
       '.subj.big + .unit { font-size: 8.5pt; line-height: 1.35; }' +
       '.subj.small + .unit { font-size: 7.5pt; line-height: 1.3; }' +
       '.subj.tiny + .unit { font-size: 6.5pt; line-height: 1.25; }' +
-      '.off-cell { background-color: #e2e5ea; background-image: repeating-linear-gradient(45deg, rgba(0,0,0,0.07) 0 6px, rgba(0,0,0,0) 6px 12px); }' +
-      '.contact { flex: 0 0 auto; font-size: 7.5pt; color: #2b6f8c; margin-top: 0.8mm; padding-top: 0.6mm; border-top: 0.5pt dashed #c2c8d1; text-align: left; }' +
-      '.credit-line { margin-top: 1.2mm; text-align: right; font-size: 6.5pt; color: #8d95a1; }' +
-      '.goal-line { border: 0.8pt solid #98a0ab; border-radius: 1.5mm; padding: 1.2mm 2.5mm; margin-bottom: 1.5mm;' +
+      '.off-cell { vertical-align: middle; ' + PC.off + ' }' +
+      '.offt { text-align: center; font-size: 7.5pt; font-weight: 800; color: ' + PC.offText + '; }' +
+      '.offt { display: inline-block; background: #fff; padding: 0 1.2mm; margin: 0 auto; }' +
+      '.off-cell { text-align: center; }' +
+      '.contact { flex: 0 0 auto; font-size: 7.5pt; color: ' + PC.contact + '; margin-top: 0.8mm; padding-top: 0.6mm; border-top: ' + PC.unitLine + '; text-align: left; }' +
+      '.contact b { font-size: 6.5pt; border: 0.6pt solid currentColor; border-radius: 1mm; padding: 0 0.6mm; margin-right: 0.6mm; }' +
+      '.credit-line { margin-top: 1.2mm; text-align: right; font-size: 6.5pt; color: ' + PC.sub + '; }' +
+      '.goal-line { border: ' + PC.goal + '; border-radius: 1.5mm; padding: 1.2mm 2.5mm; margin-bottom: 1.5mm;' +
       ' font-size: 8.5pt; display: flex; gap: 2.5mm; align-items: baseline;' +
       ' max-height: 7mm; overflow: hidden; }' +
       '.goal-line span { overflow: hidden; }' +
-      '.goal-line b { flex: 0 0 auto; font-size: 7.5pt; color: #666f7d; }' +
-      '.ptime { display: block; font-size: 6pt; font-weight: 700; color: #666f7d; line-height: 1.2; margin-top: 0.6mm; }' +
-      '.nkh { display: block; font-size: 6.5pt; font-weight: 800; color: #23616f; }' +
-      '.ntime { flex: 0 0 auto; font-size: 6.5pt; font-weight: 800; color: #23616f; text-align: right; line-height: 1.1; }' +
-      '.uc { font-size: 6.5pt; color: #666f7d; margin-left: 1mm; }' +
+      '.goal-line b { flex: 0 0 auto; font-size: 7.5pt; color: ' + PC.sub + '; }' +
+      '.ptime { display: block; font-size: 6pt; font-weight: 700; color: ' + PC.sub + '; line-height: 1.2; margin-top: 0.6mm; }' +
+      '.nkh { color: ' + PC.accent + '; }' +
+      '.ntime { flex: 0 0 auto; font-size: 6.5pt; font-weight: 800; color: ' + PC.accent + '; text-align: right; line-height: 1.1; }' +
+      '.uc { font-size: 6.5pt; color: ' + PC.sub + '; margin-left: 1mm; }' +
+      '.memo-cell { color: ' + PC.unit + '; }' +
       '.pd { height: 3.6mm; margin: 0.6mm -0.5pt 0; padding-left: 1.2mm; font-size: 6.5pt; font-weight: 800; line-height: 3.6mm;' +
       ' white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' +
       '.pd.pd-none { background: transparent; }' +
       '.pd.s { margin-left: 1mm; border-radius: 2mm 0 0 2mm; }' +
       '.pd.e { margin-right: 0.8mm; padding-right: 2.6mm; clip-path: polygon(0 0, calc(100% - 2.2mm) 0, 100% 50%, calc(100% - 2.2mm) 100%, 0 100%); }' +
+      // 白黒の矢印：色の帯ではなく、黒い上下の線と「▶」で出す
+      '.pd.m { position: relative; background: #fff !important; color: #000 !important; border-top: 0.8pt solid #000; border-bottom: 0.8pt solid #000; line-height: 3.2mm; }' +
+      '.pd.m.s { border-left: 0.8pt solid #000; }' +
+      '.pd.m.e { clip-path: none; padding-right: 3mm; }' +
+      '.pd.m .tip { position: absolute; right: 0.2mm; top: 0; font-size: 6.5pt; }' +
       '.print-btn-area { text-align:center; margin-top: 6mm; }' +
       '@media print { .print-btn-area { display: none !important; } }' +
       '</style></head><body>' +
@@ -3226,12 +3266,12 @@
         document.getElementById('lessonFields').style.display = 'none';
         document.getElementById('contactFieldArea').style.display = 'none';
         document.getElementById('recordFieldArea').style.display = 'block';
-        document.getElementById('inputModalTitle').innerText = dayNames[day] + '曜の' + row.title;
+        document.getElementById('inputModalTitle').innerText = mdw(getDataKey(day, period).slice(0, 10)) + 'の' + row.title;
         document.getElementById('recordLabel').innerText = row.print ? '内容（印刷に出ます）' : '内容（印刷されません）';
       } else {
         offWrap.style.display = 'flex';
         offBox.checked = !!data.disabled;
-        document.getElementById('inputModalTitle').innerText = dayNames[day] + '曜 ' + row.title;
+        document.getElementById('inputModalTitle').innerText = mdw(getDataKey(day, period).slice(0, 10)) + ' ' + row.title;
         document.getElementById('recordLabel').innerText = 'メモ・所感（印刷されません）';
         document.getElementById('inputSubject').value = data.subject || "";
         document.getElementById('inputSubject2').value = data.subject2 || "";
@@ -3524,7 +3564,7 @@
             '<div style="margin-top:8px;">' + (here
               ? '<button class="btn btn-soft btn-sm" data-d="' + escapeHTML(p.start) + '" onclick="jumpToDate(this.dataset.d)">表示</button> ' +
                 '<button class="btn btn-sky btn-sm" data-pid="' + escapeHTML(id) + '" onclick="closeSearchModal(); openPeriodModal(this.dataset.pid)">直す</button>'
-              : '<span class="field-hint">「年度切替」でこの年度に移ると開けます</span>') + '</div>' +
+              : '<span class="field-hint">設定の「年度を切り替える」でこの年度に移ると開けます</span>') + '</div>' +
             '</div>';
           c++;
         });
@@ -3782,7 +3822,7 @@
     }
 
     // 印刷用の矢印（紙の上ではマスからはみ出せないので、名前はそのマスの中に入る分だけ）
-    function printPeriodBars(layout, dIdx) {
+    function printPeriodBars(layout, dIdx, mono) {
       if (!layout || !layout.lanes) return '';
       const segs = layout.byDay[dIdx] || [];
       let h = '';
@@ -3790,9 +3830,11 @@
         const s = segs[l];
         if (!s) { h += '<div class="pd pd-none"></div>'; continue; }
         const c = periodColor(s.item.p.color);
-        const cls = 'pd' + ((s.first && !s.item.contL) ? ' s' : '') + ((s.last && !s.item.contR) ? ' e' : '');
+        const isEnd = s.last && !s.item.contR;
+        const cls = 'pd' + (mono ? ' m' : '') + ((s.first && !s.item.contL) ? ' s' : '') + (isEnd ? ' e' : '');
         h += '<div class="' + cls + '" style="background:' + c.bg + '; color:' + c.fg + ';">' +
-             (s.first ? (s.item.contL ? '← ' : '') + escapeHTML(s.item.p.title) : '') + '</div>';
+             (s.first ? (s.item.contL ? '← ' : '') + escapeHTML(s.item.p.title) : '') +
+             (mono && isEnd ? '<span class="tip">▶</span>' : '') + '</div>';
       }
       return h;
     }
@@ -4397,6 +4439,28 @@
     }
 
     // その日がしめきりの、まだ終わっていないやることの数（曜日の見出し・月の予定に出す）
+    // 曜日の見出し・月の予定に出す、締切のしるし。押すと ToDo を開く。
+    function todoDueBadge(ds, mini) {
+      const n = openTodosDue(ds);
+      if (!n) return '';
+      const late = ds < fmtDate(new Date());
+      return '<button type="button" class="td-day-badge' + (late ? ' late' : '') + (mini ? ' mini' : '') + '" ' +
+             'data-d="' + ds + '" onclick="event.stopPropagation(); openTodoForDate(this.dataset.d)" ' +
+             'title="この日が締切の、まだ終わっていない ToDo があります。押すと ToDo を開きます">' +
+             (late ? '⚠ 締切すぎ ' : '⚑ 締切あり ') + n + '件</button>';
+    }
+
+    function openTodoForDate(ds) {
+      closeMonthView();
+      todoFilter = 'week';
+      todoOpenId = '';
+      const c = clampMonday(new Date(ds.replace(/-/g, '/')));
+      if (!c.clamped) { currentMonday = c.monday; }
+      if (sidePanel !== 'todo') setSidePanel('todo');
+      updateView();
+      renderTodoPanel(true);
+    }
+
     function openTodosDue(ds) {
       return todoList().filter(function(t) { return t.kind === 'task' && !t.done && t.due === ds; }).length;
     }
@@ -4777,7 +4841,7 @@
       const fr = fiscalRange();
       const first = new Date(fr.start.getFullYear(), fr.start.getMonth(), 1);
       const last = new Date(fr.end.getFullYear(), fr.end.getMonth(), 1);
-      if (m < first || m > last) { showToast(fr.year + '年度の中の月だけ見られます（ほかの年度は「年度切替」から）'); return; }
+      if (m < first || m > last) { showToast(fr.year + '年度の中の月だけ見られます（ほかの年度は設定の「年度を切り替える」から）'); return; }
       monthCursor = m;
       renderMonthView();
     }
@@ -4823,13 +4887,15 @@
           const info = monthDayInfo(ds);
           const cls = 'mv-cell' + (other ? ' other' : '') + (out ? ' out' : '') + (ds === today ? ' today' : '') +
                       ((info.hol || i === 6) ? ' hol' : (i === 5 ? ' sat' : '')) + (info.vac ? ' vac' : '');
-          h += '<td class="' + cls + '" data-d="' + ds + '" onclick="monthJump(this.dataset.d)" title="この週を開く">' +
-               '<div class="mv-date"><b>' + d.getDate() + '</b>' + (info.hol ? '<span class="mv-hol">' + escapeHTML(info.hol) + '</span>' : '') + '</div>' +
+          h += '<td class="' + cls + '" data-d="' + ds + '" onclick="monthEditDay(this.dataset.d)" title="押すと、この日の行事を書きこめます">' +
+               '<div class="mv-date"><b>' + d.getDate() + '</b>' + (info.hol ? '<span class="mv-hol">' + escapeHTML(info.hol) + '</span>' : '') +
+               (out ? '' : '<button type="button" class="mv-week" data-d="' + ds + '" onclick="event.stopPropagation(); monthJump(this.dataset.d)" title="この週の週案を開く">週へ</button>') +
+               '</div>' +
                (out ? '' : periodBarsHTML(pl, i, true)) +
                (info.nikka ? '<span class="nk-badge">' + escapeHTML(info.nikka) + '</span>' : '') +
                (info.vac && !info.hol ? '<div class="mv-vac">' + escapeHTML(info.vac) + '</div>' : '') +
                info.ev.map(function(x) { return '<div class="mv-ev">' + escapeHTML(x) + '</div>'; }).join('') +
-               (info.todo ? '<div class="mv-todo">ToDo ' + info.todo + '</div>' : '') +
+               todoDueBadge(ds, true) +
                '</td>';
         });
         h += '</tr>';
@@ -4837,8 +4903,17 @@
       document.getElementById('monthBody').innerHTML = h + '</tbody></table>';
     }
 
+    // 月の予定のまま、その日の行事の欄を開く（入れる・直す・消す）
+    function monthEditDay(ds) {
+      if (isOutsideFiscalYear(ds)) { showToast('この日は ' + fiscalYearOf(ds) + '年度です。設定の「年度の切り替え」で移ってから入れてください'); return; }
+      const d = new Date(ds.replace(/-/g, '/'));
+      currentMonday = clampMonday(d).monday;
+      updateView();
+      openInputModal((d.getDay() + 6) % 7, 'gyoji');
+    }
+
     function monthJump(ds) {
-      if (isOutsideFiscalYear(ds)) { showToast('この日は ' + fiscalYearOf(ds) + '年度です。「年度切替」で移ってから開いてください'); return; }
+      if (isOutsideFiscalYear(ds)) { showToast('この日は ' + fiscalYearOf(ds) + '年度です。設定の「年度を切り替える」で移ってから開いてください'); return; }
       closeMonthView();
       jumpToDate(ds);
     }
@@ -4860,7 +4935,7 @@
           const info = monthDayInfo(ds);
           rows += '<td class="' + (other ? 'other' : '') + ((info.hol || i === 6) ? ' hol' : '') + '">' +
                   '<div class="dt">' + d.getDate() + (info.hol ? ' <span>' + escapeHTML(info.hol) + '</span>' : '') + '</div>' +
-                  (isOutsideFiscalYear(ds) ? '' : printPeriodBars(pl, i)) +
+                  (isOutsideFiscalYear(ds) ? '' : printPeriodBars(pl, i, true)) +
                   (info.nikka ? '<div class="nk">' + escapeHTML(info.nikka) + '</div>' : '') +
                   (info.vac && !info.hol ? '<div class="vac">' + escapeHTML(info.vac) + '</div>' : '') +
                   info.ev.map(function(x) { return '<div class="ev">' + escapeHTML(x) + '</div>'; }).join('') +
@@ -4873,11 +4948,14 @@
         "* { box-sizing: border-box; margin: 0; padding: 0; } body { font-family: 'BIZ UDPGothic', 'Yu Gothic UI', 'Meiryo', sans-serif; color: #1d2127; -webkit-print-color-adjust: exact; print-color-adjust: exact; }" +
         'h1 { font-size: 14pt; margin: 0 0 2mm; display: flex; justify-content: space-between; } h1 small { font-size: 9pt; color: #666f7d; }' +
         'table { width: 100%; border-collapse: collapse; table-layout: fixed; }' +
-        'th { background: #eef1f5; font-size: 9pt; padding: 1mm; border: 0.5pt solid #ccd2da; }' +
-        'td { border: 0.5pt solid #ccd2da; vertical-align: top; height: 30mm; padding: 0.8mm 1mm; font-size: 7.5pt; overflow: hidden; }' +
-        'td.other { background: #f6f7f9; color: #9aa1ab; } td.hol .dt { color: #b8492f; }' +
+        'table { border: 1.6pt solid #000; }' +
+        'th { background: #d9d9d9; font-size: 9pt; padding: 1mm; border: 0.75pt solid #000; }' +
+        'td { border: 0.75pt solid #000; vertical-align: top; height: 30mm; padding: 0.8mm 1mm; font-size: 7.5pt; overflow: hidden; }' +
+        'td.other { color: #555; } td.other .dt { font-weight: 400; } td.hol .dt { text-decoration: underline; }' +
         '.dt { font-weight: 800; font-size: 9pt; } .dt span { font-size: 6.5pt; }' +
-        '.ev { line-height: 1.3; } .vac { color: #23616f; font-size: 6.5pt; } .nk { color: #23616f; font-weight: 800; font-size: 6.5pt; }' +
+        '.ev { line-height: 1.3; } .vac { font-size: 6.5pt; } .nk { font-weight: 800; font-size: 6.5pt; }' +
+        '.pd.m { position: relative; background: #fff !important; color: #000 !important; border-top: 0.8pt solid #000; border-bottom: 0.8pt solid #000; line-height: 3.2mm; }' +
+        '.pd.m.s { border-left: 0.8pt solid #000; } .pd.m.e { clip-path: none; padding-right: 3mm; } .pd.m .tip { position: absolute; right: 0.2mm; top: 0; }' +
         '.pd { height: 3.6mm; margin: 0.5mm -1.2mm 0; padding-left: 1.2mm; font-size: 6.5pt; font-weight: 800; line-height: 3.6mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' +
         '.pd.pd-none { background: transparent; } .pd.s { margin-left: 0; border-radius: 2mm 0 0 2mm; }' +
         '.pd.e { margin-right: 0; padding-right: 2.6mm; clip-path: polygon(0 0, calc(100% - 2.2mm) 0, 100% 50%, calc(100% - 2.2mm) 100%, 0 100%); }' +
@@ -4921,7 +4999,7 @@
 
     function applyHolidayAutoFill() {
       const c = getConfig();
-      const fillName = (c.holidayFillEvent !== false);   // 祝日名を行事へ（既定 ON）
+      // 祝日の名前は曜日の見出しにだけ出す。行事の欄には入れない（二重になって見づらいため）。
       const markOff  = (c.holidayMarkOff === true);      // 祝日を授業なしへ（既定 OFF）
       const marks = autoFillMarks(appSettings.year || getFiscalYear(new Date()));
 
@@ -4945,14 +5023,6 @@
         }
 
         if (holName) {
-          if (fillName && done.indexOf('n') === -1) {
-            const k = getDataKey(d, 'gyoji');
-            if (!appData[k] || rtEmpty(appData[k].record)) {
-              if (!appData[k]) appData[k] = {};
-              appData[k].record = holName;
-            }
-            add += 'n';
-          }
           if (markOff && done.indexOf('o') === -1) {
             LESSON_PERIODS.forEach(function(p) {
               const k = getDataKey(d, p);
@@ -4964,6 +5034,36 @@
 
         if (add) { marks[ds] = done + add; changed = true; }
       }
+      return changed;
+    }
+
+    // 前の版が行事の欄に自動で入れた祝日の名前を、1回だけ取り除く。
+    // 自分で書き足した行事は残し、祝日の名前の行だけを消す。
+    function removeAutoHolidayNames() {
+      if (appSettings.holidayNamesRemoved) return false;
+      appSettings.holidayNamesRemoved = true;
+      const built = {};
+      const holOf = function(ds) {
+        const y = parseInt(ds.slice(0, 4), 10);
+        if (!built[y]) built[y] = buildHolidays(y);
+        return holidaysData[ds] || built[y][ds] || '';
+      };
+      let changed = false;
+      Object.keys(appData).forEach(function(k) {
+        if (!/^\d{4}-\d{2}-\d{2}-gyoji$/.test(k)) return;
+        const ds = k.slice(0, 10);
+        const name = holOf(ds);
+        const cell = appData[k];
+        if (!name || !cell || typeof cell.record !== 'string') return;
+        const lines = existingEventLines(ds);
+        if (lines[0] !== name) return;
+        if (lines.length === 1) {
+          if (cell.attachments && cell.attachments.length) cell.record = ''; else delete appData[k];
+        } else {
+          cell.record = lines.slice(1).map(escapeHTML).join('<br>');
+        }
+        changed = true;
+      });
       return changed;
     }
 
@@ -4995,8 +5095,7 @@
         if (holName) { label += '<br><span style="font-size:0.6rem; font-weight:700;">' + escapeHTML(holName) + '</span>'; }
         else if (vacName) { label += '<br><span style="font-size:0.6rem; font-weight:700;">' + escapeHTML(vacName) + '</span>'; }
         label += nikkaHeadHTML(dStr);
-        const dueN = openTodosDue(dStr);
-        if (dueN) label += '<span class="td-day-badge" title="この日がしめきりのToDo">ToDo ' + dueN + '</span>';
+        label += todoDueBadge(dStr, false);
         th.innerHTML = label;
         th.className = 'day-th';
         th.style.background = ''; th.style.color = '';
@@ -5039,6 +5138,9 @@
       applyFold();
       renderPrevPanel();
       renderTodoPanel();
+      // 月の予定を開いているときは、そちらも書きなおす（月の予定から行事を直したとき）
+      const mm = document.getElementById('monthModal');
+      if (mm && mm.style.display === 'flex' && monthCursor) renderMonthView();
       highlightSelected();
     }
 
@@ -5108,13 +5210,13 @@
       slots.forEach(function(sl, i) {
         if (i > 0) inner += '<div class="split-sep"></div>';
         inner += '<div class="split-part">' +
-          '<div class="subject-tag ' + (subjectColors[sl.subject] || 'color-other') + '">' + escapeHTML(sl.subject) + '</div>' +
+          '<div class="subject-tag ' + (subjectColors[sl.subject] || 'color-other') + '" title="' + escapeHTML(sl.subject) + '：' + sl.weight.toFixed(1) + '時間">' +
+          escapeHTML(sl.subject) + '</div>' +
           (rtEmpty(sl.unit) ? '' : '<div class="memo ruled">' + rtRender(sl.unit) + unitBadge(key, i) + '</div>') + '</div>';
       });
       if (!rtEmpty(data.contact)) inner += '<div class="memo" style="color:var(--sky-dk);">' + rtRender(data.contact) + '</div>';
       if (!rtEmpty(data.record)) inner += '<div class="memo" style="color:var(--brown-2);">' + rtRender(data.record) + '</div>';
-      const chip = slots.map(function(sl) { return sl.weight.toFixed(1); }).join('・');
-      cell.innerHTML = nkTime + '<div class="weight-chip">' + chip + '</div>' +
+      cell.innerHTML = nkTime +
         '<div class="' + cls + '"' + dragAttrs + '>' + inner + badge + '</div>';
     }
 
@@ -5532,6 +5634,7 @@
       cleanPeriods();
       migrateNoteTodos();
       cleanTodos();
+      removeAutoHolidayNames();
 
       // 本人が「置きかえる」と決めた読み込みなので、件数が減っても確認はしない
       shrinkApproved = true;
@@ -5872,7 +5975,7 @@
           if (!useWeekend && (wd === 0 || wd === 6)) { skippedWeekend++; }
           else {
             const key = ds + '\u0000' + label;
-            if (!seen[key]) { seen[key] = true; plan.push({ date: ds, text: label, wd: wd }); }
+            if (!seen[key]) { seen[key] = true; plan.push({ date: ds, text: label, wd: wd, dest: 'gyoji' }); }
           }
           cur.setDate(cur.getDate() + 1);
         }
@@ -5880,9 +5983,7 @@
 
       // すでに同じ行事が入っていないか調べる（<br>で区切られた行も見る）
       plan.forEach(function(item) {
-        item.dup = (item.kind === 'period')
-          ? periodExists(item.text, item.date, item.end)
-          : existingEventLines(item.date).indexOf(item.text) !== -1;
+        item.dup = csvItemDup(item);
         item.on = !item.dup;   // 取り込むかどうか（一覧のチェックで変えられる）
       });
 
@@ -5892,8 +5993,8 @@
     }
 
     // その日の行事欄に入っている内容を、1行ずつの配列にする
-    function existingEventLines(dateStr) {
-      const cell = appData[dateStr + '-gyoji'];
+    function existingEventLines(dateStr, rowId) {
+      const cell = appData[dateStr + '-' + (rowId || 'gyoji')];
       if (!cell || !cell.record) return [];
       const box = inertRoot(rtLooksHTML(cell.record) ? rtSanitize(cell.record) : escapeHTML(cell.record));
       // <br> や段落の切れ目を、改行としてそろえる
@@ -5902,9 +6003,53 @@
     }
 
     let csvSkipNote = '';   // 読めなかった行などの知らせ（えらび直しても変わらない）
+    let csvSkipArgs = [0, 0];
+
+    // 入れる場所（行事・連絡・メモ）
+    const CSV_DESTS = [['gyoji', '行事'], ['renraku', '連絡'], ['memo', 'メモ']];
+    function csvDestName(d) { const x = CSV_DESTS.filter(function(v) { return v[0] === d; })[0]; return x ? x[1] : '行事'; }
+
+    // その場所に、同じものがもう入っているか
+    function csvItemDup(item) {
+      if (item.kind === 'period') return periodExists(item.text, item.date, item.end);
+      return existingEventLines(item.date, item.dest || 'gyoji').indexOf(item.text) !== -1;
+    }
+
+    // 1件ずつ、入れる場所を変える
+    function setCsvDest(i, dest) {
+      const x = csvPlan[i];
+      if (!x || x.kind === 'period' || !CSV_DESTS.some(function(v) { return v[0] === dest; })) return;
+      const wasDup = x.dup;
+      x.dest = dest;
+      x.dup = csvItemDup(x);
+      if (x.dup) x.on = false; else if (wasDup) x.on = true;
+      rerenderCsvPreview();
+    }
+
+    // チェックしたものを、まとめて同じ場所へ
+    function setCsvDestChecked(dest) {
+      let n = 0;
+      csvPlan.forEach(function(x) {
+        if (x.kind === 'period' || !x.on || x.dup) return;
+        x.dest = dest;
+        x.dup = csvItemDup(x);
+        if (x.dup) x.on = false;
+        n++;
+      });
+      rerenderCsvPreview();
+      showToast(n ? 'えらんだ ' + n + '件を「' + csvDestName(dest) + '」に入れるようにしました' : '「行事」にできる、えらんだ行事がありません');
+    }
+
+    function rerenderCsvPreview() {
+      const box = document.getElementById('csvPreview');
+      const top = box ? box.scrollTop : 0;
+      renderCsvPreview(csvSkipArgs[0], csvSkipArgs[1]);
+      if (box) box.scrollTop = top;
+    }
 
     // 読みこんだ一覧を出す。1件ずつチェックで、取り込む・取り込まないをえらべる。
     function renderCsvPreview(skippedNoDate, skippedWeekend) {
+      csvSkipArgs = [skippedNoDate || 0, skippedWeekend || 0];
       const dupCount = csvPlan.filter(function(x) { return x.dup; }).length;
       let notes = [];
       if (dupCount) notes.push('同じ行事がすでにある ' + dupCount + '件は、えらべません');
@@ -5932,7 +6077,13 @@
             ' <span class="wd ' + cls + '">(' + wdNames[x.wd] + ')</span>' +
             (isP ? '<br>〜' + mdw(x.end) : '') + '</span>' +
             '<span class="t">' + escapeHTML(x.text) + '</span>' +
-            '<span class="st ' + (x.dup ? 'dup' : (isP ? 'arrow' : 'add')) + '">' + (x.dup ? '入っています' : (isP ? '矢印' : '行事')) + '</span>' +
+            (isP
+              ? '<span class="st ' + (x.dup ? 'dup' : 'arrow') + '">' + (x.dup ? '入っています' : '行事に矢印') + '</span>'
+              : '<span class="csv-dest" role="group" aria-label="入れる場所">' + CSV_DESTS.map(function(v) {
+                  return '<button type="button" class="' + (x.dest === v[0] ? 'on' : '') + '" data-i="' + i + '" data-d="' + v[0] + '" ' +
+                         'onclick="event.preventDefault(); event.stopPropagation(); setCsvDest(+this.dataset.i, this.dataset.d)">' + v[1] + '</button>';
+                }).join('') + '</span>' +
+                (x.dup ? '<span class="st dup">入っています</span>' : '')) +
             '</label>';
         }).join('');
       }
@@ -5968,7 +6119,10 @@
           '</span>' +
         '</div>' +
         (months.length > 1 ? '<div class="csv-months">' + monthBtns + '</div>' : '') +
-        '<div class="csv-hint">取り込まないものは、左のチェックを外してください。行のどこを押しても切りかわります。</div>' +
+        '<div class="csv-dest-all"><span>チェックしたものを、まとめて</span>' +
+          CSV_DESTS.map(function(v) { return '<button type="button" class="btn btn-soft btn-sm" data-d="' + v[0] + '" onclick="setCsvDestChecked(this.dataset.d)">' + v[1] + 'へ</button>'; }).join('') +
+        '</div>' +
+        '<div class="csv-hint">取り込まないものは、左のチェックを外してください。右の「行事・連絡・メモ」で、1件ずつ入れる場所をえらべます。</div>' +
         (csvSkipNote ? '<div class="csv-hint">' + csvSkipNote + '</div>' : '');
 
       const btn = document.getElementById('csvRunBtn');
@@ -6002,12 +6156,19 @@
       const targets = csvPlan.filter(function(x) { return !x.dup && x.on; });
       if (targets.length === 0) { uiAlert('取り込む行事がえらばれていません。\n一覧の左のチェックで、取り込むものをえらんでください。'); return; }
 
-      uiConfirm('えらんだ ' + targets.length + '件の行事を取り込みます。\n（えらばなかったものは入りません）\n\n' +
-                'すでに書いてある行事は消さずに、下に足します。\n' +
+      const byDest = CSV_DESTS.map(function(v) {
+        const n = targets.filter(function(x) { return x.kind !== 'period' && (x.dest || 'gyoji') === v[0]; }).length;
+        return n ? '・' + v[1] + '：' + n + '件' : '';
+      }).filter(Boolean);
+      const nP = targets.filter(function(x) { return x.kind === 'period'; }).length;
+      if (nP) byDest.push('・行事に矢印：' + nP + '件');
+      uiConfirm('えらんだ ' + targets.length + '件を取り込みます。\n（えらばなかったものは入りません）\n\n' + byDest.join('\n') + '\n\n' +
+                'すでに書いてある内容は消さずに、下に足します。\n' +
                 '「矢印」のものは、期間の取り組みとして始まりから終わりまで矢印で入ります。', function(ok) {
         if (!ok) return;
         let hasWeekend = false;
         let periodCount = 0;
+        const destCount = {};
         targets.forEach(function(item) {
           if (item.kind === 'period') {
             const pid = 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1e9).toString(36);
@@ -6016,7 +6177,8 @@
             periodCount++;
             return;
           }
-          const key = item.date + '-gyoji';
+          const key = item.date + '-' + (item.dest || 'gyoji');
+          destCount[item.dest || 'gyoji'] = (destCount[item.dest || 'gyoji'] || 0) + 1;
           const cell = appData[key];
           const old = cell ? (cell.record || '') : '';
           const oldHtml = old ? (rtLooksHTML(old) ? old : escapeHTML(old).replace(/\n/g, '<br>')) : '';
@@ -6034,7 +6196,11 @@
         renderPeriodSettingsList();
         updateView();
         syncToServer();
-        showToast(targets.length + '件の行事を取り込みました');
+        // 連絡・メモに入れたときは、その行を開いて見えるようにしておく
+        ['renraku', 'memo'].forEach(function(r) { if (destCount[r] && rowFolded[r]) toggleFold(r); });
+        const parts = CSV_DESTS.filter(function(v) { return destCount[v[0]]; }).map(function(v) { return v[1] + ' ' + destCount[v[0]] + '件'; });
+        if (periodCount) parts.push('矢印 ' + periodCount + '件');
+        showToast('取り込みました（' + parts.join('・') + '）');
       }, '取り込む');
     }
 
@@ -6046,6 +6212,23 @@
 
     function closeHelp() { document.getElementById('helpModal').style.display = 'none'; }
 
+    // ヘルプの中のリンクから、設定のその項目を開く
+    function helpGo(section) {
+      closeHelp();
+      openSettingModal(section);
+    }
+
+    // ヘルプの中のリンクから、その画面を開く
+    function helpOpen(what) {
+      closeHelp();
+      if (what === 'year') openYearModal();
+      else if (what === 'todo') { if (sidePanel !== 'todo') setSidePanel('todo'); }
+      else if (what === 'month') openMonthView();
+      else if (what === 'csv') { openSettingModal('set-csv'); openCsvImport(); }
+      else if (what === 'summary') openSummaryModal();
+      else if (what === 'print') openPrintModal();
+    }
+
     // ヘルプの中の見出しへ移動する
     function helpJump(id) {
       const target = document.getElementById(id);
@@ -6056,12 +6239,21 @@
 
     // ===== 設定 =====
 
-    function openSettingModal() {
+    // 設定を開く。section を渡すと、その項目だけを開いてそこまで動く（ヘルプのリンクから使う）
+    function openSettingModal(section) {
       const yearEl = document.getElementById('setYear');
       if (yearEl) yearEl.value = appSettings.year;
       changeSettingYear();
       renderDraftStatus();
       document.getElementById('settingModal').style.display = 'flex';
+      if (typeof section === 'string' && section) {
+        const sec = document.getElementById(section);
+        if (sec && sec.tagName === 'DETAILS') {
+          sec.open = true;
+          setTimeout(function() { sec.scrollIntoView({ block: 'start', behavior: 'smooth' }); sec.classList.add('flash'); }, 60);
+          setTimeout(function() { sec.classList.remove('flash'); }, 1600);
+        }
+      }
     }
     function closeSettingModal() { document.getElementById('settingModal').style.display = 'none'; }
 
@@ -6231,7 +6423,7 @@
       uiAlert('過去の記録に「' + sub + '」の単元名が見つかりませんでした。');
     }
 
-    // 年度は「年度切替」でだけ変える。ここでは、いま開いている年度の設定を保存する。
+    // 年度は「年度を切り替える」でだけ変える。ここでは、いま開いている年度の設定を保存する。
     function saveSettings() {
       const y = appSettings.year || getFiscalYear(new Date());
       if (!appSettings.configByYear[y]) appSettings.configByYear[y] = {};
@@ -6240,7 +6432,6 @@
       c.className = document.getElementById('setClass') ? document.getElementById('setClass').value : "";
       c.termType = selectedTermType();
       c.termNaming = selectedTermNaming();
-      const hFill = document.getElementById('setHolidayFill'); if (hFill) c.holidayFillEvent = hFill.checked;
       const hOff  = document.getElementById('setHolidayOff');  if (hOff)  c.holidayMarkOff  = hOff.checked;
       ['t1Start','t1End','t2Start','t2End','t3Start','t3End','haruStart','haruEnd','natsuStart','natsuEnd','fuyuStart','fuyuEnd'].forEach(function(f) {
         const el = document.getElementById(f); if (el) c[f] = el.value;
@@ -6280,7 +6471,6 @@
       ['t1Start','t1End','t2Start','t2End','t3Start','t3End','haruStart','haruEnd','natsuStart','natsuEnd','fuyuStart','fuyuEnd'].forEach(function(f) {
         const el = document.getElementById(f); if (el) el.value = c[f] || "";
       });
-      const hFill = document.getElementById('setHolidayFill'); if (hFill) hFill.checked = (c.holidayFillEvent !== false);
       const hOff  = document.getElementById('setHolidayOff');  if (hOff)  hOff.checked  = (c.holidayMarkOff === true);
       const tt = String(c.termType === '2' ? '2' : '3');
       const ttEl = document.querySelector('input[name="termType"][value="' + tt + '"]');

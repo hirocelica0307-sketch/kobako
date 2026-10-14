@@ -62,7 +62,6 @@
         <button class="btn btn-soft btn-sm" id="compareBtn" onclick="toggleCompare()">先週と比べる</button>
         <button class="btn btn-soft btn-sm" onclick="openBaseChooser()">基本時間割</button>
         <button class="btn btn-soft btn-sm" id="toggleWeekendBtn" onclick="toggleWeekend()">土日</button>
-        <button class="btn btn-soft btn-sm" onclick="openYearModal()">年度切替</button>
         <button class="btn btn-soft btn-sm" onclick="openSettingModal()">設定</button>
         <button class="btn btn-soft btn-sm" onclick="openHelp()">ヘルプ</button>
       </div>
@@ -340,6 +339,14 @@
             <label><input type="radio" name="printMode" value="hiragana"> ひらがな（低学年向け）</label>
           </div>
           <p class="field-hint">ひらがなを選ぶと、曜日と標準の教科名がひらがなになります。ご自身で入力した単元名や連絡文はそのままです。</p>
+        </div>
+        <div class="field">
+          <label>色</label>
+          <div class="radio-row">
+            <label><input type="radio" name="printColor" value="mono" checked> 白黒（くっきり・コピー向け）</label>
+            <label><input type="radio" name="printColor" value="color"> カラー</label>
+          </div>
+          <p class="field-hint">白黒は、線を太めの黒、見出しを薄い灰色にして、コピーを重ねても線や字が消えにくいようにしています。色の付いた教科や矢印も、白地に黒わくで印刷します。</p>
         </div>
         <div class="field">
           <label>印刷する内容</label>
@@ -643,7 +650,7 @@
   </div>
 
   <!-- ===== 年度の切り替え ===== -->
-  <div id="yearModal" class="modal-overlay">
+  <div id="yearModal" class="modal-overlay" style="z-index: 1100;">
     <div class="modal-box">
       <div class="modal-head">
         <h3>年度の切り替え</h3>
@@ -719,135 +726,169 @@
         <div class="head-tools"><button class="icon-btn" onclick="closeSettingModal()" aria-label="閉じる">✕</button></div>
       </div>
       <div class="modal-body">
-
-        <div class="sec-title">学級のこと</div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <div class="field" style="flex:1; min-width:110px;"><label>年度</label><input type="number" id="setYear" readonly title="年度は「年度切替」から変えます"></div>
-          <div class="field" style="flex:1; min-width:110px;">
-            <label>学年</label>
-            <select id="setGrade">
-              <option value="">えらんでください</option>
-              <option value="1">1年</option><option value="2">2年</option><option value="3">3年</option>
-              <option value="4">4年</option><option value="5">5年</option><option value="6">6年</option>
-            </select>
+        <p class="field-hint set-lead">見出しを押すと開きます。変えたら、下の「設定を保存」を押してください。</p>
+        <details class="set-sec" id="set-class" open>
+          <summary>学級のこと</summary>
+          <div class="set-body">
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <div class="field" style="flex:1; min-width:110px;"><label>年度</label><input type="number" id="setYear" readonly title="年度は下の「年度を切り替える」で変えます"></div>
+            <div class="field" style="flex:1; min-width:110px;">
+              <label>学年</label>
+              <select id="setGrade">
+                <option value="">えらんでください</option>
+                <option value="1">1年</option><option value="2">2年</option><option value="3">3年</option>
+                <option value="4">4年</option><option value="5">5年</option><option value="6">6年</option>
+              </select>
+            </div>
+            <div class="field" style="flex:1; min-width:110px;"><label>組</label><input type="text" id="setClass" placeholder="1組"></div>
           </div>
-          <div class="field" style="flex:1; min-width:110px;"><label>組</label><input type="text" id="setClass" placeholder="1組"></div>
-        </div>
-        <p class="field-hint" style="margin-top:-6px;">年度を変えるときは、画面の上の「年度切替」を使ってください（その年度の週へ移り、設定もその年度のものに切り替わります）。</p>
-
-        <div class="sec-title">学期</div>
-        <div class="field">
-          <label>学期のきまり</label>
-          <div class="radio-row">
-            <label><input type="radio" name="termType" value="3" onchange="onTermTypeChange()" checked> 3学期制</label>
-            <label><input type="radio" name="termType" value="2" onchange="onTermTypeChange()"> 2学期制</label>
+          <div class="set-year-row">
+            <button class="btn btn-soft btn-sm" onclick="openYearModal()">年度を切り替える</button>
+            <span class="field-hint">その年度の週へ移り、設定もその年度のものに切り替わります。前の年度の内容は消えません。</span>
           </div>
-        </div>
-        <div class="field" id="termNamingField" style="display:none;">
-          <label>2学期制の呼び方</label>
-          <div class="radio-row">
-            <label><input type="radio" name="termNaming" value="zenki" onchange="onTermTypeChange()" checked> 前期・後期</label>
-            <label><input type="radio" name="termNaming" value="gakki" onchange="onTermTypeChange()"> 1学期・2学期</label>
           </div>
-          <p class="field-hint">画面と時数集計に出る呼び方が変わります。学校の呼び方に合わせてください。</p>
-        </div>
-        <p class="field-hint" style="margin-bottom:9px;">時数集計を学期ごとに分けるほか、単元名の登録もこの区切りに合わせて並びます。</p>
-        <div class="field" id="termField1"><label id="termLabel1">1学期</label><div class="date-range"><input type="date" id="t1Start"> 〜 <input type="date" id="t1End"></div></div>
-        <div class="field" id="termField2"><label id="termLabel2">2学期</label><div class="date-range"><input type="date" id="t2Start"> 〜 <input type="date" id="t2End"></div></div>
-        <div class="field" id="termField3"><label id="termLabel3">3学期</label><div class="date-range"><input type="date" id="t3Start"> 〜 <input type="date" id="t3End"></div></div>
-
-        <div class="sec-title">日課（通常・短縮・特別）</div>
-        <p class="field-hint" style="margin-bottom:9px;">
-          それぞれの日課の時刻を入れておくと、週案に出ます。<b>通常</b>の時刻は表の左はしに、<b>短縮・特別</b>は、その日にした日の見出しと各時間に出ます。<br>
-          日課は、曜日の見出しを押したときのメニューで、日ごとにえらびます。名前は変えられます（例：「参観」「B」）。
-        </p>
-        <div class="bt-tabs" id="nkTabs"></div>
-        <div class="field" style="max-width:260px;">
-          <label for="nkName">この日課の名前</label>
-          <input type="text" id="nkName" maxlength="12" oninput="readNikkaForm(); renderNikkaSettingsTabsOnly()">
-        </div>
-        <table class="nk-table"><tbody id="nkTableBody"></tbody></table>
-
-        <div class="sec-title">休業期間</div>
-        <div class="field"><label>春季</label><div class="date-range"><input type="date" id="haruStart"> 〜 <input type="date" id="haruEnd"></div></div>
-        <div class="field"><label>夏季</label><div class="date-range"><input type="date" id="natsuStart"> 〜 <input type="date" id="natsuEnd"></div></div>
-        <div class="field"><label>冬季</label><div class="date-range"><input type="date" id="fuyuStart"> 〜 <input type="date" id="fuyuEnd"></div></div>
-        <p class="field-hint" style="margin-top:-6px;">休業期間の1〜6時間目は、その週を開いたときに自動で「授業なし」になります（1日につき1回だけ。あとで取り消したコマに、また入ることはありません）。</p>
-
-        <div class="sec-title">祝日の扱い</div>
-        <p class="field-hint" style="margin-bottom:9px;">
-          祝日は通信がなくても表示されます。下にチェックを入れると、その週を開いたときに自動で書きこまれます。<br>
-          <b>すでに書いてある内容は上書きしません。</b>空いている欄にだけ、1日につき1回だけ入ります。消したあとに、また入ることはありません。
-        </p>
-        <label class="check-line" style="margin-bottom:8px;">
-          <input type="checkbox" id="setHolidayFill"> 祝日の名前を「行事」の欄に自動で入れる
-        </label>
-        <label class="check-line">
-          <input type="checkbox" id="setHolidayOff"> 祝日の1〜6時間目を自動で「授業なし」にする
-        </label>
-
-        <div class="sec-title">単元名の登録</div>
-        <p class="field-hint" style="margin-bottom:9px;">
-          教科ごとに、よく使う単元名を登録しておけます。授業の入力画面の「単元一覧」から選んで入れられます。<br>
-          学期ごとに分けて登録できます。授業の画面では、その日が入っている学期の単元名だけが出ます。<br>
-          1行に1つずつ、教える順に並べてください。
-        </p>
-        <div class="unit-sub-tabs" id="unitSetTermTabs"></div>
-        <div class="unit-sub-tabs" id="unitSetTabs"></div>
-        <textarea id="setUnits" rows="7" oninput="onUnitTextInput()" placeholder="大きなかず（8時間）&#10;たしざん(2)（10時間）&#10;ひきざん(2)（10時間）"></textarea>
-        <p class="field-hint">
-          単元名のうしろに「（12時間）」のように時数を書いておくと、週案のコマに「5/12」のように<b>何時間目か</b>が出ます。
-          単元一覧にも、ここまでに入れた時数が出ます。時数は書かなくてもかまいません。
-        </p>
-
-        <div class="sec-title">名簿（記録のタグに使います）</div>
-        <p class="field-hint" style="margin-bottom:8px;">
-          記録に「だれのこと」を付けられるようになり、児童ごとに並べて見返せます。<br>
-          出席番号やイニシャルなど、実名でない書き方をおすすめします。1行に1人ずつ入れてください。
-        </p>
-        <textarea id="setRoster" rows="5" placeholder="1&#10;2&#10;3&#10;（または A.S / 12番 など）"></textarea>
-
-        <div class="sec-title">基本の時間割（5つまで）</div>
-        <p class="field-hint" style="margin-bottom:8px;">
-          毎週くり返す時間割を5パターンまで登録できます。ホーム画面の「基本時間割」から、どれを読み込むか選べます。<br>
-          コマを「― 授業なし ―」にしておくと、読み込んだときにそのコマが灰色（授業なし）になります。
-        </p>
-        <div class="bt-tabs" id="btTabs"></div>
-        <div class="field">
-          <label>この時間割の名前</label>
-          <input type="text" id="btName" oninput="onBaseNameInput()" placeholder="例：Aパターン、月曜6時間の週 など">
-        </div>
-        <table class="base-table"><tbody id="baseTimetableBody"></tbody></table>
-
-        <div class="sec-title">期間の取り組み（〇〇週間など）</div>
-        <p class="field-hint" style="margin-bottom:9px;">
-          何日も続く取り組みを、行事の欄に「始まりから終わりまでの矢印」で出せます。印刷にも出ます。<br>
-          曜日の見出しを押したときのメニューや、行事のマスを開いた画面からも入れられます。
-        </p>
-        <div id="periodSettingsList" style="margin-bottom:8px;"></div>
-        <button class="btn btn-soft btn-sm" onclick="openPeriodModal('', fmtDate(currentMonday))">＋ 期間を入れる</button>
-
-        <div class="sec-title">行事のCSV取り込み</div>
-        <p class="field-hint" style="margin-bottom:9px;">
-          学校の行事予定などのCSVファイルを読みこんで、「行事」の欄にまとめて入れられます。<br>
-          すでに書いてある行事は消さずに、下に足していきます。<br>
-          <b>CSVの作り方が分からないときは、Gemini などに作ってもらう文を用意してあります。</b>下のボタンから見られます。
-        </p>
-        <button class="btn btn-soft btn-sm" onclick="openCsvImport()">CSVを読みこむ</button>
-
-        <div class="sec-title">バックアップ</div>
-        <p class="field-hint" style="margin-bottom:9px;">すべてのデータ（時間割・ノート・設定）をファイルに保存・復元できます。機種変更や引き継ぎにも使えます。</p>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn btn-soft btn-sm" onclick="exportBackup()">書き出す</button>
-          <button class="btn btn-soft btn-sm" onclick="document.getElementById('importFileInput').click()">読み込む</button>
-          <input type="file" id="importFileInput" accept=".json,application/json" style="display:none;" onchange="importBackup(event)">
-        </div>
-        <p class="field-hint" style="margin:12px 0 9px;">
-          クラウド側にも、自動の控えがあります。<b>直前の控え</b>（上書きする直前の1回分）と、
-          <b>毎日の控え</b>（その日はじめて保存する前の状態を、14日分）です。うっかり消したときは、ここから戻せます。
-        </p>
-        <button class="btn btn-soft btn-sm" onclick="openBackupPicker()">自動控えから復元</button>
-        <div class="help-warn" id="draftStatus" style="display:none; margin-top:12px;"></div>
+        </details>
+        <details class="set-sec" id="set-term">
+          <summary>学期</summary>
+          <div class="set-body">
+          <div class="field">
+            <label>学期のきまり</label>
+            <div class="radio-row">
+              <label><input type="radio" name="termType" value="3" onchange="onTermTypeChange()" checked> 3学期制</label>
+              <label><input type="radio" name="termType" value="2" onchange="onTermTypeChange()"> 2学期制</label>
+            </div>
+          </div>
+          <div class="field" id="termNamingField" style="display:none;">
+            <label>2学期制の呼び方</label>
+            <div class="radio-row">
+              <label><input type="radio" name="termNaming" value="zenki" onchange="onTermTypeChange()" checked> 前期・後期</label>
+              <label><input type="radio" name="termNaming" value="gakki" onchange="onTermTypeChange()"> 1学期・2学期</label>
+            </div>
+            <p class="field-hint">画面と時数集計に出る呼び方が変わります。学校の呼び方に合わせてください。</p>
+          </div>
+          <p class="field-hint" style="margin-bottom:9px;">時数集計を学期ごとに分けるほか、単元名の登録もこの区切りに合わせて並びます。</p>
+          <div class="field" id="termField1"><label id="termLabel1">1学期</label><div class="date-range"><input type="date" id="t1Start"> 〜 <input type="date" id="t1End"></div></div>
+          <div class="field" id="termField2"><label id="termLabel2">2学期</label><div class="date-range"><input type="date" id="t2Start"> 〜 <input type="date" id="t2End"></div></div>
+          <div class="field" id="termField3"><label id="termLabel3">3学期</label><div class="date-range"><input type="date" id="t3Start"> 〜 <input type="date" id="t3End"></div></div>
+          </div>
+        </details>
+        <details class="set-sec" id="set-nikka">
+          <summary>日課（通常・短縮・特別）</summary>
+          <div class="set-body">
+          <p class="field-hint" style="margin-bottom:9px;">
+            それぞれの日課の時刻を入れておくと、週案に出ます。<b>通常</b>の時刻は表の左はしに、<b>短縮・特別</b>は、その日にした日の見出しと各時間に出ます。<br>
+            日課は、曜日の見出しを押したときのメニューで、日ごとにえらびます。名前は変えられます（例：「参観」「B」）。
+          </p>
+          <div class="bt-tabs" id="nkTabs"></div>
+          <div class="field" style="max-width:260px;">
+            <label for="nkName">この日課の名前</label>
+            <input type="text" id="nkName" maxlength="12" oninput="readNikkaForm(); renderNikkaSettingsTabsOnly()">
+          </div>
+          <table class="nk-table"><tbody id="nkTableBody"></tbody></table>
+          </div>
+        </details>
+        <details class="set-sec" id="set-vac">
+          <summary>休業期間</summary>
+          <div class="set-body">
+          <div class="field"><label>春季</label><div class="date-range"><input type="date" id="haruStart"> 〜 <input type="date" id="haruEnd"></div></div>
+          <div class="field"><label>夏季</label><div class="date-range"><input type="date" id="natsuStart"> 〜 <input type="date" id="natsuEnd"></div></div>
+          <div class="field"><label>冬季</label><div class="date-range"><input type="date" id="fuyuStart"> 〜 <input type="date" id="fuyuEnd"></div></div>
+          <p class="field-hint" style="margin-top:-6px;">休業期間の1〜6時間目は、その週を開いたときに自動で「授業なし」になります（1日につき1回だけ。あとで取り消したコマに、また入ることはありません）。</p>
+          </div>
+        </details>
+        <details class="set-sec" id="set-holiday">
+          <summary>祝日の扱い</summary>
+          <div class="set-body">
+          <p class="field-hint" style="margin-bottom:9px;">
+            祝日の名前は、曜日と日付の見出しにだけ出ます（通信がなくても出ます）。「行事」の欄には入れません。<br>
+            下にチェックを入れると、祝日の1〜6時間目が、その週を開いたときに自動で「授業なし」になります（1日につき1回だけ）。
+          </p>
+          <label class="check-line">
+            <input type="checkbox" id="setHolidayOff"> 祝日の1〜6時間目を自動で「授業なし」にする
+          </label>
+          </div>
+        </details>
+        <details class="set-sec" id="set-units">
+          <summary>単元名の登録</summary>
+          <div class="set-body">
+          <p class="field-hint" style="margin-bottom:9px;">
+            教科ごとに、よく使う単元名を登録しておけます。授業の入力画面の「単元一覧」から選んで入れられます。<br>
+            学期ごとに分けて登録できます。授業の画面では、その日が入っている学期の単元名だけが出ます。<br>
+            1行に1つずつ、教える順に並べてください。
+          </p>
+          <div class="unit-sub-tabs" id="unitSetTermTabs"></div>
+          <div class="unit-sub-tabs" id="unitSetTabs"></div>
+          <textarea id="setUnits" rows="7" oninput="onUnitTextInput()" placeholder="大きなかず（8時間）&#10;たしざん(2)（10時間）&#10;ひきざん(2)（10時間）"></textarea>
+          <p class="field-hint">
+            単元名のうしろに「（12時間）」のように時数を書いておくと、週案のコマに「5/12」のように<b>何時間目か</b>が出ます。
+            単元一覧にも、ここまでに入れた時数が出ます。時数は書かなくてもかまいません。
+          </p>
+          </div>
+        </details>
+        <details class="set-sec" id="set-roster">
+          <summary>名簿（記録のタグに使います）</summary>
+          <div class="set-body">
+          <p class="field-hint" style="margin-bottom:8px;">
+            記録に「だれのこと」を付けられるようになり、児童ごとに並べて見返せます。<br>
+            出席番号やイニシャルなど、実名でない書き方をおすすめします。1行に1人ずつ入れてください。
+          </p>
+          <textarea id="setRoster" rows="5" placeholder="1&#10;2&#10;3&#10;（または A.S / 12番 など）"></textarea>
+          </div>
+        </details>
+        <details class="set-sec" id="set-base">
+          <summary>基本の時間割（5つまで）</summary>
+          <div class="set-body">
+          <p class="field-hint" style="margin-bottom:8px;">
+            毎週くり返す時間割を5パターンまで登録できます。ホーム画面の「基本時間割」から、どれを読み込むか選べます。<br>
+            コマを「― 授業なし ―」にしておくと、読み込んだときにそのコマが灰色（授業なし）になります。
+          </p>
+          <div class="bt-tabs" id="btTabs"></div>
+          <div class="field">
+            <label>この時間割の名前</label>
+            <input type="text" id="btName" oninput="onBaseNameInput()" placeholder="例：Aパターン、月曜6時間の週 など">
+          </div>
+          <table class="base-table"><tbody id="baseTimetableBody"></tbody></table>
+          </div>
+        </details>
+        <details class="set-sec" id="set-period">
+          <summary>期間の取り組み（〇〇週間など）</summary>
+          <div class="set-body">
+          <p class="field-hint" style="margin-bottom:9px;">
+            何日も続く取り組みを、行事の欄に「始まりから終わりまでの矢印」で出せます。印刷にも出ます。<br>
+            曜日の見出しを押したときのメニューや、行事のマスを開いた画面からも入れられます。
+          </p>
+          <div id="periodSettingsList" style="margin-bottom:8px;"></div>
+          <button class="btn btn-soft btn-sm" onclick="openPeriodModal('', fmtDate(currentMonday))">＋ 期間を入れる</button>
+          </div>
+        </details>
+        <details class="set-sec" id="set-csv">
+          <summary>行事のCSV取り込み</summary>
+          <div class="set-body">
+          <p class="field-hint" style="margin-bottom:9px;">
+            学校の行事予定などのCSVファイルを読みこんで、「行事」の欄にまとめて入れられます。<br>
+            すでに書いてある行事は消さずに、下に足していきます。<br>
+            <b>CSVの作り方が分からないときは、Gemini などに作ってもらう文を用意してあります。</b>下のボタンから見られます。
+          </p>
+          <button class="btn btn-soft btn-sm" onclick="openCsvImport()">CSVを読みこむ</button>
+          </div>
+        </details>
+        <details class="set-sec" id="set-backup">
+          <summary>バックアップ</summary>
+          <div class="set-body">
+          <p class="field-hint" style="margin-bottom:9px;">すべてのデータ（時間割・ノート・設定）をファイルに保存・復元できます。機種変更や引き継ぎにも使えます。</p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-soft btn-sm" onclick="exportBackup()">書き出す</button>
+            <button class="btn btn-soft btn-sm" onclick="document.getElementById('importFileInput').click()">読み込む</button>
+            <input type="file" id="importFileInput" accept=".json,application/json" style="display:none;" onchange="importBackup(event)">
+          </div>
+          <p class="field-hint" style="margin:12px 0 9px;">
+            クラウド側にも、自動の控えがあります。<b>直前の控え</b>（上書きする直前の1回分）と、
+            <b>毎日の控え</b>（その日はじめて保存する前の状態を、14日分）です。うっかり消したときは、ここから戻せます。
+          </p>
+          <button class="btn btn-soft btn-sm" onclick="openBackupPicker()">自動控えから復元</button>
+          <div class="help-warn" id="draftStatus" style="display:none; margin-top:12px;"></div>
+          </div>
+        </details>
 
       </div>
       <div class="modal-foot">
@@ -858,7 +899,7 @@
   </div>
 
   <!-- ===== 月の予定 ===== -->
-  <div id="monthModal" class="modal-overlay">
+  <div id="monthModal" class="modal-overlay" style="z-index: 990;">
     <div class="modal-box wide">
       <div class="modal-head">
         <h3 id="monthTitle">月の予定</h3>
@@ -870,7 +911,7 @@
         </div>
       </div>
       <div class="modal-body">
-        <p class="field-hint" style="margin-bottom:8px;">日を押すと、その週の週案が開きます。行事・期間の取り組み・日課・ToDo のしめきりが出ます。</p>
+        <p class="field-hint" style="margin-bottom:8px;">日を押すと、その日の行事を<b>入れる・直す・消す</b>ことができます。右上の「週へ」で、その週の週案が開きます。</p>
         <div class="table-scroll" id="monthBody"></div>
       </div>
       <div class="modal-foot">
