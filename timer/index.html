@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>タイマー・ストップウォッチ</title>
+<meta name="theme-color" content="#141416">
+<link rel="icon" href="assets/icon/app-icon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="assets/icon/app-icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="assets/icon/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#141416;color:#e8e6e0;
+  font-family:"Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",system-ui,sans-serif}
+#app{max-width:1100px;margin:0 auto;padding:16px}
+
+#topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.seg{display:flex;border:1px solid #4a4a50;border-radius:8px;overflow:hidden}
+.seg button{border:none;border-radius:0;background:transparent;color:#c9c8c3;
+  padding:0 18px;height:38px;font-size:15px;font-family:inherit;cursor:pointer}
+.seg button.on{background:#3d7fd6;color:#fff}
+.tool{display:flex;gap:8px}
+
+button.b{background:transparent;border:1px solid #4a4a50;border-radius:8px;color:#e8e6e0;
+  height:38px;padding:0 16px;font-size:15px;font-family:inherit;cursor:pointer}
+button.b:hover{background:#26262a}
+button.b:active{transform:scale(.98)}
+button.big{height:52px;padding:0 32px;font-size:19px;font-weight:bold}
+button.pre{min-width:66px}
+
+#stage{--trk:#232326;--brd:#93939a;
+  background:#111112;border-radius:12px;aspect-ratio:16/9;position:relative;
+  overflow:hidden;user-select:none}
+#stage:fullscreen{border-radius:0;aspect-ratio:auto;width:100%;height:100%}
+body.big{overflow:hidden}
+body.big #topbar,body.big #panel{display:none}
+body.big #app{max-width:none;padding:0}
+body.big #stage{position:fixed;top:0;right:0;bottom:0;left:0;width:100%;height:100%;
+  border-radius:0;aspect-ratio:auto;margin:0;z-index:9999}
+#safe{position:absolute;inset:0;display:flex;flex-direction:column}
+#top{display:flex;align-items:center;color:#b9b8b3;line-height:1;flex:none;
+  overflow:visible;white-space:nowrap;position:relative;z-index:20}
+#actName{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+#clock{flex:none;pointer-events:none}
+#mid{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;
+  pointer-events:none;position:relative;z-index:1}
+#pie{display:none;flex:none;border-radius:50%;border:4px solid var(--brd);background:var(--trk)}
+#stage.pie #pie{display:block}
+#disp .ds{font-size:.6em}
+#disp{font-family:"Arial Black","Yu Gothic UI",Arial,sans-serif;font-weight:900;
+  line-height:.85;color:#fff;white-space:nowrap;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums}
+#bot{display:flex;align-items:center;flex:none}
+#track{flex:1;height:100%;background:#232326;border:4px solid #93939a;
+  border-radius:10px;position:relative;overflow:hidden}
+#fill{position:absolute;left:0;top:0;bottom:0;background:#4cc79c}
+.tk{position:absolute;top:0;bottom:0;width:3px;background:#93939a}
+#laps{flex:1;display:flex;align-items:center;height:100%;overflow:hidden;color:#c9c8c3}
+.lap{background:#2a2a2c;border-radius:6px;font-family:"Arial",sans-serif;
+  font-weight:bold;white-space:nowrap}
+#fsctl{display:none;align-items:center;height:100%;flex:none;
+  position:relative;z-index:30;pointer-events:auto}
+#stage:fullscreen #fsctl,#stage:-webkit-full-screen #fsctl,body.big #fsctl{display:flex}
+#fsctl button{background:transparent;border:2px solid #6c6c72;border-radius:10px;
+  color:#c9c8c3;height:100%;font-family:inherit;font-weight:bold;cursor:pointer;
+  white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#fsctl button:active{background:#3d7fd6;color:#fff;border-color:#3d7fd6}
+#fsctl button:hover{background:#2a2a2c}
+
+#stage.lt{--trk:#e0ddd3;--brd:#3f3f3c;background:#f2efe6}
+#stage.lt #disp{color:#141412}
+#stage.lt #top,#stage.lt #laps{color:#55544f}
+#stage.lt #track{background:#e0ddd3;border-color:#3f3f3c}
+#stage.lt .tk{background:#3f3f3c}
+#stage.lt .lap{background:#dcd9cf;color:#3f3f3c}
+#stage.lt #fsctl button{border-color:#8a887f;color:#3f3f3c}
+
+.flash{animation:fl .45s steps(1) infinite}
+@keyframes fl{50%{opacity:.12}}
+@media (prefers-reduced-motion:reduce){.flash{animation-duration:1.2s}}
+
+#panel{margin-top:16px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+.lbl{font-size:14px;color:#a3a29d}
+input,select{background:#1e1e21;border:1px solid #4a4a50;border-radius:8px;color:#e8e6e0;
+  height:38px;padding:0 10px;font-size:15px;font-family:inherit}
+input[type=number]{width:78px}
+input:focus,select:focus,button:focus-visible{outline:2px solid #3d7fd6;outline-offset:1px}
+.seg.sm button{height:34px;padding:0 14px;font-size:14px}
+#preEdit{display:none;margin-top:12px;padding:12px 14px;border:1px solid #33333a;border-radius:10px;background:#19191c}
+#preEdit.open{display:block}
+#preEdit .row:first-child{margin-top:0}
+#preRows .row{margin-top:8px}
+.num{display:inline-block;min-width:1.6em;color:#7d7c78;font-size:14px}
+#lapList{margin-top:12px;border-collapse:collapse;font-size:15px;font-variant-numeric:tabular-nums}
+#lapList th{font-weight:normal;font-size:13px;color:#a3a29d;text-align:right;padding:4px 14px;border-bottom:1px solid #33333a}
+#lapList td{text-align:right;padding:4px 14px;border-bottom:1px solid #26262a}
+#lapList td.fast{color:#4cc79c}#lapList td.slow{color:#eda032}
+.lap small{font-size:.62em;font-weight:normal;opacity:.75;margin-left:.45em}
+#hint{font-size:13px;color:#7d7c78;margin-top:16px;line-height:1.8}
+</style>
+</head>
+<body>
+<div id="app">
+
+<div id="topbar">
+  <div class="seg" id="modeSeg">
+    <button data-m="timer" class="on">タイマー</button>
+    <button data-m="watch">ストップウォッチ</button>
+  </div>
+  <div class="tool">
+    <button class="b" id="themeBtn">背景を変える</button>
+    <button class="b" id="fsBtn">大きく表示</button>
+  </div>
+</div>
+
+<div id="stage">
+  <div id="safe">
+    <div id="top">
+      <span id="actName"></span>
+      <div id="fsctl">
+        <button data-a="start">スタート</button>
+        <button data-a="stop">ストップ</button>
+        <button data-a="reset">リセット</button>
+        <button data-a="lap" style="display:none">ラップ</button>
+        <button data-a="exit">もどす</button>
+      </div>
+      <span id="clock"></span>
+    </div>
+    <div id="mid"><div id="pie"></div><div id="disp">5:00</div></div>
+    <div id="bot">
+      <div id="track">
+        <div id="fill" style="width:100%"></div>
+        <div class="tk" style="left:25%"></div>
+        <div class="tk" style="left:50%"></div>
+        <div class="tk" style="left:75%"></div>
+      </div>
+      <div id="laps" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<div id="panel">
+  <div class="row">
+    <button class="b big" id="startBtn">スタート</button>
+    <button class="b big" id="stopBtn">ストップ</button>
+    <button class="b big" id="resetBtn">リセット</button>
+    <button class="b big" id="lapBtn" style="display:none">ラップ</button>
+  </div>
+
+  <div id="timerCtl">
+    <div class="row">
+      <span class="lbl">プリセット</span>
+      <span id="preBox" style="display:flex;flex-wrap:wrap;gap:10px"></span>
+      <button class="b" id="preEditBtn">へんしゅう</button>
+    </div>
+    <div id="preEdit">
+      <div class="row"><span class="lbl">プリセットの じかん（6こ まで。ボタンの 名まえは じかんから 自動で つきます）</span></div>
+      <div id="preRows"></div>
+      <div class="row">
+        <button class="b" id="preAdd">＋ ふやす</button>
+        <button class="b" id="preDefault">はじめの 5こに もどす</button>
+        <button class="b" id="preClose">とじる</button>
+      </div>
+    </div>
+    <div class="row">
+      <span class="lbl">じかん</span>
+      <input type="number" id="mIn" min="0" max="99" step="1" value="5"><span class="lbl">分</span>
+      <input type="number" id="sIn" min="0" max="59" step="1" value="0"><span class="lbl">秒</span>
+      <button class="b" id="setBtn">セット</button>
+      <button class="b" id="plus1">＋1分</button>
+      <span class="lbl" style="margin-left:14px">のこりの 表示</span>
+      <div class="seg sm" id="viewSeg">
+        <button data-v="bar" class="on">バー</button>
+        <button data-v="pie">えん</button>
+      </div>
+    </div>
+    <div class="row">
+      <span class="lbl">活動名</span>
+      <input type="text" id="actIn" placeholder="音読" maxlength="20" style="flex:1;min-width:150px">
+      <span class="lbl">終わりの音</span>
+      <select id="snd">
+        <option value="chime">チャイム</option>
+        <option value="bell">ベル</option>
+        <option value="beep">ピピピ</option>
+        <option value="none">音なし（点滅だけ）</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="watchCtl" style="display:none">
+    <div class="row">
+      <span class="lbl">1/10 びょう</span>
+      <div class="seg sm" id="dsSeg">
+        <button data-d="0" class="on">出さない</button>
+        <button data-d="1">出す</button>
+      </div>
+    </div>
+    <table id="lapList" style="display:none">
+      <thead><tr><th>ラップ</th><th>区間</th><th>通算</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <p id="hint">
+    最大 99分59秒　／　終わったら音と点滅が1分間つづきます（画面をクリックすると止まります）　／　終わったあとに「＋1分」を押すと、そのまま続きます<br>
+    ほかのタブを見ていても、終わりの音は時間どおりに鳴ります　／　一度ひらけば、インターネットにつながっていなくても使えます<br>
+    キーボード： スペース＝スタート／ストップ　　R＝リセット　　F＝大きく表示　　L＝ラップ　　1〜6＝プリセット<br>
+    設定（じかん・プリセット・活動名・終わりの音・背景・のこりの表示・1/10びょう）は、このブラウザに保存されます
+  </p>
+</div>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+/** はじめの プリセット（びょう）。画面の「へんしゅう」で 先生ごとに かえられる（さいだい 6こ） */
+var DEFAULT_PRESETS=[60,180,300,600,900];
+var MAXPRE=6;
+var MAX=5999;
+var ALARM_SEC=60,ALARM_GAP=3,ALARM_RINGS=20;
+var S={mode:"timer",total:300,left:300,run:false,t0:0,acc:300,laps:[],lt:false,
+        pie:false,ds:false,pre:DEFAULT_PRESETS.slice(),
+        w60:false,w30:false,alarm:null,sched:null,wl:null,wlWant:false,wlBusy:false,
+        tpl:"5:00",lapKey:"",dispHtml:""};
+
+var $=function(i){return document.getElementById(i)};
+var stage=$("stage"),safe=$("safe"),topEl=$("top"),mid=$("mid"),disp=$("disp"),pie=$("pie"),
+    bot=$("bot"),track=$("track"),fill=$("fill"),laps=$("laps"),fsctl=$("fsctl"),
+    actName=$("actName"),clock=$("clock");
+
+/* ---------- 保存（このブラウザの localStorage） ---------- */
+var STORE="kTimer",savedOnce=false;
+
+function save(){
+  var d={t:S.total,lt:S.lt,snd:$("snd").value,act:$("actIn").value,pie:S.pie,ds:S.ds,pre:S.pre};
+  try{localStorage.setItem(STORE,JSON.stringify(d))}catch(e){}
+}
+function cleanSec(v){v=Math.round(Number(v));return v>=1&&v<=MAX?v:0}
+function load(){
+  var d;
+  try{d=JSON.parse(localStorage.getItem(STORE)||"{}")||{}}catch(e){d={}}
+  var t=cleanSec(d.t);
+  if(t){savedOnce=true;S.total=t;$("mIn").value=Math.floor(t/60);$("sIn").value=t%60}
+  if(["chime","bell","beep","none"].indexOf(d.snd)>=0)$("snd").value=d.snd;
+  if(d.act){var a=String(d.act).slice(0,20);$("actIn").value=a;actName.textContent=a}
+  if(d.lt){S.lt=true;stage.classList.add("lt")}
+  S.pie=!!d.pie;S.ds=!!d.ds;
+  if(Array.isArray(d.pre)){
+    var p=d.pre.map(cleanSec).filter(function(x){return x}).slice(0,MAXPRE);
+    if(p.length)S.pre=p;
+  }
+}
+
+/* ---------- 音 ---------- */
+var ac=null;
+function initAudio(){if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
+  if(ac&&ac.state==="suspended")ac.resume()}
+/* at は AudioContext の 時刻。dest を わたすと そこに つなぐ（まとめて けせる ように） */
+function tone(f,at,d,g,dest){
+  var o=ac.createOscillator(),v=ac.createGain();
+  o.type="sine";o.frequency.value=f;
+  v.gain.setValueAtTime(0,at);
+  v.gain.linearRampToValueAtTime(g,at+.02);
+  v.gain.exponentialRampToValueAtTime(.001,at+d);
+  o.connect(v);v.connect(dest||ac.destination);
+  o.start(at);o.stop(at+d+.05)}
+function preAt(n,at,dest){tone(880,at,.18,.22,dest);if(n>1)tone(880,at+.25,.18,.22,dest)}
+function ringAt(k,at,dest){
+  if(k==="chime"){tone(1046,at,.7,.3,dest);tone(784,at+.35,.9,.3,dest);tone(659,at+.7,1.5,.3,dest)}
+  else if(k==="bell"){tone(1318,at,1.6,.28,dest);tone(1975,at+.02,1.2,.12,dest)}
+  else{for(var i=0;i<4;i++)tone(1200,at+i*.22,.14,.3,dest)}}
+function preAlert(n){if(!ac||$("snd").value==="none")return;preAt(n,ac.currentTime)}
+function ringOnce(){var k=$("snd").value;if(!ac||k==="none")return;ringAt(k,ac.currentTime)}
+
+/*
+ * よこくの 音と 終わりの 音を、スタートした ときに 音の 時計で 予約しておく。
+ * ほかの タブを 見て いて ページの タイマーが 間引かれても、音は 時間どおりに 鳴る。
+ */
+function cancelSched(){if(S.sched){try{S.sched.bus.disconnect()}catch(e){}S.sched=null}}
+function schedule(){
+  cancelSched();
+  var k=$("snd").value;
+  if(!ac||k==="none"||S.mode!=="timer"||!S.run)return;
+  var bus=ac.createGain();bus.connect(ac.destination);
+  var end=ac.currentTime+S.left;
+  if(!S.w60&&S.total>75&&S.left>60)preAt(1,end-60,bus);
+  if(!S.w30&&S.total>45&&S.left>30)preAt(2,end-30,bus);
+  for(var i=0;i<ALARM_RINGS;i++)ringAt(k,end+i*ALARM_GAP,bus);
+  S.sched={bus:bus};
+}
+
+/* late：ほんとうに 0 に なってから 何びょう たって いるか（タブを 見て いなかった とき） */
+function startAlarm(late){
+  clearAlarm();
+  var rest=ALARM_SEC-late;
+  if(rest<=0){cancelSched();return}
+  stage.classList.add("flash");
+  var a={iv:null,to:setTimeout(stopAlarm,rest*1000)};
+  if(!S.sched){
+    ringOnce();
+    var n=0;a.iv=setInterval(function(){n++;if(n>=ALARM_RINGS){stopAlarm();return}ringOnce()},ALARM_GAP*1000);
+  }
+  S.alarm=a;
+}
+function clearAlarm(){if(S.alarm){clearInterval(S.alarm.iv);clearTimeout(S.alarm.to);S.alarm=null}
+  stage.classList.remove("flash")}
+/* 鳴って いる 音を とめる。うごいて いる あいだの 予約（これから 鳴る 音）は のこす */
+function stopAlarm(){clearAlarm();if(!S.run)cancelSched()}
+
+/* ---------- 画面スリープ防止 ---------- */
+function lock(on){
+  S.wlWant=on;
+  try{
+    if(on&&"wakeLock" in navigator&&!S.wl&&!S.wlBusy){
+      S.wlBusy=true;
+      navigator.wakeLock.request("screen").then(function(w){
+        S.wlBusy=false;
+        if(!S.wlWant){w.release();return}
+        S.wl=w;w.addEventListener("release",function(){if(S.wl===w)S.wl=null});
+      }).catch(function(){S.wlBusy=false});
+    }else if(!on&&S.wl){S.wl.release();S.wl=null}
+  }catch(e){}
+}
+document.addEventListener("visibilitychange",function(){
+  if(document.visibilityState==="visible"){if(S.run)lock(true);tick()}});
+
+/* ---------- 表示 ---------- */
+function pad(n){return (n<10?"0":"")+n}
+function fmt(s){s=Math.min(MAX,Math.max(0,s));return Math.floor(s/60)+":"+pad(Math.floor(s%60))}
+function tenth(s){return Math.floor(Math.min(MAX,Math.max(0,s))*10+1e-6)%10}
+function fmtW(s){return fmt(Math.floor(s))+(S.ds?"."+tenth(s):"")}
+function preLabel(s){var m=Math.floor(s/60),x=s%60;return (m?m+"分":"")+(x?x+"秒":"")}
+function usePie(){return S.pie&&S.mode==="timer"}
+
+function layout(){
+  var W=stage.clientWidth,H=stage.clientHeight;
+  if(!W||!H)return;
+  var px=Math.round(W*.045),py=Math.round(H*.045);
+  safe.style.padding=py+"px "+px+"px";
+  var aW=W-px*2,aH=H-py*2;
+  var round=usePie();
+  stage.classList.toggle("pie",round);
+
+  var topH=Math.round(H*.10);
+  topEl.style.height=topH+"px";
+  topEl.style.fontSize=Math.round(H*.06)+"px";
+  topEl.style.gap=Math.round(W*.02)+"px";
+
+  var barH=Math.round(H*.115);
+  bot.style.display=round?"none":"";
+  bot.style.height=barH+"px";
+  bot.style.marginTop=Math.round(H*.02)+"px";
+  bot.style.gap=Math.round(W*.02)+"px";
+  track.style.borderWidth=Math.max(2,Math.round(H*.009))+"px";
+  track.style.borderRadius=Math.round(barH*.28)+"px";
+  var tks=track.getElementsByClassName("tk");
+  for(var i=0;i<tks.length;i++)tks[i].style.width=Math.max(2,Math.round(H*.007))+"px";
+
+  var lf=Math.round(barH*.42);
+  laps.style.fontSize=lf+"px";
+  laps.style.gap=Math.round(W*.014)+"px";
+  var lp=laps.getElementsByClassName("lap");
+  for(var j=0;j<lp.length;j++){lp[j].style.padding=Math.round(barH*.14)+"px "+Math.round(barH*.3)+"px"}
+  if(lp.length&&laps.clientWidth&&laps.scrollWidth>laps.clientWidth)
+    laps.style.fontSize=Math.floor(lf*laps.clientWidth/laps.scrollWidth*.97)+"px";
+
+  fsctl.style.gap=Math.round(W*.01)+"px";
+  var fb=fsctl.getElementsByTagName("button");
+  for(var k=0;k<fb.length;k++){
+    fb[k].style.fontSize=Math.round(topH*.42)+"px";
+    fb[k].style.padding="0 "+Math.round(topH*.5)+"px";
+    fb[k].style.borderRadius=Math.round(topH*.25)+"px";
+    fb[k].style.borderWidth=Math.max(1,Math.round(topH*.025))+"px";
+  }
+
+  if(round){
+    var midH=aH-topH,gap=Math.round(aW*.05);
+    var P=Math.round(Math.min(midH*.94,aW*.42));
+    pie.style.width=pie.style.height=P+"px";
+    pie.style.borderWidth=Math.max(2,Math.round(P*.025))+"px";
+    mid.style.gap=gap+"px";
+    fitDigits(aW-P-gap,midH*.8);
+  }else{
+    mid.style.gap="0";
+    fitDigits(aW,aH-topH-barH-Math.round(H*.02));
+  }
+}
+
+function fitDigits(aW,aH){
+  disp.innerHTML=S.tpl;
+  var f=Math.max(10,aH*.99);
+  disp.style.fontSize=f+"px";
+  var w=disp.scrollWidth;
+  if(w>aW)f=f*aW/w*.985;
+  disp.style.fontSize=Math.round(f)+"px";
+  disp.style.webkitTextStroke=Math.max(0,f*.008)+"px currentColor";
+  disp.innerHTML=S.dispHtml;
+}
+function setTpl(t){if(t!==S.tpl){S.tpl=t;layout()}}
+function setDisp(h){if(h!==S.dispHtml){S.dispHtml=h;disp.innerHTML=h}}
+function watchTpl(e){return (e>=600?"99:59":"9:59")+(S.ds?'<span class="ds">.9</span>':"")}
+
+function lapRows(){
+  var r=[];
+  for(var i=0;i<S.laps.length;i++)r.push({n:i+1,split:S.laps[i]-(i?S.laps[i-1]:0),total:S.laps[i]});
+  return r;
+}
+function drawLaps(){
+  var key=S.laps.length+":"+S.ds;
+  if(key===S.lapKey)return;
+  S.lapKey=key;
+  var rows=lapRows(),show=rows.slice(-3),h="";
+  for(var i=0;i<show.length;i++)
+    h+='<span class="lap">'+show[i].n+"　"+fmtW(show[i].split)+
+       (show[i].n>1?"<small>"+fmtW(show[i].total)+"</small>":"")+"</span>";
+  laps.innerHTML=h;
+  /* した の 表：いちばん はやい 区間は みどり、おそい 区間は だいだい */
+  var tb=$("lapList").tBodies[0],fast=-1,slow=-1,b="";
+  if(rows.length>=3){
+    for(var j=0;j<rows.length;j++){
+      if(fast<0||rows[j].split<rows[fast].split)fast=j;
+      if(slow<0||rows[j].split>rows[slow].split)slow=j;
+    }
+  }
+  for(var k=rows.length-1;k>=0;k--)
+    b+="<tr><td>"+rows[k].n+'</td><td class="'+(k===fast?"fast":(k===slow?"slow":""))+'">'+
+       fmtW(rows[k].split)+"</td><td>"+fmtW(rows[k].total)+"</td></tr>";
+  tb.innerHTML=b;
+  $("lapList").style.display=rows.length?"":"none";
+  layout();
+}
+
+function draw(){
+  if(S.mode==="timer"){
+    setDisp(fmt(Math.ceil(S.left)));
+    track.style.display="";laps.style.display="none";
+    var r=S.total>0?Math.max(0,S.left/S.total):0;
+    var col=r>.5?"#4cc79c":(r>.2?"#eda032":"#e8706e");
+    if(S.pie){
+      var p=((1-r)*100).toFixed(2);
+      pie.style.background="conic-gradient(var(--trk) 0 "+p+"%,"+col+" "+p+"% 100%)";
+    }else{
+      fill.style.width=(r*100).toFixed(2)+"%";
+      fill.style.background=col;
+    }
+  }else{
+    var e=Math.min(MAX,S.acc+(S.run?(Date.now()-S.t0)/1000:0));
+    if(e>=MAX&&S.run){S.run=false;S.acc=MAX;lock(false)}
+    setTpl(watchTpl(e));
+    setDisp(fmt(Math.floor(e))+(S.ds?'<span class="ds">.'+tenth(e)+"</span>":""));
+    track.style.display="none";laps.style.display="";
+    drawLaps();
+  }
+  var d=new Date();
+  clock.textContent=d.getHours()+":"+pad(d.getMinutes());
+}
+
+/* ---------- 動作 ---------- */
+function tick(){
+  if(S.mode==="timer"&&S.run){
+    S.left=Math.max(0,S.acc-(Date.now()-S.t0)/1000);
+    if(S.left<=60&&!S.w60&&S.total>75){S.w60=true;if(!S.sched)preAlert(1)}
+    if(S.left<=30&&!S.w30&&S.total>45){S.w30=true;if(!S.sched)preAlert(2)}
+    if(S.left<=0){
+      var late=(Date.now()-S.t0)/1000-S.acc;
+      S.run=false;lock(false);startAlarm(Math.max(0,late));
+    }
+  }
+  draw();
+}
+setInterval(tick,100);
+
+function setT(s){stopAlarm();cancelSched();s=Math.min(MAX,Math.max(1,s));
+  S.total=s;S.left=s;S.acc=s;S.run=false;S.w60=false;S.w30=false;
+  lock(false);setTpl(fmt(s));save();draw()}
+
+function doStart(){initAudio();stopAlarm();if(S.run)return;
+  if(S.mode==="timer"){if(S.left<=0)return;S.acc=S.left}
+  S.t0=Date.now();S.run=true;lock(true);schedule();draw()}
+function doStop(){stopAlarm();if(!S.run)return;
+  if(S.mode==="timer")S.acc=S.left;else S.acc+=(Date.now()-S.t0)/1000;
+  S.run=false;cancelSched();lock(false);draw()}
+function doReset(){stopAlarm();cancelSched();
+  if(S.mode==="timer"){setT(S.total)}
+  else{S.run=false;S.acc=0;S.laps=[];lock(false);setTpl(watchTpl(0));draw()}}
+function doLap(){if(S.mode==="watch"&&(S.run||S.acc>0)){
+  S.laps.push(Math.min(MAX,S.acc+(S.run?(Date.now()-S.t0)/1000:0)));draw()}}
+
+$("startBtn").onclick=doStart;$("stopBtn").onclick=doStop;
+$("resetBtn").onclick=doReset;$("lapBtn").onclick=doLap;
+
+var acts={start:doStart,stop:doStop,reset:doReset,lap:doLap,exit:function(){exitBig()}};
+
+function fsHit(e){
+  var n=e.target;
+  while(n&&n!==fsctl&&n.tagName!=="BUTTON")n=n.parentNode;
+  if(!n||n.tagName!=="BUTTON")return null;
+  return acts[n.getAttribute("data-a")]||null;
+}
+fsctl.addEventListener("pointerdown",function(e){
+  var f=fsHit(e);if(!f)return;
+  e.preventDefault();e.stopPropagation();
+  fsctl.setAttribute("data-hit","1");f();
+},true);
+fsctl.addEventListener("click",function(e){
+  e.stopPropagation();
+  if(fsctl.getAttribute("data-hit")==="1"){fsctl.removeAttribute("data-hit");return}
+  var f=fsHit(e);if(f)f();
+},true);
+
+/* ---------- プリセット ---------- */
+var preBox=$("preBox");
+function renderPresets(){
+  preBox.innerHTML="";
+  S.pre.forEach(function(sec){
+    var b=document.createElement("button");
+    b.className="b pre";b.textContent=preLabel(sec);
+    b.onclick=function(){$("mIn").value=Math.floor(sec/60);$("sIn").value=sec%60;setT(sec)};
+    preBox.appendChild(b);
+  });
+}
+function renderPreEdit(){
+  var box=$("preRows");box.innerHTML="";
+  S.pre.forEach(function(sec,i){
+    var row=document.createElement("div");row.className="row";
+    row.innerHTML='<span class="num">'+(i+1)+'</span>'+
+      '<input type="number" min="0" max="99" step="1" value="'+Math.floor(sec/60)+'"><span class="lbl">分</span>'+
+      '<input type="number" min="0" max="59" step="1" value="'+(sec%60)+'"><span class="lbl">秒</span>'+
+      '<button class="b">けす</button>';
+    var ins=row.getElementsByTagName("input");
+    var upd=function(){
+      var v=(+ins[0].value||0)*60+(+ins[1].value||0);
+      v=Math.min(MAX,Math.max(1,Math.round(v)));
+      S.pre[i]=v;renderPresets();save();
+    };
+    ins[0].onchange=upd;ins[1].onchange=upd;
+    var del=row.getElementsByTagName("button")[0];
+    del.disabled=S.pre.length<=1;
+    del.onclick=function(){if(S.pre.length<=1)return;S.pre.splice(i,1);renderPresets();renderPreEdit();save()};
+    box.appendChild(row);
+  });
+  $("preAdd").disabled=S.pre.length>=MAXPRE;
+}
+$("preEditBtn").onclick=function(){
+  var el=$("preEdit"),open=!el.classList.contains("open");
+  el.classList.toggle("open",open);if(open)renderPreEdit()};
+$("preClose").onclick=function(){$("preEdit").classList.remove("open")};
+$("preAdd").onclick=function(){if(S.pre.length>=MAXPRE)return;
+  S.pre.push(S.total);renderPresets();renderPreEdit();save()};
+$("preDefault").onclick=function(){S.pre=DEFAULT_PRESETS.slice();renderPresets();renderPreEdit();save()};
+
+/* ---------- じかん ---------- */
+$("setBtn").onclick=function(){setT((+$("mIn").value||0)*60+(+$("sIn").value||0))};
+$("plus1").onclick=function(){
+  var ended=S.mode==="timer"&&!S.run&&S.left<=0;
+  stopAlarm();
+  var add=Math.min(60,MAX-S.total);if(add<=0)return;
+  S.total+=add;S.left+=add;S.acc+=add;S.w60=false;S.w30=false;setTpl(fmt(S.total));save();
+  /* 終わった あとに おしたら、そのまま つづける */
+  if(ended)doStart();else if(S.run)schedule();
+  draw()};
+$("actIn").oninput=function(){actName.textContent=this.value;save()};
+$("snd").onchange=function(){save();if(S.run)schedule()};
+
+/* ---------- きりかえ ---------- */
+function segPick(id,attr,val){
+  var bs=$(id).getElementsByTagName("button");
+  for(var i=0;i<bs.length;i++)bs[i].classList.toggle("on",bs[i].getAttribute(attr)===val);
+}
+function segBind(id,attr,fn){
+  var bs=$(id).getElementsByTagName("button");
+  for(var i=0;i<bs.length;i++)(function(b){b.onclick=function(){segPick(id,attr,b.getAttribute(attr));fn(b.getAttribute(attr))}})(bs[i]);
+}
+segBind("modeSeg","data-m",function(m){
+  stopAlarm();cancelSched();
+  S.mode=m;S.run=false;S.laps=[];lock(false);
+  $("timerCtl").style.display=S.mode==="timer"?"":"none";
+  $("watchCtl").style.display=S.mode==="watch"?"":"none";
+  $("lapBtn").style.display=S.mode==="watch"?"":"none";
+  fsctl.querySelector('[data-a="lap"]').style.display=S.mode==="watch"?"":"none";
+  if(S.mode==="timer"){S.tpl="";setT(S.total)}else{S.acc=0;S.lapKey="";S.tpl="";setTpl(watchTpl(0));draw()}
+});
+segBind("viewSeg","data-v",function(v){S.pie=v==="pie";save();layout();draw()});
+segBind("dsSeg","data-d",function(v){S.ds=v==="1";save();draw()});
+
+$("themeBtn").onclick=function(){S.lt=!S.lt;stage.classList.toggle("lt",S.lt);save()};
+var bigMode=false;
+function setBig(on){
+  bigMode=on;
+  if(on)document.body.classList.add("big");else document.body.classList.remove("big");
+  setTimeout(layout,40);setTimeout(layout,200);
+}
+function enterBig(){
+  setBig(true);
+  try{
+    var r=(stage.requestFullscreen||stage.webkitRequestFullscreen);
+    if(r){var q=r.call(stage);if(q&&q.catch)q.catch(function(){})}
+  }catch(e){}
+}
+function exitBig(){
+  try{
+    if(document.fullscreenElement||document.webkitFullscreenElement)
+      (document.exitFullscreen||document.webkitExitFullscreen).call(document);
+  }catch(e){}
+  setBig(false);
+}
+$("fsBtn").onclick=function(){if(bigMode)exitBig();else enterBig()};
+function stageTap(e){
+  var n=e.target;
+  while(n){if(n===fsctl)return;n=n.parentNode}
+  stopAlarm();
+}
+stage.addEventListener("pointerdown",stageTap);
+stage.addEventListener("click",stageTap);
+
+document.addEventListener("keydown",function(e){
+  var t=e.target.tagName;
+  if(t==="INPUT"||t==="SELECT"||t==="TEXTAREA")return;
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(e.code==="Space"||e.key===" "){e.preventDefault();
+    if(S.alarm)stopAlarm();else if(S.run)doStop();else doStart();}
+  else if(e.key==="r"||e.key==="R")doReset();
+  else if(e.key==="f"||e.key==="F")$("fsBtn").click();
+  else if(e.key==="Escape"&&bigMode)exitBig();
+  else if(e.key==="l"||e.key==="L")doLap();
+  else if(e.key>="1"&&e.key<="9"&&e.key.length===1&&S.mode==="timer"){var q=preBox.getElementsByClassName("pre");
+    if(q[+e.key-1])q[+e.key-1].click()}
+});
+
+window.addEventListener("resize",layout);
+document.addEventListener("fullscreenchange",function(){
+  if(!document.fullscreenElement&&bigMode)setBig(false);
+  setTimeout(layout,60)});
+document.addEventListener("webkitfullscreenchange",function(){setTimeout(layout,60)});
+
+/* ---------- インターネットなしでも ひらける ように ---------- */
+if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol)){
+  window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});
+}
+
+load();
+renderPresets();
+segPick("viewSeg","data-v",S.pie?"pie":"bar");
+segPick("dsSeg","data-d",S.ds?"1":"0");
+if(!savedOnce&&S.pre.length)setT(S.pre[Math.min(2,S.pre.length-1)]);
+S.left=S.total;S.acc=S.total;
+S.tpl="";setTpl(fmt(S.total));
+draw();
+setTimeout(layout,120);
+})();
+</script>
+</body>
+</html>
