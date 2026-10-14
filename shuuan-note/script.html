@@ -71,6 +71,15 @@
     // 週案のデータのキーの形（日付-行）。これ以外の形のキーは、読み込むときに取り除く。
     const DATA_KEY_RE = /^\d{4}-\d{2}-\d{2}-[a-z0-9]+$/;
 
+    // 期間の取り組み（〇〇週間など）の矢印の色
+    const PERIOD_COLORS = {
+      blue:   { name: '青', bg: '#d9e5fa', fg: '#23457f' },
+      green:  { name: '緑', bg: '#dcefe0', fg: '#2a6b34' },
+      orange: { name: '橙', bg: '#fbe3c8', fg: '#8a5208' },
+      pink:   { name: '桃', bg: '#f8dce7', fg: '#94305b' },
+      purple: { name: '紫', bg: '#e6defa', fg: '#5a3f9e' }
+    };
+
     const subjectColors = {
       "国語": "color-kokugo", "書写": "color-shosha", "図書": "color-tosho",
       "社会": "color-shakai", "算数": "color-sansu", "理科": "color-rika",
@@ -342,6 +351,7 @@
       if (!appSettings.unitsByYear) appSettings.unitsByYear = {};
       if (!appSettings.unitDoneByYear) appSettings.unitDoneByYear = {};
       if (!appSettings.autoFilledByYear) appSettings.autoFilledByYear = {};
+      if (!appSettings.periodsByYear) appSettings.periodsByYear = {};
       if (!appSettings.tagDefs) appSettings.tagDefs = defaultTagDefs();
 
       if (!appSettings.configByYear[y]) {
@@ -403,6 +413,7 @@
         migrateOldData();
         migrateNotesToTags();
         normalizeNotes();
+        cleanPeriods();
 
         const yearInput = document.getElementById('setYear');
         if (yearInput) yearInput.value = currentSetYear;
@@ -725,7 +736,7 @@
 
     const FLAT_SEP = '\u0001';
     // 設定を何段目まで分けて比べるか（書いていないものは1段）
-    const SETTINGS_DEPTH = { configByYear: 2, adjustByYear: 2, unitsByYear: 3, unitDoneByYear: 3, autoFilledByYear: 2 };
+    const SETTINGS_DEPTH = { configByYear: 2, adjustByYear: 2, unitsByYear: 3, unitDoneByYear: 3, autoFilledByYear: 2, periodsByYear: 2 };
     let baseState = null;
 
     function isPlainObj(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
@@ -879,6 +890,7 @@
       migrateOldData();
       migrateNotesToTags();
       normalizeNotes();
+      cleanPeriods();
       refreshAllViews();
 
       // クラウドの内容と食いちがうところ（自分の変更）が残っていれば、保存する
@@ -1001,6 +1013,10 @@
         // 大きく減る保存になることがあるが、本人が戻すと決めた操作なので確認はしない
         shrinkApproved = true;
         refreshAllViews();
+      } else if (e.kind === 'period') {
+        const ps = getPeriods(e.year);
+        if (e.prev) ps[e.id] = e.prev; else delete ps[e.id];
+        afterPeriodChange();
       } else if (e.kind === 'note') {
         const at = Math.max(0, Math.min(e.index, appNotes.length));
         appNotes.splice(at, 0, e.note);
@@ -1513,6 +1529,13 @@
       }, 'すべて削除する');
     }
 
+    // この日から始まる「期間の取り組み」を入れる
+    function dayAddPeriod() {
+      const d = new Date(currentMonday); d.setDate(d.getDate() + dayMenuIndex);
+      closeDayMenu();
+      openPeriodModal('', fmtDate(d));
+    }
+
     // 先週の内容を今週に写す
     function copyLastWeek() {
       const last = new Date(currentMonday); last.setDate(last.getDate() - 7);
@@ -1602,12 +1625,15 @@
       }
       head += '</tr>';
 
+      // 期間の取り組みの矢印も、行事の段に出す
+      const pl = periodLayout(monday, Array.apply(null, Array(cols)).map(function(_, i) { return i; }));
+
       let body = '';
       rows.forEach(function(p) {
         const row = getRow(p);
         const isNote = (row.type === 'memo');
         // 記入のない帯（朝・業間・昼）は省いて、縦に間のびしないようにする
-        if (isNote && !hasAny(p)) return;
+        if (isNote && !hasAny(p) && !(p === 'gyoji' && pl.lanes)) return;
 
         const cls = (p === 'gyoji') ? ' class="pv-event"' : (isNote ? ' class="pv-note"' : '');
         body += '<tr' + cls + '><th class="pv-p">' + row.label + '</th>';
@@ -1616,12 +1642,13 @@
           const ds = fmtDate(d);
           if (isOutsideFiscalYear(ds)) { body += '<td class="pv-out"></td>'; continue; }
           const data = appData[ds + '-' + p];
+          const bars = (p === 'gyoji') ? periodBarsHTML(pl, i, true) : '';
 
-          if (!data) { body += '<td></td>'; continue; }
+          if (!data) { body += '<td>' + bars + '</td>'; continue; }
           if (data.disabled) { body += '<td class="pv-off">授業なし</td>'; continue; }
 
           if (isNote) {
-            body += '<td>' + (rtEmpty(data.record) ? '' : rtRender(data.record)) + '</td>';
+            body += '<td>' + bars + (rtEmpty(data.record) ? '' : rtRender(data.record)) + '</td>';
             continue;
           }
 
@@ -2283,13 +2310,18 @@
         ? { gyoji: 9, morning: 7, kangyou: 7, hiru: 7, renraku: 14 }
         : { gyoji: 12, morning: 10, kangyou: 9, hiru: 9, renraku: 19 };
 
+      // 期間の取り組みの矢印。ある週は、行事の段をその分だけ高くする
+      const PD_LANE_MM = 4.2;
+      const printPl = periodLayout(currentMonday, Array.apply(null, Array(maxDays)).map(function(_, i) { return i; }));
+      if (printPl.lanes) bandHeights.gyoji += printPl.lanes * PD_LANE_MM;
+
       const printRows = [];
       PRINT_ORDER.map(getRow).forEach(function(r) {
         if (!r) return;
         if (!r.print) return;
         if (r.type === 'lesson') { printRows.push(r); return; }
         if (r.id === 'renraku') { if (showContact) printRows.push(r); return; }
-        if (hasContent(r.id)) printRows.push(r);
+        if (hasContent(r.id) || (r.id === 'gyoji' && printPl.lanes)) printRows.push(r);
       });
 
       const pageH = isLand ? 192 : 279;
@@ -2344,8 +2376,11 @@
 
           if (isMemo) {
             const txt = (data && !rtEmpty(data.record)) ? rtRender(data.record) : '';
-            const boxH = Math.max(2, h - 0.6).toFixed(1);
-            rows += '<td class="memo-cell" style="' + tint + 'height:' + h.toFixed(1) + 'mm;">' +
+            const isEvent = (r.id === 'gyoji');
+            const bars = isEvent ? printPeriodBars(printPl, d) : '';
+            const barH = isEvent ? printPl.lanes * PD_LANE_MM : 0;
+            const boxH = Math.max(2, h - 0.6 - barH).toFixed(1);
+            rows += '<td class="memo-cell" style="' + tint + 'height:' + h.toFixed(1) + 'mm;">' + bars +
                     (txt ? '<div class="box" style="height:' + boxH + 'mm;">' + txt + '</div>' : '') + '</td>';
             continue;
           }
@@ -2427,6 +2462,11 @@
       ' max-height: 7mm; overflow: hidden; }' +
       '.goal-line span { overflow: hidden; }' +
       '.goal-line b { flex: 0 0 auto; font-size: 7.5pt; color: #666f7d; }' +
+      '.pd { height: 3.6mm; margin: 0.6mm -0.5pt 0; padding-left: 1.2mm; font-size: 6.5pt; font-weight: 800; line-height: 3.6mm;' +
+      ' white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' +
+      '.pd.pd-none { background: transparent; }' +
+      '.pd.s { margin-left: 1mm; border-radius: 2mm 0 0 2mm; }' +
+      '.pd.e { margin-right: 0.8mm; padding-right: 2.6mm; clip-path: polygon(0 0, calc(100% - 2.2mm) 0, 100% 50%, calc(100% - 2.2mm) 100%, 0 100%); }' +
       '.print-btn-area { text-align:center; margin-top: 6mm; }' +
       '@media print { .print-btn-area { display: none !important; } }' +
       '</style></head><body>' +
@@ -3208,6 +3248,10 @@
         applySplitMode(false);
         applyDisabledState();
       }
+      // 行事の欄では、その日にかかっている「期間の取り組み」も出す
+      const isEvent = (row.id === 'gyoji');
+      document.getElementById('periodFieldArea').style.display = isEvent ? 'block' : 'none';
+      if (isEvent) renderPeriodSection(getDataKey(day, period).slice(0, 10)); else periodSectionDate = '';
       renderEditorAttachments();
       document.getElementById('inputModal').style.display = 'flex';
       inputSnapshot = inputFormState();
@@ -3410,7 +3454,7 @@
       jumpToDate(dateStr);   // 週が変わり、検索の画面も閉じる
       const d = new Date(dateStr.replace(/-/g, '/'));
       const idx = (d.getDay() + 6) % 7;
-      if (idx > 4 && !showWeekend) { showWeekend = true; applyColumnDisplay(); }
+      if (idx > 4 && !showWeekend) { showWeekend = true; applyColumnDisplay(); updateView(); }
       openInputModal(idx, period);
     }
 
@@ -3443,6 +3487,24 @@
             'onclick="editNoteFromSearch(this.dataset.id)">編集</button></div>' +
           '</div>';
         c++;
+      });
+      // 期間の取り組み
+      Object.keys(appSettings.periodsByYear || {}).forEach(function(y) {
+        const ps = appSettings.periodsByYear[y] || {};
+        Object.keys(ps).forEach(function(id) {
+          const p = ps[id];
+          if (!p || !String(p.title).toLowerCase().includes(q)) return;
+          const here = (String(y) === String(appSettings.year));
+          h += '<div class="result-card" style="border-left:9px solid var(--leaf);">' +
+            '<div style="font-size:0.74rem; color:var(--brown-2); font-weight:700;">期間の取り組み（' + escapeHTML(y) + '年度 ' + mdw(p.start) + '〜' + mdw(p.end) + '）</div>' +
+            '<div style="font-size:0.88rem; font-weight:800; margin-top:5px;">' + hl(p.title) + '</div>' +
+            '<div style="margin-top:8px;">' + (here
+              ? '<button class="btn btn-soft btn-sm" data-d="' + escapeHTML(p.start) + '" onclick="jumpToDate(this.dataset.d)">表示</button> ' +
+                '<button class="btn btn-sky btn-sm" data-pid="' + escapeHTML(id) + '" onclick="closeSearchModal(); openPeriodModal(this.dataset.pid)">直す</button>'
+              : '<span class="field-hint">「年度切替」でこの年度に移ると開けます</span>') + '</div>' +
+            '</div>';
+          c++;
+        });
       });
       Object.keys(appData).sort().reverse().forEach(function(k) {
         if (!DATA_KEY_RE.test(k)) return;
@@ -3580,6 +3642,288 @@
       return null;
     }
 
+    // ===== 期間の取り組み（〇〇週間など） =====
+    // 何日も続く取り組みを、行事の欄に「始まりから終わりまでの矢印」で出す。
+    // 年度ごとに appSettings.periodsByYear[年度][id] = { title, start, end, color } で持つ。
+    // （id ごとに分けておくと、2台の端末で別々の取り組みを入れても自動で合わせられる）
+
+    let weekPeriods = { lanes: 0, byDay: {} };   // いま表示している週の矢印の並び
+    let editingPeriodId = '';
+    let periodSectionDate = '';                    // 行事の入力画面で開いている日
+
+    function getPeriods(year) {
+      const y = String(year || appSettings.year || getFiscalYear(new Date()));
+      if (!appSettings.periodsByYear) appSettings.periodsByYear = {};
+      if (!isPlainObj(appSettings.periodsByYear[y])) appSettings.periodsByYear[y] = {};
+      return appSettings.periodsByYear[y];
+    }
+
+    function periodColor(key) { return PERIOD_COLORS[key] || PERIOD_COLORS.blue; }
+
+    // 形のおかしい取り組みを取り除く（読み込んだファイルが壊れていたときのため）
+    function cleanPeriods() {
+      if (!isPlainObj(appSettings.periodsByYear)) { appSettings.periodsByYear = {}; return; }
+      const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+      Object.keys(appSettings.periodsByYear).forEach(function(y) {
+        const ps = appSettings.periodsByYear[y];
+        if (!isPlainObj(ps)) { delete appSettings.periodsByYear[y]; return; }
+        Object.keys(ps).forEach(function(id) {
+          const p = ps[id];
+          const okShape = /^[A-Za-z0-9_-]{1,40}$/.test(id) && isPlainObj(p) &&
+                          typeof p.title === 'string' && p.title.trim() !== '' &&
+                          dateRe.test(String(p.start)) && dateRe.test(String(p.end)) && p.start <= p.end;
+          if (!okShape) { delete ps[id]; return; }
+          if (p.title.length > 60) p.title = p.title.slice(0, 60);
+          if (!PERIOD_COLORS[p.color]) p.color = 'blue';
+        });
+      });
+    }
+
+    // 「10/12（月）」の形
+    function mdw(ds) {
+      const d = new Date(String(ds).replace(/-/g, '/'));
+      return (d.getMonth() + 1) + '/' + d.getDate() + '（' + ['日','月','火','水','木','金','土'][d.getDay()] + '）';
+    }
+
+    // ある週の、矢印の並べかたを決める。
+    // dayIdx は表に出している曜日（0=月〜6=日）。重なる取り組みは段を分ける。
+    function periodLayout(monday, dayIdx, year) {
+      const days = [];
+      dayIdx.forEach(function(i) {
+        const d = new Date(monday); d.setDate(d.getDate() + i);
+        const ds = fmtDate(d);
+        if (!isOutsideFiscalYear(ds)) days.push({ i: i, ds: ds });
+      });
+      const out = { lanes: 0, byDay: {} };
+      if (days.length === 0) return out;
+
+      const first = days[0].ds, last = days[days.length - 1].ds;
+      const sun = new Date(monday); sun.setDate(sun.getDate() + 6);
+      const weekEnd = fmtDate(sun);
+      const yearEnd = fmtDate(fiscalRange().end);
+      const ps = getPeriods(year);
+      const list = Object.keys(ps).map(function(id) { return Object.assign({ id: id }, ps[id]); })
+        .filter(function(p) { return p.start <= last && p.end >= first; })
+        .sort(function(a, b) {
+          if (a.start !== b.start) return a.start < b.start ? -1 : 1;
+          if (a.end !== b.end) return a.end > b.end ? -1 : 1;   // 長いものを上に
+          return a.id < b.id ? -1 : 1;
+        });
+
+      const laneEnds = [];   // 段ごとに、いちばん右で使っている位置
+      list.forEach(function(p) {
+        const cover = days.filter(function(x) { return x.ds >= p.start && x.ds <= p.end; });
+        if (cover.length === 0) return;
+        const a = days.indexOf(cover[0]), b = days.indexOf(cover[cover.length - 1]);
+        let lane = laneEnds.findIndex(function(e) { return e < a; });
+        if (lane === -1) { lane = laneEnds.length; laneEnds.push(b); } else { laneEnds[lane] = b; }
+        const item = {
+          p: p, lane: lane, len: cover.length,
+          contL: p.start < cover[0].ds,                       // 前の週から続いている
+          contR: p.end > weekEnd && weekEnd < yearEnd          // 次の週へ続いていく
+        };
+        cover.forEach(function(x, k) {
+          if (!out.byDay[x.i]) out.byDay[x.i] = [];
+          out.byDay[x.i][lane] = { item: item, first: k === 0, last: k === cover.length - 1 };
+        });
+      });
+      out.lanes = laneEnds.length;
+      return out;
+    }
+
+    // 画面の行事のマスに出す矢印。mini は「先週と比べる」の小さい表用。
+    function periodBarsHTML(layout, dIdx, mini) {
+      if (!layout || !layout.lanes) return '';
+      const segs = layout.byDay[dIdx] || [];
+      let h = '<div class="pd-lanes' + (mini ? ' pd-mini' : '') + '">';
+      for (let l = 0; l < layout.lanes; l++) {
+        const s = segs[l];
+        if (!s) { h += '<div class="pd-slot"></div>'; continue; }
+        const it = s.item, p = it.p;
+        const cls = ['pd-seg', 'pd-c-' + (PERIOD_COLORS[p.color] ? p.color : 'blue')];
+        if (s.first && !it.contL) cls.push('pd-start');
+        if (s.last && !it.contR) cls.push('pd-end');
+        if (s.last && it.contR) cls.push('pd-more');
+        const tip = p.title + '　' + mdw(p.start) + '〜' + mdw(p.end);
+        h += '<div class="' + cls.join(' ') + '" data-pid="' + escapeHTML(p.id) + '" title="' + escapeHTML(tip) + '"' +
+             (mini ? '' : ' role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();event.stopPropagation();openPeriodModal(this.dataset.pid);}"') +
+             ' onclick="event.stopPropagation(); openPeriodModal(this.dataset.pid)">';
+        // 名前は、その週の最初のマスにだけ書く（矢印の長さまで横にはみ出してよい）
+        if (s.first) {
+          h += '<span class="pd-label" style="width:calc(' + it.len + ' * 100% - 16px);">' +
+               (it.contL ? '← ' : '') + escapeHTML(p.title) + '</span>';
+        }
+        h += '</div>';
+      }
+      return h + '</div>';
+    }
+
+    // 印刷用の矢印（紙の上ではマスからはみ出せないので、名前はそのマスの中に入る分だけ）
+    function printPeriodBars(layout, dIdx) {
+      if (!layout || !layout.lanes) return '';
+      const segs = layout.byDay[dIdx] || [];
+      let h = '';
+      for (let l = 0; l < layout.lanes; l++) {
+        const s = segs[l];
+        if (!s) { h += '<div class="pd pd-none"></div>'; continue; }
+        const c = periodColor(s.item.p.color);
+        const cls = 'pd' + ((s.first && !s.item.contL) ? ' s' : '') + ((s.last && !s.item.contR) ? ' e' : '');
+        h += '<div class="' + cls + '" style="background:' + c.bg + '; color:' + c.fg + ';">' +
+             (s.first ? (s.item.contL ? '← ' : '') + escapeHTML(s.item.p.title) : '') + '</div>';
+      }
+      return h;
+    }
+
+    // 何日から何週間、と入れたときの終わりの日。土日にかかるときは金曜日までにする。
+    function periodEndForWeeks(startStr, weeks) {
+      const d = new Date(String(startStr).replace(/-/g, '/'));
+      if (isNaN(d.getTime())) return '';
+      const end = new Date(d); end.setDate(end.getDate() + weeks * 7 - 1);
+      while ((end.getDay() === 0 || end.getDay() === 6) && end > d) end.setDate(end.getDate() - 1);
+      return fmtDate(end);
+    }
+
+    function setPeriodWeeks(n) {
+      const s = document.getElementById('pdStart').value;
+      if (!s) { uiAlert('先に「始まり」の日をえらんでください。'); return; }
+      document.getElementById('pdEnd').value = periodEndForWeeks(s, n);
+    }
+
+    function renderPeriodColors(selected) {
+      const box = document.getElementById('pdColors');
+      if (!box) return;
+      box.innerHTML = Object.keys(PERIOD_COLORS).map(function(k) {
+        const c = PERIOD_COLORS[k];
+        return '<button type="button" class="pd-color' + (k === selected ? ' on' : '') + '" data-c="' + k + '" ' +
+               'style="background:' + c.bg + '; color:' + c.fg + ';" onclick="renderPeriodColors(this.dataset.c)">' +
+               c.name + '</button>';
+      }).join('');
+      box.dataset.selected = selected;
+    }
+
+    // 期間の取り組みの画面を開く。id があれば直す、なければ startStr から新しく入れる。
+    function openPeriodModal(id, startStr) {
+      const ps = getPeriods();
+      const p = id ? ps[id] : null;
+      if (id && !p) { uiAlert('この取り組みは見つかりませんでした。'); return; }
+      editingPeriodId = p ? id : '';
+      const fr = fiscalRange();
+      let start = p ? p.start : (startStr || fmtDate(currentMonday));
+      if (start < fmtDate(fr.start)) start = fmtDate(fr.start);
+      if (start > fmtDate(fr.end)) start = fmtDate(fr.end);
+      document.getElementById('periodModalTitle').innerText = p ? '期間の取り組みを直す' : '期間の取り組みを入れる';
+      document.getElementById('pdTitle').value = p ? p.title : '';
+      ['pdStart', 'pdEnd'].forEach(function(k) {
+        const el = document.getElementById(k);
+        el.min = fmtDate(fr.start); el.max = fmtDate(fr.end);
+      });
+      document.getElementById('pdStart').value = start;
+      document.getElementById('pdEnd').value = p ? p.end : periodEndForWeeks(start, 1);
+      renderPeriodColors(p ? p.color : 'blue');
+      document.getElementById('pdDelete').style.display = p ? 'inline-flex' : 'none';
+      document.getElementById('periodModal').style.display = 'flex';
+      setTimeout(function() { document.getElementById('pdTitle').focus(); }, 30);
+    }
+
+    function closePeriodModal() { document.getElementById('periodModal').style.display = 'none'; }
+
+    function pushUndoPeriod(label, year, id) {
+      const cur = getPeriods(year)[id];
+      undoStack.push({ kind: 'period', label: label, year: String(year), id: id, prev: cur ? JSON.parse(JSON.stringify(cur)) : null });
+      if (undoStack.length > UNDO_MAX) undoStack.shift();
+    }
+
+    // 期間の取り組みが変わったあとに、見えているところを描き直す
+    function afterPeriodChange() {
+      updateView();
+      if (document.getElementById('inputModal').style.display === 'flex' && periodSectionDate) renderPeriodSection(periodSectionDate);
+      renderPeriodSettingsList();
+    }
+
+    function savePeriod() {
+      if (saveBlocked) { showToast("閲覧のみのモードです（保存されません）"); return; }
+      const title = document.getElementById('pdTitle').value.trim();
+      const start = document.getElementById('pdStart').value;
+      const end = document.getElementById('pdEnd').value;
+      const color = document.getElementById('pdColors').dataset.selected || 'blue';
+      const fr = fiscalRange();
+      if (!title) { uiAlert('取り組みの名前を入れてください（例：あいさつ週間）。'); return; }
+      if (!start || !end) { uiAlert('始まりと終わりの日を入れてください。'); return; }
+      if (end < start) { uiAlert('終わりの日が、始まりの日より前になっています。'); return; }
+      if (start < fmtDate(fr.start) || end > fmtDate(fr.end)) {
+        uiAlert(fr.year + '年度の中（' + fr.year + '年4月1日〜' + (fr.year + 1) + '年3月31日）で入れてください。\n' +
+                '年度をまたぐときは、それぞれの年度で入れてください。');
+        return;
+      }
+      const y = String(appSettings.year);
+      const id = editingPeriodId || ('p' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36));
+      pushUndoPeriod(editingPeriodId ? '期間の取り組みを直す' : '期間の取り組みを入れる', y, id);
+      getPeriods(y)[id] = { title: title.slice(0, 60), start: start, end: end, color: PERIOD_COLORS[color] ? color : 'blue' };
+      closePeriodModal();
+      afterPeriodChange();
+      syncToServer();
+      showToast('「' + title + '」を ' + mdw(start) + '〜' + mdw(end) + ' に入れました', true);
+    }
+
+    function deletePeriod() {
+      const id = editingPeriodId;
+      const p = getPeriods()[id];
+      if (!p) return;
+      uiConfirm('「' + p.title + '」（' + mdw(p.start) + '〜' + mdw(p.end) + '）を消します。\n' +
+                '行事の欄に書いた文字は、そのまま残ります。', function(ok) {
+        if (!ok) return;
+        pushUndoPeriod('期間の取り組みを消す', appSettings.year, id);
+        delete getPeriods()[id];
+        closePeriodModal();
+        afterPeriodChange();
+        syncToServer();
+        showToast('「' + p.title + '」を消しました', true);
+      }, '消す');
+    }
+
+    function periodsSorted(year) {
+      const ps = getPeriods(year);
+      return Object.keys(ps).map(function(id) { return Object.assign({ id: id }, ps[id]); })
+        .sort(function(a, b) { return a.start < b.start ? -1 : (a.start > b.start ? 1 : (a.end < b.end ? -1 : 1)); });
+    }
+
+    function periodRowHTML(p) {
+      const c = periodColor(p.color);
+      return '<div class="pd-row">' +
+             '<span class="pd-chip" style="background:' + c.bg + '; color:' + c.fg + ';">' + escapeHTML(p.title) + '</span>' +
+             '<span class="pd-range">' + mdw(p.start) + '〜' + mdw(p.end) + '</span>' +
+             '<button type="button" class="btn btn-soft btn-sm" data-pid="' + escapeHTML(p.id) + '" onclick="openPeriodModal(this.dataset.pid)">直す</button>' +
+             '</div>';
+    }
+
+    // 行事の入力画面に、その日にかかっている取り組みを出す
+    function renderPeriodSection(ds) {
+      periodSectionDate = ds;
+      const box = document.getElementById('periodHere');
+      if (!box) return;
+      const list = periodsSorted().filter(function(p) { return p.start <= ds && p.end >= ds; });
+      box.innerHTML = list.length ? list.map(periodRowHTML).join('')
+        : '<p class="field-hint" style="margin:0 0 8px;">この日にかかっている取り組みはありません。</p>';
+    }
+
+    // 設定画面の一覧（その年度のすべて）
+    function renderPeriodSettingsList() {
+      const box = document.getElementById('periodSettingsList');
+      if (!box) return;
+      const list = periodsSorted();
+      box.innerHTML = list.length ? list.map(periodRowHTML).join('')
+        : '<p class="field-hint" style="margin:0 0 8px;">まだ入っていません。</p>';
+    }
+
+    // そのタイトル・日付の取り組みが、すでに入っているか（CSVの取り込みで二重にしないため）
+    function periodExists(title, start, end) {
+      const ps = getPeriods(getFiscalYear(new Date(String(start).replace(/-/g, '/'))));
+      return Object.keys(ps).some(function(id) {
+        const p = ps[id];
+        return p.title === title && p.start === start && p.end === end;
+      });
+    }
+
     // ===== 今週の目標 =====
     // 週ごとに1つ。キーは「月曜日-weekgoal」。
     // 4つに区切ったキーのままなので、時数集計（授業のコマだけを数える）には入らない。
@@ -3709,6 +4053,7 @@
                          fiscalYearOf(dStr) + '年度</span>';
         }
       }
+      weekPeriods = periodLayout(currentMonday, visibleDayIndexes());
       ALL_PERIODS.forEach(function(p) { for (let d = 0; d < 7; d++) { renderCell(d, p); } });
 
       // 今日の列をうすい青にする
@@ -3757,11 +4102,13 @@
       }
 
       if (row.type === 'memo') {
+        // 行事の欄には、期間の取り組みの矢印を上にならべる
+        const bars = (p === 'gyoji') ? periodBarsHTML(weekPeriods, dIdx, false) : '';
         if (!data || rtEmpty(data.record)) {
-          cell.innerHTML = '<div class="cell-content"' + dragAttrs + '><div class="empty-tag">＋</div></div>';
+          cell.innerHTML = bars + '<div class="cell-content"' + dragAttrs + '><div class="empty-tag">＋</div></div>';
           return;
         }
-        cell.innerHTML = '<div class="cell-content"' + dragAttrs + '><div class="long-memo">' + rtRender(data.record) + '</div>' + badge + '</div>';
+        cell.innerHTML = bars + '<div class="cell-content"' + dragAttrs + '><div class="long-memo">' + rtRender(data.record) + '</div>' + badge + '</div>';
         return;
       }
 
@@ -3888,7 +4235,7 @@
     function toggleWeekend() {
       showWeekend = !showWeekend;
       applyColumnDisplay();
-      renderPrevPanel();
+      updateView();   // 期間の矢印は、見えている曜日で描き直す
     }
 
 
@@ -4205,6 +4552,7 @@
       migrateOldData();
       migrateNotesToTags();
       normalizeNotes();
+      cleanPeriods();
 
       // 本人が「置きかえる」と決めた読み込みなので、件数が減っても確認はしない
       shrinkApproved = true;
@@ -4499,7 +4847,8 @@
       }
 
       const withTime = document.getElementById('csvWithTime').checked;
-      const multiDay = document.getElementById('csvMultiDay').checked;
+      const multiEl = document.querySelector('input[name="csvMulti"]:checked');
+      const multiMode = multiEl ? multiEl.value : 'arrow';   // arrow=矢印 / each=全部の日 / first=初日だけ
       const useWeekend = document.getElementById('csvWeekend').checked;
 
       const plan = [];
@@ -4515,10 +4864,23 @@
         if (!sd) { skippedNoDate++; continue; }
 
         let ed = (col.end !== -1) ? parseAnyDate(cells[col.end]) : null;
-        if (!multiDay || !ed || ed < sd) ed = sd;
+        if (!ed || ed < sd || multiMode === 'first') ed = sd;
 
         const tm = (withTime && col.stime !== -1) ? parseAnyTime(cells[col.stime]) : '';
         const label = tm ? (tm + ' ' + title) : title;
+
+        // 何日かにまたがる行事は、期間の取り組み（矢印）として入れる
+        if (multiMode === 'arrow' && ed > sd) {
+          const fy = parseInt(getFiscalYear(new Date(sd.replace(/-/g, '/'))), 10);
+          const yEnd = (fy + 1) + '-03-31';
+          const pEnd = ed > yEnd ? yEnd : ed;
+          const pkey = 'P' + sd + '\u0000' + pEnd + '\u0000' + title;
+          if (!seen[pkey]) {
+            seen[pkey] = true;
+            plan.push({ kind: 'period', date: sd, end: pEnd, text: title, wd: new Date(sd.replace(/-/g, '/')).getDay() });
+          }
+          continue;
+        }
 
         // 開始日から終了日まで、1日ずつ
         let cur = new Date(sd.replace(/-/g, '/'));
@@ -4539,7 +4901,9 @@
 
       // すでに同じ行事が入っていないか調べる（<br>で区切られた行も見る）
       plan.forEach(function(item) {
-        item.dup = existingEventLines(item.date).indexOf(item.text) !== -1;
+        item.dup = (item.kind === 'period')
+          ? periodExists(item.text, item.date, item.end)
+          : existingEventLines(item.date).indexOf(item.text) !== -1;
       });
 
       plan.sort(function(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
@@ -4578,11 +4942,13 @@
         box.innerHTML = csvPlan.map(function(x) {
           const d = new Date(x.date.replace(/-/g, '/'));
           const cls = (x.wd === 0) ? 'sun' : (x.wd === 6 ? 'sat' : '');
+          const isP = (x.kind === 'period');
           return '<div class="csv-row' + (x.dup ? ' skip' : '') + '">' +
             '<span class="d">' + (d.getMonth()+1) + '/' + d.getDate() +
-            ' <span class="wd ' + cls + '">(' + wdNames[x.wd] + ')</span></span>' +
+            ' <span class="wd ' + cls + '">(' + wdNames[x.wd] + ')</span>' +
+            (isP ? '<br>〜' + mdw(x.end) : '') + '</span>' +
             '<span class="t">' + escapeHTML(x.text) + '</span>' +
-            '<span class="st ' + (x.dup ? 'dup' : 'add') + '">' + (x.dup ? 'あり' : '追加') + '</span>' +
+            '<span class="st ' + (x.dup ? 'dup' : (isP ? 'arrow' : 'add')) + '">' + (x.dup ? 'あり' : (isP ? '矢印' : '追加')) + '</span>' +
             '</div>';
         }).join('');
       }
@@ -4597,10 +4963,19 @@
       if (targets.length === 0) { closeCsvImport(); return; }
 
       uiConfirm(targets.length + '件の行事を取り込みます。\n\n' +
-                'すでに書いてある行事は消さずに、下に足します。', function(ok) {
+                'すでに書いてある行事は消さずに、下に足します。\n' +
+                '「矢印」のものは、期間の取り組みとして始まりから終わりまで矢印で入ります。', function(ok) {
         if (!ok) return;
         let hasWeekend = false;
+        let periodCount = 0;
         targets.forEach(function(item) {
+          if (item.kind === 'period') {
+            const pid = 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1e9).toString(36);
+            getPeriods(getFiscalYear(new Date(item.date.replace(/-/g, '/'))))[pid] =
+              { title: item.text.slice(0, 60), start: item.date, end: item.end, color: 'blue' };
+            periodCount++;
+            return;
+          }
           const key = item.date + '-gyoji';
           const cell = appData[key];
           const old = cell ? (cell.record || '') : '';
@@ -4616,6 +4991,7 @@
         if (hasWeekend && !showWeekend) { showWeekend = true; applyColumnDisplay(); }
         closeCsvImport();
         closeSettingModal();
+        renderPeriodSettingsList();
         updateView();
         syncToServer();
         showToast(targets.length + '件の行事を取り込みました');
@@ -4867,6 +5243,7 @@
       if (rosterEl) rosterEl.value = getRoster(y).join('\n');
       unitSetSubject = '';
       renderUnitSetTabs();
+      renderPeriodSettingsList();
       btWork = JSON.parse(JSON.stringify(getBaseSets(c)));
       btIndex = 0;
       renderBtTabs();

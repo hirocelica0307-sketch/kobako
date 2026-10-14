@@ -200,6 +200,12 @@
           </div>
         </div>
 
+        <div class="field" id="periodFieldArea" style="display:none;">
+          <label>期間の取り組み（〇〇週間など。行事の欄に矢印で出ます）</label>
+          <div id="periodHere"></div>
+          <button class="btn btn-soft btn-sm" onclick="openPeriodModal('', periodSectionDate)">＋ この日から期間を入れる</button>
+        </div>
+
       </div>
       <div class="modal-foot">
         <button class="btn btn-coral" onclick="clearCell()">全部消す</button>
@@ -427,6 +433,12 @@
       <div class="modal-body">
         <p class="field-hint" id="dayMenuHint" style="margin-bottom:13px;"></p>
         <div class="day-menu">
+          <button class="day-item" onclick="dayAddPeriod()">
+            <span class="txt">
+              <b>この日から「期間の取り組み」を入れる</b>
+              あいさつ週間・読書週間のように何日も続く取り組みを、行事の欄に矢印で入れます。
+            </span>
+          </button>
           <button class="day-item" onclick="dayAllOff()">
             <span class="txt">
               <b>この日を全部「授業なし」にする</b>
@@ -560,9 +572,12 @@
           </div>
           <div class="field">
             <label>取り込みかた</label>
-            <label class="check-line" style="margin-bottom:8px;">
-              <input type="checkbox" id="csvMultiDay" checked> 何日かにまたがる行事は、その全部の日に入れる
-            </label>
+            <p class="field-hint" style="margin:0 0 6px;">何日かにまたがる行事（終了日があるもの）は：</p>
+            <div class="radio-row" style="margin-bottom:10px;">
+              <label><input type="radio" name="csvMulti" value="arrow" checked> 始まりから終わりまで矢印で入れる</label>
+              <label><input type="radio" name="csvMulti" value="each"> 全部の日に文字で入れる</label>
+              <label><input type="radio" name="csvMulti" value="first"> 初日だけに入れる</label>
+            </div>
             <label class="check-line" style="margin-bottom:8px;">
               <input type="checkbox" id="csvWithTime"> 時刻も入れる（例：15:00 職員会議）
             </label>
@@ -752,6 +767,14 @@
         </div>
         <table class="base-table"><tbody id="baseTimetableBody"></tbody></table>
 
+        <div class="sec-title">期間の取り組み（〇〇週間など）</div>
+        <p class="field-hint" style="margin-bottom:9px;">
+          何日も続く取り組みを、行事の欄に「始まりから終わりまでの矢印」で出せます。印刷にも出ます。<br>
+          曜日の見出しを押したときのメニューや、行事のマスを開いた画面からも入れられます。
+        </p>
+        <div id="periodSettingsList" style="margin-bottom:8px;"></div>
+        <button class="btn btn-soft btn-sm" onclick="openPeriodModal('', fmtDate(currentMonday))">＋ 期間を入れる</button>
+
         <div class="sec-title">行事のCSV取り込み</div>
         <p class="field-hint" style="margin-bottom:9px;">
           学校の行事予定などのCSVファイルを読みこんで、「行事」の欄にまとめて入れられます。<br>
@@ -777,6 +800,47 @@
       <div class="modal-foot">
         <button class="btn btn-soft" onclick="closeSettingModal()">閉じる</button>
         <button class="btn btn-leaf btn-lg" onclick="saveSettings()">設定を保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 期間の取り組み ===== -->
+  <div id="periodModal" class="modal-overlay" style="z-index: 1150;">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 id="periodModalTitle">期間の取り組みを入れる</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closePeriodModal()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label for="pdTitle">取り組みの名前</label>
+          <input type="text" id="pdTitle" maxlength="60" placeholder="例：あいさつ週間、読書週間、歯みがき週間"
+                 onkeypress="if(event.key==='Enter') savePeriod();">
+        </div>
+        <div class="field">
+          <label>期間</label>
+          <div class="date-range"><input type="date" id="pdStart" aria-label="始まり"> 〜 <input type="date" id="pdEnd" aria-label="終わり"></div>
+          <div class="pd-quick">
+            <span>始まりから</span>
+            <button type="button" class="btn btn-soft btn-sm" onclick="setPeriodWeeks(1)">1週間</button>
+            <button type="button" class="btn btn-soft btn-sm" onclick="setPeriodWeeks(2)">2週間</button>
+            <button type="button" class="btn btn-soft btn-sm" onclick="setPeriodWeeks(3)">3週間</button>
+            <button type="button" class="btn btn-soft btn-sm" onclick="setPeriodWeeks(4)">4週間</button>
+          </div>
+          <p class="field-hint">週間のボタンは、終わりが土日にかかるときは金曜日までにします。終わりの日は、あとから自由に変えられます。</p>
+        </div>
+        <div class="field">
+          <label>矢印の色</label>
+          <div class="pd-colors" id="pdColors"></div>
+        </div>
+        <p class="field-hint">行事の欄に、始まりから終わりまで矢印で出ます。週をまたいでも続けて出ます。印刷にも出ます。</p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-coral" id="pdDelete" onclick="deletePeriod()">削除</button>
+        <span style="display:flex; gap:8px;">
+          <button class="btn btn-soft" onclick="closePeriodModal()">キャンセル</button>
+          <button class="btn btn-leaf btn-lg" onclick="savePeriod()">保存する</button>
+        </span>
       </div>
     </div>
   </div>

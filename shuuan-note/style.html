@@ -215,6 +215,51 @@
     .color-gyoji     { background: #fdf3e6; color: #885213; border-color: #efdfc7; }
     .color-other     { background: #f2f3f5; color: #565e69; border-color: #dfe2e7; }
 
+    /* 期間の取り組み（〇〇週間）の矢印。
+       となりのマスの矢印とつながって見えるよう、左右の線の上まで少しはみ出させる。
+       名前は最初のマスに書き、矢印の長さまで右へはみ出してよい（z-index で上に出す）。 */
+    .pd-lanes { display: flex; flex-direction: column; gap: 2px; padding-top: 3px; }
+    .pd-slot, .pd-seg { height: 17px; }
+    .pd-seg { position: relative; margin: 0 -1px; cursor: pointer; background: var(--pd-bg); }
+    .pd-seg:hover { filter: brightness(0.96); }
+    .pd-seg:focus-visible { outline: 2px solid var(--sky-dk); outline-offset: 1px; }
+    .pd-seg.pd-start { margin-left: 4px; border-radius: 9px 0 0 9px; }
+    .pd-seg.pd-end { margin-right: 3px; clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%); }
+    .pd-seg.pd-more { background: linear-gradient(to right, var(--pd-bg) 65%, rgba(255,255,255,0)); }
+    .pd-label {
+      position: absolute; left: 6px; top: 0; z-index: 3; pointer-events: none;
+      font-family: var(--font-ui); font-size: 0.68rem; font-weight: 800; line-height: 17px;
+      color: var(--pd-fg); text-align: left;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .pd-c-blue   { --pd-bg: #d9e5fa; --pd-fg: #23457f; }
+    .pd-c-green  { --pd-bg: #dcefe0; --pd-fg: #2a6b34; }
+    .pd-c-orange { --pd-bg: #fbe3c8; --pd-fg: #8a5208; }
+    .pd-c-pink   { --pd-bg: #f8dce7; --pd-fg: #94305b; }
+    .pd-c-purple { --pd-bg: #e6defa; --pd-fg: #5a3f9e; }
+    /* 「先週と比べる」の小さい表 */
+    .pd-mini { padding-top: 1px; gap: 1px; margin-bottom: 2px; }
+    .pd-mini .pd-slot, .pd-mini .pd-seg { height: 12px; }
+    .pd-mini .pd-seg { margin: 0 -5px; }
+    .pd-mini .pd-seg.pd-start { margin-left: 0; }
+    .pd-mini .pd-seg.pd-end { margin-right: 0; }
+    .pd-mini .pd-label { font-size: 0.58rem; line-height: 12px; left: 4px; }
+
+    /* 期間の取り組みの画面・一覧 */
+    .pd-quick { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .pd-quick span { font-size: 0.78rem; font-weight: 700; color: var(--brown-2); }
+    .pd-colors { display: flex; gap: 6px; flex-wrap: wrap; }
+    .pd-color {
+      border: 2px solid transparent; border-radius: 5px; padding: 6px 14px; cursor: pointer;
+      font-family: var(--font-ui); font-weight: 800; font-size: 0.8rem;
+    }
+    .pd-color.on { border-color: var(--brown); }
+    .pd-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px dotted var(--line); }
+    .pd-chip { border-radius: 9px 0 0 9px; padding: 2px 14px 2px 10px; font-size: 0.8rem; font-weight: 800;
+      clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%); }
+    .pd-range { font-size: 0.78rem; color: var(--brown-2); font-weight: 700; margin-right: auto; }
+    .csv-row .st.arrow { background: #dcefe0; color: #2a6b34; }
+
     /* 授業なしのコマ */
     .timetable tbody td.off-cell {
       background-color: #e9ebef;
