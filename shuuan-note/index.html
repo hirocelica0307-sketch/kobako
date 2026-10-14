@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<!--
+  週案ノート
+
+  学校の先生が、公務のためにご自由にお使いいただけます。
+  ・そのまま使う、同僚に渡す、学校内で共有する … いずれも自由です
+  ・使いやすいように書きかえていただいてもかまいません
+  ・作者への連絡や許諾はいりません
+
+  お願いとおことわり
+  ・販売など、営利を目的とした利用はご遠慮ください
+  ・このソフトは無保証です。利用によって生じた損害の責任は負いかねます
+  ・児童生徒の情報を扱います。各校の規定に従ってお使いください
+-->
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>週案ノート</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+  <?!= include('style'); ?>
+</head>
+<body>
+
+  <div id="loadingScreen">
+    <div class="leaf-spin"></div>
+    <div class="loading-text">読み込み中...</div>
+  </div>
+
+  <div id="saveToast">保存しました</div>
+  <div id="saveState"></div>
+
+  <form id="uploadForm" style="display: none;">
+    <input type="file" id="fileUploadInput" name="myFile" onchange="handleFileUpload(event)">
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="handleFileUpload(event)">
+  </form>
+
+  <div class="island">
+
+    <div id="readOnlyBanner"></div>
+
+    <div class="top-row">
+      <div class="class-plate" id="displayClassInfo">設定から学年を選んでください</div>
+      <div class="toolbar">
+        <button class="btn btn-leaf btn-sm" onclick="openSummaryModal()">時数集計</button>
+        <button class="btn btn-sky btn-sm" onclick="openNoteModal()">記録</button>
+        <button class="btn btn-sky btn-sm" onclick="openSearchModal()">検索</button>
+        <button class="btn btn-bell btn-sm" onclick="openPrintModal()">印刷</button>
+        <span class="sep"></span>
+        <button class="btn btn-soft btn-sm" id="compareBtn" onclick="toggleCompare()">先週と比べる</button>
+        <button class="btn btn-soft btn-sm" onclick="openBaseChooser()">基本時間割</button>
+        <button class="btn btn-soft btn-sm" id="toggleWeekendBtn" onclick="toggleWeekend()">土日</button>
+        <button class="btn btn-soft btn-sm" onclick="openYearModal()">年度切替</button>
+        <button class="btn btn-soft btn-sm" onclick="openSettingModal()">設定</button>
+        <button class="btn btn-soft btn-sm" onclick="openHelp()">ヘルプ</button>
+      </div>
+    </div>
+
+    <div class="week-nav">
+      <button class="nav-arrow" onclick="changeWeek(-1)">◀ 先週</button>
+      <div class="current-week" id="weekDisplay">--/-- 〜 --/--</div>
+      <button class="nav-arrow" onclick="changeWeek(1)">来週 ▶</button>
+      <button class="nav-arrow" onclick="copyLastWeek()" title="先週の内容を今週に写す">先週から</button>
+      <span class="jump-group">
+        <button class="nav-arrow" onclick="jumpToToday()" title="今週にもどる">今日</button>
+        <input type="date" id="jumpDateInput" class="date-jump" onchange="jumpToSelectedDate()" title="日付を選んでその週へ">
+      </span>
+    </div>
+
+    <div class="week-goal">
+      <span class="wg-label">今週の目標</span>
+      <div class="rt-editor wg-input" id="weekGoalInput" contenteditable="true"
+           data-ph="今週の重点・めあて（印刷に出ます）" onfocus="rtFocus(this)" oninput="onWeekGoalInput()"></div>
+    </div>
+
+    <div class="tt-area" id="ttArea">
+      <div class="prev-panel" id="prevPanel"></div>
+
+      <div class="tt-wrap">
+        <table class="timetable" id="timetable">
+        <thead>
+          <tr>
+            <th class="period-col"></th>
+            <th id="th-0" class="day-th" onclick="openDayMenu(0)" title="この日のまとめ操作">月</th>
+            <th id="th-1" class="day-th" onclick="openDayMenu(1)" title="この日のまとめ操作">火</th>
+            <th id="th-2" class="day-th" onclick="openDayMenu(2)" title="この日のまとめ操作">水</th>
+            <th id="th-3" class="day-th" onclick="openDayMenu(3)" title="この日のまとめ操作">木</th>
+            <th id="th-4" class="day-th" onclick="openDayMenu(4)" title="この日のまとめ操作">金</th>
+            <th id="th-5" class="day-th th-sat" onclick="openDayMenu(5)" title="この日のまとめ操作">土</th>
+            <th id="th-6" class="day-th th-sun" onclick="openDayMenu(6)" title="この日のまとめ操作">日</th>
+          </tr>
+        </thead>
+          <tbody id="timetableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="credit">週案ノート</div>
+  </div>
+
+
+  <!-- ===== 時間割入力 ===== -->
+  <div id="inputModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 id="inputModalTitle">入力</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closeInputModal()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body">
+
+        <div class="rt-bar" id="rtBarInput"></div>
+
+        <label class="check-line" id="offToggleWrap" style="margin-bottom:14px;">
+          <input type="checkbox" id="inputDisabled" onchange="applyDisabledState()"> この時間は授業なし（下校・カットなど）
+        </label>
+
+        <div id="lessonFields">
+          <div class="field">
+            <label>この時間の分けかた</label>
+            <div class="segmented" id="splitSegment">
+              <label>
+                <input type="radio" name="splitMode" value="none" checked onchange="applySplitMode(true)">
+                <span>1教科<small>1.0</small></span>
+              </label>
+              <label>
+                <input type="radio" name="splitMode" value="half" onchange="applySplitMode(true)">
+                <span>2分割<small>2つに分ける</small></span>
+              </label>
+              <label>
+                <input type="radio" name="splitMode" value="third" onchange="applySplitMode(true)">
+                <span>3分割<small>3つに分ける</small></span>
+              </label>
+            </div>
+            <div class="sum-line" id="splitSumLine">
+              <span>合計</span><b id="splitSum">1.0</b><span>時間</span>
+              <span class="sum-msg" id="splitSumMsg"></span>
+            </div>
+          </div>
+
+          <div class="slot" id="slot1">
+            <div class="slot-head">
+              <span class="slot-badge">時間</span><input type="number" class="wt-input" id="wt1" step="0.1" min="0.1" max="1" oninput="updateSplitSum()" title="この教科にあてる時間">
+              <span class="slot-title" id="slotTitle1">教科</span>
+              <span class="slot-tools">
+                <button class="btn btn-soft btn-sm" onclick="openUnitPick(1)">単元一覧</button>
+                <button class="btn btn-soft btn-sm" onclick="copyPreviousUnit(1)">前回</button>
+                <button class="btn btn-soft btn-sm" onclick="clearSlot(1)">✕ 消す</button>
+              </span>
+            </div>
+            <select id="inputSubject"></select>
+            <div class="rt-editor" id="inputUnit" contenteditable="true" data-ph="単元名" style="margin-top:9px; min-height:auto;" onfocus="rtFocus(this)"></div>
+          </div>
+
+          <div class="slot" id="slot2" style="display:none;">
+            <div class="slot-head">
+              <span class="slot-badge">時間</span><input type="number" class="wt-input" id="wt2" step="0.1" min="0.1" max="1" oninput="updateSplitSum()" title="この教科にあてる時間">
+              <span class="slot-title">2つめの教科</span>
+              <span class="slot-tools">
+                <button class="btn btn-soft btn-sm" onclick="openUnitPick(2)">単元一覧</button>
+                <button class="btn btn-soft btn-sm" onclick="copyPreviousUnit(2)">前回</button>
+                <button class="btn btn-soft btn-sm" onclick="clearSlot(2)">✕ 消す</button>
+              </span>
+            </div>
+            <select id="inputSubject2"></select>
+            <div class="rt-editor" id="inputUnit2" contenteditable="true" data-ph="単元名" style="margin-top:9px; min-height:auto;" onfocus="rtFocus(this)"></div>
+          </div>
+
+          <div class="slot" id="slot3" style="display:none;">
+            <div class="slot-head">
+              <span class="slot-badge">時間</span><input type="number" class="wt-input" id="wt3" step="0.1" min="0.1" max="1" oninput="updateSplitSum()" title="この教科にあてる時間">
+              <span class="slot-title">3つめの教科</span>
+              <span class="slot-tools">
+                <button class="btn btn-soft btn-sm" onclick="openUnitPick(3)">単元一覧</button>
+                <button class="btn btn-soft btn-sm" onclick="copyPreviousUnit(3)">前回</button>
+                <button class="btn btn-soft btn-sm" onclick="clearSlot(3)">✕ 消す</button>
+              </span>
+            </div>
+            <select id="inputSubject3"></select>
+            <div class="rt-editor" id="inputUnit3" contenteditable="true" data-ph="単元名" style="margin-top:9px; min-height:auto;" onfocus="rtFocus(this)"></div>
+          </div>
+        </div>
+
+        <div class="field" id="contactFieldArea" style="display:none;">
+          <label>連絡（印刷に出ます）</label>
+          <div class="rt-editor" id="inputContact" contenteditable="true" data-ph="児童への連絡事項など" onfocus="rtFocus(this)"></div>
+        </div>
+
+        <div class="field" id="recordFieldArea">
+          <label id="recordLabel">メモ・所感（印刷されません）</label>
+          <div class="rt-editor tall" id="inputRecord" contenteditable="true" data-ph="" onfocus="rtFocus(this)"></div>
+          <div id="recordAttachmentArea" style="min-height:4px; margin-top:6px;"></div>
+          <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+            <button class="btn btn-soft btn-sm" onclick="triggerFileUpload('record')">画像・PDF</button>
+            <button class="btn btn-soft btn-sm" onclick="triggerCamera('record')">カメラで撮る</button>
+            <button class="btn btn-soft btn-sm" onclick="addUrlAttachment()">URL</button>
+            <button class="btn btn-soft btn-sm" onclick="openDriveSearchModal()">ドライブ</button>
+            <button class="btn btn-soft btn-sm" onclick="openNoteSelectionModal()">記録を添付</button>
+            <button class="btn btn-sky btn-sm" onclick="noteFromCell()">この時間の記録を書く</button>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-coral" onclick="clearCell()">全部消す</button>
+        <span style="display:flex; gap:8px;">
+          <button class="btn btn-soft" onclick="closeInputModal()">キャンセル</button>
+          <button class="btn btn-leaf btn-lg" onclick="saveInputData()">保存する</button>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 記録 ===== -->
+  <div id="noteModal" class="modal-overlay">
+    <div class="modal-box wide">
+      <div class="modal-head">
+        <h3>記録</h3>
+        <div class="head-tools">
+          <select id="filterNoteYear" onchange="renderNoteFilters(); renderNotes()" style="width:auto; padding:6px 10px; font-size:0.8rem; border-width:2px; border-radius:10px;"></select>
+          <button class="btn btn-soft btn-sm" onclick="printNotes()">PDF</button>
+          <button class="icon-btn" onclick="closeNoteModal()" aria-label="閉じる">✕</button>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <div class="find-bar">
+          <input type="text" id="noteSearchInput" placeholder="記録の中を探す" onkeyup="renderNotes()">
+          <button class="btn btn-soft btn-sm" onclick="clearNoteSearch()" aria-label="検索をやめる">✕</button>
+        </div>
+
+        <div id="noteFilterBar"></div>
+
+        <div id="noteWriter" class="writer" style="display:none;">
+          <div class="writer-head">
+            <span id="noteWriterTitle">新しい記録</span>
+            <button class="icon-btn" onclick="toggleWriter(false); cancelNoteEdit();" aria-label="書くのをやめる">✕</button>
+          </div>
+          <div class="rt-bar" id="rtBarNote"></div>
+          <div class="segmented" id="noteTypeSeg" style="margin-bottom:10px;">
+            <label><input type="radio" name="noteType" value="memo" checked onchange="applyNoteType()"><span>メモ</span></label>
+            <label><input type="radio" name="noteType" value="todo" onchange="applyNoteType()"><span>やること</span></label>
+          </div>
+          <div class="rt-editor tall" id="newNoteInput" contenteditable="true" data-ph="気づいたことを書く..." onfocus="rtFocus(this)"></div>
+          <div id="noteAttachmentArea" style="min-height:4px; margin-top:7px;"></div>
+          <div class="tagline" id="noteTagPick" style="margin-top:10px;"></div>
+          <div class="writer-foot">
+            <span style="display:flex; gap:6px;">
+              <button class="btn btn-soft btn-sm" onclick="triggerFileUpload('note')">ファイル</button>
+              <button class="btn btn-soft btn-sm" onclick="triggerCamera('note')">カメラ</button>
+              <button class="btn btn-soft btn-sm" onclick="addUrlAttachment()">URL</button>
+              <button class="btn btn-soft btn-sm" onclick="openDriveSearchModal()">ドライブ</button>
+            </span>
+            <span style="display:flex; gap:7px;">
+              <button class="btn btn-soft btn-sm" onclick="toggleWriter(false); cancelNoteEdit();">やめる</button>
+              <button id="saveNoteBtn" class="btn btn-leaf" onclick="saveNote()">記録する</button>
+            </span>
+          </div>
+        </div>
+
+        <div id="noteListArea"></div>
+      </div>
+
+      <div class="modal-foot">
+        <span class="note-count" id="noteCount"></span>
+        <span style="display:flex; gap:8px; align-items:center;">
+          <button class="btn btn-leaf btn-lg" id="noteFab" onclick="toggleWriter(true)">＋ 書く</button>
+          <button class="btn btn-soft" onclick="closeNoteModal()">閉じる</button>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== タグの整理 ===== -->
+  <div id="tagModal" class="modal-overlay" style="z-index: 1100;">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>タグの整理</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closeTagManage()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body">
+        <p class="field-hint" style="margin-bottom:12px;">
+          名前と色を変えられます。タグを消しても、記録そのものは消えません。<br>
+          児童のタグは「設定」の名簿から増やせます。
+        </p>
+        <div id="tagList" style="margin-bottom:14px;"></div>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="newTagName" placeholder="新しいタグの名前" onkeypress="if(event.key==='Enter') addTagFromManage();">
+          <button class="btn btn-leaf btn-sm" onclick="addTagFromManage()">つくる</button>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <span></span>
+        <button class="btn btn-soft" onclick="closeTagManage()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 印刷設定 ===== -->
+  <div id="printModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>印刷の設定</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closePrintModal()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label>教科名の書きかた</label>
+          <div class="radio-row">
+            <label><input type="radio" name="printMode" value="kanji" checked> 漢字（標準）</label>
+            <label><input type="radio" name="printMode" value="hiragana"> ひらがな（低学年向け）</label>
+          </div>
+          <p class="field-hint">ひらがなを選ぶと、曜日と標準の教科名がひらがなになります。ご自身で入力した単元名や連絡文はそのままです。</p>
+        </div>
+        <div class="field">
+          <label>印刷する内容</label>
+          <label class="check-line" style="margin-bottom:8px;"><input type="checkbox" id="printUnit" checked> 単元名も印刷する</label>
+          <label class="check-line" style="margin-bottom:8px;"><input type="checkbox" id="printContact" checked> 連絡欄を印刷する</label>
+          <label class="check-line"><input type="checkbox" id="printGoal" checked> 「今週の目標」を印刷する</label>
+          <p class="field-hint">行事・朝・業間・昼は、その週に記入があるときだけ印刷されます。「メモ」欄と各時間の「メモ・所感」は印刷されません。</p>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-soft" onclick="closePrintModal()">キャンセル</button>
+        <button class="btn btn-leaf" onclick="executePrint()">印刷画面へ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 時数集計 ===== -->
+  <div id="summaryModal" class="modal-overlay">
+    <div class="modal-box large">
+      <div class="modal-head">
+        <h3>時数集計 <span id="summaryGradeDisplay" style="font-size:0.85rem; color:var(--brown-2);"></span></h3>
+        <div class="head-tools">
+          <button class="btn btn-soft btn-sm" onclick="resetAllAdjust()">↺ 調整をすべて戻す</button>
+          <button class="icon-btn" onclick="closeSummaryModal()" aria-label="閉じる">✕</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p class="field-hint" style="margin-bottom:10px;">
+          4月1日〜翌3月31日の範囲で集計します。「調整」欄に数を入れると、その分だけ年間合計に足し引きできます（マイナスも入力できます）。
+        </p>
+        <div class="table-scroll">
+          <table class="summary-table" id="summaryTableElement"></table>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <span></span>
+        <button class="btn btn-soft" onclick="closeSummaryModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 全体検索 ===== -->
+  <div id="searchModal" class="modal-overlay">
+    <div class="modal-box large">
+      <div class="modal-head">
+        <h3>全体から検索</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closeSearchModal()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex; gap:9px; margin-bottom:14px;">
+          <input type="text" id="searchInput" placeholder="単元名・記録・連絡から探す" onkeypress="if(event.key==='Enter') executeSearch();">
+          <button class="btn btn-leaf" onclick="executeSearch()">検索</button>
+        </div>
+        <div id="searchResultsArea"></div>
+      </div>
+      <div class="modal-foot">
+        <span></span>
+        <button class="btn btn-soft" onclick="closeSearchModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ドライブ検索 ===== -->
+  <div id="driveSearchModal" class="modal-overlay" style="z-index: 1100;">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>ドライブを検索</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closeDriveSearchModal()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex; gap:9px; margin-bottom:14px;">
+          <input type="text" id="driveSearchInput" placeholder="ファイル名を入力..." onkeypress="if(event.key==='Enter') executeDriveSearch();">
+          <button class="btn btn-leaf" onclick="executeDriveSearch()">検索</button>
+        </div>
+        <div id="driveSearchResultsArea"></div>
+      </div>
+      <div class="modal-foot">
+        <span></span>
+        <button class="btn btn-soft" onclick="closeDriveSearchModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ノート選択 ===== -->
+  <div id="noteSelectionModal" class="modal-overlay" style="z-index: 1100;">
+    <div class="modal-box large">
+      <div class="modal-head">
+        <h3>添付する記録を選択</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closeNoteSelectionModal()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body">
+        <div class="filter-bar">
+          <select id="noteSelectionFolder" onchange="executeNoteSelectionSearch()">
+            <option value="all">すべてのタグ</option>
+          </select>
+          <input type="text" id="noteSelectionInput" placeholder="内容で検索..." onkeyup="executeNoteSelectionSearch()" style="flex:1; min-width:150px; width:auto;">
+        </div>
+        <div id="noteSelectionResultsArea"></div>
+      </div>
+      <div class="modal-foot">
+        <span></span>
+        <button class="btn btn-soft" onclick="closeNoteSelectionModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== この日のまとめ操作 ===== -->
+  <div id="dayMenuModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 id="dayMenuTitle">この日のまとめ操作</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closeDayMenu()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body">
+        <p class="field-hint" id="dayMenuHint" style="margin-bottom:13px;"></p>
+        <div class="day-menu">
+          <button class="day-item" onclick="dayAllOff()">
+            <span class="txt">
+              <b>この日を全部「授業なし」にする</b>
+              1〜6時間目を灰色にします。行事・朝・連絡などの記入はそのまま残ります。
+            </span>
+          </button>
+          <button class="day-item" onclick="dayAllOn()">
+            <span class="txt">
+              <b>「授業なし」を取り消す</b>
+              灰色にした時間を、空のコマに戻します。
+            </span>
+          </button>
+          <button class="day-item danger" onclick="dayClearAll()">
+            <span class="txt">
+              <b>この日の予定をすべて削除する</b>
+              行事・朝・授業・業間・昼・連絡・メモを、この日だけ全部消します。
+            </span>
+          </button>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <span></span>
+        <button class="btn btn-soft" onclick="closeDayMenu()">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 単元名の候補 ===== -->
+  <div id="unitPickModal" class="modal-overlay" style="z-index: 1100;">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 id="unitPickTitle">単元名を選ぶ</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closeUnitPick()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body">
+        <div class="unit-sub-tabs" id="unitPickTabs"></div>
+        <div class="unit-list" id="unitPickList"></div>
+      </div>
+      <div class="modal-foot">
+        <span style="font-size:0.74rem; color:var(--brown-3); font-weight:700; align-self:center;">左の四角で「済」、単元名を押すと入ります</span>
+        <button class="btn btn-soft" onclick="closeUnitPick()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 基本時間割の選択 ===== -->
+  <div id="baseChooserModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>基本時間割を読み込む</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closeBaseChooser()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body">
+        <p class="field-hint" style="margin-bottom:12px;">
+          今週の「月〜金」「1〜6時間目」に、選んだ時間割の教科を入れます。<br>
+          基本時間割のとおりに作り直します。空欄のコマは空欄になり、単元名やメモは消えます。
+        </p>
+        <div class="bt-pick" id="basePickList"></div>
+      </div>
+      <div class="modal-foot">
+        <span></span>
+        <button class="btn btn-soft" onclick="closeBaseChooser()">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 行事のCSV取り込み ===== -->
+  <div id="csvModal" class="modal-overlay" style="z-index: 1100;">
+    <div class="modal-box large">
+      <div class="modal-head">
+        <h3>行事のCSVを読みこむ</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closeCsvImport()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body">
+
+        <div id="csvStep1">
+          <p class="field-hint" style="margin-bottom:10px;">
+            学校の行事予定をまとめて「行事」の欄に入れられます。<br>
+            <b>Googleカレンダー用のCSV</b>の形なら、そのまま読みこめます。
+          </p>
+
+          <div class="help-note" style="margin-bottom:12px;">
+            <b>CSVの作り方が分からないときは</b><br>
+            <b>Gemini や ChatGPT</b> に作ってもらうのがいちばん簡単です。
+            学校の行事予定表（紙・PDF・Excel・写真でも可）を渡して、下の文をそのまま貼り付けてください。
+
+            <div class="csv-prompt" id="csvPromptBox">この行事予定を、Googleカレンダー用のCSVにしてください。
+・1行目は見出しで「件名,開始日,終了日,開始時刻」
+・日付は 2026/5/6 の形（年/月/日）
+・1日だけの行事は終了日を空欄
+・時刻がなければ開始時刻は空欄
+・文字コードはUTF-8
+・余計な説明は書かず、CSVだけを出力</div>
+
+            <button type="button" class="btn btn-soft btn-sm" onclick="copyCsvPrompt()"
+                    style="margin-top:8px;">この文をコピー</button>
+          </div>
+
+          <table class="help-tbl" style="margin-bottom:12px;">
+            <tr><th style="white-space:nowrap;">件名</th>
+                <td>行事の名前。<span class="cs-alt">タイトル／行事／予定／内容／Subject</span> でも読めます</td></tr>
+            <tr><th style="white-space:nowrap;">開始日</th>
+                <td>その日付。<span class="cs-alt">日付／年月日／Start Date</span> でも読めます</td></tr>
+            <tr><th style="white-space:nowrap;">終了日</th>
+                <td>何日かにまたがる行事のとき。<b>なくても大丈夫</b>（<span class="cs-alt">End Date</span>）</td></tr>
+            <tr><th style="white-space:nowrap;">開始時刻</th>
+                <td>「15:00 職員会議」のように頭に付けたいとき。<b>なくても大丈夫</b>（<span class="cs-alt">Start Time</span>）</td></tr>
+          </table>
+
+          <p class="field-hint" style="margin-bottom:12px;">
+            見出しは<b>日本語でも英語でもかまいません</b>。列の順番も自由です。<br>
+            日付は <code>2026/5/6</code>／<code>2026-05-06</code>／<code>2026年5月6日</code> のどれでも読めます。<br>
+            文字コードは <b>UTF-8</b> で保存してください（Excelの場合は「CSV UTF-8」を選びます）。
+          </p>
+
+          <details class="csv-sample">
+            <summary>CSVの中身の例を見る</summary>
+            <pre>件名,開始日,終了日,開始時刻
+始業式,2026/4/6,,
+入学式,2026/4/7,,10:00
+修学旅行,2026/5/20,2026/5/22,
+避難訓練,2026/6/12,,14:00
+運動会,2026/9/26,,</pre>
+            <p class="field-hint" style="margin:8px 0 0;">
+              1行目が見出し、2行目からが行事です。空欄はカンマだけを続けて書きます。
+            </p>
+          </details>
+          <div class="field">
+            <label>CSVファイルを選ぶ</label>
+            <input type="file" id="csvFileInput" accept=".csv,text/csv" onchange="readCsvFile(event)">
+          </div>
+          <div class="field">
+            <label>取り込みかた</label>
+            <label class="check-line" style="margin-bottom:8px;">
+              <input type="checkbox" id="csvMultiDay" checked> 何日かにまたがる行事は、その全部の日に入れる
+            </label>
+            <label class="check-line" style="margin-bottom:8px;">
+              <input type="checkbox" id="csvWithTime"> 時刻も入れる（例：15:00 職員会議）
+            </label>
+            <label class="check-line">
+              <input type="checkbox" id="csvWeekend"> 土日の行事も取り込む
+            </label>
+          </div>
+          <div class="help-warn" style="font-size:0.8rem;">
+            <b>日付の読みかたについて</b><br>
+            <code>5/6/2026</code> のように数字が2つ並ぶ形は、Googleカレンダーの決まりに合わせて
+            <b>月/日/年（5月6日）</b>として読みます。<br>
+            <code>2026/5/6</code>、<code>2026-05-06</code>、<code>2026年5月6日</code> はそのまま読めます。
+          </div>
+        </div>
+
+        <div id="csvStep2" style="display:none;">
+          <div class="csv-sum" id="csvSummary"></div>
+          <div class="csv-list" id="csvPreview"></div>
+        </div>
+
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-soft" onclick="closeCsvImport()">キャンセル</button>
+        <button class="btn btn-leaf btn-lg" id="csvRunBtn" onclick="runCsvImport()" style="display:none;">この内容で入れる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 年度の切り替え ===== -->
+  <div id="yearModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>年度の切り替え</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closeYearModal()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body">
+        <p class="field-hint" style="margin-bottom:12px;">
+          週案は<b>4月1日から翌年3月31日まで</b>を1年度として管理します。<br>
+          年度を切り替えると、その年度の4月1日の週が開きます。
+        </p>
+
+        <div class="year-switch">
+          <button class="nav-arrow" onclick="stepYear(-1)">◀ 前の年度</button>
+          <div class="year-now"><span id="yearNowLabel">----</span>年度</div>
+          <button class="nav-arrow" onclick="stepYear(1)">次の年度 ▶</button>
+        </div>
+
+        <div id="yearList" class="year-list"></div>
+
+        <div class="field" style="margin-top:14px;">
+          <label>年度を直接入力する</label>
+          <div style="display:flex; gap:8px;">
+            <input type="number" id="yearInput" style="flex:1;" placeholder="2027">
+            <button class="btn btn-leaf btn-sm" onclick="switchYearFromInput()">切り替える</button>
+          </div>
+        </div>
+
+        <div class="help-note" style="margin-top:14px;">
+          <b>新しい年度に移ると</b><br>
+          週案・時数集計・記録・基本時間割・学期・名簿・単元名は、<b>すべて白紙の状態</b>から始まります。<br>
+          まず「設定」で学年・組と学期を入れてください。
+        </div>
+        <div class="help-warn" style="margin-top:10px;">
+          前の年度に戻せば、そのときの内容が<b>そのまま残っています</b>。消えることはありません。
+        </div>
+      </div>
+      <div class="modal-foot">
+        <span></span>
+        <button class="btn btn-soft" onclick="closeYearModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 印刷プレビュー ===== -->
+  <div id="printPreviewModal" class="modal-overlay" style="z-index: 1200;">
+    <div class="modal-box large">
+      <div class="modal-head">
+        <h3>印刷プレビュー</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closePrintPreview()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body" style="padding:10px;">
+        <p class="field-hint" style="margin-bottom:9px;">
+          下が実際に印刷される紙のイメージです。よければ「印刷する」を押してください。
+        </p>
+        <iframe id="printFrame" title="印刷プレビュー"
+                style="width:100%; height:58vh; border:2px solid var(--line); border-radius:12px; background:#fff;"></iframe>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-soft" onclick="closePrintPreview()">閉じる</button>
+        <button class="btn btn-leaf btn-lg" onclick="doPrintFrame()">印刷する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ヘルプ ===== -->
+  <?!= include('help'); ?>
+
+  <!-- ===== 設定 ===== -->
+  <div id="settingModal" class="modal-overlay">
+    <div class="modal-box large">
+      <div class="modal-head">
+        <h3>設定</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closeSettingModal()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body">
+
+        <div class="sec-title">学級のこと</div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <div class="field" style="flex:1; min-width:110px;"><label>年度</label><input type="number" id="setYear" readonly title="年度は「年度切替」から変えます"></div>
+          <div class="field" style="flex:1; min-width:110px;">
+            <label>学年</label>
+            <select id="setGrade">
+              <option value="">えらんでください</option>
+              <option value="1">1年</option><option value="2">2年</option><option value="3">3年</option>
+              <option value="4">4年</option><option value="5">5年</option><option value="6">6年</option>
+            </select>
+          </div>
+          <div class="field" style="flex:1; min-width:110px;"><label>組</label><input type="text" id="setClass" placeholder="1組"></div>
+        </div>
+        <p class="field-hint" style="margin-top:-6px;">年度を変えるときは、画面の上の「年度切替」を使ってください（その年度の週へ移り、設定もその年度のものに切り替わります）。</p>
+
+        <div class="sec-title">学期</div>
+        <div class="field">
+          <label>学期のきまり</label>
+          <div class="radio-row">
+            <label><input type="radio" name="termType" value="3" onchange="onTermTypeChange()" checked> 3学期制</label>
+            <label><input type="radio" name="termType" value="2" onchange="onTermTypeChange()"> 2学期制</label>
+          </div>
+        </div>
+        <div class="field" id="termNamingField" style="display:none;">
+          <label>2学期制の呼び方</label>
+          <div class="radio-row">
+            <label><input type="radio" name="termNaming" value="zenki" onchange="onTermTypeChange()" checked> 前期・後期</label>
+            <label><input type="radio" name="termNaming" value="gakki" onchange="onTermTypeChange()"> 1学期・2学期</label>
+          </div>
+          <p class="field-hint">画面と時数集計に出る呼び方が変わります。学校の呼び方に合わせてください。</p>
+        </div>
+        <p class="field-hint" style="margin-bottom:9px;">時数集計を学期ごとに分けるほか、単元名の登録もこの区切りに合わせて並びます。</p>
+        <div class="field" id="termField1"><label id="termLabel1">1学期</label><div class="date-range"><input type="date" id="t1Start"> 〜 <input type="date" id="t1End"></div></div>
+        <div class="field" id="termField2"><label id="termLabel2">2学期</label><div class="date-range"><input type="date" id="t2Start"> 〜 <input type="date" id="t2End"></div></div>
+        <div class="field" id="termField3"><label id="termLabel3">3学期</label><div class="date-range"><input type="date" id="t3Start"> 〜 <input type="date" id="t3End"></div></div>
+
+        <div class="sec-title">休業期間</div>
+        <div class="field"><label>春季</label><div class="date-range"><input type="date" id="haruStart"> 〜 <input type="date" id="haruEnd"></div></div>
+        <div class="field"><label>夏季</label><div class="date-range"><input type="date" id="natsuStart"> 〜 <input type="date" id="natsuEnd"></div></div>
+        <div class="field"><label>冬季</label><div class="date-range"><input type="date" id="fuyuStart"> 〜 <input type="date" id="fuyuEnd"></div></div>
+        <p class="field-hint" style="margin-top:-6px;">休業期間の1〜6時間目は、その週を開いたときに自動で「授業なし」になります（1日につき1回だけ。あとで取り消したコマに、また入ることはありません）。</p>
+
+        <div class="sec-title">祝日の扱い</div>
+        <p class="field-hint" style="margin-bottom:9px;">
+          祝日は通信がなくても表示されます。下にチェックを入れると、その週を開いたときに自動で書きこまれます。<br>
+          <b>すでに書いてある内容は上書きしません。</b>空いている欄にだけ、1日につき1回だけ入ります。消したあとに、また入ることはありません。
+        </p>
+        <label class="check-line" style="margin-bottom:8px;">
+          <input type="checkbox" id="setHolidayFill"> 祝日の名前を「行事」の欄に自動で入れる
+        </label>
+        <label class="check-line">
+          <input type="checkbox" id="setHolidayOff"> 祝日の1〜6時間目を自動で「授業なし」にする
+        </label>
+
+        <div class="sec-title">単元名の登録</div>
+        <p class="field-hint" style="margin-bottom:9px;">
+          教科ごとに、よく使う単元名を登録しておけます。授業の入力画面の「単元一覧」から選んで入れられます。<br>
+          学期ごとに分けて登録できます。授業の画面では、その日が入っている学期の単元名だけが出ます。<br>
+          1行に1つずつ、教える順に並べてください。
+        </p>
+        <div class="unit-sub-tabs" id="unitSetTermTabs"></div>
+        <div class="unit-sub-tabs" id="unitSetTabs"></div>
+        <textarea id="setUnits" rows="7" oninput="onUnitTextInput()" placeholder="大きなかず&#10;たしざん(2)&#10;ひきざん(2)"></textarea>
+
+        <div class="sec-title">名簿（記録のタグに使います）</div>
+        <p class="field-hint" style="margin-bottom:8px;">
+          記録に「だれのこと」を付けられるようになり、児童ごとに並べて見返せます。<br>
+          出席番号やイニシャルなど、実名でない書き方をおすすめします。1行に1人ずつ入れてください。
+        </p>
+        <textarea id="setRoster" rows="5" placeholder="1&#10;2&#10;3&#10;（または A.S / 12番 など）"></textarea>
+
+        <div class="sec-title">基本の時間割（5つまで）</div>
+        <p class="field-hint" style="margin-bottom:8px;">
+          毎週くり返す時間割を5パターンまで登録できます。ホーム画面の「基本時間割」から、どれを読み込むか選べます。<br>
+          コマを「― 授業なし ―」にしておくと、読み込んだときにそのコマが灰色（授業なし）になります。
+        </p>
+        <div class="bt-tabs" id="btTabs"></div>
+        <div class="field">
+          <label>この時間割の名前</label>
+          <input type="text" id="btName" oninput="onBaseNameInput()" placeholder="例：Aパターン、月曜6時間の週 など">
+        </div>
+        <table class="base-table"><tbody id="baseTimetableBody"></tbody></table>
+
+        <div class="sec-title">行事のCSV取り込み</div>
+        <p class="field-hint" style="margin-bottom:9px;">
+          学校の行事予定などのCSVファイルを読みこんで、「行事」の欄にまとめて入れられます。<br>
+          すでに書いてある行事は消さずに、下に足していきます。<br>
+          <b>CSVの作り方が分からないときは、Gemini などに作ってもらう文を用意してあります。</b>下のボタンから見られます。
+        </p>
+        <button class="btn btn-soft btn-sm" onclick="openCsvImport()">CSVを読みこむ</button>
+
+        <div class="sec-title">バックアップ</div>
+        <p class="field-hint" style="margin-bottom:9px;">すべてのデータ（時間割・ノート・設定）をファイルに保存・復元できます。機種変更や引き継ぎにも使えます。</p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-soft btn-sm" onclick="exportBackup()">書き出す</button>
+          <button class="btn btn-soft btn-sm" onclick="document.getElementById('importFileInput').click()">読み込む</button>
+          <input type="file" id="importFileInput" accept=".json,application/json" style="display:none;" onchange="importBackup(event)">
+        </div>
+        <p class="field-hint" style="margin:12px 0 9px;">
+          クラウド側にも、自動の控えがあります。<b>直前の控え</b>（上書きする直前の1回分）と、
+          <b>毎日の控え</b>（その日はじめて保存する前の状態を、14日分）です。うっかり消したときは、ここから戻せます。
+        </p>
+        <button class="btn btn-soft btn-sm" onclick="openBackupPicker()">自動控えから復元</button>
+
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-soft" onclick="closeSettingModal()">閉じる</button>
+        <button class="btn btn-leaf btn-lg" onclick="saveSettings()">設定を保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 自動控えから復元 ===== -->
+  <div id="backupPickModal" class="modal-overlay" style="z-index: 1100;">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>自動控えから復元</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closeBackupPicker()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body">
+        <p class="field-hint" style="margin-bottom:12px;">
+          戻したい時点をえらんでください。いま画面にある内容は、えらんだ控えの内容に置きかわります（統合ではありません）。
+          読み込んだあとでも「元に戻す」で戻せます。
+        </p>
+        <div class="backup-list" id="backupPickList"></div>
+      </div>
+      <div class="modal-foot">
+        <span></span>
+        <button class="btn btn-soft" onclick="closeBackupPicker()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 確認・お知らせ・入力ダイアログ ===== -->
+  <div id="dialogModal" class="modal-overlay" style="z-index: 1300;">
+    <div class="modal-box" style="max-width: 430px;">
+      <div class="modal-head"><h3 id="dialogTitle">確認</h3></div>
+      <div class="modal-body">
+        <p id="dialogMessage" style="white-space:pre-wrap; line-height:1.75; font-size:0.92rem; margin:0; font-weight:500;"></p>
+        <input type="text" id="dialogInput" style="margin-top:14px; display:none;"
+               onkeypress="if(event.key==='Enter') dialogRespond(true);">
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-soft" id="dialogCancel" onclick="dialogRespond(false)">キャンセル</button>
+        <button class="btn btn-leaf" id="dialogOk" onclick="dialogRespond(true)">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <?!= include('script'); ?>
+</body>
+</html>
