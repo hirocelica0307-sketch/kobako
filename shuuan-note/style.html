@@ -576,7 +576,33 @@
     .csv-row {
       display: flex; align-items: flex-start; gap: 10px; padding: 8px 11px;
       border-bottom: 1px dotted var(--line); font-size: 0.85rem; font-family: var(--font-read);
+      cursor: pointer; color: var(--brown-3);
     }
+    .csv-row:hover { background: #f5f8fc; }
+    .csv-row.on { color: var(--brown); background: #fff; }
+    .csv-row.on:hover { background: #f0f5fc; }
+    .csv-row.skip { cursor: default; }
+    .csv-row:not(.on):not(.skip) .t { text-decoration: line-through; text-decoration-color: rgba(0,0,0,0.25); }
+    .csv-pick { flex: 0 0 auto; width: 19px; height: 19px; margin: 1px 0 0; accent-color: var(--leaf-dk); cursor: pointer; }
+    .csv-pick:disabled { cursor: default; }
+    .csv-month {
+      position: sticky; top: 0; z-index: 1; background: var(--paper-2);
+      font-family: var(--font-ui); font-size: 0.76rem; font-weight: 800; color: var(--brown-2);
+      padding: 4px 11px; border-bottom: 1px solid var(--line);
+    }
+    .csv-sum-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+    .csv-of { font-size: 0.78rem; font-weight: 700; color: var(--brown-2); }
+    .csv-tools { display: flex; gap: 5px; flex-wrap: wrap; }
+    .csv-months { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+    .csv-mbtn {
+      background: #fff; border: 1px solid var(--line-2); border-radius: 5px; padding: 3px 9px; cursor: pointer;
+      font-family: var(--font-ui); font-size: 0.74rem; font-weight: 700; color: var(--brown-2);
+    }
+    .csv-sum .csv-mbtn b { font-weight: 800; font-size: inherit; color: inherit; }
+    .csv-mbtn.some { border-color: var(--leaf); color: var(--leaf-dk); }
+    .csv-mbtn.all { background: var(--leaf); border-color: var(--leaf-dk); color: #fff; }
+    .csv-hint { font-size: 0.74rem; font-weight: 500; color: var(--brown-2); margin-top: 6px; line-height: 1.6; }
+    #csvRunBtn:disabled { opacity: 0.55; cursor: default; filter: none; }
     .csv-row.skip { opacity: 0.5; }
     .csv-row .d { flex: 0 0 auto; width: 108px; font-weight: 700; font-family: var(--font-ui); font-size: 0.8rem; }
     .csv-row .d .wd { color: var(--brown-2); }
@@ -586,6 +612,7 @@
     .csv-row .st { flex: 0 0 auto; font-size: 0.72rem; font-weight: 800; border-radius: 5px; padding: 2px 9px; }
     .csv-row .st.add { background: #e6eefa; color: var(--leaf-dk); }
     .csv-row .st.dup { background: var(--paper-2); color: var(--brown-3); }
+    .csv-row .st.add { white-space: nowrap; }
 
     /* ヘルプ */
     .help-nav { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 14px;
