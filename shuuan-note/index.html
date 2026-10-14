@@ -19,6 +19,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+  <script>
+    // 画面が開かないときに原因を出せるよう、いちばん先にエラーを集めはじめる（下の「開かないときの手当て」で使う）
+    window.__shuuanErrors = [];
+    window.addEventListener('error', function(e) {
+      if (window.__shuuanErrors.length < 5) {
+        window.__shuuanErrors.push((e && e.message ? e.message : 'エラー') + (e && e.lineno ? '（' + e.lineno + '行目）' : ''));
+      }
+    });
+  </script>
   <?!= include('style'); ?>
 </head>
 <body>
@@ -950,5 +959,105 @@
   </div>
 
   <?!= include('script'); ?>
+
+  <script>
+    // ===== 画面が開かないときの手当て =====
+    // この部分だけは index の中に置いておく（ほかの部品が読みこめないときにも動くように）。
+    // ・古い doGet が残っていて、style・help・script が入らなかった → サーバーから部品を取ってきて入れる
+    // ・script が途中で切れている・エラーがある → 何が起きたかを画面に出す
+    (function() {
+      var errors = window.__shuuanErrors || [];
+
+      function scriptLoaded() { return typeof initializeData === 'function'; }
+      function styleLoaded() {
+        var ls = document.getElementById('loadingScreen');
+        return !!ls && window.getComputedStyle(ls).position === 'fixed';
+      }
+      function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+      function showProblem(title, lines) {
+        var box = document.getElementById('loadingScreen');
+        if (!box) { box = document.createElement('div'); document.body.insertBefore(box, document.body.firstChild); }
+        box.setAttribute('style', 'position:fixed; inset:0; z-index:9999; background:#f2f4f7; overflow:auto; ' +
+          'display:block; font-family:sans-serif; color:#171a1f;');
+        box.innerHTML = '<div style="max-width:640px; margin:30px auto; padding:18px 20px; background:#fff; ' +
+          'border:1px solid #d3d8e0; border-radius:10px; line-height:1.8;">' +
+          '<h2 style="margin:0 0 10px; font-size:1.2rem;">' + esc(title) + '</h2>' +
+          lines.map(function(l) { return '<p style="margin:0 0 10px;">' + l + '</p>'; }).join('') +
+          (errors.length ? '<p style="margin:0 0 6px; font-weight:bold;">ブラウザに出たエラー：</p><pre style="white-space:pre-wrap; ' +
+            'background:#f2f4f7; padding:8px 10px; border-radius:6px; font-size:0.85rem;">' + esc(errors.join('\n')) + '</pre>' : '') +
+          '</div>';
+      }
+
+      // テンプレートを通らずに開かれた（古い doGet が残っている）ときは、部品をサーバーから取ってきて入れる
+      function loadPartsFromServer() {
+        var names = ['style', 'help', 'script'];
+        var got = {};
+        var failed = false;
+        names.forEach(function(n) {
+          google.script.run
+            .withSuccessHandler(function(html) {
+              got[n] = String(html || '');
+              if (Object.keys(got).length === names.length && !failed) injectParts(got);
+            })
+            .withFailureHandler(function(err) {
+              if (failed) return;
+              failed = true;
+              showProblem('週案ノートを開けませんでした', [
+                '画面の部品を読みこめませんでした。<b>Code.gs が古いまま</b>か、<b>古い doGet が別のファイルに残っている</b>ようです。',
+                'Apps Script のエディタで、<b>Code.gs の中身を最新のものにまるごと置きかえて</b>ください。' +
+                '<b>.gs のファイルがほかにもあるとき</b>は、古い週案ノートのコード（doGet など）が残っていないか確かめ、残っていたらそのファイルを消してください。',
+                '直したら保存し、「デプロイを管理」→ 編集 →「新バージョン」で更新してから、もう一度開いてください。',
+                '（サーバーからの返事：' + esc(err && err.message ? err.message : String(err)) + '）'
+              ]);
+            })
+            .include(n);
+        });
+      }
+
+      function injectParts(parts) {
+        // 見た目
+        var holder = document.createElement('div');
+        holder.innerHTML = parts.style;
+        Array.prototype.slice.call(holder.querySelectorAll('style')).forEach(function(st) { document.head.appendChild(st); });
+        // ヘルプの画面（設定の画面の前に入れる）
+        holder.innerHTML = parts.help;
+        var before = document.getElementById('settingModal');
+        Array.prototype.slice.call(holder.children).forEach(function(el) { document.body.insertBefore(el, before); });
+        // 動き
+        var m = parts.script.match(/<script>([\s\S]*)<\/script>/);
+        var sc = document.createElement('script');
+        sc.textContent = m ? m[1] : '';
+        document.body.appendChild(sc);
+        if (!scriptLoaded()) {
+          showProblem('週案ノートを開けませんでした', [
+            '画面の動き（<b>script</b> のファイル）を読みこめませんでした。',
+            'script のファイルが<b>途中で切れている</b>おそれがあります。最新の script の中身を、<b>最後の &lt;/script&gt; まで</b>まるごと貼りなおしてください。'
+          ]);
+          return;
+        }
+        if (typeof window.onload === 'function') window.onload();
+        console.warn('古い doGet が使われていたため、部品をサーバーから読みこみました。Code.gs を最新にしてください。');
+      }
+
+      window.addEventListener('load', function() {
+        if (scriptLoaded()) return;   // ふつうに開けている
+        var hasRun = (typeof google !== 'undefined' && google.script && google.script.run);
+        if (!styleLoaded() && hasRun) { loadPartsFromServer(); return; }
+        if (!styleLoaded()) {
+          showProblem('週案ノートを開けませんでした', [
+            'このページは、Apps Script のウェブアプリとして開いてください（デプロイした URL）。'
+          ]);
+          return;
+        }
+        showProblem('週案ノートを開けませんでした', [
+          '画面の動き（<b>script</b> のファイル）が読みこめていません。',
+          'Apps Script のエディタで、<b>script</b> のファイルを開き、最新の中身を<b>最後の &lt;/script&gt; まで</b>まるごと貼りなおしてください。' +
+          '貼りつけるときに<b>途中で切れる</b>と、このようになります。',
+          '直したら保存し、「デプロイを管理」→ 編集 →「新バージョン」で更新してから、もう一度開いてください。'
+        ]);
+      });
+    })();
+  </script>
 </body>
 </html>

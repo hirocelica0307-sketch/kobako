@@ -27,8 +27,41 @@ const SHRINK_MIN = 20;   // 件数がこれより少ないうちは、大きく�
 const INCLUDE_FILES = ['style', 'help', 'script'];
 
 function doGet() {
-  return HtmlService.createTemplateFromFile('index').evaluate()
-    .setTitle('週案ノート')
+  // 画面の部品がそろっていないと、何も出ないまま止まってしまう。
+  // そのときは、どのファイルが足りないかを画面に出す。
+  const missing = ['index'].concat(INCLUDE_FILES).filter(function(name) {
+    try { HtmlService.createHtmlOutputFromFile(name); return false; } catch (e) { return true; }
+  });
+  if (missing.length) return setupErrorPage_(missing, '');
+  try {
+    return HtmlService.createTemplateFromFile('index').evaluate()
+      .setTitle('週案ノート')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  } catch (e) {
+    return setupErrorPage_([], e && e.message ? e.message : String(e));
+  }
+}
+
+// 入れかたがまちがっているときに出す画面
+function setupErrorPage_(missing, message) {
+  const esc = function(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  };
+  let body = '<h2>週案ノートを開けませんでした</h2>';
+  if (missing.length) {
+    body += '<p>Apps Script のエディタに、次の HTML ファイルが見つかりません。</p><ul>' +
+      missing.map(function(n) { return '<li><b>' + esc(n) + '</b>（左の「ファイル」に <b>' + esc(n) + '.html</b> と出ている状態）</li>'; }).join('') +
+      '</ul><p>「＋」→「HTML」でファイルを作り、名前は拡張子なしで <b>' + missing.map(esc).join('・') + '</b> と入れてください。<br>' +
+      '名前が <b>style.html.html</b> のようになっていたり、大文字（Style など）になっていたりすると見つかりません。</p>';
+  }
+  if (message) {
+    body += '<p>画面を組み立てるところで、エラーが起きました。</p><pre>' + esc(message) + '</pre>' +
+      '<p>index のファイルが、最新のものになっているか確かめてください。</p>';
+  }
+  body += '<p>直したら保存し、「デプロイ」→「デプロイを管理」→ 編集 →「新バージョン」で更新してから、もう一度開いてください。</p>';
+  return HtmlService.createHtmlOutput(
+    '<div style="font-family:sans-serif; max-width:640px; margin:30px auto; padding:0 16px; line-height:1.8; color:#171a1f;">' + body + '</div>')
+    .setTitle('週案ノート（設定の確認）')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 

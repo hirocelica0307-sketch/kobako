@@ -443,6 +443,7 @@
               '\n\n保存済みのデータを消さないよう、閲覧のみのモードで起動します。');
       } finally {
         hideLoading();
+        window.__shuuanReady = true;   // 画面が開けた印（index の「開かないときの手当て」が見る）
       }
     }
 
