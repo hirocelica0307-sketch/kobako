@@ -60,4 +60,4 @@ Chromebook の Chrome で ひらいて、テレビに つないで つかいま�
 
 ## アイコン
 
-`icon-32.png`・`icon-192.png`：黒い カードに 白い「九九」と 赤い 線。ブックマーク・タブ・Chromebook の シェルフに 出ます。
+`assets/app-icon.png`（64×64）・`assets/app-icon-180.png`（180×180・白い 地）：Microsoft Fluent Emoji「3D」の Input numbers（1 2 3 4 の 青い しかく）。ブックマーク・タブ・Chromebook の シェルフに 出ます。くわしくは `assets/README.txt`。
