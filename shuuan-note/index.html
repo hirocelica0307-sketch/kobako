@@ -10,7 +10,7 @@
   お願いとおことわり
   ・販売など、営利を目的とした利用はご遠慮ください
   ・このソフトは無保証です。利用によって生じた損害の責任は負いかねます
-  ・児童生徒の情報を扱います。各校の規定に従ってお使いください
+  ・児童の名前や記録は入れない使いかたを前提にしています。各校の規定に従ってお使いください
 -->
 <html lang="ja">
 <head>
@@ -222,7 +222,6 @@
             <button class="btn btn-soft btn-sm" onclick="addUrlAttachment()">URL</button>
             <button class="btn btn-soft btn-sm" onclick="openDriveSearchModal()">ドライブ</button>
             <button class="btn btn-soft btn-sm" onclick="openNoteSelectionModal()">記録を添付</button>
-            <button class="btn btn-sky btn-sm" onclick="noteFromCell()">この時間の記録を書く</button>
           </div>
         </div>
 
@@ -250,7 +249,6 @@
         <h3>記録</h3>
         <div class="head-tools">
           <select id="filterNoteYear" onchange="renderNoteFilters(); renderNotes()" style="width:auto; padding:6px 10px; font-size:0.8rem; border-width:2px; border-radius:10px;"></select>
-          <button class="btn btn-soft btn-sm" onclick="printNotes()">PDF</button>
           <button class="icon-btn" onclick="closeNoteModal()" aria-label="閉じる">✕</button>
         </div>
       </div>
@@ -308,8 +306,7 @@
       </div>
       <div class="modal-body">
         <p class="field-hint" style="margin-bottom:12px;">
-          名前と色を変えられます。タグを消しても、記録そのものは消えません。<br>
-          児童のタグは「設定」の名簿から増やせます。
+          名前と色を変えられます。タグを消しても、記録そのものは消えません。
         </p>
         <div id="tagList" style="margin-bottom:14px;"></div>
         <div style="display:flex; gap:8px;">
@@ -680,7 +677,7 @@
 
         <div class="help-note" style="margin-top:14px;">
           <b>新しい年度に移ると</b><br>
-          週案・時数集計・記録・基本時間割・学期・名簿・単元名は、<b>すべて白紙の状態</b>から始まります。<br>
+          週案・時数集計・記録・基本時間割・学期・単元名は、<b>すべて白紙の状態</b>から始まります。<br>
           まず「設定」で学年・組と学期を入れてください。
         </div>
         <div class="help-warn" style="margin-top:10px;">
@@ -823,16 +820,6 @@
             単元名のうしろに「（12時間）」のように時数を書いておくと、週案のコマに「5/12」のように<b>何時間目か</b>が出ます。
             単元一覧にも、ここまでに入れた時数が出ます。時数は書かなくてもかまいません。
           </p>
-          </div>
-        </details>
-        <details class="set-sec" id="set-roster">
-          <summary>名簿（記録のタグに使います）</summary>
-          <div class="set-body">
-          <p class="field-hint" style="margin-bottom:8px;">
-            記録に「だれのこと」を付けられるようになり、児童ごとに並べて見返せます。<br>
-            出席番号やイニシャルなど、実名でない書き方をおすすめします。1行に1人ずつ入れてください。
-          </p>
-          <textarea id="setRoster" rows="5" placeholder="1&#10;2&#10;3&#10;（または A.S / 12番 など）"></textarea>
           </div>
         </details>
         <details class="set-sec" id="set-base">

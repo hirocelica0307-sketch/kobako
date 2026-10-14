@@ -335,7 +335,6 @@
     // はじめて使う人に用意しておくタグ
     function defaultTagDefs() {
       return {
-        "児童の様子": { color: "#fdeef1" },
         "アイデア":   { color: "#fbf8e3" },
         "会議メモ":   { color: "#eaf4fd" }
       };
@@ -351,7 +350,6 @@
       if (!appSettings.foldersByYear) appSettings.foldersByYear = {};
       if (!appSettings.folderDetailsByYear) appSettings.folderDetailsByYear = {};
       if (!appSettings.adjustByYear) appSettings.adjustByYear = {};
-      if (!appSettings.rosterByYear) appSettings.rosterByYear = {};
       if (!appSettings.unitsByYear) appSettings.unitsByYear = {};
       if (!appSettings.unitDoneByYear) appSettings.unitDoneByYear = {};
       if (!appSettings.autoFilledByYear) appSettings.autoFilledByYear = {};
@@ -423,6 +421,7 @@
         migrateNoteTodos();
         cleanTodos();
         const holCleaned = removeAutoHolidayNames();
+        const stuCleaned = removeStudentData();
 
         const yearInput = document.getElementById('setYear');
         if (yearInput) yearInput.value = currentSetYear;
@@ -438,8 +437,8 @@
         applyColumnDisplay();
         renderTodoCounts();
         if (serverData && !saveBlocked) checkDraftOnStart();
-        // 前の版が入れた祝日の名前を取り除いたときは、保存しておく
-        if (holCleaned && serverData && !saveBlocked && document.getElementById('dialogModal').style.display !== 'flex') requestSave();
+        // 前の版が入れた祝日の名前や名簿を片づけたときは、保存しておく
+        if ((holCleaned || stuCleaned) && serverData && !saveBlocked && document.getElementById('dialogModal').style.display !== 'flex') requestSave();
 
       } catch (e) {
         console.error('初期化エラー:', e);
@@ -603,12 +602,6 @@
       syncToServer();
     }
 
-    // 名簿（年度ごと）
-    function getRoster(year) {
-      if (!appSettings.rosterByYear) appSettings.rosterByYear = {};
-      if (!Array.isArray(appSettings.rosterByYear[year])) appSettings.rosterByYear[year] = [];
-      return appSettings.rosterByYear[year];
-    }
 
     function getAdjust(year) {
       if (!appSettings.adjustByYear) appSettings.adjustByYear = {};
@@ -912,6 +905,7 @@
       migrateNoteTodos();
       cleanTodos();
       removeAutoHolidayNames();
+      removeStudentData();
       refreshAllViews();
 
       // クラウドの内容と食いちがうところ（自分の変更）が残っていれば、保存する
@@ -1806,7 +1800,7 @@
         showToast(yStr + '年度に切り替えました');
         if (isNew) {
           uiAlert(yStr + "年度をはじめました。\n\n" +
-                  "週案・時数集計・記録・基本時間割・学期・名簿・単元名は、すべて白紙の状態です。\n" +
+                  "週案・時数集計・記録・基本時間割・学期・単元名は、すべて白紙の状態です。\n" +
                   "まず「設定」で学年・組と学期を入れてください。\n\n" +
                   "前の年度に戻せば、そのときの内容はそのまま残っています。");
         }
@@ -2091,7 +2085,7 @@
       migrateNotesToTags();
       const info = collectTags(y);
       let folderHtml = '<option value="all">すべてのタグ</option>';
-      info.normal.concat(info.students).forEach(function(f) {
+      info.normal.forEach(function(f) {
         folderHtml += '<option value="' + escapeHTML(f) + '">' + escapeHTML(f) + '</option>';
       });
       document.getElementById('noteSelectionFolder').innerHTML = folderHtml;
@@ -2563,10 +2557,9 @@
     }
 
     // ===== タグ =====
-    // タグは年度をまたいで共通。児童タグだけは年度ごとに分ける。
+    // タグは年度をまたいで共通。
 
     const TAG_COLORS = ['#fdeef1', '#eaf4fd', '#eef8e8', '#fdf2e5', '#f1ecfd', '#fbf8e3', '#fdeef4', '#e9f6f9'];
-    const STU_COLOR = '#ebf1fd';
     const TAG_COLOR_FALLBACK = '#e9e2d6';
 
     function getTagDefs() {
@@ -2590,27 +2583,21 @@
       return defs[name];
     }
 
-    function isStudentTag(name, year) {
-      return getRoster(year || appSettings.year || getFiscalYear(new Date())).indexOf(name) !== -1;
-    }
-
     // 実際に使われているタグを、よく使う順に返す
     function collectTags(year) {
       const count = {};
       appNotes.forEach(function(n) {
         (n.tags || []).forEach(function(t) { count[t] = (count[t] || 0) + 1; });
       });
-      const roster = getRoster(year);
-      const names = Object.keys(count);
-      Object.keys(getTagDefs()).forEach(function(t) { if (names.indexOf(t) === -1) names.push(t); });
-      const normal = names.filter(function(t) { return roster.indexOf(t) === -1; });
+      const normal = Object.keys(count);
+      Object.keys(getTagDefs()).forEach(function(t) { if (normal.indexOf(t) === -1) normal.push(t); });
       normal.sort(function(a, b) { return (count[b] || 0) - (count[a] || 0); });
-      return { normal: normal, students: roster.slice(), count: count };
+      return { normal: normal, count: count };
     }
 
     function getYearlyDetails(y) { return (appSettings.folderDetailsByYear || {})[y] || {}; }
 
-    // 古いフォルダ・児童タグを、新しいタグにまとめる
+    // 古いフォルダを、新しいタグにまとめる
     function migrateNotesToTags() {
       let changed = false;
       appNotes.forEach(function(n) {
@@ -2623,7 +2610,6 @@
           if (parent && parent !== '未分類' && tags.indexOf(parent) === -1) tags.push(parent);
           if (tags.indexOf(folder) === -1) tags.push(folder);
         }
-        (n.students || []).forEach(function(s) { if (tags.indexOf(s) === -1) tags.push(s); });
         n.tags = tags;
         changed = true;
       });
@@ -2645,16 +2631,11 @@
       return changed;
     }
 
-    // 選んだタグと記録が合うか。
-    // 同じ種類（児童どうし／内容どうし）は「どれか」、種類がちがえば「両方」で判定する。
-    function noteMatchesTags(note, picked, year) {
+    // 選んだタグと記録が合うか（えらんだタグの「どれか」が付いていれば出す）
+    function noteMatchesTags(note, picked) {
       if (!picked || picked.length === 0) return true;
       const tags = note.tags || [];
-      const stuPicked = picked.filter(function(t) { return isStudentTag(t, year); });
-      const normPicked = picked.filter(function(t) { return !isStudentTag(t, year); });
-      if (stuPicked.length && !stuPicked.some(function(t) { return tags.indexOf(t) !== -1; })) return false;
-      if (normPicked.length && !normPicked.some(function(t) { return tags.indexOf(t) !== -1; })) return false;
-      return true;
+      return picked.some(function(t) { return tags.indexOf(t) !== -1; });
     }
 
     function noteHasAttachment(n) { return !!(n.attachments && n.attachments.length); }
@@ -2678,12 +2659,10 @@
     // ===== 記録の画面 =====
 
     let notePicked = [];       // いま絞り込みに選んでいるタグ
-    let noteStuOpen = false;   // 児童タグを開いているか
     let noteOnlyAtt = false;
     let noteTags = [];         // いま書いている記録に付けるタグ
     let noteWriteOpen = false;
     let noteTagPickOpen = false;
-    let noteWriterStuOpen = false;
     let noteWriterSnapshot = null;   // 書く欄を開いたときの中身（書きかけかどうかの判定に使う）
 
     function noteWriterState() {
@@ -2764,33 +2743,6 @@
       h += '<button class="tag-add" onclick="openTagManage()">＋ タグ</button>';
       h += '</div>';
 
-      // 児童タグは畳んでおく
-      if (info.students.length) {
-        const picked = notePicked.filter(function(t) { return info.students.indexOf(t) !== -1; });
-        h += '<div class="tagline">';
-        h += '<button class="stu-toggle' + (noteStuOpen ? ' on' : '') + '" onclick="toggleStuOpen()">' +
-             (noteStuOpen ? '▾' : '▸') + ' 児童 ' + info.students.length +
-             (picked.length ? '（' + picked.length + '人えらび中）' : '') + '</button>';
-        if (!noteStuOpen) {
-          picked.forEach(function(t) {
-            h += '<button class="tag-chip on" data-t="' + escapeHTML(t) + '" style="background:' + STU_COLOR + ';" ' +
-                 'onclick="togglePick(this.dataset.t)">' + escapeHTML(t) + '</button>';
-          });
-        }
-        h += '</div>';
-        if (noteStuOpen) {
-          h += '<div class="tagline stu-open">';
-          info.students.forEach(function(t) {
-            const on = notePicked.indexOf(t) !== -1;
-            const c = info.count[t] || 0;
-            h += '<button class="tag-chip stu' + (on ? ' on' : '') + '" data-t="' + escapeHTML(t) + '" ' +
-                 'style="background:' + STU_COLOR + ';" onclick="togglePick(this.dataset.t)">' +
-                 escapeHTML(t) + (c ? ' <b>' + c + '</b>' : '') + '</button>';
-          });
-          h += '</div>';
-        }
-      }
-
       if (notePicked.length || noteOnlyAtt) {
         h += '<div class="tagline"><button class="tag-clear" onclick="clearPicked()">✕ 絞り込みをやめる</button></div>';
       }
@@ -2806,7 +2758,6 @@
       if (kind === 'att') noteOnlyAtt = !noteOnlyAtt;
       renderNoteFilters(); renderNotes();
     }
-    function toggleStuOpen() { noteStuOpen = !noteStuOpen; renderNoteFilters(); }
     function clearPicked() {
       notePicked = []; noteOnlyAtt = false;
       const s = document.getElementById('noteSearchInput'); if (s) s.value = '';
@@ -2860,24 +2811,6 @@
       });
       if (hidden > 0) h += '<button class="tag-add" onclick="noteTagPickOpen=true; renderWriterTags();">ほか ' + hidden + '</button>';
       h += '<button class="tag-add" onclick="promptNewTag()">＋ 新しいタグ</button>';
-
-      // 児童タグ
-      const stuPicked = noteTags.filter(function(t) { return info.students.indexOf(t) !== -1; });
-      h += '<span class="tag-div"></span>';
-      h += '<button class="stu-toggle' + (noteWriterStuOpen ? ' on' : '') + '" onclick="noteWriterStuOpen=!noteWriterStuOpen; renderWriterTags();">' +
-           (noteWriterStuOpen ? '▾' : '▸') + ' 児童' + (stuPicked.length ? ' ' + stuPicked.length + '人' : '') + '</button>';
-      if (!noteWriterStuOpen) {
-        stuPicked.forEach(function(t) {
-          h += '<button class="tag-chip on" data-t="' + escapeHTML(t) + '" style="background:' + STU_COLOR + ';" ' +
-               'onclick="toggleNoteTag(this.dataset.t)">' + escapeHTML(t) + '</button>';
-        });
-      } else {
-        info.students.forEach(function(t) {
-          const on = noteTags.indexOf(t) !== -1;
-          h += '<button class="tag-chip stu' + (on ? ' on' : '') + '" data-t="' + escapeHTML(t) + '" ' +
-               'style="background:' + STU_COLOR + ';" onclick="toggleNoteTag(this.dataset.t)">' + escapeHTML(t) + '</button>';
-        });
-      }
       box.innerHTML = h;
     }
 
@@ -2892,7 +2825,6 @@
         if (!name) return;
         const t = name.trim();
         if (!t) return;
-        if (isStudentTag(t)) { uiAlert('名簿と同じ名前は使えません。'); return; }
         ensureTagDef(t);
         if (noteTags.indexOf(t) === -1) noteTags.push(t);
         renderWriterTags();
@@ -2907,11 +2839,10 @@
       const dStr = now.getFullYear() + '/' + String(now.getMonth()+1).padStart(2,'0') + '/' + String(now.getDate()).padStart(2,'0') +
                    ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
 
-      noteTags.forEach(function(t) { if (!isStudentTag(t)) ensureTagDef(t); });
+      noteTags.forEach(function(t) { ensureTagDef(t); });
       // 次に書くとき候補の先頭に出すため、使ったタグを覚えておく
       const recent = (appSettings.recentTags || []).slice();
       noteTags.forEach(function(t) {
-        if (isStudentTag(t)) return;
         const i = recent.indexOf(t); if (i !== -1) recent.splice(i, 1);
         recent.unshift(t);
       });
@@ -2981,7 +2912,7 @@
       const y = (year === 'all') ? (appSettings.year || getFiscalYear(new Date())) : year;
 
       let list = appNotes.filter(function(n) { return year === 'all' || n.year === year; });
-      list = list.filter(function(n) { return noteMatchesTags(n, notePicked, y); });
+      list = list.filter(function(n) { return noteMatchesTags(n, notePicked); });
       if (noteOnlyAtt) list = list.filter(noteHasAttachment);
       if (q) {
         list = list.filter(function(n) {
@@ -3003,8 +2934,7 @@
       const body = q ? hlHTML(full, q) : full;
 
       const tags = (n.tags || []).map(function(t) {
-        const stu = isStudentTag(t, n.year);
-        return '<span class="mini-tag" style="background:' + (stu ? STU_COLOR : tagColor(t)) + ';">' +
+        return '<span class="mini-tag" style="background:' + tagColor(t) + ';">' +
                escapeHTML(t) + '</span>';
       }).join('');
 
@@ -3107,7 +3037,6 @@
         if (!v) return;
         const nn = v.trim();
         if (!nn || nn === oldName) return;
-        if (isStudentTag(nn)) { uiAlert('名簿と同じ名前は使えません。'); return; }
         const defs = getTagDefs();
         defs[nn] = defs[oldName] || { color: TAG_COLOR_FALLBACK };
         delete defs[oldName];
@@ -3140,38 +3069,10 @@
       const el = document.getElementById('newTagName');
       const t = (el.value || '').trim();
       if (!t) return;
-      if (isStudentTag(t)) { uiAlert('名簿と同じ名前は使えません。'); return; }
       if (getTagDefs()[t]) { uiAlert('同じ名前のタグがすでにあります。'); return; }
       ensureTagDef(t);
       el.value = '';
       renderTagManage(); syncToServer();
-    }
-
-    function printNotes() {
-      const res = filteredNotes();
-      if (res.list.length === 0) { uiAlert("印刷できる記録がありません。"); return; }
-      const sorted = res.list.slice().sort(function(a, b) {
-        if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
-        return (b.id || 0) - (a.id || 0);
-      });
-      let h = "<html><head><meta charset='UTF-8'><title>記録</title>" +
-        '<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">' +
-        "<style>@page{size:A4 portrait;margin:15mm;}" +
-        "body{font-family:'BIZ UDPGothic','Yu Gothic UI','Meiryo',sans-serif;color:#1d2127;}" +
-        "h2{font-family:'Noto Sans JP','BIZ UDPGothic','Yu Gothic UI',sans-serif;font-size:14pt;margin:0 0 10px;}" +
-        ".note{border-left:4px solid #a6adb8;padding:7px 12px;margin-bottom:9px;page-break-inside:avoid;}" +
-        ".meta{font-size:9pt;color:#666f7d;margin-bottom:4px;font-weight:700;}" +
-        ".content{font-size:10.5pt;white-space:pre-wrap;line-height:1.6;}" +
-        ".tg{font-size:8.5pt;color:#2b6f8c;font-weight:700;margin-top:3px;}" +
-        "@media print{button{display:none;}}</style></head><body>";
-      h += '<h2>記録の一覧</h2>';
-      sorted.forEach(function(n) {
-        const tg = (n.tags || []).length ? '<div class="tg">' + escapeHTML(n.tags.join('、')) + '</div>' : '';
-        h += '<div class="note"><div class="meta">' + escapeHTML(n.date) + '</div>' +
-             '<div class="content">' + rtRender(n.content) + '</div>' + tg + '</div>';
-      });
-      h += '<button onclick="window.print()">印刷</button></body></html>';
-      openPrintWindow(h);
     }
 
     function togglePin(id) {
@@ -3464,23 +3365,6 @@
       modal.style.display = 'none';
       inputSnapshot = null;
       if (then) then();
-    }
-
-    // 時間割のコマから、その日付・教科をひもづけて記録を書く。
-    // コマを書きかけていれば、先にコマを保存してから記録の画面へ移る。
-    function noteFromCell() {
-      const row = getRow(currentEditPeriod);
-      const date = new Date(currentMonday);
-      date.setDate(date.getDate() + currentEditDayIndex);
-      const isLesson = row.type === 'lesson' && !document.getElementById('inputDisabled').checked;
-      const sub = isLesson ? document.getElementById('inputSubject').value : '';
-      const link = { date: fmtDate(date), period: currentEditPeriod, label: row.title, subject: sub };
-      if (inputDirty()) {
-        if (!saveInputData()) return;
-      } else {
-        closeInputModal(true);
-      }
-      openNoteModal(link);
     }
 
     // ===== 検索 =====
@@ -5037,6 +4921,37 @@
       return changed;
     }
 
+    // 児童の記録はのこさない運用にしたので、前の版の名簿と児童のタグを1回だけ片づける。
+    // 記録の本文は消さない（タグの札だけを外す）。既定のタグ「児童の様子」は、使われていなければ消す。
+    function removeStudentData() {
+      if (appSettings.studentDataRemoved) return false;
+      appSettings.studentDataRemoved = true;
+      const names = [];
+      const rb = appSettings.rosterByYear;
+      if (isPlainObj(rb)) {
+        Object.keys(rb).forEach(function(y) {
+          (Array.isArray(rb[y]) ? rb[y] : []).forEach(function(t) { if (typeof t === 'string' && names.indexOf(t) === -1) names.push(t); });
+        });
+      }
+      let changed = rb !== undefined;
+      delete appSettings.rosterByYear;
+      appNotes.forEach(function(n) {
+        if (Array.isArray(n.students)) { delete n.students; changed = true; }
+        if (!Array.isArray(n.tags)) return;
+        const kept = n.tags.filter(function(t) { return names.indexOf(t) === -1; });
+        if (kept.length !== n.tags.length) { n.tags = kept; changed = true; }
+      });
+      const defs = getTagDefs();
+      names.forEach(function(t) { if (defs[t]) { delete defs[t]; changed = true; } });
+      const kidTag = '児童の様子';
+      if (defs[kidTag] && !appNotes.some(function(n) { return (n.tags || []).indexOf(kidTag) !== -1; })) { delete defs[kidTag]; changed = true; }
+      if (Array.isArray(appSettings.recentTags)) {
+        const r = appSettings.recentTags.filter(function(t) { return names.indexOf(t) === -1 && (t !== kidTag || defs[kidTag]); });
+        if (r.length !== appSettings.recentTags.length) { appSettings.recentTags = r; changed = true; }
+      }
+      return changed;
+    }
+
     // 前の版が行事の欄に自動で入れた祝日の名前を、1回だけ取り除く。
     // 自分で書き足した行事は残し、祝日の名前の行だけを消す。
     function removeAutoHolidayNames() {
@@ -5135,6 +5050,7 @@
       }
 
       loadWeekGoal();
+      autoFoldForWeek();
       applyFold();
       renderPrevPanel();
       renderTodoPanel();
@@ -5220,8 +5136,26 @@
         '<div class="' + cls + '"' + dragAttrs + '>' + inner + badge + '</div>';
     }
 
-    // 連絡・メモは、ふだん畳んでおく。見出しを押すと1週間ぶんが開く。
+    // 連絡・メモは、その週に書いてあれば開き、空なら畳んでおく（見落としを防ぐ）。
+    // 見出しを押すと1週間ぶんを開け閉めできる。押した向きは、ほかの週へ移るまでそのまま。
     const rowFolded = { renraku: true, memo: true };
+    let foldWeek = '';
+
+    function weekHasRow(id) {
+      for (let d = 0; d < 7; d++) {
+        const v = appData[getDataKey(d, id)];
+        if (v && (!rtEmpty(v.record) || (v.attachments && v.attachments.length))) return true;
+      }
+      return false;
+    }
+
+    // 週が変わったときだけ、書いてあるかどうかで開け閉めを決め直す
+    function autoFoldForWeek() {
+      const wk = fmtDate(currentMonday);
+      if (wk === foldWeek) return;
+      foldWeek = wk;
+      ROWS.forEach(function(r) { if (r.fold) rowFolded[r.id] = !weekHasRow(r.id); });
+    }
 
     function toggleFold(id) {
       rowFolded[id] = !rowFolded[id];
@@ -5620,7 +5554,7 @@
       }
 
       // --- 設定 ---
-      // 単元名・名簿・タグなども含めて、ファイルの中身をそのまま入れる。
+      // 単元名・タグなども含めて、ファイルの中身をそのまま入れる。
       Object.keys(appSettings).forEach(function(k) { delete appSettings[k]; });
       if (obj.settings && typeof obj.settings === 'object') {
         Object.assign(appSettings, JSON.parse(JSON.stringify(obj.settings)));
@@ -5635,6 +5569,7 @@
       migrateNoteTodos();
       cleanTodos();
       removeAutoHolidayNames();
+      removeStudentData();
 
       // 本人が「置きかえる」と決めた読み込みなので、件数が減っても確認はしない
       shrinkApproved = true;
@@ -6437,14 +6372,6 @@
         const el = document.getElementById(f); if (el) c[f] = el.value;
       });
       saveUnitText();
-      const rosterEl = document.getElementById('setRoster');
-      if (rosterEl) {
-        getRoster(y).length = 0;
-        rosterEl.value.split(/\r\n|\n|\r/).forEach(function(line) {
-          const t = line.trim();
-          if (t && getRoster(y).indexOf(t) === -1) getRoster(y).push(t);
-        });
-      }
       readNikkaForm();
       if (nkWork) c.nikka = JSON.parse(JSON.stringify(nkWork));
       saveBtGrid();
@@ -6479,8 +6406,6 @@
       const tnEl = document.querySelector('input[name="termNaming"][value="' + tn + '"]');
       if (tnEl) tnEl.checked = true;
       onTermTypeChange();
-      const rosterEl = document.getElementById('setRoster');
-      if (rosterEl) rosterEl.value = getRoster(y).join('\n');
       unitSetSubject = '';
       renderUnitSetTabs();
       renderPeriodSettingsList();
