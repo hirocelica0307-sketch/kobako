@@ -1,8 +1,10 @@
 /* タイマー・ストップウォッチ：一度 ひらけば インターネット なしでも ひらける ように する。
  * ネットに つながる ときは いつも 新しい ものを とりに いき（3びょう まで まつ）、
  * つながらない ときだけ 前に とって おいた ものを 出す。 */
-var CACHE="timer-v1";
-var FILES=["./","./index.html"];
+var CACHE="timer-v2";
+var FILES=["./","./index.html","./manifest.webmanifest",
+  "./assets/icon/app-icon-32.png","./assets/icon/app-icon-192.png","./assets/icon/app-icon-512.png",
+  "./assets/icon/maskable-512.png","./assets/icon/apple-touch-icon.png"];
 
 self.addEventListener("install",function(e){
   e.waitUntil(caches.open(CACHE).then(function(c){return c.addAll(FILES)}));

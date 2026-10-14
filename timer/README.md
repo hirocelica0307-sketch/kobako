@@ -56,3 +56,8 @@ Chromebook は 先生の アカウントで ログインして つかうので�
 ## はじめの プリセットを かえる
 
 画面の「へんしゅう」で 先生ごとに かえられます。だれかが はじめて ひらいた ときの プリセットを かえたい ときは、`index.html` の `<script>` の さいしょに ある `DEFAULT_PRESETS`（びょう）を 書きかえます。
+
+## アイコン
+
+`assets/icon/`：Microsoft Fluent Emoji（3D）の Stopwatch（MIT License）。ブラウザの タブ・ブックマーク・ホーム画面に 出ます。
+Chrome の アドレスバーの「インストール」で、Chromebook の シェルフに アプリと して おけます。素材の 記録は `assets/README.txt`。
