@@ -5882,6 +5882,7 @@
         item.dup = (item.kind === 'period')
           ? periodExists(item.text, item.date, item.end)
           : existingEventLines(item.date).indexOf(item.text) !== -1;
+        item.on = !item.dup;   // 取り込むかどうか（一覧のチェックで変えられる）
       });
 
       plan.sort(function(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
@@ -5899,48 +5900,108 @@
       return (box.textContent || '').split(/\n/).map(function(x) { return x.trim(); }).filter(Boolean);
     }
 
-    function renderCsvPreview(skippedNoDate, skippedWeekend) {
-      const addCount = csvPlan.filter(function(x) { return !x.dup; }).length;
-      const dupCount = csvPlan.length - addCount;
+    let csvSkipNote = '';   // 読めなかった行などの知らせ（えらび直しても変わらない）
 
+    // 読みこんだ一覧を出す。1件ずつチェックで、取り込む・取り込まないをえらべる。
+    function renderCsvPreview(skippedNoDate, skippedWeekend) {
+      const dupCount = csvPlan.filter(function(x) { return x.dup; }).length;
       let notes = [];
-      if (dupCount) notes.push('同じ行事がすでにある ' + dupCount + '件はとばします');
+      if (dupCount) notes.push('同じ行事がすでにある ' + dupCount + '件は、えらべません');
       if (skippedNoDate) notes.push('<span class="warn">日付を読めなかった ' + skippedNoDate + '行はとばしました</span>');
       if (skippedWeekend) notes.push('土日の ' + skippedWeekend + '件はとばしました');
-
-      document.getElementById('csvSummary').innerHTML =
-        '入れる行事：<b>' + addCount + '</b>件' +
-        (notes.length ? '<br><span style="font-weight:500; font-size:0.8rem;">' + notes.join('／') + '</span>' : '');
+      csvSkipNote = notes.join('／');
 
       const wdNames = ['日','月','火','水','木','金','土'];
       const box = document.getElementById('csvPreview');
       if (csvPlan.length === 0) {
         box.innerHTML = '<p class="empty-msg">取り込めるものが見つかりませんでした。</p>';
       } else {
-        box.innerHTML = csvPlan.map(function(x) {
+        let lastMonth = '';
+        box.innerHTML = csvPlan.map(function(x, i) {
           const d = new Date(x.date.replace(/-/g, '/'));
           const cls = (x.wd === 0) ? 'sun' : (x.wd === 6 ? 'sat' : '');
           const isP = (x.kind === 'period');
-          return '<div class="csv-row' + (x.dup ? ' skip' : '') + '">' +
+          const ym = x.date.slice(0, 7);
+          const head = (ym !== lastMonth) ? '<div class="csv-month">' + d.getFullYear() + '年' + (d.getMonth() + 1) + '月</div>' : '';
+          lastMonth = ym;
+          return head + '<label class="csv-row' + (x.dup ? ' skip' : (x.on ? ' on' : '')) + '">' +
+            '<input type="checkbox" class="csv-pick" data-i="' + i + '"' + (x.on ? ' checked' : '') + (x.dup ? ' disabled' : '') +
+            ' onchange="setCsvPick(' + i + ', this.checked)" aria-label="' + escapeHTML(x.text) + 'を取り込む">' +
             '<span class="d">' + (d.getMonth()+1) + '/' + d.getDate() +
             ' <span class="wd ' + cls + '">(' + wdNames[x.wd] + ')</span>' +
             (isP ? '<br>〜' + mdw(x.end) : '') + '</span>' +
             '<span class="t">' + escapeHTML(x.text) + '</span>' +
-            '<span class="st ' + (x.dup ? 'dup' : (isP ? 'arrow' : 'add')) + '">' + (x.dup ? 'あり' : (isP ? '矢印' : '追加')) + '</span>' +
-            '</div>';
+            '<span class="st ' + (x.dup ? 'dup' : (isP ? 'arrow' : 'add')) + '">' + (x.dup ? '入っています' : (isP ? '矢印' : '行事')) + '</span>' +
+            '</label>';
         }).join('');
       }
 
       document.getElementById('csvStep1').style.display = 'none';
       document.getElementById('csvStep2').style.display = 'block';
-      document.getElementById('csvRunBtn').style.display = (addCount > 0) ? 'inline-flex' : 'none';
+      renderCsvSummary();
+    }
+
+    // えらんだ数と、まとめてえらぶボタン
+    function renderCsvSummary() {
+      const can = csvPlan.filter(function(x) { return !x.dup; });
+      const picked = can.filter(function(x) { return x.on; }).length;
+
+      // 月ごとに、まとめてえらぶ・外すボタン
+      const months = [];
+      can.forEach(function(x) { const ym = x.date.slice(0, 7); if (months.indexOf(ym) === -1) months.push(ym); });
+      const monthBtns = months.map(function(ym) {
+        const inMonth = can.filter(function(x) { return x.date.slice(0, 7) === ym; });
+        const n = inMonth.filter(function(x) { return x.on; }).length;
+        const cls = n === inMonth.length ? ' all' : (n ? ' some' : '');
+        return '<button type="button" class="csv-mbtn' + cls + '" data-ym="' + ym + '" onclick="toggleCsvMonth(this.dataset.ym)" ' +
+               'title="この月をまとめてえらぶ／外す">' + parseInt(ym.slice(5), 10) + '月 <b>' + n + '/' + inMonth.length + '</b></button>';
+      }).join('');
+
+      document.getElementById('csvSummary').innerHTML =
+        '<div class="csv-sum-top">' +
+          '<span>取り込む行事：<b>' + picked + '</b>件<span class="csv-of"> ／ えらべるもの ' + can.length + '件</span></span>' +
+          '<span class="csv-tools">' +
+            '<button type="button" class="btn btn-soft btn-sm" onclick="setAllCsvPicks(true)">すべてえらぶ</button>' +
+            '<button type="button" class="btn btn-soft btn-sm" onclick="setAllCsvPicks(false)">すべて外す</button>' +
+            '<button type="button" class="btn btn-soft btn-sm" onclick="openCsvImport()">ファイルをえらび直す</button>' +
+          '</span>' +
+        '</div>' +
+        (months.length > 1 ? '<div class="csv-months">' + monthBtns + '</div>' : '') +
+        '<div class="csv-hint">取り込まないものは、左のチェックを外してください。行のどこを押しても切りかわります。</div>' +
+        (csvSkipNote ? '<div class="csv-hint">' + csvSkipNote + '</div>' : '');
+
+      const btn = document.getElementById('csvRunBtn');
+      btn.style.display = can.length ? 'inline-flex' : 'none';
+      btn.disabled = (picked === 0);
+      btn.innerText = picked ? 'えらんだ ' + picked + '件を入れる' : '取り込むものをえらんでください';
+    }
+
+    function setCsvPick(i, on) {
+      const x = csvPlan[i];
+      if (!x || x.dup) return;
+      x.on = !!on;
+      const el = document.querySelector('.csv-pick[data-i="' + i + '"]');
+      if (el) { el.checked = x.on; el.closest('.csv-row').classList.toggle('on', x.on); }
+      renderCsvSummary();
+    }
+
+    function setAllCsvPicks(on) {
+      csvPlan.forEach(function(x, i) { if (!x.dup) setCsvPick(i, on); });
+    }
+
+    // その月がぜんぶえらばれていれば外す。そうでなければ、ぜんぶえらぶ。
+    function toggleCsvMonth(ym) {
+      const idx = [];
+      csvPlan.forEach(function(x, i) { if (!x.dup && x.date.slice(0, 7) === ym) idx.push(i); });
+      const allOn = idx.every(function(i) { return csvPlan[i].on; });
+      idx.forEach(function(i) { setCsvPick(i, !allOn); });
     }
 
     function runCsvImport() {
-      const targets = csvPlan.filter(function(x) { return !x.dup; });
-      if (targets.length === 0) { closeCsvImport(); return; }
+      const targets = csvPlan.filter(function(x) { return !x.dup && x.on; });
+      if (targets.length === 0) { uiAlert('取り込む行事がえらばれていません。\n一覧の左のチェックで、取り込むものをえらんでください。'); return; }
 
-      uiConfirm(targets.length + '件の行事を取り込みます。\n\n' +
+      uiConfirm('えらんだ ' + targets.length + '件の行事を取り込みます。\n（えらばなかったものは入りません）\n\n' +
                 'すでに書いてある行事は消さずに、下に足します。\n' +
                 '「矢印」のものは、期間の取り組みとして始まりから終わりまで矢印で入ります。', function(ok) {
         if (!ok) return;
