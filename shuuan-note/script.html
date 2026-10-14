@@ -279,6 +279,8 @@
       // 保存していない変更があるまま閉じようとしたら引き止める
       window.addEventListener('beforeunload', function(e) {
         if (!pendingSave || saveBlocked) return;
+        // 閉じるまでに保存が終わらないこともあるので、念のため端末にも残す（次に開いたとき、保存できていれば消す）
+        writeDraft();
         flushSave();
         e.preventDefault();
         e.returnValue = '';
@@ -352,6 +354,7 @@
       if (!appSettings.unitDoneByYear) appSettings.unitDoneByYear = {};
       if (!appSettings.autoFilledByYear) appSettings.autoFilledByYear = {};
       if (!appSettings.periodsByYear) appSettings.periodsByYear = {};
+      if (!isPlainObj(appSettings.todos)) appSettings.todos = {};
       if (!appSettings.tagDefs) appSettings.tagDefs = defaultTagDefs();
 
       if (!appSettings.configByYear[y]) {
@@ -402,6 +405,7 @@
           // 読み込んだままの姿を控えておく（ほかの端末の変更と合わせるときの基準）
           snapshotBase(serverData);
           currentRev = (typeof serverData.rev === 'number') ? serverData.rev : 0;
+          userKey = (typeof serverData.userKey === 'string' && /^[0-9a-f]{8,64}$/.test(serverData.userKey)) ? serverData.userKey : '';
           if (serverData.settings) Object.assign(appSettings, serverData.settings);
           if (serverData.data) Object.assign(appData, serverData.data);
           if (serverData.notes && Array.isArray(serverData.notes)) appNotes.push(...serverData.notes);
@@ -414,6 +418,8 @@
         migrateNotesToTags();
         normalizeNotes();
         cleanPeriods();
+        migrateNoteTodos();
+        cleanTodos();
 
         const yearInput = document.getElementById('setYear');
         if (yearInput) yearInput.value = currentSetYear;
@@ -427,6 +433,8 @@
         buildGrid();
         updateView();
         applyColumnDisplay();
+        renderTodoCounts();
+        if (serverData && !saveBlocked) checkDraftOnStart();
 
       } catch (e) {
         console.error('初期化エラー:', e);
@@ -635,7 +643,7 @@
         dirty:  '● 未保存',
         saving: '保存中…',
         saved:  '保存済み',
-        error:  '保存できていません',
+        error:  draftSaved ? '保存できていません（この端末に下書きあり）' : '保存できていません',
         local:  'ローカル表示（保存されません）'
       }[state] || '';
       el.className = 'on ' + state;
@@ -690,6 +698,7 @@
             pendingSave = true;
             if (res.conflict) { reconcileWithServer(); return; }
             if (res.shrink) { askShrink(res); return; }
+            writeDraft();
             setSaveState('error');
             uiAlert("保存できませんでした。\n\n" + (res.error || "原因不明のエラーです。"));
             return;
@@ -697,15 +706,18 @@
           if (res && typeof res.rev === 'number') currentRev = res.rev;
           baseState = sent;
           shrinkApproved = false;
+          if (draftSaved) clearDraft();   // 保存できたので、端末の下書きはいらない
           if (pendingSave) { setSaveState('dirty'); requestSave(); }
           else { setSaveState('saved'); }
         })
         .withFailureHandler(function(err) {
           savingNow = false;
           pendingSave = true;
+          const kept = writeDraft();
           setSaveState('error');
           uiAlert("保存できませんでした。\n\n" + ((err && err.message) ? err.message : String(err)) +
-                  "\n\nこの内容を失いたくない場合は、設定画面の「書き出す」でファイルに保存してください。");
+                  (kept ? "\n\n書いた内容は、この端末に一時的に残しました。通信がもどると、次の保存で自動で消えます。"
+                        : "\n\nこの内容を失いたくない場合は、設定画面の「書き出す」でファイルに保存してください。"));
         })
         .saveDataToServer(appSettings, appData, appNotes, currentRev, shrinkApproved);
     }
@@ -891,6 +903,8 @@
       migrateNotesToTags();
       normalizeNotes();
       cleanPeriods();
+      migrateNoteTodos();
+      cleanTodos();
       refreshAllViews();
 
       // クラウドの内容と食いちがうところ（自分の変更）が残っていれば、保存する
@@ -925,6 +939,7 @@
     function handleSaveConflict(server, count) {
       const when = (server && server.savedAt) ? "（相手の保存: " + server.savedAt + "）" : "";
       blockSaving("別の端末（またはタブ）で、同じところが書きかえられています。" + when);
+      writeDraft();   // 再読み込みしても、いまの内容が消えないように
       setSaveState('error');
       openDialog('confirm', '別の端末で同じところが書きかえられています',
         'このページを開いたあとに、別の端末またはタブでこの週案が保存されました。\n' +
@@ -951,6 +966,8 @@
       currentMonday = clampMonday(currentMonday).monday;
       updateView();
       try { updateNoteYearSelect(); renderNoteFilters(); renderNotes(); } catch (e) {}
+      renderTodoPanel(true);
+      renderTodoCounts();
       try {
         if (document.getElementById('summaryModal').style.display === 'flex') calculateTotalHours();
       } catch (e) {}
@@ -1013,6 +1030,10 @@
         // 大きく減る保存になることがあるが、本人が戻すと決めた操作なので確認はしない
         shrinkApproved = true;
         refreshAllViews();
+      } else if (e.kind === 'todos') {
+        const ts = getTodos();
+        Object.keys(e.snap).forEach(function(id) { if (e.snap[id]) ts[id] = e.snap[id]; else delete ts[id]; });
+        renderTodoPanel(true); updateView();
       } else if (e.kind === 'period') {
         const ps = getPeriods(e.year);
         if (e.prev) ps[e.id] = e.prev; else delete ps[e.id];
@@ -1474,6 +1495,13 @@
       document.getElementById('dayMenuHint').innerText =
         (holName ? holName + '。' : (vacName ? vacName + '。' : '')) +
         'この日の1日分をまとめて操作します。';
+      // 日課のボタン（いまの日課に印）
+      const nk = getNikka();
+      const cur = nikkaOfDate(fmtDate(d));
+      document.getElementById('dayNikkaBtns').innerHTML = NIKKA_TYPES.map(function(t) {
+        return '<button type="button" class="btn btn-sm ' + (t === cur ? 'btn-leaf' : 'btn-soft') + '" data-t="' + t + '" ' +
+               'onclick="event.stopPropagation(); setDayNikka(this.dataset.t)">' + escapeHTML(nk[t].name) + '</button>';
+      }).join('');
       document.getElementById('dayMenuModal').style.display = 'flex';
     }
 
@@ -1582,16 +1610,8 @@
     let compareOn = false;
     let prevOffset = 1;   // 何週前を左に出すか
 
-    function toggleCompare() {
-      compareOn = !compareOn;
-      const area = document.getElementById('ttArea');
-      if (area) area.classList.toggle('compare', compareOn);
-      document.body.classList.toggle('compare-on', compareOn);
-      const btn = document.getElementById('compareBtn');
-      if (btn) btn.innerText = compareOn ? '先週を隠す' : '先週と比べる';
-      if (compareOn) prevOffset = 1;
-      renderPrevPanel();
-    }
+    // 左側には ToDo か「先週と比べる」のどちらか片方を出す（setSidePanel）
+    function toggleCompare() { setSidePanel('compare'); }
 
     function prevShift(delta) {
       const n = prevOffset + delta;
@@ -2349,6 +2369,8 @@
         return '<div class="subj ' + size + '" style="background:' + c[0] + '; color:' + c[1] + ';">' + w + (escapeHTML(mt(sub)) || '&nbsp;') + '</div>';
       };
 
+      const printNikka = getNikka();
+      buildUnitCounter();
       let head = '<th class="pcol"></th>';
       for (let i = 0; i < maxDays; i++) {
         const d = new Date(currentMonday); d.setDate(d.getDate() + i);
@@ -2356,15 +2378,20 @@
         const isSat = i === 5;
         const bg = isHol ? "#ffe7de" : (isSat ? "#ddf3f8" : "#eef1f5");
         const col = isHol ? "#b8492f" : (isSat ? "#276f81" : "#5c4a35");
+        const nkType = nikkaOfDate(fmt(d));
+        const nkHead = (nkType === 'normal') ? '' : '<span class="nkh">' + escapeHTML(printNikka[nkType].name) + '日課' +
+                       (printNikka[nkType].leave ? ' 下校' + hhmm(printNikka[nkType].leave) : '') + '</span>';
         head += '<th style="background:' + bg + '; color:' + col + ';">' +
-                '<span class="wd">' + mt(days[i]) + '</span><span class="dt">' + (d.getMonth()+1) + '/' + d.getDate() + '</span></th>';
+                '<span class="wd">' + mt(days[i]) + '</span><span class="dt">' + (d.getMonth()+1) + '/' + d.getDate() + '</span>' + nkHead + '</th>';
       }
 
       let rows = '';
       printRows.forEach(function(r) {
         const isMemo = (r.type === 'memo');
         const h = isMemo ? bandHeights[r.id] : lessonH;
-        const label = isMemo ? mt(r.label) : '<span class="pnum">' + r.label + '</span>';
+        const nt = !isMemo ? printNikka.normal.times[r.id] : null;
+        const label = isMemo ? mt(r.label) : '<span class="pnum">' + r.label + '</span>' +
+                      (nt && nt.s ? '<span class="ptime">' + hhmm(nt.s) + (nt.e ? '<br>' + hhmm(nt.e) : '') + '</span>' : '');
         rows += '<tr style="height:' + h.toFixed(1) + 'mm;"><th class="pcol">' + label + '</th>';
         for (let d = 0; d < maxDays; d++) {
           const dt = new Date(currentMonday); dt.setDate(dt.getDate() + d);
@@ -2386,16 +2413,22 @@
           }
 
           const cellStyle = tint + 'height:' + h.toFixed(1) + 'mm;';
+          // 短縮・特別の日は、その時間の時刻を入れる
+          const dayType = nikkaOfDate(dStr);
+          const dayT = (dayType === 'normal') ? null : printNikka[dayType].times[r.id];
+          const ntime = (dayT && dayT.s) ? '<div class="ntime">' + timeLabel(dayT) + '</div>' : '';
           const boxStyle = ' style="height:' + Math.max(2, h - 0.6).toFixed(1) + 'mm;"';
 
           if (data && data.disabled) {
             rows += '<td class="off-cell" style="height:' + h.toFixed(1) + 'mm;"></td>';
             continue;
           }
-          const slots = data ? getSlots(data).filter(function(sl) { return sl.subject || !rtEmpty(sl.unit); }) : [];
+          const cellKey = getDataKey(d, r.id);
+          const slots = data ? getSlots(data).map(function(sl, si) { return Object.assign({ idx: si }, sl); })
+            .filter(function(sl) { return sl.subject || !rtEmpty(sl.unit); }) : [];
           if (slots.length === 0 && !(showContact && data && !rtEmpty(data.contact))) {
             // 空きコマも枠だけは同じ形にして、手書きできるようにする
-            rows += '<td class="lesson-cell" style="' + cellStyle + '"><div class="cellbox"' + boxStyle + '>' +
+            rows += '<td class="lesson-cell" style="' + cellStyle + '"><div class="cellbox"' + boxStyle + '>' + ntime +
                     '<div class="pslot"><div class="subj blank">&nbsp;</div>' +
                     (showUnit ? '<div class="unit"></div>' : '') + '</div></div></td>';
             continue;
@@ -2405,10 +2438,11 @@
           let inner = '';
           slots.forEach(function(sl) {
             inner += '<div class="pslot">' + pill(sl.subject, size, slots.length > 1 ? sl.weight : 0) +
-                     (showUnit ? '<div class="unit">' + rtRender(sl.unit) + '</div>' : '') + '</div>';
+                     (showUnit ? '<div class="unit">' + rtRender(sl.unit) +
+                       (unitBadgeText(cellKey, sl.idx) ? '<span class="uc">' + unitBadgeText(cellKey, sl.idx) + '</span>' : '') + '</div>' : '') + '</div>';
           });
           if (showContact && !rtEmpty(data.contact)) inner += '<div class="contact">' + rtRender(data.contact) + '</div>';
-          rows += '<td class="lesson-cell" style="' + cellStyle + '"><div class="cellbox"' + boxStyle + '>' + inner + '</div></td>';
+          rows += '<td class="lesson-cell" style="' + cellStyle + '"><div class="cellbox"' + boxStyle + '>' + ntime + inner + '</div></td>';
         }
         rows += '</tr>';
       });
@@ -2462,6 +2496,10 @@
       ' max-height: 7mm; overflow: hidden; }' +
       '.goal-line span { overflow: hidden; }' +
       '.goal-line b { flex: 0 0 auto; font-size: 7.5pt; color: #666f7d; }' +
+      '.ptime { display: block; font-size: 6pt; font-weight: 700; color: #666f7d; line-height: 1.2; margin-top: 0.6mm; }' +
+      '.nkh { display: block; font-size: 6.5pt; font-weight: 800; color: #23616f; }' +
+      '.ntime { flex: 0 0 auto; font-size: 6.5pt; font-weight: 800; color: #23616f; text-align: right; line-height: 1.1; }' +
+      '.uc { font-size: 6.5pt; color: #666f7d; margin-left: 1mm; }' +
       '.pd { height: 3.6mm; margin: 0.6mm -0.5pt 0; padding-left: 1.2mm; font-size: 6.5pt; font-weight: 800; line-height: 3.6mm;' +
       ' white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' +
       '.pd.pd-none { background: transparent; }' +
@@ -2579,7 +2617,6 @@
     }
 
     function noteHasAttachment(n) { return !!(n.attachments && n.attachments.length); }
-    function noteIsOpenTodo(n) { return n.type === 'todo' && !n.done; }
 
     // 「今日」「昨日」などの見出しを返す
     function noteDateGroup(dateStr) {
@@ -2602,7 +2639,6 @@
     let notePicked = [];       // いま絞り込みに選んでいるタグ
     let noteStuOpen = false;   // 児童タグを開いているか
     let noteOnlyAtt = false;
-    let noteOnlyTodo = false;
     let noteTags = [];         // いま書いている記録に付けるタグ
     let noteWriteOpen = false;
     let noteTagPickOpen = false;
@@ -2613,8 +2649,7 @@
       return JSON.stringify([
         getRT('newNoteInput'),
         currentAttachments.map(function(a) { return [a.name, a.url || '', a.noteId || '']; }),
-        noteTags.slice().sort(),
-        currentNoteType()
+        noteTags.slice().sort()
       ]);
     }
 
@@ -2667,16 +2702,13 @@
       const info = collectTags(y);
 
       // 自動で判定する札
-      let attCount = 0, todoCount = 0;
+      let attCount = 0;
       appNotes.forEach(function(n) {
         if (year !== 'all' && n.year !== year) return;
         if (noteHasAttachment(n)) attCount++;
-        if (noteIsOpenTodo(n)) todoCount++;
       });
 
       let h = '<div class="tagline">';
-      h += '<button class="auto-chip' + (noteOnlyTodo ? ' on' : '') + '" onclick="toggleAuto(\'todo\')">' +
-           '未完のやること' + (todoCount ? ' <b>' + todoCount + '</b>' : '') + '</button>';
       h += '<button class="auto-chip' + (noteOnlyAtt ? ' on' : '') + '" onclick="toggleAuto(\'att\')">' +
            '添付があるもの' + (attCount ? ' <b>' + attCount + '</b>' : '') + '</button>';
       h += '<span class="tag-div"></span>';
@@ -2718,7 +2750,7 @@
         }
       }
 
-      if (notePicked.length || noteOnlyAtt || noteOnlyTodo) {
+      if (notePicked.length || noteOnlyAtt) {
         h += '<div class="tagline"><button class="tag-clear" onclick="clearPicked()">✕ 絞り込みをやめる</button></div>';
       }
       box.innerHTML = h;
@@ -2730,12 +2762,12 @@
       renderNoteFilters(); renderNotes();
     }
     function toggleAuto(kind) {
-      if (kind === 'att') noteOnlyAtt = !noteOnlyAtt; else noteOnlyTodo = !noteOnlyTodo;
+      if (kind === 'att') noteOnlyAtt = !noteOnlyAtt;
       renderNoteFilters(); renderNotes();
     }
     function toggleStuOpen() { noteStuOpen = !noteStuOpen; renderNoteFilters(); }
     function clearPicked() {
-      notePicked = []; noteOnlyAtt = false; noteOnlyTodo = false;
+      notePicked = []; noteOnlyAtt = false;
       const s = document.getElementById('noteSearchInput'); if (s) s.value = '';
       renderNoteFilters(); renderNotes();
     }
@@ -2850,16 +2882,13 @@
           appNotes[idx].content = content;
           appNotes[idx].attachments = [...currentAttachments];
           appNotes[idx].tags = [...noteTags];
-          appNotes[idx].type = currentNoteType();
-          if (appNotes[idx].type !== 'todo') delete appNotes[idx].done;
         }
       } else {
         const note = {
           id: Date.now(), date: dStr, content: content,
           attachments: [...currentAttachments], year: appSettings.year,
-          tags: [...noteTags], type: currentNoteType(), pinned: false
+          tags: [...noteTags], pinned: false
         };
-        if (note.type === 'todo') note.done = false;
         if (noteLink) note.link = noteLink;
         appNotes.unshift(note);
       }
@@ -2880,9 +2909,6 @@
       noteTags = [...(n.tags || [])];
       noteLink = n.link || null;
       uploadMode = 'note';
-      const tr = document.querySelector('input[name="noteType"][value="' + (n.type === 'todo' ? 'todo' : 'memo') + '"]');
-      if (tr) tr.checked = true;
-      applyNoteType();
       renderWriterTags();
       renderEditorAttachments();
       document.getElementById('saveNoteBtn').innerText = "更新する";
@@ -2900,9 +2926,6 @@
       setRT('newNoteInput', '');
       currentAttachments = [];
       uploadMode = 'note';
-      const tr = document.querySelector('input[name="noteType"][value="memo"]');
-      if (tr) tr.checked = true;
-      applyNoteType();
       renderEditorAttachments();
       const b = document.getElementById('saveNoteBtn'); if (b) b.innerText = "記録する";
       const t = document.getElementById('noteWriterTitle'); if (t) t.innerText = "新しい記録";
@@ -2919,7 +2942,6 @@
       let list = appNotes.filter(function(n) { return year === 'all' || n.year === year; });
       list = list.filter(function(n) { return noteMatchesTags(n, notePicked, y); });
       if (noteOnlyAtt) list = list.filter(noteHasAttachment);
-      if (noteOnlyTodo) list = list.filter(noteIsOpenTodo);
       if (q) {
         list = list.filter(function(n) {
           if (rtText(n.content).toLowerCase().includes(q)) return true;
@@ -2931,8 +2953,7 @@
     }
 
     function noteCardHTML(n, q) {
-      const isTodo = (n.type === 'todo');
-      const cls = 'note-card' + (n.pinned ? ' pinned' : '') + (isTodo && n.done ? ' done' : '');
+      const cls = 'note-card' + (n.pinned ? ' pinned' : '');
       const full = rtRender(n.content);
       const plain = rtText(n.content);
       const long = (plain.length > 46 || /<br|<div|<p/i.test(full));
@@ -2949,9 +2970,6 @@
       const src = n.link ? '<button class="note-src" data-d="' + escapeHTML(n.link.date) + '" onclick="jumpFromNote(this.dataset.d)">' +
                   escapeHTML(String(n.link.date).replace(/-/g, '/')) + ' ' + escapeHTML(n.link.label) +
                   (n.link.subject ? '・' + escapeHTML(n.link.subject) : '') + '</button>' : '';
-      const check = isTodo
-        ? '<button class="todo-box' + (n.done ? ' on' : '') + '" onclick="toggleDone(' + Number(n.id) + ')" aria-label="' +
-          (n.done ? '未完に戻す' : '終わったことにする') + '">' + (n.done ? '✓' : '') + '</button>' : '';
 
       return '<div class="' + cls + '">' +
         '<div class="note-top">' +
@@ -2962,7 +2980,7 @@
         '<button class="mini-btn" onclick="editNote(' + Number(n.id) + ')" aria-label="直す">直す</button>' +
         '<button class="mini-btn" onclick="deleteNote(' + Number(n.id) + ')" aria-label="消す">消す</button>' +
         '</span></div>' +
-        '<div class="note-main">' + check +
+        '<div class="note-main">' +
         '<div class="note-text' + ((long && !open) ? ' clip' : '') + '">' + body + '</div></div>' +
         (long ? '<button class="more-btn" onclick="toggleNoteOpen(' + Number(n.id) + ')">' +
                 (open ? '▲ とじる' : '▼ つづきを読む') + '</button>' : '') +
@@ -3107,36 +3125,18 @@
         "@media print{button{display:none;}}</style></head><body>";
       h += '<h2>記録の一覧</h2>';
       sorted.forEach(function(n) {
-        const kind = (n.type === 'todo') ? ('［やること' + (n.done ? '・済' : '') + '］ ') : '';
         const tg = (n.tags || []).length ? '<div class="tg">' + escapeHTML(n.tags.join('、')) + '</div>' : '';
-        h += '<div class="note"><div class="meta">' + kind + escapeHTML(n.date) + '</div>' +
+        h += '<div class="note"><div class="meta">' + escapeHTML(n.date) + '</div>' +
              '<div class="content">' + rtRender(n.content) + '</div>' + tg + '</div>';
       });
       h += '<button onclick="window.print()">印刷</button></body></html>';
       openPrintWindow(h);
     }
 
-    function applyNoteType() {
-      const t = currentNoteType();
-      const ed = document.getElementById('newNoteInput');
-      if (ed) ed.setAttribute('data-ph', t === 'todo' ? 'やることを書く...' : '気づいたことを書く...');
-    }
-
-    function currentNoteType() {
-      const r = document.querySelector('input[name="noteType"]:checked');
-      return r ? r.value : 'memo';
-    }
-
     function togglePin(id) {
       const n = appNotes.find(function(x) { return x.id === id; }); if (!n) return;
       n.pinned = !n.pinned;
       renderNotes(); syncToServer();
-    }
-
-    function toggleDone(id) {
-      const n = appNotes.find(function(x) { return x.id === id; }); if (!n) return;
-      n.done = !n.done;
-      renderNoteFilters(); renderNotes(); syncToServer();
     }
 
     function deleteNote(id) {
@@ -3404,8 +3404,7 @@
                         rtEmpty(entry.contact) && rtEmpty(entry.record) && entry.attachments.length === 0;
         if (isEmpty) { delete appData[key]; } else { appData[key] = entry; }
       }
-      renderCell(currentEditDayIndex, currentEditPeriod);
-      applyFold();
+      updateView();
       closeInputModal(true);
       syncToServer();
       return true;
@@ -3458,6 +3457,16 @@
       openInputModal(idx, period);
     }
 
+    function openTodoFromSearch(id) {
+      const t = getTodos()[id];
+      if (!t) return;
+      closeSearchModal();
+      todoFilter = (t.kind === 'note') ? 'memo' : 'all';
+      todoDoneOpen = !!t.done;
+      todoOpenId = id;
+      if (sidePanel !== 'todo') setSidePanel('todo'); else renderTodoPanel(true);
+    }
+
     function editNoteFromSearch(id) {
       const note = appNotes.filter(function(x) { return String(x.id) === String(id); })[0];
       if (!note) { uiAlert("この記録は見つかりませんでした。"); return; }
@@ -3485,6 +3494,19 @@
           generateAttachmentLinksHTML(n.attachments) +
           '<div style="margin-top:8px;"><button class="btn btn-sky btn-sm" data-id="' + escapeHTML(String(n.id)) + '" ' +
             'onclick="editNoteFromSearch(this.dataset.id)">編集</button></div>' +
+          '</div>';
+        c++;
+      });
+      // ToDo
+      todoList().forEach(function(t) {
+        const hay = [t.title, t.text].concat(t.checks.map(function(c) { return c.t; })).join('\n');
+        if (!hay.toLowerCase().includes(q)) return;
+        h += '<div class="result-card" style="border-left:9px solid var(--bell);">' +
+          '<div style="font-size:0.74rem; color:var(--brown-2); font-weight:700;">ToDo' + (t.kind === 'note' ? '（メモ）' : (t.done ? '（終わったもの）' : '')) +
+          (t.due ? '　しめきり ' + mdw(t.due) : '') + '</div>' +
+          '<div style="font-size:0.88rem; font-weight:800; margin-top:5px;">' + hl(t.title || '（名前なし）') + '</div>' +
+          (t.text ? '<div style="font-size:0.82rem; margin-top:4px; white-space:pre-wrap; color:var(--brown-2);">' + hl(t.text) + '</div>' : '') +
+          '<div style="margin-top:8px;"><button class="btn btn-sky btn-sm" data-id="' + escapeHTML(t.id) + '" onclick="openTodoFromSearch(this.dataset.id)">開く</button></div>' +
           '</div>';
         c++;
       });
@@ -3924,6 +3946,947 @@
       });
     }
 
+    // ===== 単元の時数（全◯時間のうち何時間目か） =====
+    // 設定の「単元名の登録」で「かけ算(2)（12時間）」のように書くと、その単元の時数として使う。
+    // 週案に同じ単元名を書いたコマを、日付の順に数えて「5/12」のように出す。
+
+    const UNIT_HOURS_PAREN = /[\s　]*[（(]\s*(\d+(?:\.\d+)?)\s*時間\s*[）)]\s*$/;
+    const UNIT_HOURS_PLAIN = /[\s　]+(\d+(?:\.\d+)?)\s*時間\s*$/;
+
+    function parseUnitLine(line) {
+      const s = String(line || '').trim();
+      const m = s.match(UNIT_HOURS_PAREN) || s.match(UNIT_HOURS_PLAIN);
+      if (!m) return { name: s, hours: 0 };
+      const name = s.slice(0, m.index).trim();
+      return name ? { name: name, hours: parseFloat(m[1]) } : { name: s, hours: 0 };
+    }
+
+    // 教科 → 単元名 → 時数（学期をまたいで探す）
+    function unitHoursMap(year) {
+      const out = {};
+      const all = getUnitBank(year);
+      TERM_KEYS.forEach(function(t) {
+        Object.keys(all[t] || {}).forEach(function(sub) {
+          (all[t][sub] || []).forEach(function(line) {
+            const u = parseUnitLine(line);
+            if (u.name && u.hours > 0) {
+              if (!out[sub]) out[sub] = {};
+              out[sub][u.name] = u.hours;
+            }
+          });
+        });
+      });
+      return out;
+    }
+
+    let unitCounter = { at: {}, total: {} };
+
+    // その年度のコマを日付の順に見て、単元ごとに何時間目かを数えておく
+    function buildUnitCounter() {
+      const year = appSettings.year || getFiscalYear(new Date());
+      const yn = parseInt(year, 10);
+      const s = yn + '-04-01', e = (yn + 1) + '-03-31';
+      const hours = unitHoursMap(year);
+      const at = {}, total = {};
+      Object.keys(appData).filter(function(k) { return DATA_KEY_RE.test(k); }).sort().forEach(function(k) {
+        const p = k.split('-');
+        const ds = p[0] + '-' + p[1] + '-' + p[2];
+        if (ds < s || ds > e || LESSON_PERIODS.indexOf(p[3]) === -1) return;
+        const d = appData[k];
+        if (!d || d.disabled) return;
+        getSlots(d).forEach(function(sl, i) {
+          if (!sl.subject) return;
+          const name = rtText(sl.unit).trim();
+          const h = name && hours[sl.subject] && hours[sl.subject][name];
+          if (!h) return;
+          const tk = sl.subject + '\u0001' + name;
+          total[tk] = Math.round(((total[tk] || 0) + sl.weight) * 10) / 10;
+          at[k + '|' + i] = { n: total[tk], h: h };
+        });
+      });
+      unitCounter = { at: at, total: total };
+    }
+
+    function fmtHour(n) {
+      const r = Math.round(n * 10) / 10;
+      return (r % 1 === 0) ? String(r) : r.toFixed(1);
+    }
+
+    // コマに出す「5/12」
+    function unitBadge(key, idx) {
+      const c = unitCounter.at[key + '|' + idx];
+      if (!c) return '';
+      const over = c.n > c.h + 0.05;
+      return '<span class="un-count' + (over ? ' over' : '') + '" title="この単元の' + fmtHour(c.n) + '時間目（全' + fmtHour(c.h) + '時間）">' +
+             fmtHour(c.n) + '/' + fmtHour(c.h) + '</span>';
+    }
+
+    function unitBadgeText(key, idx) {
+      const c = unitCounter.at[key + '|' + idx];
+      return c ? '（' + fmtHour(c.n) + '/' + fmtHour(c.h) + '）' : '';
+    }
+
+    // ===== 日課（通常・短縮・特別） =====
+    // 設定で日課ごとに各時間の時刻を決めておき、曜日の見出しから日ごとにえらぶ。
+    // えらんだ日は appData[日付-nikka] = { type } に入る（通常は何も入れない）。
+
+    const NIKKA_TYPES = ['normal', 'short', 'special'];
+    const NIKKA_DEFAULT_NAMES = { normal: '通常', short: '短縮', special: '特別' };
+    const NIKKA_ROWS = ['morning', '1', '2', 'kangyou', '3', '4', 'hiru', '5', '6'];
+    let nkWork = null;
+    let nkTab = 'normal';
+
+    function timeOK(v) { return typeof v === 'string' && /^\d{2}:\d{2}$/.test(v); }
+
+    function getNikka(conf) {
+      const c = conf || getConfig();
+      const src = isPlainObj(c.nikka) ? c.nikka : {};
+      const out = {};
+      NIKKA_TYPES.forEach(function(t) {
+        const s = isPlainObj(src[t]) ? src[t] : {};
+        const times = {};
+        NIKKA_ROWS.forEach(function(r) {
+          const v = (isPlainObj(s.times) && isPlainObj(s.times[r])) ? s.times[r] : {};
+          times[r] = { s: timeOK(v.s) ? v.s : '', e: timeOK(v.e) ? v.e : '' };
+        });
+        out[t] = {
+          name: (typeof s.name === 'string' && s.name.trim()) ? s.name.trim().slice(0, 12) : NIKKA_DEFAULT_NAMES[t],
+          times: times,
+          leave: timeOK(s.leave) ? s.leave : ''
+        };
+      });
+      return out;
+    }
+
+    function nikkaOfDate(ds) {
+      const v = appData[ds + '-nikka'];
+      return (v && (v.type === 'short' || v.type === 'special')) ? v.type : 'normal';
+    }
+
+    function hhmm(v) { return String(v || '').replace(/^0(\d)/, '$1'); }
+
+    function timeLabel(t) {
+      if (!t || !t.s) return '';
+      return hhmm(t.s) + (t.e ? '〜' + hhmm(t.e) : '');
+    }
+
+    // 短縮・特別の日の、その時間の時刻（コマの右上に出す）
+    function nikkaCellTime(dIdx, p) {
+      const d = new Date(currentMonday); d.setDate(d.getDate() + dIdx);
+      const type = nikkaOfDate(fmtDate(d));
+      if (type === 'normal') return '';
+      const t = getNikka()[type].times[p];
+      return (t && t.s) ? '<span class="nk-time">' + timeLabel(t) + '</span>' : '';
+    }
+
+    // 曜日の見出しに出す日課の名前と下校時刻
+    function nikkaHeadHTML(ds) {
+      const type = nikkaOfDate(ds);
+      if (type === 'normal') return '';
+      const nk = getNikka()[type];
+      return '<span class="nk-badge">' + escapeHTML(nk.name) + '日課' + (nk.leave ? ' 下校' + hhmm(nk.leave) : '') + '</span>';
+    }
+
+    // 左はしの見出しに、ふだんの日課の時刻を出す
+    function renderPeriodHeads() {
+      const normal = getNikka().normal;
+      LESSON_PERIODS.forEach(function(p) {
+        const th = document.getElementById('ph-' + p);
+        if (!th) return;
+        const t = normal.times[p];
+        th.innerHTML = p + (t && t.s ? '<span class="pc-time">' + hhmm(t.s) + (t.e ? '<br>' + hhmm(t.e) : '') + '</span>' : '');
+      });
+    }
+
+    function setDayNikka(type) {
+      if (NIKKA_TYPES.indexOf(type) === -1) return;
+      const dIdx = dayMenuIndex;
+      const d = new Date(currentMonday); d.setDate(d.getDate() + dIdx);
+      const ds = fmtDate(d);
+      const key = ds + '-nikka';
+      const nk = getNikka();
+      closeDayMenu();
+      // その日課で時刻が決まっていない授業の時間（例：短縮で6時間目がない）
+      const hasAnyTime = LESSON_PERIODS.some(function(p) { return nk[type].times[p].s; });
+      const empties = (type !== 'normal' && hasAnyTime)
+        ? LESSON_PERIODS.filter(function(p) { return !nk[type].times[p].s && !appData[getDataKey(dIdx, p)]; })
+        : [];
+      const apply = function(markOff) {
+        pushUndo('日課を変える', [key].concat(markOff ? empties.map(function(p) { return getDataKey(dIdx, p); }) : []));
+        if (type === 'normal') delete appData[key]; else appData[key] = { type: type };
+        if (markOff) empties.forEach(function(p) { appData[getDataKey(dIdx, p)] = { disabled: true }; });
+        updateView(); syncToServer();
+        showToast(mdw(ds) + 'を「' + nk[type].name + '日課」にしました', true);
+      };
+      if (empties.length) {
+        uiConfirm('「' + nk[type].name + '日課」には、' + empties.map(function(p) { return p + '時間目'; }).join('・') +
+                  ' の時刻がありません。\n\nあいているこれらの時間を「授業なし」にしますか？\n（教科が入っている時間は、そのままです）',
+                  function(ok) { apply(ok); }, '授業なしにする', 'そのままにする');
+      } else {
+        apply(false);
+      }
+    }
+
+    // 設定画面：日課の時刻
+    function renderNikkaSettings() {
+      if (!nkWork) nkWork = getNikka();
+      const tabs = document.getElementById('nkTabs');
+      if (tabs) {
+        tabs.innerHTML = NIKKA_TYPES.map(function(t) {
+          return '<button type="button" class="bt-tab' + (t === nkTab ? ' on' : '') + '" data-t="' + t + '" onclick="switchNikkaTab(this.dataset.t)">' +
+                 escapeHTML(nkWork[t].name) + '日課</button>';
+        }).join('');
+      }
+      const nameEl = document.getElementById('nkName');
+      if (nameEl) nameEl.value = nkWork[nkTab].name;
+      const body = document.getElementById('nkTableBody');
+      if (!body) return;
+      body.innerHTML = NIKKA_ROWS.map(function(r) {
+        const t = nkWork[nkTab].times[r];
+        return '<tr><th>' + getRow(r).title + '</th>' +
+               '<td><input type="time" class="nk-in" data-r="' + r + '" data-k="s" value="' + t.s + '" aria-label="' + getRow(r).title + 'の始まり"></td>' +
+               '<td>〜</td>' +
+               '<td><input type="time" class="nk-in" data-r="' + r + '" data-k="e" value="' + t.e + '" aria-label="' + getRow(r).title + 'の終わり"></td></tr>';
+      }).join('') +
+      '<tr><th>下校</th><td><input type="time" class="nk-in" data-r="leave" data-k="s" value="' + nkWork[nkTab].leave + '" aria-label="下校の時刻"></td><td></td><td></td></tr>';
+    }
+
+    function readNikkaForm() {
+      if (!nkWork) return;
+      const nameEl = document.getElementById('nkName');
+      if (nameEl) nkWork[nkTab].name = nameEl.value.trim().slice(0, 12) || NIKKA_DEFAULT_NAMES[nkTab];
+      document.querySelectorAll('#nkTableBody .nk-in').forEach(function(el) {
+        const v = timeOK(el.value) ? el.value : '';
+        if (el.dataset.r === 'leave') nkWork[nkTab].leave = v;
+        else nkWork[nkTab].times[el.dataset.r][el.dataset.k] = v;
+      });
+    }
+
+    function renderNikkaSettingsTabsOnly() {
+      const tabs = document.getElementById('nkTabs');
+      if (!tabs || !nkWork) return;
+      Array.prototype.forEach.call(tabs.querySelectorAll('.bt-tab'), function(b) {
+        b.textContent = nkWork[b.dataset.t].name + '日課';
+      });
+    }
+
+    function switchNikkaTab(t) {
+      readNikkaForm();
+      nkTab = t;
+      renderNikkaSettings();
+    }
+
+    // ===== 端末の下書き（クラウドに保存できないときだけ） =====
+    // 通信が切れて保存できないとき、書いた内容がページを閉じても消えないよう、この端末に一時的に残す。
+    // 保存できたら、すぐに消す。共用のパソコンでも、ふだんは何も残らない。
+    // 同じパソコンをほかの先生が使っても混ざらないよう、アカウントごとの鍵（サーバーが返す）で分ける。
+
+    const DRAFT_PREFIX = 'shuuan_draft_';
+    let userKey = '';
+    let draftSaved = false;
+
+    function draftKey() { return userKey ? DRAFT_PREFIX + userKey : ''; }
+
+    function nowStamp() {
+      const n = new Date();
+      return n.getFullYear() + '/' + String(n.getMonth() + 1).padStart(2, '0') + '/' + String(n.getDate()).padStart(2, '0') +
+             ' ' + String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0');
+    }
+
+    function writeDraft() {
+      const k = draftKey();
+      if (!k) return false;
+      try {
+        localStorage.setItem(k, JSON.stringify({ v: 1, at: nowStamp(), baseRev: currentRev,
+          settings: appSettings, data: appData, notes: appNotes }));
+        draftSaved = true;
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function readDraft() {
+      const k = draftKey();
+      if (!k) return null;
+      try {
+        const s = localStorage.getItem(k);
+        const d = s ? JSON.parse(s) : null;
+        return (d && typeof d === 'object' && (d.data || d.notes || d.settings)) ? d : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function clearDraft() {
+      draftSaved = false;
+      const k = draftKey();
+      if (!k) return;
+      try { localStorage.removeItem(k); } catch (e) {}
+    }
+
+    // 起動したときに、前回の下書きが残っていないか確かめる
+    function checkDraftOnStart() {
+      const d = readDraft();
+      if (!d) return;
+      // 前回のうちにちゃんと保存できていた（クラウドと同じ）なら、だまって消す
+      try {
+        if (baseState && sameState(stateStrings(d.settings, d.data, d.notes), baseState)) { clearDraft(); return; }
+      } catch (e) {}
+      draftSaved = true;
+      const when = d.at ? '（' + d.at + '）' : '';
+      if (d.baseRev === currentRev) {
+        uiConfirm('前回、クラウドに保存できなかった内容が、この端末に残っています' + when + '。\n\n' +
+                  'クラウドの内容は、そのあと変わっていません。\n下書きを読み込んで、保存しなおしますか？',
+                  function(ok) { if (ok) applyDraft(d); }, '読み込む', 'あとで');
+      } else {
+        uiConfirm('前回、クラウドに保存できなかった内容が、この端末に残っています' + when + '。\n\n' +
+                  'ただし、そのあとにクラウドの内容が（別の端末などで）変わっています。\n' +
+                  'そのまま読み込むと、新しい内容を消してしまうおそれがあるため、まずファイルに書き出してください。',
+                  function(ok) { if (ok) exportDraft(); }, '下書きを書き出す', 'あとで');
+      }
+    }
+
+    function applyDraft(d) {
+      const draft = d || readDraft();
+      if (!draft) { uiAlert('端末の下書きは見つかりませんでした。'); return; }
+      applyImportedBackup(draft, '端末の下書きの読み込み');
+      syncToServer();
+      showToast('端末の下書きを読み込みました。保存しています…');
+      renderDraftStatus();
+    }
+
+    function exportDraft() {
+      const d = readDraft();
+      if (!d) { uiAlert('端末の下書きは見つかりませんでした。'); return; }
+      exportBackup(JSON.stringify({ settings: d.settings, data: d.data, notes: d.notes }, null, 2), '週案_端末の下書き_', function() {
+        uiConfirm('書き出したファイルは、設定の「バックアップ」→「読み込む」で戻せます。\n\nこの端末の下書きを消しますか？',
+                  function(ok) { if (ok) { clearDraft(); renderDraftStatus(); showToast('端末の下書きを消しました'); } },
+                  '消す', '残しておく');
+      });
+    }
+
+    function discardDraft() {
+      uiConfirm('この端末に残っている下書きを消します。\nクラウドに保存されている内容は、そのままです。', function(ok) {
+        if (!ok) return;
+        clearDraft(); renderDraftStatus(); showToast('端末の下書きを消しました');
+      }, '消す');
+    }
+
+    function renderDraftStatus() {
+      const box = document.getElementById('draftStatus');
+      if (!box) return;
+      const d = readDraft();
+      if (!d) { box.style.display = 'none'; box.innerHTML = ''; return; }
+      box.style.display = 'block';
+      box.innerHTML = '<b>この端末に、保存できなかった下書きが残っています</b>（' + escapeHTML(d.at || '日時不明') + '）<br>' +
+        '<span style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">' +
+        (d.baseRev === currentRev ? '<button class="btn btn-soft btn-sm" onclick="applyDraft()">読み込む</button>' : '') +
+        '<button class="btn btn-soft btn-sm" onclick="exportDraft()">書き出す</button>' +
+        '<button class="btn btn-soft btn-sm" onclick="discardDraft()">消す</button></span>';
+    }
+
+    // ===== ToDo =====
+    // 週案のとなりに出す、やること・メモの一覧。年度に関係なく使う。
+    // appSettings.todos[id] = { kind: 'task'|'note', title, text, done, doneAt, due, star, checks: [{t, d}], order, created }
+    // id ごとに分けてあるので、2台の端末で別々の項目を書いても自動で合わせられる。
+
+    let sidePanel = '';        // 左に出しているもの（'' / 'todo' / 'compare'）
+    let todoFilter = 'all';
+    let todoOpenId = '';
+    let todoNewKind = 'task';
+    let todoNewDue = '';
+    let todoDoneOpen = false;
+
+    function getTodos() {
+      if (!isPlainObj(appSettings.todos)) appSettings.todos = {};
+      return appSettings.todos;
+    }
+
+    function newTodoId() { return 't' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
+
+    // 形のおかしい項目を取り除き、足りない項目をそろえる
+    function cleanTodos() {
+      const ts = getTodos();
+      const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+      Object.keys(ts).forEach(function(id) {
+        const t = ts[id];
+        if (!/^[A-Za-z0-9_-]{1,40}$/.test(id) || !isPlainObj(t)) { delete ts[id]; return; }
+        t.kind = (t.kind === 'note') ? 'note' : 'task';
+        t.title = String(t.title || '').slice(0, 200);
+        t.text = String(t.text || '').slice(0, 5000);
+        t.done = (t.kind === 'task') && !!t.done;
+        t.doneAt = (t.done && typeof t.doneAt === 'string') ? t.doneAt : '';
+        t.due = dateRe.test(String(t.due)) ? t.due : '';
+        t.star = !!t.star;
+        t.order = isFinite(Number(t.order)) ? Number(t.order) : 0;
+        t.created = (typeof t.created === 'string') ? t.created : '';
+        t.checks = Array.isArray(t.checks)
+          ? t.checks.filter(isPlainObj).slice(0, 50).map(function(c) { return { t: String(c.t || '').slice(0, 200), d: !!c.d }; })
+          : [];
+        t.attachments = Array.isArray(t.attachments) ? t.attachments.filter(isPlainObj) : [];
+      });
+    }
+
+    // かざり付きの文を、改行を残した文字にする
+    function rtPlainLines(v) {
+      if (!v) return '';
+      if (!rtLooksHTML(v)) return String(v);
+      const box = inertRoot(rtSanitize(v));
+      box.innerHTML = box.innerHTML.replace(/<br\s*\/?>/gi, '\n').replace(/<\/(div|p)>/gi, '\n');
+      return (box.textContent || '').replace(/\n{3,}/g, '\n\n');
+    }
+
+    // 記録の「やること」を、ToDo に移す（記録からは取り除く）。
+    // id は記録の id から作るので、2台の端末で同時に移しても同じものになる。
+    function migrateNoteTodos() {
+      const ts = getTodos();
+      for (let i = appNotes.length - 1; i >= 0; i--) {
+        const n = appNotes[i];
+        if (!n) continue;
+        if (n.type !== 'todo') { delete n.type; delete n.done; continue; }
+        const lines = rtPlainLines(n.content).trim().split('\n');
+        let title = (lines.shift() || '').trim();
+        let text = lines.join('\n').trim();
+        if (!title) title = '（記録から移したやること）';
+        if (n.tags && n.tags.length) text = (text ? text + '\n' : '') + 'タグ：' + n.tags.join('、');
+        const id = 'n' + String(n.id).replace(/[^0-9A-Za-z]/g, '').slice(0, 30);
+        if (!ts[id]) {
+          ts[id] = {
+            kind: 'task', title: title.slice(0, 200), text: text.slice(0, 5000),
+            done: !!n.done, doneAt: n.done ? (n.date || '') : '', due: '', star: !!n.pinned,
+            order: -(Number(n.id) || 0), created: n.date || '', checks: [],
+            attachments: Array.isArray(n.attachments) ? n.attachments : []
+          };
+        }
+        appNotes.splice(i, 1);
+      }
+    }
+
+    function todoList() {
+      const ts = getTodos();
+      return Object.keys(ts).map(function(id) { return Object.assign({ id: id }, ts[id]); });
+    }
+
+    function todoById(id) { return getTodos()[id] || null; }
+    function todoIdOf(el) { const it = el && el.closest ? el.closest('.td-item') : null; return it ? it.dataset.id : ''; }
+
+    function shownWeek() {
+      const e = new Date(currentMonday); e.setDate(e.getDate() + 6);
+      return [fmtDate(currentMonday), fmtDate(e)];
+    }
+
+    function todoMatches(t, f) {
+      const today = fmtDate(new Date());
+      const wk = shownWeek();
+      if (f === 'today') return t.kind === 'task' && !!t.due && t.due <= today;
+      if (f === 'week') return !!t.due && t.due >= wk[0] && t.due <= wk[1];
+      if (f === 'star') return t.star;
+      if (f === 'memo') return t.kind === 'note';
+      return true;
+    }
+
+    function dueLabel(due) {
+      if (!due) return '';
+      const today = new Date();
+      const tm = new Date(); tm.setDate(tm.getDate() + 1);
+      if (due === fmtDate(today)) return '今日';
+      if (due === fmtDate(tm)) return '明日';
+      return mdw(due);
+    }
+
+    // その日がしめきりの、まだ終わっていないやることの数（曜日の見出し・月の予定に出す）
+    function openTodosDue(ds) {
+      return todoList().filter(function(t) { return t.kind === 'task' && !t.done && t.due === ds; }).length;
+    }
+
+    function todoRowHTML(t) {
+      const today = fmtDate(new Date());
+      const overdue = t.kind === 'task' && !t.done && t.due && t.due < today;
+      const isOpen = (todoOpenId === t.id);
+      const ckDone = t.checks.filter(function(c) { return c.d; }).length;
+      const cls = 'td-item' + (t.done ? ' done' : '') + (overdue ? ' overdue' : '') + (isOpen ? ' open' : '') + (t.kind === 'note' ? ' memo' : '');
+      let h = '<div class="' + cls + '" data-id="' + escapeHTML(t.id) + '"' +
+              (t.done ? '' : ' ondragover="todoDragOver(event)" ondragleave="todoDragLeave(event)" ondrop="todoDrop(event)"') + '>';
+      h += '<div class="td-row">';
+      h += t.done ? '<span class="td-grip-space"></span>'
+                  : '<span class="td-grip" draggable="true" title="ドラッグで並べかえ" ondragstart="todoDragStart(event)">⋮⋮</span>';
+      h += (t.kind === 'task')
+        ? '<button type="button" class="td-check' + (t.done ? ' on' : '') + '" aria-label="' + (t.done ? '終わっていないことにする' : '終わった') + '" ' +
+          'onclick="toggleTodoDone(todoIdOf(this))">' + (t.done ? '✓' : '') + '</button>'
+        : '<span class="td-memo-mark">メモ</span>';
+      h += '<button type="button" class="td-main" onclick="toggleTodoOpen(todoIdOf(this))">' +
+           '<span class="td-title">' + (t.title ? escapeHTML(t.title) : '<span class="td-untitled">（名前なし）</span>') + '</span>';
+      const meta = [];
+      if (t.due) meta.push('<span class="td-due' + (overdue ? ' late' : (t.due === today ? ' today' : '')) + '">' + (overdue ? 'すぎた ' : '') + dueLabel(t.due) + '</span>');
+      if (t.checks.length) meta.push('<span class="td-ck-count">☑ ' + ckDone + '/' + t.checks.length + '</span>');
+      if (t.text) meta.push('<span class="td-preview">' + escapeHTML(t.text.split('\n')[0].slice(0, 40)) + '</span>');
+      if (t.attachments.length) meta.push('<span class="td-ck-count">添付' + t.attachments.length + '</span>');
+      if (meta.length) h += '<span class="td-meta">' + meta.join('') + '</span>';
+      h += '</button>';
+      h += '<button type="button" class="td-star' + (t.star ? ' on' : '') + '" aria-label="重要" title="重要" onclick="toggleTodoStar(todoIdOf(this))">' + (t.star ? '★' : '☆') + '</button>';
+      h += '</div>';
+      if (isOpen) h += todoDetailHTML(t);
+      return h + '</div>';
+    }
+
+    function todoDetailHTML(t) {
+      let h = '<div class="td-detail">';
+      h += '<input type="text" class="td-in-title" maxlength="200" placeholder="名前" value="' + escapeHTML(t.title) + '" ' +
+           'oninput="updateTodoField(this, \'title\', this.value)">';
+      h += '<div class="td-kind">' +
+           '<button type="button" class="' + (t.kind === 'task' ? 'on' : '') + '" onclick="setTodoKind(this, \'task\')">チェックする（やること）</button>' +
+           '<button type="button" class="' + (t.kind === 'note' ? 'on' : '') + '" onclick="setTodoKind(this, \'note\')">文章だけ（メモ）</button></div>';
+      h += '<textarea class="td-in-text" rows="3" maxlength="5000" placeholder="くわしいこと・メモ" ' +
+           'oninput="updateTodoField(this, \'text\', this.value)">' + escapeHTML(t.text) + '</textarea>';
+      h += '<div class="td-due-row"><span class="td-lbl">しめきり</span>' +
+           '<input type="date" value="' + t.due + '" onchange="setTodoDue(this, this.value)" aria-label="しめきり">' +
+           '<button type="button" class="td-mini" onclick="setTodoDue(this, todoQuickDate(\'today\'))">今日</button>' +
+           '<button type="button" class="td-mini" onclick="setTodoDue(this, todoQuickDate(\'tomorrow\'))">明日</button>' +
+           '<button type="button" class="td-mini" onclick="setTodoDue(this, todoQuickDate(\'friday\'))">金曜</button>' +
+           (t.due ? '<button type="button" class="td-mini" onclick="setTodoDue(this, \'\')">なし</button>' : '') + '</div>';
+      h += '<div class="td-checks"><span class="td-lbl">チェック項目</span>';
+      t.checks.forEach(function(c, i) {
+        h += '<div class="td-ck' + (c.d ? ' on' : '') + '">' +
+             '<button type="button" class="td-ck-box" aria-label="チェック" onclick="toggleTodoCheck(this, ' + i + ')">' + (c.d ? '✓' : '') + '</button>' +
+             '<input type="text" maxlength="200" value="' + escapeHTML(c.t) + '" oninput="setTodoCheckText(this, ' + i + ', this.value)" aria-label="チェック項目">' +
+             '<button type="button" class="td-ck-del" aria-label="この項目を消す" onclick="removeTodoCheck(this, ' + i + ')">✕</button></div>';
+      });
+      h += '<input type="text" class="td-ck-new" maxlength="200" placeholder="＋ チェック項目を足す（Enter）" ' +
+           'onkeydown="if(event.key===\'Enter\'&&!event.isComposing){event.preventDefault();addTodoCheck(this);}"></div>';
+      if (t.attachments.length) h += generateAttachmentLinksHTML(t.attachments);
+      h += '<div class="td-foot"><span class="td-created">' + (t.created ? escapeHTML(t.created) + ' に作成' : '') + '</span>' +
+           '<button type="button" class="btn btn-coral btn-sm" onclick="deleteTodo(todoIdOf(this))">削除</button>' +
+           '<button type="button" class="btn btn-soft btn-sm" onclick="toggleTodoOpen(\'\')">とじる</button></div>';
+      return h + '</div>';
+    }
+
+    function renderTodoPanel(force) {
+      if (sidePanel !== 'todo') return;
+      const panel = document.getElementById('todoPanel');
+      if (!panel) return;
+      // 書いている最中に描き直すと、打っている場所が消えてしまうので待つ
+      const ae = document.activeElement;
+      if (!force && ae && panel.contains(ae) && isTypingTarget(ae)) { renderTodoCounts(); return; }
+
+      const all = todoList();
+      const open = all.filter(function(t) { return !(t.kind === 'task' && t.done); });
+      const done = all.filter(function(t) { return t.kind === 'task' && t.done; })
+        .sort(function(a, b) { return (b.doneAt || '').localeCompare(a.doneAt || ''); });
+      const list = open.filter(function(t) { return todoMatches(t, todoFilter); })
+        .sort(function(a, b) { return (a.order - b.order) || (a.id < b.id ? -1 : 1); });
+
+      renderTodoCounts();
+      document.getElementById('tdKind').innerHTML =
+        '<button type="button" class="' + (todoNewKind === 'task' ? 'on' : '') + '" onclick="todoNewKind=\'task\'; renderTodoPanel(true);">チェック</button>' +
+        '<button type="button" class="' + (todoNewKind === 'note' ? 'on' : '') + '" onclick="todoNewKind=\'note\'; renderTodoPanel(true);">メモ</button>';
+      const newEl = document.getElementById('tdNew');
+      if (newEl) newEl.placeholder = (todoNewKind === 'note' ? 'メモを書いて Enter' : 'やることを書いて Enter');
+      document.getElementById('tdNewDue').innerHTML = todoNewDue
+        ? '<span class="td-due">しめきり ' + dueLabel(todoNewDue) + ' で入れます</span><button type="button" class="td-mini" onclick="todoNewDue=\'\'; renderTodoPanel(true);">やめる</button>'
+        : '';
+
+      const empty = {
+        all: 'やることやメモは、まだありません。<br>上の欄に書いて Enter で入ります。',
+        today: '今日までがしめきりのやることは、ありません。',
+        week: 'この週がしめきりのものは、ありません。',
+        star: '★を付けたものは、ありません。',
+        memo: 'メモは、まだありません。'
+      };
+      document.getElementById('tdList').innerHTML = list.length ? list.map(todoRowHTML).join('')
+        : '<p class="empty-msg">' + empty[todoFilter] + '</p>';
+      document.getElementById('tdDone').innerHTML = done.length
+        ? '<details' + (todoDoneOpen ? ' open' : '') + ' ontoggle="todoDoneOpen=this.open">' +
+          '<summary>終わったもの（' + done.length + '）</summary>' + done.map(todoRowHTML).join('') +
+          '<button type="button" class="btn btn-soft btn-sm" style="margin-top:6px;" onclick="clearDoneTodos()">終わったものを全部消す</button></details>'
+        : '';
+    }
+
+    function renderTodoCounts() {
+      const all = todoList();
+      const open = all.filter(function(t) { return !(t.kind === 'task' && t.done); });
+      const labels = { all: 'すべて', today: '今日まで', week: 'この週', star: '★重要', memo: 'メモ' };
+      const box = document.getElementById('tdFilters');
+      if (box) {
+        box.innerHTML = Object.keys(labels).map(function(f) {
+          const n = open.filter(function(t) { return todoMatches(t, f); }).length;
+          return '<button type="button" class="td-filter' + (todoFilter === f ? ' on' : '') + (f === 'today' && n ? ' warn' : '') + '" ' +
+                 'data-f="' + f + '" onclick="setTodoFilter(this.dataset.f)">' + labels[f] + (n ? ' <b>' + n + '</b>' : '') + '</button>';
+        }).join('');
+      }
+      const left = open.filter(function(t) { return t.kind === 'task'; }).length;
+      const cnt = document.getElementById('tdCount');
+      if (cnt) cnt.innerText = left ? 'のこり ' + left : '';
+      const btn = document.getElementById('todoBtn');
+      if (btn) btn.innerHTML = 'ToDo' + (left ? ' <span class="td-btn-n">' + left + '</span>' : '');
+    }
+
+    function setTodoFilter(f) { todoFilter = f; todoOpenId = ''; renderTodoPanel(true); }
+
+    function toggleTodoOpen(id) {
+      todoOpenId = (id && todoOpenId !== id) ? id : '';
+      renderTodoPanel(true);
+      if (todoOpenId) {
+        const el = document.querySelector('#todoPanel .td-item.open .td-in-title');
+        if (el && !el.value) el.focus();
+      }
+    }
+
+    // 元に戻せるよう、変える前の姿を控える
+    function pushUndoTodos(label, ids) {
+      const snap = {};
+      ids.forEach(function(id) { const t = getTodos()[id]; snap[id] = t ? JSON.parse(JSON.stringify(t)) : null; });
+      undoStack.push({ kind: 'todos', label: label, snap: snap });
+      if (undoStack.length > UNDO_MAX) undoStack.shift();
+    }
+
+    function todoChanged(full) {
+      requestSave();
+      if (full) { renderTodoPanel(true); updateView(); } else { renderTodoCounts(); }
+    }
+
+    function addTodoFromInput() {
+      const el = document.getElementById('tdNew');
+      const title = (el.value || '').trim();
+      if (!title) return;
+      if (saveBlocked) { showToast("閲覧のみのモードです（保存されません）"); return; }
+      const ts = getTodos();
+      const minOrder = Object.keys(ts).reduce(function(m, id) { return Math.min(m, ts[id].order || 0); }, 0);
+      const kind = (todoFilter === 'memo') ? 'note' : todoNewKind;
+      let due = todoNewDue;
+      if (!due && todoFilter === 'today') due = fmtDate(new Date());
+      if (!due && todoFilter === 'week') due = todoQuickDate('friday-shown');
+      const id = newTodoId();
+      pushUndoTodos('ToDo を入れる', [id]);
+      ts[id] = { kind: kind, title: title.slice(0, 200), text: '', done: false, doneAt: '', due: due,
+                 star: todoFilter === 'star', order: minOrder - 10, created: nowStamp(), checks: [], attachments: [] };
+      el.value = '';
+      todoNewDue = '';
+      todoChanged(true);
+      el.focus();
+    }
+
+    function updateTodoField(el, field, value) {
+      const t = todoById(todoIdOf(el));
+      if (!t) return;
+      t[field] = String(value).slice(0, field === 'text' ? 5000 : 200);
+      if (field === 'title') {
+        const span = el.closest('.td-item').querySelector('.td-title');
+        if (span) span.textContent = t.title || '（名前なし）';
+      }
+      todoChanged(false);
+    }
+
+    function setTodoKind(el, kind) {
+      const id = todoIdOf(el); const t = todoById(id);
+      if (!t || t.kind === kind) return;
+      pushUndoTodos('ToDo の種類を変える', [id]);
+      t.kind = kind;
+      if (kind === 'note') { t.done = false; t.doneAt = ''; }
+      todoChanged(true);
+    }
+
+    // 「今日」「明日」「金曜」のしめきり
+    function todoQuickDate(which) {
+      const d = new Date();
+      if (which === 'tomorrow') d.setDate(d.getDate() + 1);
+      if (which === 'friday') {
+        // 今週の金曜。土日なら次の金曜。
+        const w = d.getDay();
+        d.setDate(d.getDate() + ((5 - w + 7) % 7));
+      }
+      if (which === 'friday-shown') {
+        const f = new Date(currentMonday); f.setDate(f.getDate() + 4);
+        return fmtDate(f);
+      }
+      return fmtDate(d);
+    }
+
+    function setTodoDue(el, value) {
+      const id = todoIdOf(el); const t = todoById(id);
+      if (!t) return;
+      t.due = /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '';
+      todoChanged(true);
+    }
+
+    function toggleTodoDone(id) {
+      const t = todoById(id);
+      if (!t || t.kind !== 'task') return;
+      pushUndoTodos(t.done ? 'ToDo を終わっていないことにする' : 'ToDo を終わったことにする', [id]);
+      t.done = !t.done;
+      t.doneAt = t.done ? nowStamp() : '';
+      if (todoOpenId === id) todoOpenId = '';
+      todoChanged(true);
+      if (t.done) showToast('「' + (t.title || '名前なし') + '」を終わったことにしました', true);
+    }
+
+    function toggleTodoStar(id) {
+      const t = todoById(id);
+      if (!t) return;
+      t.star = !t.star;
+      todoChanged(true);
+    }
+
+    function toggleTodoCheck(el, i) {
+      const t = todoById(todoIdOf(el));
+      if (!t || !t.checks[i]) return;
+      t.checks[i].d = !t.checks[i].d;
+      todoChanged(true);
+    }
+
+    function setTodoCheckText(el, i, v) {
+      const t = todoById(todoIdOf(el));
+      if (!t || !t.checks[i]) return;
+      t.checks[i].t = String(v).slice(0, 200);
+      todoChanged(false);
+    }
+
+    function addTodoCheck(el) {
+      const t = todoById(todoIdOf(el));
+      const v = (el.value || '').trim();
+      if (!t || !v) return;
+      if (t.checks.length >= 50) { showToast('チェック項目は50までです'); return; }
+      t.checks.push({ t: v.slice(0, 200), d: false });
+      todoChanged(true);
+      const again = document.querySelector('#todoPanel .td-item.open .td-ck-new');
+      if (again) again.focus();
+    }
+
+    function removeTodoCheck(el, i) {
+      const id = todoIdOf(el); const t = todoById(id);
+      if (!t || !t.checks[i]) return;
+      pushUndoTodos('チェック項目を消す', [id]);
+      t.checks.splice(i, 1);
+      todoChanged(true);
+    }
+
+    // 消すときは確認を出さず、「元に戻す」で戻せるようにする（よくあるToDoアプリと同じ）
+    function deleteTodo(id) {
+      const t = todoById(id);
+      if (!t) return;
+      pushUndoTodos('ToDo を消す', [id]);
+      delete getTodos()[id];
+      if (todoOpenId === id) todoOpenId = '';
+      todoChanged(true);
+      showToast('「' + (t.title || '名前なし') + '」を消しました', true);
+    }
+
+    function clearDoneTodos() {
+      const ids = todoList().filter(function(t) { return t.kind === 'task' && t.done; }).map(function(t) { return t.id; });
+      if (!ids.length) return;
+      uiConfirm('終わったもの ' + ids.length + '件を消します。\nすぐあとなら「元に戻す」で戻せます。', function(ok) {
+        if (!ok) return;
+        pushUndoTodos('終わったものを消す', ids);
+        ids.forEach(function(id) { delete getTodos()[id]; });
+        todoChanged(true);
+        showToast(ids.length + '件を消しました', true);
+      }, '消す');
+    }
+
+    // ドラッグで並べかえ
+    let todoDragId = '';
+    function todoDragStart(e) {
+      todoDragId = todoIdOf(e.target);
+      e.dataTransfer.setData('text/plain', 'todo:' + todoDragId);
+      e.dataTransfer.effectAllowed = 'move';
+      e.stopPropagation();
+    }
+    function todoDragOver(e) {
+      if (!todoDragId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      e.currentTarget.classList.add('drop-to');
+    }
+    function todoDragLeave(e) { e.currentTarget.classList.remove('drop-to'); }
+    function todoDrop(e) {
+      e.preventDefault();
+      e.currentTarget.classList.remove('drop-to');
+      const target = e.currentTarget.dataset.id;
+      const moving = todoDragId;
+      todoDragId = '';
+      if (!moving || moving === target) return;
+      moveTodoBefore(moving, target);
+    }
+
+    function moveTodoBefore(moving, target) {
+      const ts = getTodos();
+      if (!ts[moving] || !ts[target]) return;
+      const open = todoList().filter(function(t) { return !(t.kind === 'task' && t.done); })
+        .sort(function(a, b) { return (a.order - b.order) || (a.id < b.id ? -1 : 1); })
+        .map(function(t) { return t.id; });
+      pushUndoTodos('ToDo の並べかえ', open);
+      const from = open.indexOf(moving);
+      if (from !== -1) open.splice(from, 1);
+      const to = open.indexOf(target);
+      open.splice(to === -1 ? open.length : to, 0, moving);
+      open.forEach(function(id, i) { ts[id].order = i * 10; });
+      todoChanged(true);
+    }
+
+    // 曜日の見出しから「この日がしめきりのやること」を入れる
+    function dayAddTodo() {
+      const d = new Date(currentMonday); d.setDate(d.getDate() + dayMenuIndex);
+      closeDayMenu();
+      todoNewDue = fmtDate(d);
+      todoNewKind = 'task';
+      if (todoFilter === 'memo' || todoFilter === 'star') todoFilter = 'all';
+      if (sidePanel !== 'todo') setSidePanel('todo'); else renderTodoPanel(true);
+      const el = document.getElementById('tdNew');
+      if (el) el.focus();
+    }
+
+    // ===== 左側に出すもの（ToDo か「先週と比べる」のどちらか片方） =====
+    function setSidePanel(name) {
+      sidePanel = (sidePanel === name) ? '' : name;
+      compareOn = (sidePanel === 'compare');
+      const area = document.getElementById('ttArea');
+      if (area) {
+        area.classList.toggle('compare', compareOn);
+        area.classList.toggle('todo-on', sidePanel === 'todo');
+      }
+      document.body.classList.toggle('compare-on', sidePanel !== '');
+      const cb = document.getElementById('compareBtn');
+      if (cb) cb.innerText = compareOn ? '先週を隠す' : '先週と比べる';
+      const tb = document.getElementById('todoBtn');
+      if (tb) tb.classList.toggle('on', sidePanel === 'todo');
+      if (compareOn) prevOffset = 1;
+      renderPrevPanel();
+      renderTodoPanel(true);
+      renderTodoCounts();
+    }
+
+    function toggleTodo() { setSidePanel('todo'); }
+
+    // ===== 月の予定 =====
+    // 1か月ぶんの行事・期間の取り組み・日課・ToDo のしめきりを、カレンダーの形で見る。
+
+    let monthCursor = null;   // 表示している月の1日
+
+    function openMonthView() {
+      const mid = new Date(currentMonday); mid.setDate(mid.getDate() + 3);   // 週のまん中の日の月
+      monthCursor = new Date(mid.getFullYear(), mid.getMonth(), 1);
+      renderMonthView();
+      document.getElementById('monthModal').style.display = 'flex';
+    }
+
+    function closeMonthView() { document.getElementById('monthModal').style.display = 'none'; }
+
+    function monthShift(n) {
+      const m = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + n, 1);
+      const fr = fiscalRange();
+      const first = new Date(fr.start.getFullYear(), fr.start.getMonth(), 1);
+      const last = new Date(fr.end.getFullYear(), fr.end.getMonth(), 1);
+      if (m < first || m > last) { showToast(fr.year + '年度の中の月だけ見られます（ほかの年度は「年度切替」から）'); return; }
+      monthCursor = m;
+      renderMonthView();
+    }
+
+    function monthWeeks() {
+      const last = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0);
+      const weeks = [];
+      const m = mondayOf(monthCursor);
+      while (m <= last) { weeks.push(new Date(m)); m.setDate(m.getDate() + 7); }
+      return weeks;
+    }
+
+    // 1日ぶんの中身（画面と印刷で同じものを使う）
+    function monthDayInfo(ds) {
+      const hol = holidaysData[ds] || '';
+      const ev = existingEventLines(ds).filter(function(x) { return x !== hol; });
+      const type = nikkaOfDate(ds);
+      return {
+        hol: hol, vac: getHolidayPeriodName(ds) || '', ev: ev,
+        nikka: type === 'normal' ? '' : getNikka()[type].name + '日課',
+        todo: openTodosDue(ds)
+      };
+    }
+
+    function renderMonthView() {
+      const cols = showWeekend ? 7 : 5;
+      const idx = Array.apply(null, Array(cols)).map(function(_, i) { return i; });
+      const days = ['月', '火', '水', '木', '金', '土', '日'];
+      const today = fmtDate(new Date());
+      document.getElementById('monthTitle').innerText = monthCursor.getFullYear() + '年' + (monthCursor.getMonth() + 1) + '月の予定';
+
+      let h = '<table class="mv"><thead><tr>' + idx.map(function(i) {
+        return '<th class="' + (i === 5 ? 'sat' : (i === 6 ? 'sun' : '')) + '">' + days[i] + '</th>';
+      }).join('') + '</tr></thead><tbody>';
+      monthWeeks().forEach(function(mon) {
+        const pl = periodLayout(mon, idx);
+        h += '<tr>';
+        idx.forEach(function(i) {
+          const d = new Date(mon); d.setDate(d.getDate() + i);
+          const ds = fmtDate(d);
+          const other = d.getMonth() !== monthCursor.getMonth();
+          const out = isOutsideFiscalYear(ds);
+          const info = monthDayInfo(ds);
+          const cls = 'mv-cell' + (other ? ' other' : '') + (out ? ' out' : '') + (ds === today ? ' today' : '') +
+                      ((info.hol || i === 6) ? ' hol' : (i === 5 ? ' sat' : '')) + (info.vac ? ' vac' : '');
+          h += '<td class="' + cls + '" data-d="' + ds + '" onclick="monthJump(this.dataset.d)" title="この週を開く">' +
+               '<div class="mv-date"><b>' + d.getDate() + '</b>' + (info.hol ? '<span class="mv-hol">' + escapeHTML(info.hol) + '</span>' : '') + '</div>' +
+               (out ? '' : periodBarsHTML(pl, i, true)) +
+               (info.nikka ? '<span class="nk-badge">' + escapeHTML(info.nikka) + '</span>' : '') +
+               (info.vac && !info.hol ? '<div class="mv-vac">' + escapeHTML(info.vac) + '</div>' : '') +
+               info.ev.map(function(x) { return '<div class="mv-ev">' + escapeHTML(x) + '</div>'; }).join('') +
+               (info.todo ? '<div class="mv-todo">ToDo ' + info.todo + '</div>' : '') +
+               '</td>';
+        });
+        h += '</tr>';
+      });
+      document.getElementById('monthBody').innerHTML = h + '</tbody></table>';
+    }
+
+    function monthJump(ds) {
+      if (isOutsideFiscalYear(ds)) { showToast('この日は ' + fiscalYearOf(ds) + '年度です。「年度切替」で移ってから開いてください'); return; }
+      closeMonthView();
+      jumpToDate(ds);
+    }
+
+    function printMonth() {
+      const cols = showWeekend ? 7 : 5;
+      const idx = Array.apply(null, Array(cols)).map(function(_, i) { return i; });
+      const days = ['月', '火', '水', '木', '金', '土', '日'];
+      const conf = getConfig();
+      const head = monthCursor.getFullYear() + '年' + (monthCursor.getMonth() + 1) + '月の予定';
+      let rows = '';
+      monthWeeks().forEach(function(mon) {
+        const pl = periodLayout(mon, idx);
+        rows += '<tr>';
+        idx.forEach(function(i) {
+          const d = new Date(mon); d.setDate(d.getDate() + i);
+          const ds = fmtDate(d);
+          const other = d.getMonth() !== monthCursor.getMonth();
+          const info = monthDayInfo(ds);
+          rows += '<td class="' + (other ? 'other' : '') + ((info.hol || i === 6) ? ' hol' : '') + '">' +
+                  '<div class="dt">' + d.getDate() + (info.hol ? ' <span>' + escapeHTML(info.hol) + '</span>' : '') + '</div>' +
+                  (isOutsideFiscalYear(ds) ? '' : printPeriodBars(pl, i)) +
+                  (info.nikka ? '<div class="nk">' + escapeHTML(info.nikka) + '</div>' : '') +
+                  (info.vac && !info.hol ? '<div class="vac">' + escapeHTML(info.vac) + '</div>' : '') +
+                  info.ev.map(function(x) { return '<div class="ev">' + escapeHTML(x) + '</div>'; }).join('') +
+                  '</td>';
+        });
+        rows += '</tr>';
+      });
+      const h = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>' + head + '</title>' +
+        '<style>@page { size: A4 landscape; margin: 9mm; }' +
+        "* { box-sizing: border-box; margin: 0; padding: 0; } body { font-family: 'BIZ UDPGothic', 'Yu Gothic UI', 'Meiryo', sans-serif; color: #1d2127; -webkit-print-color-adjust: exact; print-color-adjust: exact; }" +
+        'h1 { font-size: 14pt; margin: 0 0 2mm; display: flex; justify-content: space-between; } h1 small { font-size: 9pt; color: #666f7d; }' +
+        'table { width: 100%; border-collapse: collapse; table-layout: fixed; }' +
+        'th { background: #eef1f5; font-size: 9pt; padding: 1mm; border: 0.5pt solid #ccd2da; }' +
+        'td { border: 0.5pt solid #ccd2da; vertical-align: top; height: 30mm; padding: 0.8mm 1mm; font-size: 7.5pt; overflow: hidden; }' +
+        'td.other { background: #f6f7f9; color: #9aa1ab; } td.hol .dt { color: #b8492f; }' +
+        '.dt { font-weight: 800; font-size: 9pt; } .dt span { font-size: 6.5pt; }' +
+        '.ev { line-height: 1.3; } .vac { color: #23616f; font-size: 6.5pt; } .nk { color: #23616f; font-weight: 800; font-size: 6.5pt; }' +
+        '.pd { height: 3.6mm; margin: 0.5mm -1.2mm 0; padding-left: 1.2mm; font-size: 6.5pt; font-weight: 800; line-height: 3.6mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' +
+        '.pd.pd-none { background: transparent; } .pd.s { margin-left: 0; border-radius: 2mm 0 0 2mm; }' +
+        '.pd.e { margin-right: 0; padding-right: 2.6mm; clip-path: polygon(0 0, calc(100% - 2.2mm) 0, 100% 50%, calc(100% - 2.2mm) 100%, 0 100%); }' +
+        '@media print { .pb { display: none; } } .pb { text-align: center; margin-top: 4mm; }' +
+        '</style></head><body><h1>' + head + '<small>' + escapeHTML((conf.grade ? conf.grade + '年' : '') + (conf.className || '')) + '</small></h1>' +
+        '<table><thead><tr>' + idx.map(function(i) { return '<th>' + days[i] + '</th>'; }).join('') + '</tr></thead><tbody>' + rows + '</tbody></table>' +
+        '<div class="pb"><button onclick="window.print()">印刷する</button></div></body></html>';
+      openPrintWindow(h);
+    }
+
     // ===== 今週の目標 =====
     // 週ごとに1つ。キーは「月曜日-weekgoal」。
     // 4つに区切ったキーのままなので、時数集計（授業のコマだけを数える）には入らない。
@@ -4030,6 +4993,9 @@
         let label = days[i] + '<br><span style="font-size:0.72rem; font-weight:700;">' + (d.getMonth()+1) + '/' + d.getDate() + '</span>';
         if (holName) { label += '<br><span style="font-size:0.6rem; font-weight:700;">' + escapeHTML(holName) + '</span>'; }
         else if (vacName) { label += '<br><span style="font-size:0.6rem; font-weight:700;">' + escapeHTML(vacName) + '</span>'; }
+        label += nikkaHeadHTML(dStr);
+        const dueN = openTodosDue(dStr);
+        if (dueN) label += '<span class="td-day-badge" title="この日がしめきりのToDo">ToDo ' + dueN + '</span>';
         th.innerHTML = label;
         th.className = 'day-th';
         th.style.background = ''; th.style.color = '';
@@ -4054,6 +5020,8 @@
         }
       }
       weekPeriods = periodLayout(currentMonday, visibleDayIndexes());
+      buildUnitCounter();
+      renderPeriodHeads();
       ALL_PERIODS.forEach(function(p) { for (let d = 0; d < 7; d++) { renderCell(d, p); } });
 
       // 今日の列をうすい青にする
@@ -4069,6 +5037,7 @@
       loadWeekGoal();
       applyFold();
       renderPrevPanel();
+      renderTodoPanel();
       highlightSelected();
     }
 
@@ -4112,18 +5081,22 @@
         return;
       }
 
+      // 短縮・特別の日は、その時間の時刻を右上に出す
+      const nkTime = nikkaCellTime(dIdx, p);
+      cell.classList.toggle('has-nk', !!nkTime);
+
       const hasSubject = data && getSlots(data).some(function(s) { return s.subject; });
       if (!data || (!hasSubject && rtEmpty(data.record) && rtEmpty(data.contact))) {
-        cell.innerHTML = '<div class="cell-content"' + dragAttrs + '><div class="empty-tag">＋</div></div>';
+        cell.innerHTML = nkTime + '<div class="cell-content"' + dragAttrs + '><div class="empty-tag">＋</div></div>';
         return;
       }
 
       const slots = getSlots(data);
       if (slots.length === 1) {
-        let memoHTML = rtRender(data.unit);
+        let memoHTML = rtRender(data.unit) + unitBadge(key, 0);
         if (!rtEmpty(data.contact)) memoHTML += (memoHTML ? "<br>" : "") + '<span style="color:var(--sky-dk);">' + rtRender(data.contact) + '</span>';
         if (!rtEmpty(data.record)) memoHTML += (memoHTML ? "<br>" : "") + '<span style="color:var(--brown-2);">' + rtRender(data.record) + '</span>';
-        cell.innerHTML = '<div class="cell-content"' + dragAttrs + '>' +
+        cell.innerHTML = nkTime + '<div class="cell-content"' + dragAttrs + '>' +
           '<div class="subject-tag ' + (subjectColors[data.subject] || 'color-other') + '">' + escapeHTML(data.subject) + '</div>' +
           '<div class="memo' + (memoHTML ? ' ruled' : '') + '">' + memoHTML + '</div>' + badge + '</div>';
         return;
@@ -4135,12 +5108,12 @@
         if (i > 0) inner += '<div class="split-sep"></div>';
         inner += '<div class="split-part">' +
           '<div class="subject-tag ' + (subjectColors[sl.subject] || 'color-other') + '">' + escapeHTML(sl.subject) + '</div>' +
-          (rtEmpty(sl.unit) ? '' : '<div class="memo ruled">' + rtRender(sl.unit) + '</div>') + '</div>';
+          (rtEmpty(sl.unit) ? '' : '<div class="memo ruled">' + rtRender(sl.unit) + unitBadge(key, i) + '</div>') + '</div>';
       });
       if (!rtEmpty(data.contact)) inner += '<div class="memo" style="color:var(--sky-dk);">' + rtRender(data.contact) + '</div>';
       if (!rtEmpty(data.record)) inner += '<div class="memo" style="color:var(--brown-2);">' + rtRender(data.record) + '</div>';
       const chip = slots.map(function(sl) { return sl.weight.toFixed(1); }).join('・');
-      cell.innerHTML = '<div class="weight-chip">' + chip + '</div>' +
+      cell.innerHTML = nkTime + '<div class="weight-chip">' + chip + '</div>' +
         '<div class="' + cls + '"' + dragAttrs + '>' + inner + badge + '</div>';
     }
 
@@ -4197,7 +5170,7 @@
             ' title="' + r.label + 'の欄を1週間ぶん開く／閉じる"' +
             ' onclick="toggleFold(\'' + r.id + '\')"' +
             ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();event.stopPropagation();toggleFold(\'' + r.id + '\');}">' + r.label + '</th>'
-          : '<th class="period-col">' + r.label + '</th>';
+          : '<th class="period-col"' + (r.type === 'lesson' ? ' id="ph-' + r.id + '"' : '') + '>' + r.label + '</th>';
         for (let d = 0; d < 7; d++) {
           html += '<td id="cell-' + d + '-' + r.id + '" onclick="openInputModal(' + d + ", '" + r.id + "')\" " + dragEvts +
                   ' ondrop="handleDrop(event, ' + d + ", '" + r.id + "')\"></td>";
@@ -4502,31 +5475,34 @@
       if (ta) { ta.value = payload; ta.focus(); ta.select(); }
     }
 
-    function exportBackup() {
-      const payload = buildBackupPayload();
+    // payload・名前を渡すと、その内容を書き出す（端末の下書きの書き出しに使う）。after は書き出したあとに呼ぶ。
+    function exportBackup(payloadArg, prefix, after) {
+      const payload = (typeof payloadArg === 'string') ? payloadArg : buildBackupPayload();
       try {
         const blob = new Blob([payload], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = '週案バックアップ_' + backupStamp() + '.json';
+        a.download = (prefix || '週案バックアップ_') + backupStamp() + '.json';
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
         setTimeout(function() {
           uiConfirm("ファイルの保存画面が出ましたか？", function(ok) {
             if (!ok) showBackupAsText(payload);
+            if (after) after();
           }, 'はい、出ました', 'いいえ、画面に出して');
         }, 1200);
       } catch (e) {
         showBackupAsText(payload);
+        if (after) after();
       }
     }
 
     // 読み込んだ内容を、そのまま画面に出す。
     // いまの内容と混ぜると、どちらの予定か分からなくなるため統合はしない。
-    function applyImportedBackup(obj) {
+    function applyImportedBackup(obj, label) {
       // 戻せるように、入れ替える前の状態をまるごと控えておく
-      pushUndoFull('バックアップの読み込み');
+      pushUndoFull(label || 'バックアップの読み込み');
 
       // --- 週案 ---
       Object.keys(appData).forEach(function(k) { delete appData[k]; });
@@ -4553,6 +5529,8 @@
       migrateNotesToTags();
       normalizeNotes();
       cleanPeriods();
+      migrateNoteTodos();
+      cleanTodos();
 
       // 本人が「置きかえる」と決めた読み込みなので、件数が減っても確認はしない
       shrinkApproved = true;
@@ -5020,6 +5998,7 @@
       const yearEl = document.getElementById('setYear');
       if (yearEl) yearEl.value = appSettings.year;
       changeSettingYear();
+      renderDraftStatus();
       document.getElementById('settingModal').style.display = 'flex';
     }
     function closeSettingModal() { document.getElementById('settingModal').style.display = 'none'; }
@@ -5106,7 +6085,14 @@
       const sub = unitPickSubject;
       const y = appSettings.year || getFiscalYear(new Date());
       const term = getTermOfEditingCell();
-      const list = (getUnitBank(y, term)[sub] || []).slice();
+      const list = (getUnitBank(y, term)[sub] || []).map(function(line) { return parseUnitLine(line).name; }).filter(Boolean);
+      const hrs = unitHoursMap(y)[sub] || {};
+      buildUnitCounter();
+      const progress = function(name) {
+        if (!hrs[name]) return '';
+        const used = unitCounter.total[sub + '\u0001' + name] || 0;
+        return '<span class="un-prog' + (used > hrs[name] + 0.05 ? ' over' : '') + '">' + fmtHour(used) + '/' + fmtHour(hrs[name]) + '時間</span>';
+      };
 
       document.getElementById('unitPickTitle').innerText = '' + sub + ' の単元名';
 
@@ -5129,7 +6115,7 @@
       if (nextUnit) {
         html += '<div class="unit-next"><span class="un-cap">▶ 次はここ</span>' +
                 '<button type="button" class="unit-pick" data-t="' + escapeHTML(nextUnit) + '" ' +
-                'onclick="pickUnit(this.dataset.t)"><span>' + escapeHTML(nextUnit) + '</span></button></div>';
+                'onclick="pickUnit(this.dataset.t)"><span>' + escapeHTML(nextUnit) + '</span>' + progress(nextUnit) + '</button></div>';
       } else {
         html += '<div class="unit-next"><span class="un-cap">この学期の「' + escapeHTML(sub) +
                 '」は、すべて「済」になっています</span></div>';
@@ -5142,7 +6128,7 @@
             'data-sub="' + escapeHTML(sub) + '" data-t="' + escapeHTML(t) + '" ' +
             'onclick="toggleUnitDone(this.dataset.sub, this.dataset.t)">' + (done ? '✓' : '') + '</button>' +
           '<button type="button" class="unit-pick" data-t="' + escapeHTML(t) + '" onclick="pickUnit(this.dataset.t)">' +
-            '<span class="no">' + (i + 1) + '</span><span>' + escapeHTML(t) + '</span>' +
+            '<span class="no">' + (i + 1) + '</span><span>' + escapeHTML(t) + '</span>' + progress(t) +
             (done ? '<span class="done-badge">済</span>' : '') +
           '</button></div>';
       }).join('');
@@ -5206,6 +6192,8 @@
           if (t && getRoster(y).indexOf(t) === -1) getRoster(y).push(t);
         });
       }
+      readNikkaForm();
+      if (nkWork) c.nikka = JSON.parse(JSON.stringify(nkWork));
       saveBtGrid();
       c.baseTimetables = JSON.parse(JSON.stringify(btWork));
       delete c.baseTimetable;
@@ -5244,6 +6232,9 @@
       unitSetSubject = '';
       renderUnitSetTabs();
       renderPeriodSettingsList();
+      nkWork = getNikka(c);
+      nkTab = 'normal';
+      renderNikkaSettings();
       btWork = JSON.parse(JSON.stringify(getBaseSets(c)));
       btIndex = 0;
       renderBtTabs();

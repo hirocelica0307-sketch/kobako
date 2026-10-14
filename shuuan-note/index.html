@@ -48,6 +48,8 @@
         <button class="btn btn-sky btn-sm" onclick="openSearchModal()">検索</button>
         <button class="btn btn-bell btn-sm" onclick="openPrintModal()">印刷</button>
         <span class="sep"></span>
+        <button class="btn btn-soft btn-sm td-btn" id="todoBtn" onclick="toggleTodo()" aria-label="ToDo を左に出す">ToDo</button>
+        <button class="btn btn-soft btn-sm" onclick="openMonthView()">月の予定</button>
         <button class="btn btn-soft btn-sm" id="compareBtn" onclick="toggleCompare()">先週と比べる</button>
         <button class="btn btn-soft btn-sm" onclick="openBaseChooser()">基本時間割</button>
         <button class="btn btn-soft btn-sm" id="toggleWeekendBtn" onclick="toggleWeekend()">土日</button>
@@ -75,6 +77,22 @@
     </div>
 
     <div class="tt-area" id="ttArea">
+      <div class="todo-panel" id="todoPanel" aria-label="ToDo">
+        <div class="td-head">
+          <span class="td-head-title">ToDo</span><span class="td-count" id="tdCount"></span>
+          <button type="button" class="icon-btn td-close" onclick="toggleTodo()" aria-label="ToDo を閉じる">✕</button>
+        </div>
+        <div class="td-add">
+          <div class="td-kind-pick" id="tdKind"></div>
+          <input type="text" id="tdNew" maxlength="200" placeholder="やることを書いて Enter"
+                 onkeydown="if(event.key==='Enter'&&!event.isComposing){event.preventDefault();addTodoFromInput();}" aria-label="新しい ToDo">
+          <button type="button" class="btn btn-leaf btn-sm" onclick="addTodoFromInput()">入れる</button>
+        </div>
+        <div class="td-newdue" id="tdNewDue"></div>
+        <div class="td-filters" id="tdFilters"></div>
+        <div class="td-list" id="tdList"></div>
+        <div class="td-done" id="tdDone"></div>
+      </div>
       <div class="prev-panel" id="prevPanel"></div>
 
       <div class="tt-wrap">
@@ -243,10 +261,6 @@
             <button class="icon-btn" onclick="toggleWriter(false); cancelNoteEdit();" aria-label="書くのをやめる">✕</button>
           </div>
           <div class="rt-bar" id="rtBarNote"></div>
-          <div class="segmented" id="noteTypeSeg" style="margin-bottom:10px;">
-            <label><input type="radio" name="noteType" value="memo" checked onchange="applyNoteType()"><span>メモ</span></label>
-            <label><input type="radio" name="noteType" value="todo" onchange="applyNoteType()"><span>やること</span></label>
-          </div>
           <div class="rt-editor tall" id="newNoteInput" contenteditable="true" data-ph="気づいたことを書く..." onfocus="rtFocus(this)"></div>
           <div id="noteAttachmentArea" style="min-height:4px; margin-top:7px;"></div>
           <div class="tagline" id="noteTagPick" style="margin-top:10px;"></div>
@@ -433,6 +447,19 @@
       <div class="modal-body">
         <p class="field-hint" id="dayMenuHint" style="margin-bottom:13px;"></p>
         <div class="day-menu">
+          <div class="day-item nk-item">
+            <span class="txt">
+              <b>この日の日課</b>
+              短縮・特別にすると、見出しと各時間に時刻が出ます（時刻は設定の「日課」で決めます）。
+              <span class="nk-btns" id="dayNikkaBtns"></span>
+            </span>
+          </div>
+          <button class="day-item" onclick="dayAddTodo()">
+            <span class="txt">
+              <b>この日がしめきりの ToDo を入れる</b>
+              左に ToDo を出して、この日をしめきりにして書けるようにします。
+            </span>
+          </button>
           <button class="day-item" onclick="dayAddPeriod()">
             <span class="txt">
               <b>この日から「期間の取り組み」を入れる</b>
@@ -720,6 +747,18 @@
         <div class="field" id="termField2"><label id="termLabel2">2学期</label><div class="date-range"><input type="date" id="t2Start"> 〜 <input type="date" id="t2End"></div></div>
         <div class="field" id="termField3"><label id="termLabel3">3学期</label><div class="date-range"><input type="date" id="t3Start"> 〜 <input type="date" id="t3End"></div></div>
 
+        <div class="sec-title">日課（通常・短縮・特別）</div>
+        <p class="field-hint" style="margin-bottom:9px;">
+          それぞれの日課の時刻を入れておくと、週案に出ます。<b>通常</b>の時刻は表の左はしに、<b>短縮・特別</b>は、その日にした日の見出しと各時間に出ます。<br>
+          日課は、曜日の見出しを押したときのメニューで、日ごとにえらびます。名前は変えられます（例：「参観」「B」）。
+        </p>
+        <div class="bt-tabs" id="nkTabs"></div>
+        <div class="field" style="max-width:260px;">
+          <label for="nkName">この日課の名前</label>
+          <input type="text" id="nkName" maxlength="12" oninput="readNikkaForm(); renderNikkaSettingsTabsOnly()">
+        </div>
+        <table class="nk-table"><tbody id="nkTableBody"></tbody></table>
+
         <div class="sec-title">休業期間</div>
         <div class="field"><label>春季</label><div class="date-range"><input type="date" id="haruStart"> 〜 <input type="date" id="haruEnd"></div></div>
         <div class="field"><label>夏季</label><div class="date-range"><input type="date" id="natsuStart"> 〜 <input type="date" id="natsuEnd"></div></div>
@@ -746,7 +785,11 @@
         </p>
         <div class="unit-sub-tabs" id="unitSetTermTabs"></div>
         <div class="unit-sub-tabs" id="unitSetTabs"></div>
-        <textarea id="setUnits" rows="7" oninput="onUnitTextInput()" placeholder="大きなかず&#10;たしざん(2)&#10;ひきざん(2)"></textarea>
+        <textarea id="setUnits" rows="7" oninput="onUnitTextInput()" placeholder="大きなかず（8時間）&#10;たしざん(2)（10時間）&#10;ひきざん(2)（10時間）"></textarea>
+        <p class="field-hint">
+          単元名のうしろに「（12時間）」のように時数を書いておくと、週案のコマに「5/12」のように<b>何時間目か</b>が出ます。
+          単元一覧にも、ここまでに入れた時数が出ます。時数は書かなくてもかまいません。
+        </p>
 
         <div class="sec-title">名簿（記録のタグに使います）</div>
         <p class="field-hint" style="margin-bottom:8px;">
@@ -795,11 +838,35 @@
           <b>毎日の控え</b>（その日はじめて保存する前の状態を、14日分）です。うっかり消したときは、ここから戻せます。
         </p>
         <button class="btn btn-soft btn-sm" onclick="openBackupPicker()">自動控えから復元</button>
+        <div class="help-warn" id="draftStatus" style="display:none; margin-top:12px;"></div>
 
       </div>
       <div class="modal-foot">
         <button class="btn btn-soft" onclick="closeSettingModal()">閉じる</button>
         <button class="btn btn-leaf btn-lg" onclick="saveSettings()">設定を保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 月の予定 ===== -->
+  <div id="monthModal" class="modal-overlay">
+    <div class="modal-box wide">
+      <div class="modal-head">
+        <h3 id="monthTitle">月の予定</h3>
+        <div class="head-tools">
+          <button class="btn btn-soft btn-sm" onclick="monthShift(-1)">◀ 前の月</button>
+          <button class="btn btn-soft btn-sm" onclick="monthShift(1)">次の月 ▶</button>
+          <button class="btn btn-bell btn-sm" onclick="printMonth()">印刷</button>
+          <button class="icon-btn" onclick="closeMonthView()" aria-label="閉じる">✕</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p class="field-hint" style="margin-bottom:8px;">日を押すと、その週の週案が開きます。行事・期間の取り組み・日課・ToDo のしめきりが出ます。</p>
+        <div class="table-scroll" id="monthBody"></div>
+      </div>
+      <div class="modal-foot">
+        <span></span>
+        <button class="btn btn-soft" onclick="closeMonthView()">閉じる</button>
       </div>
     </div>
   </div>
