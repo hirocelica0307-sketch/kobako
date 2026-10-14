@@ -135,8 +135,14 @@ button{font:inherit;color:inherit}
 .card.flip.a .s1,.card.flip.a .s2 .yomi,.card.flip.a .eq{display:none}
 .card.flip.a .s2{min-width:0;align-items:center}
 .card.reveal .s2{animation:pop .16s ease-out}
+.card.enter .s1{animation:pop .16s ease-out}
 @keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.card.reveal .s2{animation:none}}
+@media (prefers-reduced-motion:reduce){.card.reveal .s2,.card.enter .s1{animation:none}}
+/* テレビへの ミラーリング・キャスト よけ：画面の すみの 2px を 見えない くらい わずかに
+   ぬりかえつづけて、画面が うごかない あいだも 送り手が 絵を 送りつづける ように する */
+#keep{position:absolute;right:0;bottom:0;width:2px;height:2px;background:#ffffff;pointer-events:none;
+      animation:keep .2s steps(1,end) infinite}   /* 0.1びょう ごとに ぬりかえ。うごきを へらす せっていでも 止めない（目には 見えない ため） */
+@keyframes keep{0%{background:#ffffff}50%{background:#fefefe}}
 #measure{position:absolute;left:-9999px;top:0;visibility:hidden;font-size:100px}
 
 #bar{position:absolute;left:0;right:0;bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -217,6 +223,7 @@ button{font:inherit;color:inherit}
             <div class="seg s2"><div class="yomi y2"></div><div class="nums"><span class="eq">=</span><span class="ans"></span></div></div>
         </div>
     </div>
+    <i id="keep" aria-hidden="true"></i>
     <div id="bar">
         <span id="paused" hidden>⏸ とまっています</span>
         <span class="btns">
@@ -553,11 +560,21 @@ function render(forward){
     const cls = cardClass(runCfg.style, S.phase);
     card.className = cls;
     card.style.fontSize = sizeFor(runCfg.style, S.phase) + 'px';
-    if (forward && S.phase === 'a'){
+    if (forward){
+        // しきも こたえも 出る ときに 少し うごかす。うごきの ある あいだは 絵が 何まいも
+        // 送られるので、テレビへの 送りで 1まい おちても つぎの 絵で うめられる
         void card.offsetWidth;          // アニメーションを はじめから
-        card.className = cls + ' reveal';
+        card.className = cls + (S.phase === 'a' ? ' reveal' : ' enter');
     }
 }
+
+/* ── テレビへの 送り よけ ─────────────────────
+   Chromebook の 画面を テレビに ワイヤレスで うつす（キャスト・ミラーリング）と、
+   送り手は 画面が かわった ときだけ 絵を 送る。しきは 出たあと うごかないので、
+   その 1まいが とちゅうで おちると、テレビには 前の カードの こたえが のこり、
+   つぎに こたえが 出た ところで やっと かわる（＝ こたえだけ 出た ように 見える）。
+   #play が 出て いる あいだ、すみの 2px（#keep）を CSS で 0.1びょう ごとに
+   #ffffff と #fefefe に ぬりかえて、絵が 送られつづける ように する（目では 見分けられない）。 */
 
 function finish(){
     clearTimeout(S.timer);
