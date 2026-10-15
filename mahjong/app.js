@@ -96,7 +96,7 @@ ${Object.keys(store.friends || {}).length ? `<div class="fr-wrap">${friendsHTML(
   ${saved ? `<button class="btn primary big" data-rejoin>合言葉 ${esc(saved.code)} の 部屋に もどる</button>` : ''}
   <button class="btn big primary" data-go="cpu">${icon('robot')}<span>コンピューターと 対戦<small>つよさ 3段階</small></span></button>
   <button class="btn big" data-go="online">${icon('users-three')}<span>友だちと 対戦<small>合言葉で 部屋に 入る（2人＋コンピューター2人）</small></span></button>
-  <button class="btn big" data-go="keisan">${icon('lightbulb')}<span>点数計算を おぼえる<small>やりかた・練習問題・早見表</small></span></button>
+  <button class="btn big" data-go="keisan">${icon('lightbulb')}<span>点数計算を おぼえる<small>符と 役を いちから じゅんばんに・やりかた・練習問題・早見表</small></span></button>
   <button class="btn big" data-go="yakuref">${icon('play')}<span>役を おぼえる<small>ぜんぶの 役を お手本の 動画と 妖精の 説明・クイズで</small></span></button>
   <button class="btn big" data-go="drill">${icon('book-open-text')}<span>麻雀ドリル<small>何切る・何待ち・何符・何点・リーチへの まもり（1900問 いじょう）</small></span></button>
   <div class="home-row">

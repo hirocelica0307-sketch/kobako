@@ -1,4 +1,4 @@
-/* 点数計算を おぼえる（やりかた・練習・早見表）
+/* 点数計算を おぼえる（いちから・やりかた・練習・早見表）
    ------------------------------------------------------------------
    練習の 問題は、コンピューターどうしで じっさいに 打った 対局の あがりから つくります。
    （ありえない 手は 出ません。ドラ・場風・自風・リーチなども 本物の じょうきょう）
@@ -12,11 +12,12 @@ import { store, save } from './store.js';
 import { sfx } from './sound.js';
 import { icon } from './assets/icons.js';
 import { DEFAULT_RULES } from './engine.js';
+import { renderKihon } from './fukihon.js';
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const shuffleArr = (a, rng = Math.random) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
-let tab = 'guide';
+let tab = 'kihon';
 let mode = 'fu';
 const pool = [];
 
@@ -155,6 +156,7 @@ export function renderKeisan(root, back) {
 ${back}
 <h2>点数計算</h2>
 <div class="ks-tabs">
+  <button data-tab="kihon" class="${tab === 'kihon' ? 'on' : ''}">いちから</button>
   <button data-tab="guide" class="${tab === 'guide' ? 'on' : ''}">やりかた</button>
   <button data-tab="practice" class="${tab === 'practice' ? 'on' : ''}">練習</button>
   <button data-tab="table" class="${tab === 'table' ? 'on' : ''}">早見表</button>
@@ -169,7 +171,8 @@ ${back}
         renderKeisan(root, back);
     });
     const body = root.querySelector('.ks-body');
-    if (tab === 'guide') renderGuide(body);
+    if (tab === 'kihon') renderKihon(body);
+    else if (tab === 'guide') renderGuide(body);
     else if (tab === 'table') renderTable(body);
     else renderPractice(body);
 }
