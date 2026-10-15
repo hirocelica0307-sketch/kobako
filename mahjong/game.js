@@ -533,7 +533,8 @@ export class GameView {
             if (this.selected === t) cls.push('sel');
             if (canDiscard && !canDiscard.has(t)) cls.push('dim');
             if (doras.has(kindOf(t)) || (this.g.rules.aka && isRedId(t))) cls.push('dora');
-            if (rec === t && (store.settings.hint || store.settings.advice)) cls.push('rec');
+            if (rec === t && !this.claimUse && (store.settings.hint || store.settings.advice)) cls.push('rec');
+            if (this.claimUse && this.claimUse.has(t)) cls.push('claim-use');
             return this.tileHTML(t, { cls: cls.join(' ') + extra, data: `data-tile="${t}"` });
         };
         let html = list.map(t => one(t)).join('');
@@ -956,13 +957,60 @@ export class GameView {
         }
         el.innerHTML = html;
         el.classList.toggle('show', !!html);
-        // 鳴ける 牌を 光らせる
-        this.root.querySelectorAll('.river .t.last').forEach(x => x.classList.toggle('claimable', !!(p && p.type === 'claim')));
+        this.markClaim(p && p.type === 'claim' ? p : null);
+    }
+
+    /* ── 鳴ける とき：だれの どの 牌か・手の どの 牌を つかうか ── */
+
+    claimUsed(p, o) {
+        const k = kindOf(p.tile);
+        const hand = this.snap.hands[this.me];
+        const out = [];
+        if (o.ron) out.push({ word: 'ロン', used: [] });
+        if (o.minkan) out.push({ word: 'カン', used: hand.filter(t => kindOf(t) === k).slice(0, 3) });
+        for (const u of o.pon) out.push({ word: 'ポン', used: u });
+        for (const u of o.chi) out.push({ word: 'チー', used: u });
+        return out;
+    }
+
+    claimInfoHTML(p, o) {
+        const rel = (p.from - this.me + 4) % 4;
+        const where = ['', '右', '向かい', '左'][rel];
+        const pl = this.players[p.from];
+        const opts = this.claimUsed(p, o).map(x => `<div class="ci-opt"><b>${x.word}</b>${x.used.length ? `<span class="ci-tiles">${x.used.map(t => this.tileHTML(t, { cls: 'ci-t mine' })).join('')}<i>＋</i>${this.tileHTML(p.tile, { cls: 'ci-t ci-target' })}</span>` : `<span class="ci-note">この 牌で あがり！</span>`}</div>`).join('');
+        return `<div class="ci-head"><img src="${pl.avatar}" alt=""><span><b>${esc(pl.name)}</b><small>（${where}）</small>の<br>捨て牌</span>${this.tileHTML(p.tile, { cls: 'ci-t ci-target big' })}</div><div class="ci-opts">${opts}</div>`;
+    }
+
+    /** 卓の 上で 鳴ける 牌だけを 目立たせ、ほかを うすく。手の 中の つかう 牌に しるし */
+    markClaim(p) {
+        this.root.querySelectorAll('.claim-tag, .claim-info').forEach(x => x.remove());
+        this.root.querySelectorAll('.river .t.claim-target').forEach(x => x.classList.remove('claim-target', 'claimable'));
+        const on = !!p;
+        this.root.classList.toggle('claiming', on);
+        const prevUse = this.claimUse;
+        this.claimUse = on ? new Set(this.claimUsed(p, p.seats[this.me]).flatMap(x => x.used)) : null;
+        if (on || prevUse) this.renderHand();
+        if (!on) return;
+        const info = document.createElement('div');
+        info.className = 'claim-info';
+        info.innerHTML = this.claimInfoHTML(p, p.seats[this.me]);
+        this.$('.g-table').appendChild(info);
+        const t = this.root.querySelector(`.seat.pos${this.pos(p.from)} .river .t.last`);
+        if (!t) return;
+        t.classList.add('claim-target');
+        const tb = this.$('.g-table').getBoundingClientRect(), r = t.getBoundingClientRect();
+        const tag = document.createElement('div');
+        tag.className = 'claim-tag';
+        tag.innerHTML = `${esc(this.players[p.from].name)}の 捨て牌`;
+        tag.style.left = `${r.left - tb.left + r.width / 2}px`;
+        tag.style.top = `${r.top - tb.top}px`;
+        this.$('.g-table').appendChild(tag);
     }
 
     clearMyUI(render = true) {
         this.$('.g-actions').innerHTML = '';
         this.$('.g-actions').classList.remove('show');
+        if (this.root.classList.contains('claiming')) { this.claimUse = null; this.root.classList.remove('claiming'); this.root.querySelectorAll('.claim-tag, .claim-info').forEach(x => x.remove()); this.root.querySelectorAll('.river .t.claim-target').forEach(x => x.classList.remove('claim-target')); }
         this.closeChoice();
         this.stopTimer();
         if (render) { this.renderHand(); }
@@ -977,7 +1025,7 @@ export class GameView {
             txt = this.riichiMode ? 'リーチ：牌を えらんで もう一度 タップ' : 'あなたの 番：タップで えらび、もう一度 タップで 捨てる';
         } else if (p && p.type === 'claim') {
             const o = p.seats[this.me];
-            txt = o.ron ? 'ロン できます！' : `${tileName(kindOf(p.tile))} を 鳴けます`;
+            txt = o.ron ? `${esc(this.players[p.from].name)}の ${tileName(kindOf(p.tile))} で ロン できます！` : `${esc(this.players[p.from].name)}が 捨てた ${tileName(kindOf(p.tile))} を 鳴けます`;
         }
         // 待ちの 表示
         if (store.settings.showWaits && s.hands) {
@@ -1131,7 +1179,8 @@ export class GameView {
         switch (e.type) {
         case 'handStart': {
             bgm.duck(1);
-            bgm.play('game');
+            this.allLast = e.kyoku === 3 && e.roundWind >= (this.g.rules.length === 'tonpu' ? 0 : 1);
+            bgm.play(this.allLast ? 'oorasu' : 'game');
             this.hideBubble();
             this.lastAdvice = null;
             this.hintShown = new Set();
@@ -1189,7 +1238,7 @@ export class GameView {
             const t = this.$(`.seat.pos${this.pos(e.seat)} .river .t.last`);
             if (t) t.classList.add(e.riichi ? 'slam' : 'drop');
             if (e.riichi) {
-                bgm.play('riichi');
+                if (!this.allLast) bgm.play('riichi');   // オーラスは オーラスの 曲の まま
                 if (e.seat !== this.me && store.settings.advice) this.advise(riichiAlert(this.g, this.me, e.seat, q => this.nameOf(q)));
                 await this.riichiFx(e.seat);
             } else {

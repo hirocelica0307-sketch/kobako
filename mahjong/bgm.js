@@ -4,6 +4,7 @@
      menu   … メニュー画面：あかるく ゆったり（ハ長調・ペンタトニック）
      game   … 対局中：おちついた テンポ（イ短調）
      riichi … だれかが リーチした とき：テンポが あがって すこし ドキドキ
+     oorasu … オーラス（さいごの 局）：ニ短調。時計の ように きざむ ベースと 太鼓で はりつめた 感じ
    曲は 下の 楽譜（コード・メロディー）を 16分音符の マスで ならべて くりかえします。
    音量は 設定の「BGM」で かえられます（効果音・こえとは べつ）。
    ------------------------------------------------------------------ */
@@ -58,6 +59,16 @@ const SONGS = {
             'A5:2 -:2 A5:2 -:2 C6:4 B5:4 | A5:8 E5:8 | F5:2 -:2 A5:2 -:2 C6:4 D6:4 | B5:8 G#5:8'
         ],
         lead: 'bell', leadVel: 0.6, arp: null, ostinato: true, bassPat: null, drums: 'tense'
+    },
+    oorasu: {
+        bpm: 100,
+        chords: [chord('D2', 'D4', 'F4', 'A4'), chord('D2', 'D4', 'F4', 'A4'), chord('G2', 'D4', 'G4', 'A#4'), chord('A2', 'C#4', 'E4', 'G4'),
+            chord('D2', 'D4', 'F4', 'A4'), chord('G2', 'D4', 'G4', 'A#4'), chord('E2', 'E4', 'G4', 'A#4'), chord('A2', 'C#4', 'E4', 'G4')],
+        melody: [
+            'D5:6 E5:2 F5:8 | E5:4 D5:4 A4:8 | A#4:4 A4:4 G4:4 A#4:4 | A4:16 | D5:6 E5:2 F5:8 | G5:4 F5:4 E5:4 D5:4 | E5:4 F5:4 G5:4 A#5:4 | A5:12 -:4',
+            'A5:4 -:2 A5:2 A#5:4 A5:4 | F5:8 D5:8 | G5:4 -:2 G5:2 A5:4 G5:4 | E5:8 C#5:8 | D5:4 F5:4 A5:4 D6:4 | C6:4 A#5:4 A5:4 G5:4 | G5:4 E5:4 D5:4 E5:4 | C#5:16'
+        ],
+        lead: 'pluck', leadVel: 0.85, arp: null, ostinato: 'pulse', bassPat: null, drums: 'oorasu', bells: true
     }
 };
 
@@ -204,11 +215,12 @@ class Player {
         const barDur = spb * 16;
         // 和音・ベース
         if (s === 0) {
-            INST.pad(a, out, t, ch.slice(1), barDur, song.name === 'riichi' ? 0.9 : 1);
+            INST.pad(a, out, t, ch.slice(1), barDur, song.name === 'riichi' ? 0.9 : song.name === 'oorasu' ? 1.15 : 1);
             if (song.bells && step % 64 === 0) INST.bell(a, out, t + spb * 2, ch[ch.length - 1] + 24, 4, 0.5);
         }
         if (song.bassPat) for (const [at, len, iv] of song.bassPat) if (s === at) INST.bass(a, out, t, ch[0] + (iv === 7 ? 7 : 0), len * spb);
-        if (song.ostinato && s % 2 === 0) {
+        if (song.ostinato === 'pulse' && s % 2 === 0) INST.bass(a, out, t, ch[0] + (s % 4 ? 12 : 0), spb * 1.4, s % 4 ? 0.5 : 0.8);
+        else if (song.ostinato && s % 2 === 0) {
             const pat = [0, 0, 12, 0, 10, 0, 12, 7];
             INST.bass(a, out, t, ch[0] + pat[(s / 2) % 8], spb * 1.6, 0.75);
         }
@@ -222,6 +234,12 @@ class Player {
         // リズム
         if (song.drums === 'soft') { if (s === 0 || s === 8) INST.kick(a, out, t, 0.6); if (s % 4 === 2) INST.shaker(a, out, t, 0.8); }
         if (song.drums === 'calm') { if (s === 0) INST.kick(a, out, t, 0.45); if (s % 4 === 2) INST.hat(a, out, t, 0.6); }
+        if (song.drums === 'oorasu') {
+            // 太鼓：ドン・・ドン・ドン（3+3+2）、時計の チクタク、4小節ごとに たたみかける
+            if (s === 0) INST.kick(a, out, t, 1); else if (s === 6) INST.kick(a, out, t, 0.6); else if (s === 10) INST.kick(a, out, t, 0.75);
+            if (bar % 4 === 3 && s >= 12) INST.kick(a, out, t, 0.5 + (s - 12) * 0.15);
+            if (s % 4 === 0) INST.hat(a, out, t, 0.7); else if (s % 2 === 0) INST.hat(a, out, t, 0.25);
+        }
         if (song.drums === 'tense') { if (s % 8 === 0) INST.kick(a, out, t, 0.8); INST.hat(a, out, t, s % 4 === 2 ? 0.9 : 0.4); }
     }
 

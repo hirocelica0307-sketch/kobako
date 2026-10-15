@@ -795,3 +795,96 @@ img[src*="assets/avatars/"] { padding: 0 !important; }
 .inv-btns .btn { color: #fff; }
 .inv-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 101; background: rgba(8, 22, 14, .96); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 14px; font-size: 14px; width: min(92vw, 420px); text-align: center; }
 .inv-wait { background: rgba(255, 210, 87, .1); border: 1px solid rgba(255, 210, 87, .4); border-radius: 12px; padding: 8px 10px; font-size: 13.5px; }
+
+/* ── 鳴ける とき：だれの どの 牌か ── */
+.claiming .seat .river .t:not(.claim-target), .claiming .seat .melds, .claiming .seat .backs { opacity: .3; filter: saturate(.6); transition: opacity .2s; }
+.river .t.claim-target { position: relative; z-index: 6; transform: scale(1.35) !important; animation: claim-ring .6s ease-in-out infinite alternate;
+  box-shadow: inset 0 0 0 1px rgba(80,60,30,.18), 0 0 0 3px #ffe14d, 0 0 18px 6px rgba(255, 225, 77, .9) !important; }
+@keyframes claim-ring { to { box-shadow: inset 0 0 0 1px rgba(80,60,30,.18), 0 0 0 4px #fff, 0 0 26px 10px rgba(255, 240, 150, 1) !important; } }
+.claim-tag { position: absolute; z-index: 7; transform: translate(-50%, calc(-100% - 10px)); background: #ffe14d; color: #2b2005; font-size: 11.5px; font-weight: 800; padding: 3px 8px; border-radius: 8px; white-space: nowrap; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+.claim-tag::after { content: ""; position: absolute; left: 50%; bottom: -6px; margin-left: -6px; border: 6px solid transparent; border-top-color: #ffe14d; border-bottom: 0; }
+.claim-info { position: absolute; z-index: 8; left: 50%; bottom: 6px; transform: translateX(-50%); max-width: calc(100% - 12px); background: rgba(8, 22, 14, .94); border: 2px solid #ffe14d; border-radius: 12px; padding: 6px 10px; display: flex; gap: 6px 12px; align-items: center; box-shadow: 0 4px 14px rgba(0,0,0,.5); pointer-events: none; animation: ci-pop .2s ease-out; }
+@keyframes ci-pop { from { opacity: 0; transform: translate(-50%, 8px); } }
+.ci-head { display: flex; align-items: center; gap: 6px; font-size: 12.5px; line-height: 1.25; white-space: nowrap; }
+.ci-head small { font-size: 11px; color: var(--muted); }
+.ci-head img { width: 30px; height: 30px; border-radius: 50%; background: #f6e7c8; flex: none; }
+.ci-opts { display: flex; flex-direction: column; gap: 4px; border-left: 1px dashed rgba(255,255,255,.25); padding-left: 10px; }
+.ci-opt { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+.ci-opt b { color: #ffe14d; min-width: 2.2em; }
+.ci-tiles { display: inline-flex; align-items: flex-end; gap: 1px; }
+.ci-tiles i { font-style: normal; color: var(--muted); margin: 0 3px; }
+.claim-info .t.ci-t { --tw: 22px; }
+.claim-info .t.ci-t.big { --tw: 30px; }
+.claim-info .t.ci-target { box-shadow: inset 0 0 0 1px rgba(80,60,30,.18), 0 0 0 2px #ffe14d; }
+.claim-info .t.ci-t.mine { box-shadow: inset 0 0 0 1px rgba(80,60,30,.18), 0 0 0 2px #ffb020; }
+.ci-note { color: #ffd0c8; font-size: 12.5px; font-weight: 700; }
+.g-hand .t.claim-use { box-shadow: inset 0 0 0 1px rgba(80,60,30,.18), 0 calc(var(--tw) * .09) 0 var(--caramel2), 0 0 0 3px #ffb020, 0 0 12px rgba(255, 176, 32, .85); transform: translateY(calc(var(--htw) * -.15)); }
+
+/* ── 符と 役を いちから（fukihon.js） ── */
+.ks-tabs button { padding: 10px 2px; font-size: 13.5px; }
+.fk-lead { font-size: 14px; line-height: 1.75; margin: 0 0 10px; }
+.fk-total { display: flex; align-items: center; gap: 10px; margin: 6px 0 12px; font-size: 13px; color: var(--muted); }
+.fk-bar { flex: 1; height: 10px; border-radius: 6px; background: rgba(0,0,0,.35); overflow: hidden; }
+.fk-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffd257, #7dff9a); border-radius: 6px; }
+.fk-steps { display: grid; gap: 8px; }
+.fk-step { display: flex; align-items: center; gap: 10px; text-align: left; border: 2px solid var(--line); background: var(--panel); border-radius: 12px; padding: 9px 10px; color: inherit; }
+.fk-step.now { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(255, 210, 87, .25); }
+.fk-step.done { border-color: #3f8a5e; }
+.fk-step.lock { opacity: .45; }
+.fk-no { flex: none; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #1f4a33; border: 2px solid var(--line); font-weight: 900; font-size: 14px; }
+.fk-no.big { width: 40px; height: 40px; font-size: 18px; border-color: var(--gold); color: var(--gold); }
+.fk-step.done .fk-no { background: #2f6a49; border-color: #7dff9a; }
+.fk-step.now .fk-no { border-color: var(--gold); color: var(--gold); }
+.fk-tx { flex: 1; min-width: 0; }
+.fk-tx b { display: block; font-size: 15px; }
+.fk-tx small { display: block; color: var(--muted); font-size: 12px; margin-top: 1px; }
+.fk-st { flex: none; font-size: 11.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 2px; }
+.fk-st .ic svg { width: 13px; height: 13px; }
+.fk-step.done .fk-st { color: #7dff9a; }
+.fk-step.now .fk-st { color: var(--gold); font-weight: 700; }
+.fk-fin { margin-top: 14px; background: rgba(255, 210, 87, .1); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 12px; font-size: 14px; line-height: 1.7; }
+.fk-back { display: inline-flex; align-items: center; gap: 4px; margin-bottom: 8px; font-size: 13.5px; }
+.fk-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.fk-head h3 { margin: 0; font-size: 18px; color: var(--gold); }
+.fk-head small { color: var(--muted); font-size: 12.5px; }
+.fk-lesson { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px 12px 8px; }
+.fk-lesson ul, .fk-lesson ol { padding-left: 1.4em; margin: 6px 0; }
+.fk .fk-t td:last-child { text-align: center; font-weight: 800; color: #fff; font-size: 14px; }
+.fk .fk-t th:last-child, .fk .fk-t th:nth-child(2) { text-align: center; }
+.fk .fk-t td small { color: var(--muted); }
+.fk-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+.fk-2 > div { background: rgba(0,0,0,.25); border-radius: 10px; padding: 8px 10px; font-size: 13px; line-height: 1.6; }
+.fk-2 b { color: var(--gold); font-size: 16px; }
+.fk-row { background: rgba(0,0,0,.2); border-radius: 10px; padding: 6px 10px; margin: 6px 0; font-size: 13.5px; line-height: 1.6; }
+.fk-flow { background: rgba(255, 210, 87, .1); border: 1px solid var(--gold); border-radius: 10px; padding: 8px 10px; font-size: 14px; text-align: center; line-height: 1.7; }
+.fk-in { display: inline-flex; vertical-align: middle; margin: 0 2px; }
+.fk-in .t { --tw: 20px; }
+.fk-in .meld .t, .fk-in .fk-g .t { --tw: 20px; }
+.fk-g { display: inline-flex; align-items: flex-end; gap: 1px; }
+.fk .t.fk-win { box-shadow: inset 0 0 0 1px rgba(80,60,30,.18), 0 0 0 2px #ffd400, 0 0 10px 2px rgba(255, 212, 0, .75); }
+.fk-qtop { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.fk-qtop .fk-back { margin: 0; }
+.fk-dots { display: flex; gap: 5px; margin: 6px 0 10px; }
+.fk-dots i { flex: 1; height: 6px; border-radius: 4px; background: rgba(255,255,255,.12); }
+.fk-dots i.cur { background: var(--gold); }
+.fk-dots i.ok { background: #7dff9a; }
+.fk-dots i.ng { background: #ff8a80; }
+.fk-show { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 14px; padding: 10px 0 4px; }
+.fk-show .t, .fk-show .meld .t { --tw: var(--qtw, 36px); }
+.fk-sg { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.fk-sg small { font-size: 12px; color: var(--muted); }
+.fk-sg.is-win small { color: #ffd400; font-weight: 700; }
+.fk-hand { justify-content: center; }
+.fk-hand .meld .t { --tw: var(--qtw); }
+.fk-hand.grouped .gap { width: 10px; }
+.fk-parts { margin: 8px 0; }
+.fk-ex { font-size: 14px; line-height: 1.7; margin: 6px 0; }
+.q-choices.two { grid-template-columns: 1fr 1fr; }
+.fk-recap { margin-top: 12px; }
+.fk-res { text-align: center; background: var(--panel); border: 2px solid var(--line); border-radius: 14px; padding: 16px 12px; }
+.fk-res.ok { border-color: #7dff9a; }
+.fk-res.ng { border-color: #ff8a80; }
+.fk-score { font-size: 48px; font-weight: 900; color: var(--gold); line-height: 1.1; }
+.fk-score small { font-size: 20px; color: var(--muted); }
+.fk-res p { font-size: 15px; line-height: 1.7; margin: 8px 0 0; }
+.fk span.t { display: block; flex: none; }

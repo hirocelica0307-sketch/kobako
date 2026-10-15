@@ -12,6 +12,7 @@ import { DRILL } from './drill-data.js';
 import * as CK from './drill/check.js';
 import { countsOf, agariOf, tableItems } from './drill/agari.js';
 import { LESSONS, replay, finalCtx, speechText } from './yaku-lessons.js';
+import { STEPS, makeSession, makeHand, countFu, setFu, pairFu, PER_STEP } from './fu-course.js';
 
 /** '123m456p789s11z' → 牌の id（同じ 種類は 0,1,2,3 ばんめの 牌を じゅんに つかう。0 は 赤5） */
 export function P(str) {
@@ -456,6 +457,76 @@ export function runTests({ quick = false } = {}) {
             }
         }
         t('役を おぼえる：読みあげで 麻雀の ことばを 正しい 読みに（雀頭→ジャントウ など）', !bad.length, bad.slice(0, 10).join(' '));
+    }
+
+    /* ── 符と 役を いちから：きまりの 表が エンジンと 同じ・問題の こたえが 正しい ── */
+    {
+        const suitOf2 = k => (k < 27 ? Math.floor(k / 9) : 3);
+        const ctxBase = { doubleRiichi: false, ippatsu: false, rinshan: false, chankan: false, haitei: false, tenhou: false, chiihou: false, doraInd: [], uraInd: [], rules: DEFAULT_RULES };
+        // 刻子・槓子：ぜんぶの 牌 × 明刻・暗刻・明槓・暗槓
+        const bad = [];
+        for (let k = 0; k < 34; k++) {
+            const [X, Y] = [0, 1, 2].filter(x => x !== suitOf2(k)).slice(0, 2).map(x => x * 9);
+            for (const type of ['pon', 'closed', 'minkan', 'ankan']) {
+                const set = new Array(type === 'minkan' || type === 'ankan' ? 4 : 3).fill(0).map((_, i) => k * 4 + i);
+                const filler = [X, X + 1, X + 2, X + 5, X + 6, X + 7, Y + 1, Y + 2].map(q => q * 4 + 1);
+                const pair = [(Y + 7) * 4 + 1, (Y + 7) * 4 + 2];
+                const winTile = (Y + 3) * 4 + 1;
+                const melds = type === 'closed' ? [] : [{ type: type === 'ankan' ? 'ankan' : type, tiles: set, called: set[0], from: 3 }];
+                const closed = [...filler, ...pair, winTile, ...(type === 'closed' ? set : [])];
+                const menzen = type === 'closed' || type === 'ankan';
+                const r = evaluateWin({ ...ctxBase, closed, melds, winTile, tsumo: false, seatWind: 1, roundWind: 0, riichi: menzen, houtei: !menzen });
+                const part = r && r.fuParts && r.fuParts.find(x => /^(明刻|暗刻|明槓|暗槓)/.test(x[0]));
+                const want = setFu(k, { open: type === 'pon' || type === 'minkan', kan: type === 'minkan' || type === 'ankan' });
+                if (!part || part[1] !== want) bad.push(`${k}${type}:${part ? part[1] : '-'}≠${want}`);
+            }
+        }
+        t('符の いちから：刻子・槓子の 符の 表が エンジンと 同じ（34種 × 4とおり）', !bad.length, bad.slice(0, 8).join(' '));
+        // 雀頭：ぜんぶの 牌 × 場風・自風
+        const bad2 = [];
+        for (let k = 0; k < 34; k++) for (let seat = 0; seat < 4; seat++) for (const round of [0, 1]) {
+            const [X, Y] = [0, 1, 2].filter(x => x !== suitOf2(k)).slice(0, 2).map(x => x * 9);
+            const chi = [X, X + 1, X + 2].map(q => q * 4 + 1);
+            const closed = [...[X + 5, X + 6, X + 7, Y, Y + 1, Y + 2, Y + 5, Y + 6].map(q => q * 4 + 1), k * 4, k * 4 + 1];
+            const winTile = (Y + 7) * 4 + 1;
+            const r = evaluateWin({ ...ctxBase, closed: [...closed, winTile], melds: [{ type: 'chi', tiles: chi, called: chi[0], from: 3 }], winTile, tsumo: false, seatWind: seat, roundWind: round, riichi: false, houtei: true });
+            const got = r ? r.fuParts.filter(x => x[0].startsWith('雀頭')).reduce((a, x) => a + x[1], 0) : -1;
+            if (got !== pairFu(k, seat, round)) bad2.push(`${k}/${seat}/${round}:${got}`);
+        }
+        t('符の いちから：雀頭の 符の 表が エンジンと 同じ（34種 × 場風・自風）', !bad2.length, bad2.slice(0, 8).join(' '));
+        // 待ち：つくった 手の 待ちの 符が エンジンと 同じ
+        const bad3 = [];
+        const rng = makeRng('fukihon-wait');
+        const WF = { ryanmen: 0, shanpon: 0, kanchan: 2, penchan: 2, tanki: 2 };
+        for (const w of Object.keys(WF)) for (let i = 0; i < 30; i++) {
+            const h = makeHand(rng, { wait: w, trips: 0.4, open: i % 2 });
+            if (!h) { bad3.push(w + ':つくれない'); break; }
+            const wp = h.result.fuParts.filter(x => /待ち$/.test(x[0])).reduce((a, x) => a + x[1], 0);
+            if (h.result.wait !== w || wp !== WF[w]) bad3.push(`${w}:${h.result.wait}/${wp}`);
+        }
+        t('符の いちから：待ち 5種類（両面・シャンポン 0符／嵌張・辺張・単騎 2符）が エンジンと 同じ', !bad3.length, bad3.slice(0, 6).join(' '));
+        // 問題：ぜんぶの ステップで 8問・こたえが 選択肢に ある・手の 問題は エンジンの 符と 同じ
+        const bad4 = [];
+        const rq = makeRng('fukihon-q');
+        let hands = 0;
+        for (let si = 0; si < STEPS.length; si++) for (let n = 0; n < (quick ? 4 : 25); n++) {
+            const qs = makeSession(si, rq);
+            if (qs.length !== PER_STEP) bad4.push(`${STEPS[si].id}:${qs.length}問`);
+            for (const q of qs) {
+                if (!q.choices.includes(q.answer) || new Set(q.choices).size !== q.choices.length || q.choices.length < 2) bad4.push(`${STEPS[si].id}:選択肢 ${q.choices}/${q.answer}`);
+                if (q.hand) {
+                    hands++;
+                    const h = q.hand;
+                    const ids = [...h.ctx.closed, ...h.ctx.melds.flatMap(m => m.tiles)];
+                    const cnt = toCounts(ids);
+                    if (new Set(ids).size !== ids.length || cnt.some(c => c > 4) || ids.length < 14) bad4.push(`${STEPS[si].id}:牌の 数`);
+                    const r = evaluateWin(h.ctx);
+                    if (!r || `${r.fu}符` !== q.answer) bad4.push(`${STEPS[si].id}:エンジン ${r && r.fu}≠${q.answer}`);
+                    if (!h.chiitoi && `${countFu(h).fu}符` !== q.answer) bad4.push(`${STEPS[si].id}:自分で 数えた 符が ちがう`);
+                }
+            }
+        }
+        t(`符の いちから：${STEPS.length}ステップ ぜんぶ 問題が つくれて、手の 問題（${hands}問）の こたえが エンジンと 同じ`, !bad4.length, bad4.slice(0, 6).join(' '));
     }
     return rows;
 }
