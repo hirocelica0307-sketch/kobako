@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#140f2e">
+<meta name="description" content="ルーレット・あみだくじ・ビンゴ・おみくじ・ガチャガチャ・チームわけ・席がえ・発表の じゅんばん・ばくだんリレー。派手な 演出の くじびき アプリ。">
+<title>くじびき ひろば</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=M+PLUS+Rounded+1c:wght@500;800&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="assets/app-icon.png" type="image/png">
+<link rel="apple-touch-icon" href="assets/app-icon-180.png">
+</head>
+<body data-mode="menu">
+<div id="bgfx" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<div id="app">
+  <header id="bar">
+    <button id="btnHome" class="btn ghost" aria-label="メニューへ もどる"><span class="ic" data-ic="house"></span><span class="wide-only">メニュー</span></button>
+    <h1 id="barTitle"><img src="assets/emoji/admission-tickets.webp" alt=""><span>くじびき ひろば</span></h1>
+    <div class="bar-right">
+      <button id="btnEdit" class="btn"><span class="ic" data-ic="pencil-simple"></span><span>中身<span class="wide-only">・せってい</span></span></button>
+      <button id="btnSound" class="btn ghost icon" aria-label="おと"></button>
+      <button id="btnFull" class="btn ghost icon" aria-label="大きく 表示"></button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ================= メニュー ================= -->
+    <section class="scr menu" data-scr="menu">
+      <div class="menu-head">
+        <img src="assets/emoji/admission-tickets.webp" alt="" class="logo-img">
+        <div>
+          <h2 class="logo">くじびき ひろば</h2>
+          <p>どの くじで あそぶ？</p>
+        </div>
+      </div>
+      <div class="cards">
+        <button class="card" data-go="roulette" style="--c1:#ff4d6d;--c2:#ff9f1c"><img src="assets/emoji/party-popper.webp" alt=""><b>ルーレット</b><small>番号・名前・ことばを 入れて くるくる！</small></button>
+        <button class="card" data-go="amida" style="--c1:#ff7a18;--c2:#c2410c"><img src="assets/emoji/fire.webp" alt=""><b>あみだくじ</b><small>導火線が パチパチ もえて おりていく</small></button>
+        <button class="card" data-go="bingo" style="--c1:#3a86ff;--c2:#6d28d9"><img src="assets/emoji/crystal-ball.webp" alt=""><b>ビンゴ</b><small>ガラガラ まわすと 玉が ころがり出る</small></button>
+        <button class="card" data-go="omikuji" style="--c1:#e11d48;--c2:#7f1d1d"><img src="assets/emoji/shinto-shrine.webp" alt=""><b>おみくじ</b><small>はこを シャカシャカ ふって 1本 ひく</small></button>
+        <button class="card" data-go="gacha" style="--c1:#ec4899;--c2:#8b5cf6"><img src="assets/emoji/confetti-ball.webp" alt=""><b>ガチャガチャ</b><small>ハンドルを まわして カプセルを パカッ</small></button>
+        <button class="card" data-go="bomb" style="--c1:#475569;--c2:#111827"><img src="assets/emoji/bomb.webp" alt=""><b>ばくだん リレー</b><small>だれの ところで ばくはつ する？</small></button>
+        <button class="card" data-go="team" style="--c1:#10b981;--c2:#0e7490"><img src="assets/emoji/glowing-star.webp" alt=""><b>チームわけ・席がえ</b><small>名前の カードが とんでいく</small></button>
+        <button class="card" data-go="order" style="--c1:#f59e0b;--c2:#b45309"><img src="assets/emoji/trophy.webp" alt=""><b>発表の じゅんばん</b><small>スロットで 1人ずつ きめる</small></button>
+      </div>
+      <p class="menu-foot">入れた 名前や せっていは この 端末の ブラウザに だけ 保存します（どこにも おくりません）。</p>
+    </section>
+
+    <!-- ================= ① ルーレット ================= -->
+    <section class="scr mode roulette" data-scr="roulette" hidden>
+      <div class="stage">
+        <div class="rl-area">
+          <div class="rl-rays" aria-hidden="true"></div>
+          <div class="rl-wrap">
+            <canvas class="rl-cv" aria-label="ルーレット"></canvas>
+            <button class="rl-hub" aria-label="まわす">まわす</button>
+          </div>
+        </div>
+        <aside class="side">
+          <h3>けっか</h3>
+          <ol class="history"></ol>
+        </aside>
+      </div>
+      <div class="actions">
+        <span class="rl-left chip" hidden>のこり <b></b> <button class="btn ghost sm" data-act="restore"><span class="ic" data-ic="arrow-counter-clockwise"></span>もどす</button></span>
+        <button class="btn huge primary" data-act="spin"><span class="ic" data-ic="play"></span><span>まわす！</span></button>
+      </div>
+      <div class="sheet-wrap" hidden><div class="sheet">
+        <header><h2><span class="ic" data-ic="pencil-simple"></span>ルーレットの 中身</h2><button class="btn primary" data-close>OK</button></header>
+        <div class="sheet-body">
+          <div class="field">
+            <label>中身（1行に 1こ。番号・名前・ことば なんでも）</label>
+            <div class="listed">
+              <textarea rows="8" spellcheck="false"></textarea>
+              <div class="gen">
+                <span class="count"></span>
+                <span class="grow"></span>
+                <input type="number" data-from value="1" aria-label="はじめの 番号">〜<input type="number" data-to value="30" aria-label="おわりの 番号">
+                <button class="btn sm" data-gen><span class="ic" data-ic="list-numbers"></span>番号で つくる</button>
+                <button class="btn ghost sm" data-clear><span class="ic" data-ic="trash"></span>けす</button>
+              </div>
+            </div>
+            <button class="btn ghost sm" data-act="mix"><span class="ic" data-ic="shuffle"></span>ならびを まぜる</button>
+          </div>
+          <div class="field">
+            <label>まわる 時間</label>
+            <div class="seg">
+              <label><input type="radio" name="rlDur" value="short"><span>みじかい</span></label>
+              <label><input type="radio" name="rlDur" value="normal"><span>ふつう</span></label>
+              <label><input type="radio" name="rlDur" value="long"><span>ながい（ドキドキ）</span></label>
+            </div>
+          </div>
+          <div class="field">
+            <label class="check"><input type="checkbox" name="rlRemove"><span>当たった ものは つぎから はずす（同じ ものが 2回 出ない）</span></label>
+          </div>
+          <div class="field">
+            <button class="btn ghost" data-act="clearHist"><span class="ic" data-ic="trash"></span>けっかの きろくを けす</button>
+          </div>
+          <p class="note">「大あたり」「1等」を 入れると ものすごく 派手に、「はずれ」は ざんねんな 演出に なります。</p>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ================= ② あみだくじ ================= -->
+    <section class="scr mode amida" data-scr="amida" hidden data-fx="fuse">
+      <div class="stage">
+        <div class="am-board">
+          <div class="am-top"></div>
+          <div class="am-mid"><canvas class="am-cv" aria-label="あみだくじ"></canvas></div>
+          <div class="am-bot"></div>
+        </div>
+      </div>
+      <div class="actions">
+        <span class="hint">上の 名前を タップ ／ 線の あいだを タップで よこ線を たせる</span>
+        <button class="btn ghost" data-act="replay" hidden><span class="ic" data-ic="arrow-counter-clockwise"></span>おなじ あみだで もういちど</button>
+        <button class="btn ghost" data-act="again"><span class="ic" data-ic="shuffle"></span>あたらしい あみだ</button>
+        <button class="btn huge primary" data-act="all"><span class="ic" data-ic="play"></span><span>ぜんいん スタート</span></button>
+      </div>
+      <div class="sheet-wrap" hidden><div class="sheet">
+        <header><h2><span class="ic" data-ic="pencil-simple"></span>あみだくじの 中身</h2><button class="btn primary" data-close>OK</button></header>
+        <div class="sheet-body">
+          <p class="am-count note"></p>
+          <div class="two">
+            <div class="field">
+              <label>上（ひく 人の 名前）2〜20人</label>
+              <div class="listed top">
+                <textarea rows="8" spellcheck="false"></textarea>
+                <div class="gen">
+                  <span class="count"></span><span class="grow"></span>
+                  <input type="number" data-from value="1" aria-label="はじめ">〜<input type="number" data-to value="6" aria-label="おわり">
+                  <input type="text" data-suffix value="ばん" class="suffix" aria-label="あとに つける ことば">
+                  <button class="btn sm" data-gen><span class="ic" data-ic="list-numbers"></span>つくる</button>
+                  <button class="btn ghost sm" data-clear aria-label="けす"><span class="ic" data-ic="trash"></span></button>
+                </div>
+              </div>
+            </div>
+            <div class="field">
+              <label>下（あたり・ことば）</label>
+              <div class="listed bot">
+                <textarea rows="8" spellcheck="false"></textarea>
+                <div class="gen">
+                  <span class="count"></span><span class="grow"></span>
+                  <button class="btn ghost sm" data-act="mixBot"><span class="ic" data-ic="shuffle"></span>まぜる</button>
+                  <button class="btn ghost sm" data-clear aria-label="けす"><span class="ic" data-ic="trash"></span></button>
+                </div>
+              </div>
+              <div class="mini-form">
+                <input type="text" name="amAtariW" value="あたり" aria-label="あたりの ことば"> を
+                <input type="number" name="amAtariN" value="1" min="0" max="20" aria-label="あたりの かず"> こ、のこりは
+                <input type="text" name="amHazW" value="はずれ" aria-label="はずれの ことば">
+                <button class="btn sm" data-act="mkAtari">で つくる</button>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label>演出</label>
+            <div class="seg">
+              <label><input type="radio" name="amFx" value="fuse"><span>導火線（パチパチ もえる）</span></label>
+              <label><input type="radio" name="amFx" value="light"><span>光の 玉（キラキラ）</span></label>
+            </div>
+          </div>
+          <div class="field">
+            <label>おりる はやさ</label>
+            <div class="seg">
+              <label><input type="radio" name="amSpeed" value="slow"><span>ゆっくり</span></label>
+              <label><input type="radio" name="amSpeed" value="normal"><span>ふつう</span></label>
+              <label><input type="radio" name="amSpeed" value="fast"><span>はやい</span></label>
+            </div>
+          </div>
+          <div class="field">
+            <label class="check"><input type="checkbox" name="amHideRes"><span>下の ことばを かくす（ついたら めくれる）</span></label>
+            <label class="check"><input type="checkbox" name="amHideRungs"><span>よこ線を かくす（通った ところ だけ 見える）</span></label>
+          </div>
+          <div class="field"><button class="btn ghost" data-act="newRungs"><span class="ic" data-ic="shuffle"></span>よこ線を つくりなおす</button></div>
+          <p class="note">おりている ときに 線の ところを タップすると はやおくり に なります。</p>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ================= ③ ビンゴ ================= -->
+    <section class="scr mode bingo" data-scr="bingo" hidden>
+      <div class="stage">
+        <div class="bg-machine"><canvas class="bg-cv" aria-label="ガラガラ 抽選機"></canvas><div class="bg-banner"></div></div>
+        <aside class="bg-panel">
+          <div class="bg-now"></div>
+          <div class="bg-cnt"></div>
+          <div class="bg-recent"></div>
+          <div class="bg-board"></div>
+        </aside>
+      </div>
+      <div class="actions">
+        <button class="btn ghost" data-act="reach">リーチ！</button>
+        <button class="btn ghost" data-act="bingo">ビンゴ！</button>
+        <button class="btn huge primary" data-act="spin"><span class="ic" data-ic="arrows-clockwise"></span><span class="lbl">ガラガラ まわす</span></button>
+      </div>
+      <div class="sheet-wrap" hidden><div class="sheet">
+        <header><h2><span class="ic" data-ic="pencil-simple"></span>ビンゴの 中身</h2><button class="btn primary" data-close>OK</button></header>
+        <div class="sheet-body">
+          <div class="field">
+            <label>玉の しゅるい</label>
+            <div class="seg">
+              <label><input type="radio" name="bgKind" value="num"><span>番号</span></label>
+              <label><input type="radio" name="bgKind" value="list"><span>ことば・名前</span></label>
+            </div>
+          </div>
+          <div class="field bg-num">
+            <label>番号の はんい（300こ まで）</label>
+            <div class="mini-form">
+              <input type="number" name="bgFrom" value="1" aria-label="はじめ"> 〜 <input type="number" name="bgTo" value="75" aria-label="おわり">
+            </div>
+            <label class="check"><input type="checkbox" name="bgLetters"><span>B・I・N・G・O の 文字と 色を つける（1〜75 の とき）</span></label>
+          </div>
+          <div class="field bg-list" hidden>
+            <label>玉の 中身（1行に 1こ）</label>
+            <div class="listed">
+              <textarea rows="8" spellcheck="false"></textarea>
+              <div class="gen">
+                <span class="count"></span><span class="grow"></span>
+                <input type="number" data-from value="1" aria-label="はじめ">〜<input type="number" data-to value="30" aria-label="おわり">
+                <button class="btn sm" data-gen><span class="ic" data-ic="list-numbers"></span>番号で つくる</button>
+                <button class="btn ghost sm" data-clear aria-label="けす"><span class="ic" data-ic="trash"></span></button>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label>まわす 時間</label>
+            <div class="seg">
+              <label><input type="radio" name="bgDur" value="short"><span>みじかい</span></label>
+              <label><input type="radio" name="bgDur" value="normal"><span>ふつう</span></label>
+              <label><input type="radio" name="bgDur" value="long"><span>ながい</span></label>
+            </div>
+          </div>
+          <div class="field"><button class="btn ghost" data-act="reset"><span class="ic" data-ic="arrow-counter-clockwise"></span>さいしょから（玉を ぜんぶ もどす）</button></div>
+          <p class="note">中身を かえると、さいしょから に なります。</p>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ================= ④ おみくじ ================= -->
+    <section class="scr mode omikuji" data-scr="omikuji" hidden>
+      <div class="stage">
+        <div class="om-scene">
+          <img class="om-shrine" src="assets/emoji/shinto-shrine.webp" alt="">
+          <div class="om-box" role="button" aria-label="おみくじの はこ（こすって ふる）">
+            <div class="om-body">
+              <i class="f l"></i><i class="f c"><span class="om-label">おみくじ</span></i><i class="f r"></i>
+            </div>
+            <div class="om-top"><span class="om-hole"></span></div>
+            <div class="om-stick"><span>番</span><b>1</b><span>第</span></div>
+          </div>
+          <div class="om-meter"><i></i></div>
+          <p class="om-hint">はこを 指で こすって シャカシャカ ふろう！</p>
+        </div>
+        <div class="om-paper" hidden>
+          <div class="om-paper-in">
+            <div class="om-head">おみくじ</div>
+            <div class="om-num"></div>
+            <div class="om-word"></div>
+            <img src="assets/emoji/scroll.webp" alt="" class="om-scroll">
+          </div>
+          <button class="btn huge primary" data-act="again"><span class="ic" data-ic="arrow-counter-clockwise"></span><span>もういちど ひく</span></button>
+        </div>
+      </div>
+      <div class="actions">
+        <span class="om-left chip"></span>
+        <button class="btn ghost" data-act="motion"><span class="ic" data-ic="device-mobile"></span>端末を ふって ひく</button>
+        <button class="btn huge primary" data-act="shake"><span class="ic" data-ic="hand-tap"></span><span>シャカシャカ ふる</span></button>
+      </div>
+      <div class="sheet-wrap" hidden><div class="sheet">
+        <header><h2><span class="ic" data-ic="pencil-simple"></span>おみくじの 中身</h2><button class="btn primary" data-close>OK</button></header>
+        <div class="sheet-body">
+          <div class="field">
+            <label>ひきかた</label>
+            <div class="seg">
+              <label><input type="radio" name="omLimit" value="stock"><span>本数を きめる（ひいた 棒は もどさない）</span></label>
+              <label><input type="radio" name="omLimit" value="inf"><span>かぎりなし（数は 出やすさ）</span></label>
+            </div>
+          </div>
+          <div class="field">
+            <label>しゅるいと 本数</label>
+            <div class="presets">
+              <button class="btn ghost sm" data-preset="atari">あたり・はずれ</button>
+              <button class="btn ghost sm" data-preset="unsei">大吉〜凶</button>
+              <button class="btn ghost sm" data-preset="tou">1等・2等・3等</button>
+            </div>
+            <div class="pz">
+              <div class="pz-head"><span>なまえ</span><span>本数</span><span></span><span>演出</span><span></span></div>
+              <div class="pz-rows"></div>
+              <div class="pz-foot"><button class="btn ghost sm" data-add><span class="ic" data-ic="plus"></span>しゅるいを ふやす</button><span class="pz-total"></span></div>
+            </div>
+          </div>
+          <div class="field">
+            <label class="check"><input type="checkbox" name="omShowLeft"><span>のこりの 本数の うちわけを 画面に 出す</span></label>
+          </div>
+          <div class="field"><button class="btn ghost" data-act="refill"><span class="ic" data-ic="arrow-counter-clockwise"></span>ぼうを ぜんぶ もどす</button></div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ================= ⑤ ガチャガチャ ================= -->
+    <section class="scr mode gacha" data-scr="gacha" hidden>
+      <div class="stage">
+        <div class="gc-wrap"><canvas class="gc-cv" aria-label="ガチャガチャ"></canvas></div>
+      </div>
+      <div class="actions">
+        <span class="gc-left chip"></span>
+        <button class="btn huge primary" data-act="turn"><span class="ic" data-ic="arrows-clockwise"></span><span class="lbl">ハンドルを まわす</span></button>
+      </div>
+      <div class="sheet-wrap" hidden><div class="sheet">
+        <header><h2><span class="ic" data-ic="pencil-simple"></span>ガチャの 中身</h2><button class="btn primary" data-close>OK</button></header>
+        <div class="sheet-body">
+          <div class="field">
+            <label>ひきかた</label>
+            <div class="seg">
+              <label><input type="radio" name="gcLimit" value="stock"><span>こ数を きめる（なくなったら おわり）</span></label>
+              <label><input type="radio" name="gcLimit" value="inf"><span>かぎりなし（数は 出やすさ）</span></label>
+            </div>
+          </div>
+          <div class="field">
+            <label>中身と こ数</label>
+            <div class="pz">
+              <div class="pz-head"><span>なまえ</span><span>こ数</span><span></span><span>演出</span><span></span></div>
+              <div class="pz-rows"></div>
+              <div class="pz-foot"><button class="btn ghost sm" data-add><span class="ic" data-ic="plus"></span>しゅるいを ふやす</button><span class="pz-total"></span></div>
+            </div>
+          </div>
+          <div class="field"><button class="btn ghost" data-act="refill"><span class="ic" data-ic="arrow-counter-clockwise"></span>ぜんぶ もどす</button></div>
+          <p class="note">演出が「大あたり」の ものは 金色の カプセルで 出てきます。</p>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ================= ⑥ ばくだん リレー ================= -->
+    <section class="scr mode bomb" data-scr="bomb" hidden>
+      <div class="stage">
+        <div class="bm-wrap"><canvas class="bm-cv" aria-label="ばくだん"></canvas></div>
+      </div>
+      <div class="actions">
+        <span class="hint bm-hint"></span>
+        <button class="btn huge primary" data-act="start"><span class="ic" data-ic="play"></span><span class="lbl">スタート！</span></button>
+      </div>
+      <div class="sheet-wrap" hidden><div class="sheet">
+        <header><h2><span class="ic" data-ic="pencil-simple"></span>ばくだん リレーの せってい</h2><button class="btn primary" data-close>OK</button></header>
+        <div class="sheet-body">
+          <div class="field">
+            <label>あそびかた</label>
+            <div class="seg">
+              <label><input type="radio" name="bmMode" value="pass"><span>端末を まわす（となりへ わたす）</span></label>
+              <label><input type="radio" name="bmMode" value="circle"><span>画面の 中で まわす（名前の 中から 1人）</span></label>
+            </div>
+          </div>
+          <div class="field">
+            <label>ばくはつ までの 時間（この あいだの どこか。画面には 出ません）</label>
+            <div class="mini-form"><input type="number" name="bmMin" min="3" max="300" aria-label="みじかい ほう"> びょう 〜 <input type="number" name="bmMax" min="3" max="300" aria-label="ながい ほう"> びょう</div>
+          </div>
+          <div class="field bm-names" hidden>
+            <label>名前（1行に 1人・30人 まで）</label>
+            <div class="listed">
+              <textarea rows="7" spellcheck="false"></textarea>
+              <div class="gen">
+                <span class="count"></span><span class="grow"></span>
+                <input type="number" data-from value="1" aria-label="はじめ">〜<input type="number" data-to value="8" aria-label="おわり">
+                <input type="text" data-suffix value="ばん" class="suffix" aria-label="あとに つける ことば">
+                <button class="btn sm" data-gen><span class="ic" data-ic="list-numbers"></span>つくる</button>
+                <button class="btn ghost sm" data-clear aria-label="けす"><span class="ic" data-ic="trash"></span></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ================= ⑦ チームわけ・席がえ ================= -->
+    <section class="scr mode team" data-scr="team" hidden>
+      <div class="tm-tabs">
+        <button data-tab="team"><span class="ic" data-ic="users-three"></span>チームわけ</button>
+        <button data-tab="seat"><span class="ic" data-ic="chair"></span>席がえ</button>
+      </div>
+      <div class="stage">
+        <div class="tm-team">
+          <p class="tm-info"></p>
+          <div class="tm-deck" hidden><span>のこり <b></b></span></div>
+          <div class="tm-teams"></div>
+        </div>
+        <div class="tm-seat" hidden>
+          <div class="tm-front"></div>
+          <div class="tm-seats"></div>
+          <p class="tm-seatinfo"></p>
+        </div>
+      </div>
+      <div class="actions">
+        <span class="hint tm-seat-only">席を タップすると つかわない 席（×）に できます</span>
+        <button class="btn ghost tm-seat-only" data-act="flipView"><span class="ic" data-ic="arrows-clockwise"></span>むきを かえる</button>
+        <button class="btn ghost tm-seat-only" data-act="print"><span class="ic" data-ic="printer"></span>いんさつ</button>
+        <button class="btn ghost run-only" data-act="skip"><span class="ic" data-ic="fast-forward"></span>いっきに</button>
+        <button class="btn huge primary tm-team-only" data-act="team"><span class="ic" data-ic="shuffle"></span><span>チームを わける！</span></button>
+        <button class="btn huge primary tm-seat-only" data-act="seat"><span class="ic" data-ic="shuffle"></span><span>席がえ！</span></button>
+      </div>
+      <div class="sheet-wrap" hidden><div class="sheet">
+        <header><h2><span class="ic" data-ic="pencil-simple"></span>チームわけ・席がえの 中身</h2><button class="btn primary" data-close>OK</button></header>
+        <div class="sheet-body">
+          <div class="field">
+            <label>名前（1行に 1人・60人 まで）</label>
+            <div class="listed">
+              <textarea rows="8" spellcheck="false"></textarea>
+              <div class="gen">
+                <span class="count"></span><span class="grow"></span>
+                <input type="number" data-from value="1" aria-label="はじめ">〜<input type="number" data-to value="30" aria-label="おわり">
+                <input type="text" data-suffix value="ばん" class="suffix" aria-label="あとに つける ことば">
+                <button class="btn sm" data-gen><span class="ic" data-ic="list-numbers"></span>つくる</button>
+                <button class="btn ghost sm" data-clear aria-label="けす"><span class="ic" data-ic="trash"></span></button>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label>チームわけ</label>
+            <div class="seg">
+              <label><input type="radio" name="tmBy" value="count"><span>チームの かずで</span></label>
+              <label><input type="radio" name="tmBy" value="size"><span>1チームの 人数で</span></label>
+            </div>
+            <div class="mini-form tm-by-count"><input type="number" name="tmCount" min="2" max="12" aria-label="チームの かず"> チーム に わける</div>
+            <div class="mini-form tm-by-size" hidden><input type="number" name="tmSize" min="1" max="30" aria-label="1チームの 人数"> 人 まで の チームに わける</div>
+            <label>チームの 名前（1行に 1つ。空なら「1 はん」「2 はん」…）</label>
+            <textarea name="tmTeamNames" rows="3" placeholder="あかぐみ&#10;しろぐみ"></textarea>
+          </div>
+          <div class="field">
+            <label>席がえの 席（たて × よこ）</label>
+            <div class="mini-form"><input type="number" name="tmRows" min="1" max="10" aria-label="たての かず"> れつ（たて）× <input type="number" name="tmCols" min="1" max="10" aria-label="よこの かず"> こ（よこ）</div>
+          </div>
+          <div class="field">
+            <label>はやさ</label>
+            <div class="seg">
+              <label><input type="radio" name="tmSpeed" value="slow"><span>ゆっくり</span></label>
+              <label><input type="radio" name="tmSpeed" value="normal"><span>ふつう</span></label>
+              <label><input type="radio" name="tmSpeed" value="fast"><span>はやい</span></label>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- ================= ⑧ 発表の じゅんばん ================= -->
+    <section class="scr mode order" data-scr="order" hidden>
+      <div class="stage">
+        <div class="od-main">
+          <button class="od-reel" aria-label="つぎの 人を きめる">
+            <img class="od-drum" src="assets/emoji/drum.webp" alt="">
+            <span class="od-rank"></span>
+            <span class="od-name"></span>
+          </button>
+        </div>
+        <aside class="side od-side">
+          <h3>じゅんばん <small class="od-left"></small></h3>
+          <ol class="od-list"></ol>
+        </aside>
+      </div>
+      <div class="actions">
+        <button class="btn ghost" data-act="reset"><span class="ic" data-ic="arrow-counter-clockwise"></span>さいしょから</button>
+        <button class="btn ghost" data-act="all"><span class="ic" data-ic="fast-forward"></span>のこり ぜんぶ</button>
+        <button class="btn huge primary" data-act="next"><span class="ic" data-ic="play"></span><span>つぎの 人を きめる</span></button>
+      </div>
+      <div class="sheet-wrap" hidden><div class="sheet">
+        <header><h2><span class="ic" data-ic="pencil-simple"></span>発表の じゅんばんの 中身</h2><button class="btn primary" data-close>OK</button></header>
+        <div class="sheet-body">
+          <div class="field">
+            <label>名前（1行に 1人・60人 まで）</label>
+            <div class="listed">
+              <textarea rows="8" spellcheck="false"></textarea>
+              <div class="gen">
+                <span class="count"></span><span class="grow"></span>
+                <input type="number" data-from value="1" aria-label="はじめ">〜<input type="number" data-to value="30" aria-label="おわり">
+                <input type="text" data-suffix value="ばん" class="suffix" aria-label="あとに つける ことば">
+                <button class="btn sm" data-gen><span class="ic" data-ic="list-numbers"></span>つくる</button>
+                <button class="btn ghost sm" data-clear aria-label="けす"><span class="ic" data-ic="trash"></span></button>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label>まわる 時間</label>
+            <div class="seg">
+              <label><input type="radio" name="odDur" value="short"><span>みじかい</span></label>
+              <label><input type="radio" name="odDur" value="normal"><span>ふつう</span></label>
+              <label><input type="radio" name="odDur" value="long"><span>ながい</span></label>
+            </div>
+          </div>
+          <p class="note">名前を かえると じゅんばんは さいしょから に なります。</p>
+        </div>
+      </div></div>
+    </section>
+  </main>
+</div>
+
+<!-- けっか -->
+<div id="result" hidden>
+  <div class="res-rays" aria-hidden="true"></div>
+  <div class="res-card" role="dialog" aria-live="assertive">
+    <img class="res-img" alt="">
+    <div class="res-sub"></div>
+    <div class="res-title"></div>
+    <div class="res-note"></div>
+    <div class="res-btns"></div>
+  </div>
+</div>
+<!-- たしかめ -->
+<div id="confirm" hidden>
+  <div class="cf-card" role="alertdialog">
+    <p class="cf-msg"></p>
+    <div class="cf-btns"><button class="btn ghost cf-no">やめる</button><button class="btn primary cf-ok">はい</button></div>
+  </div>
+</div>
+<!-- ビンゴの 玉を 大きく -->
+<div id="bgPop" hidden></div>
+<div id="flash" aria-hidden="true"></div>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<script src="assets/icons.js"></script>
+<script src="logic.js"></script>
+<script src="sound.js"></script>
+<script src="fx.js"></script>
+<script src="common.js"></script>
+<script src="prizes.js"></script>
+<script src="roulette.js"></script>
+<script src="amida.js"></script>
+<script src="bingo.js"></script>
+<script src="omikuji.js"></script>
+<script src="gacha.js"></script>
+<script src="bomb.js"></script>
+<script src="team.js"></script>
+<script src="order.js"></script>
+<script>Kuji.start();</script>
+</body>
+</html>
