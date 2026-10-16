@@ -65,6 +65,8 @@ button { font-family: inherit; }
     box-shadow: 0 6px 0 #b45309, 0 10px 24px rgba(255, 190, 40, 0.35);
 }
 .btn.primary:active { transform: translateY(4px); box-shadow: 0 2px 0 #b45309, 0 6px 14px rgba(255, 190, 40, 0.3); }
+.btn.primary.alt { background: linear-gradient(180deg, #b8f3ff 0%, #38bdf8 55%, #0284c7 100%); color: #052a3d; border-color: #e0f7ff; box-shadow: 0 6px 0 #075985, 0 10px 24px rgba(56, 189, 248, 0.35); }
+.btn.primary.alt:active { box-shadow: 0 2px 0 #075985; }
 .btn.huge { font-family: var(--pop); font-weight: 400; font-size: clamp(18px, 2.4vw, 32px); padding: 0.55em 1.5em; }
 .btn.sm { font-size: 14px; padding: 0.35em 0.75em; }
 .btn.icon { padding: 0.5em; width: 2.6em; height: 2.6em; }
@@ -193,6 +195,7 @@ input.suffix { width: 4em; }
 @keyframes pulse { 50% { transform: scale(1.06); } }
 .res-note { white-space: pre-line; color: #f0ecff; font-size: clamp(14px, 2vw, 22px); font-weight: 500; max-height: 30vh; overflow: auto; }
 .res-btns { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+.res-btns .btn { font-size: clamp(16px, 2vw, 24px); padding: 0.6em 1.2em; }
 
 #confirm { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: rgba(5, 3, 20, 0.6); padding: 16px; }
 .cf-card { background: #241b55; border: 2px solid var(--line); border-radius: 20px; padding: 22px; max-width: 460px; text-align: center; }
@@ -335,17 +338,18 @@ input.suffix { width: 4em; }
 .om-head { font-family: var(--pop); color: #c62828; font-size: clamp(16px, 2.4vh, 26px); border-bottom: 2px solid #c62828; width: 100%; text-align: center; padding-bottom: 6px; }
 .om-num { color: #555; font-size: clamp(14px, 2vh, 20px); margin: 6px 0; }
 .om-word { flex: 1; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; text-orientation: upright; font-family: var(--pop);
-    font-size: min(calc(40vh / var(--len, 2)), 22vw, 150px); color: #b71c1c; letter-spacing: 0.05em; }
+    font-size: min(calc(30vh / var(--len, 2)), 22vw, 140px); line-height: 1.05; color: #b71c1c; letter-spacing: 0.05em; }
 .om-paper.lv-super .om-paper-in { background: radial-gradient(circle, #fffbe0, #ffe9a0); box-shadow: 0 0 60px #ffd23f, 0 20px 60px rgba(0, 0, 0, 0.6); }
 .om-paper.lv-super .om-word { color: #d10000; text-shadow: 0 0 20px #ffd23f; animation: pulse 0.8s ease-in-out infinite; }
 .om-paper.lv-lose .om-word { color: #4b5563; }
+.om-btns { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; }
+.om-paper:not(.stock) .stock-only { display: none; }
 .om-scroll { position: absolute; right: 8px; bottom: 8px; width: 18%; opacity: 0.85; }
 
-/* ---------- ⑤ ガチャ ⑥ ばくだん ---------- */
-.gc-wrap, .bm-wrap { flex: 1; position: relative; min-width: 0; }
-.gc-cv, .bm-cv { position: absolute; inset: 0; cursor: pointer; }
+/* ---------- ⑤ ガチャ ---------- */
+.gc-wrap { flex: 1; position: relative; min-width: 0; }
+.gc-cv { position: absolute; inset: 0; cursor: pointer; }
 .gacha [data-act="turn"].open-mode { animation: pulse 0.9s ease-in-out infinite; background: linear-gradient(180deg, #ffd6e8, #ff5dc8); color: #4a0030; border-color: #fff; box-shadow: 0 6px 0 #9d174d; }
-.bomb [data-act="start"].stop { background: linear-gradient(180deg, #ffb4b4, #ef4444); color: #fff; border-color: #fff; box-shadow: 0 6px 0 #7f1d1d; }
 
 /* ---------- ⑦ チームわけ・席がえ ---------- */
 .tm-tabs { display: flex; gap: 8px; justify-content: center; padding: 10px 12px 0; }
