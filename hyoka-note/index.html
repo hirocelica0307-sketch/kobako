@@ -1,0 +1,3244 @@
+<style>
+/* ===== 配色:藍(あい)と朱(しゅ)の記録帳 ===== */
+:root{
+  --bg:#EAEBE6; --card:#FCFCFA; --ink:#1E2328; --sub:#6B7178; --line:#D4D7CE; --line2:#E6E8E1;
+  --ai:#1F5D7A;  --ai-s:#E2EDF2;   /* 藍 = A・主要操作 */
+  --ko:#5C7F4B;  --ko-s:#EAF0E5;   /* 苔 = B・見取り */
+  --shu:#B4543A; --shu-s:#F7E9E4;  /* 朱 = 注意・削除 */
+  /* 評価の色:A=青、C=赤。Bは色を付けない(多数を占めるBに目を奪われないため) */
+  --gA:#1D6FB8; --gA-s:#E6F0F9; --gA-b:#B4CFE7;
+  --gC:#C0392B; --gC-s:#FBEAE7; --gC-b:#EBBFB6;
+  --r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;
+  background:var(--bg);color:var(--ink);font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;border:none;background:none;cursor:pointer;color:inherit;font-size:inherit}
+input,select,textarea{font-family:inherit;font-size:15px;border:1px solid #C6CABE;border-radius:7px;
+  padding:9px 11px;background:#fff;color:var(--ink);outline:none;transition:border-color .12s}
+input:focus,select:focus,textarea:focus{border-color:var(--ai);box-shadow:0 0 0 3px var(--ai-s)}
+:focus-visible{outline:2px solid var(--ai);outline-offset:2px}
+::-webkit-scrollbar{height:10px;width:10px}
+::-webkit-scrollbar-thumb{background:#C2C6BA;border-radius:5px}
+@media (prefers-reduced-motion: reduce){ *,*::before,*::after{animation:none!important;transition:none!important} }
+
+/* ===== 骨格 ===== */
+#hdr{position:sticky;top:0;z-index:50;background:#FCFCFA;border-bottom:2px solid var(--ai);
+  display:flex;align-items:center;gap:12px;padding:9px 20px}
+#hdr .brand{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+#hdr .brand b{font-size:17px;letter-spacing:.06em}
+#app{max-width:1220px;margin:0 auto;padding:20px 20px 90px}
+#clsChip{font-size:13px;font-weight:700;color:var(--ai);background:var(--ai-s);border-radius:6px;padding:3px 10px}
+#saveChip{margin-left:auto;font-size:12.5px;color:var(--sub)}
+#saveChip.saving{color:var(--ai)}
+#saveChip.err{color:var(--shu);font-weight:700;cursor:pointer}
+.gear{font-size:19px;padding:8px 10px;border-radius:7px}
+.gear:hover{background:var(--bg)}
+
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px}
+.panel+.panel{margin-top:14px}
+h2{font-size:19px;font-weight:800;letter-spacing:.03em}
+h3{font-size:15.5px;font-weight:800}
+.sub{color:var(--sub);font-size:13px}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.grow{flex:1}
+.grid{display:grid;gap:12px}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.rule{border:0;border-top:1px solid var(--line2);margin:12px 0}
+
+/* ===== ボタン ===== */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;font-weight:700;min-height:44px;
+  border-radius:8px;padding:10px 17px;border:1px solid transparent;transition:background .12s,border-color .12s}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.4;pointer-events:none}
+.btn.pri{background:var(--ai);color:#fff}
+.btn.pri:hover{background:#17485E}
+.btn.sec{background:#fff;border-color:#C6CABE;color:var(--ink)}
+.btn.sec:hover{background:#F4F5F0}
+.btn.ghost{color:var(--ai);background:var(--ai-s)}
+.btn.danger{background:var(--shu-s);color:var(--shu)}
+.btn.sm{padding:7px 12px;font-size:13px;min-height:38px}
+.btn.icon{min-height:36px;padding:4px 9px;font-size:14px}
+.btn.big{font-size:15.5px;padding:14px 22px;min-height:54px}
+.seg{display:inline-flex;border:1px solid #C6CABE;border-radius:8px;overflow:hidden;background:#fff}
+.seg button{padding:8px 14px;font-weight:600;font-size:13.5px;color:var(--sub);min-height:38px;border-right:1px solid #E1E4DB}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--ai);color:#fff;font-weight:700}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.chip{white-space:nowrap;padding:8px 15px;border-radius:7px;background:#fff;border:1px solid #C6CABE;
+  font-weight:600;font-size:13.5px;color:var(--sub);min-height:40px}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+/* ===== 評価バッジ(A=藍◆ B=苔● C=朱▲) ===== */
+.gbadge{display:inline-flex;align-items:center;justify-content:center;font-weight:800;border-radius:5px;
+  width:28px;height:26px;font-size:14px;border:1px solid transparent}
+.gbadge.A{background:var(--gA-s);color:var(--gA);border-color:var(--gA-b)}
+.gbadge.B{background:transparent;color:var(--ink);border-color:transparent;font-weight:700}
+.gbadge.C{background:var(--gC-s);color:var(--gC);border-color:var(--gC-b)}
+.gbadge.none{background:#F1F2ED;color:#A9AEA3}
+.gmark{font-size:8.5px;vertical-align:top;margin-left:1px}
+.thin{color:var(--shu);font-size:11px;font-weight:800;margin-left:2px}
+.src{font-size:9.5px;font-weight:800;border-radius:3px;padding:1px 4px;border:1px solid}
+.src.ts{background:var(--ai-s);color:var(--ai);border-color:#BCD6E2}
+.src.ms{background:var(--ko-s);color:var(--ko);border-color:#C9DABF}
+.tag{font-size:11px;font-weight:700;border-radius:4px;padding:3px 7px;white-space:nowrap;border:1px solid}
+.tag.test{background:var(--ai-s);color:var(--ai);border-color:#BCD6E2}
+.tag.mit{background:var(--ko-s);color:var(--ko);border-color:#C9DABF}
+.tag.warn{background:var(--shu-s);color:var(--shu);border-color:#E8C7BB}
+.tag.gray{background:#F1F2ED;color:var(--sub);border-color:var(--line)}
+.tag.subjtag{background:var(--ai);color:#fff;border-color:var(--ai);font-weight:800;letter-spacing:.04em}
+.done{color:var(--ko);font-size:12px;font-weight:700;white-space:nowrap}
+
+/* ===== 表 ===== */
+table{border-collapse:collapse;width:100%}
+th{font-size:12px;color:var(--sub);font-weight:700;text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);
+  position:sticky;top:0;background:var(--card);z-index:2;white-space:nowrap}
+td{padding:7px 9px;border-bottom:1px solid var(--line2);white-space:nowrap}
+.tblwrap{overflow:auto;border:1px solid var(--line);border-radius:8px;max-height:calc(100vh - 208px)}
+.gridtbl{width:auto}
+.gridtbl th,.gridtbl td{padding:5px 6px}
+.gridtbl td{text-align:center}
+.gridtbl td.stickL{padding:7px 10px;text-align:left}
+.stickL{position:sticky;background:var(--card);z-index:3}
+th.stickL{z-index:6}
+.stickEdge{border-right:1px solid var(--line)}
+.headcell{cursor:pointer;text-align:center;border-left:1px solid var(--line)}
+.headcell:hover{color:var(--ai)}
+.avgline td{background:#F4F5F0!important;font-weight:700;border-top:1px solid var(--line)}
+.nores{color:#B3B8AC}
+.cntline{display:flex;gap:7px;justify-content:center;font-size:11px;font-weight:700}
+.cnt{display:inline-flex;align-items:center;gap:2px;border-radius:4px;padding:1px 5px;border:1px solid}
+.cnt.A{background:var(--gA-s);color:var(--gA);border-color:var(--gA-b)}
+.cnt.B{background:transparent;color:var(--ink);border-color:var(--line)}
+.cnt.C{background:var(--gC-s);color:var(--gC);border-color:var(--gC-b)}
+.cntrow td{background:#EFF1EC!important;border-top:1px solid var(--line)}
+.foot{max-width:1220px;margin:0 auto;padding:18px 20px 26px;color:#8E948A;font-size:12px;text-align:center}
+.navbtn .ic{width:26px;height:26px;flex-shrink:0}
+.subjsel{min-width:120px}
+
+/* テストのセル(観点ごとに分けて表示) */
+.kaicell{border-left:1px solid var(--line);text-align:left!important;min-width:196px;padding:5px 8px!important;vertical-align:top}
+/* 桁がそろうように、セルの中を固定幅の格子にする */
+.kline{display:grid;align-items:center;gap:4px;font-size:11.5px;line-height:1.6;
+  font-variant-numeric:tabular-nums;grid-template-columns:42px 58px 36px 28px}
+.kaicell.split{min-width:262px}
+.kaicell.split .kline{grid-template-columns:42px 62px 58px 36px 28px}
+/* 観点の札は「思判表」でも桁からはみ出さないよう、枠いっぱいに収める */
+.kline .tg .src{display:flex;width:100%;padding:1px 0;justify-content:center;letter-spacing:-.02em}
+.kline .pt{font-weight:800;font-size:12.5px;text-align:right;white-space:nowrap}
+.kline .pc{color:var(--sub);text-align:right;white-space:nowrap}
+.kline .gr{text-align:center}
+.kline .gr .gbadge{width:24px;height:22px;font-size:12px}
+.kline .fn{color:var(--sub);font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kline .tg{text-align:left}
+.ksum{border-top:1px dotted #C6CABE;margin-top:3px;padding-top:3px}
+.ksum .pt{font-size:13.5px}
+
+/* 観点別のセル */
+.kancell{border-left:1px solid var(--line2);text-align:left!important;min-width:146px;padding:4px 7px!important}
+.kancell .kline{grid-template-columns:24px 62px 36px 28px}
+
+/* ===== 入力画面 ===== */
+.inputwrap{display:flex;gap:14px;align-items:flex-start}
+.padcol{position:sticky;top:68px;width:430px;flex-shrink:0;background:var(--card);
+  border:1px solid var(--line);border-radius:var(--r);padding:15px 17px}
+/* 数字パッドは左、そのほかの操作は右にまとめて縦を短くする */
+.padgrid{display:flex;gap:10px;align-items:flex-start}
+.padmain{flex:1;min-width:0}
+.padside{width:136px;flex-shrink:0;display:flex;flex-direction:column;gap:6px}
+.padside .nbtn{width:100%;min-width:0;height:42px}
+.padside input{width:100%;height:44px;font-size:17px;font-weight:800;text-align:center}
+.padside .pair{display:flex;gap:6px}
+.padside .pair .nbtn{flex:1}
+@media (max-width:560px){ .padgrid{flex-direction:column} .padside{width:100%} }
+.numgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.numgrid .nbtn{min-width:0;width:100%}
+@media (max-width:1020px){
+  .inputwrap{flex-wrap:wrap}
+  .padcol{position:sticky;top:auto;bottom:0;order:2;z-index:40;border-radius:var(--r) var(--r) 0 0;
+    margin:0 -20px;width:calc(100% + 40px);max-height:64vh;overflow:auto;box-shadow:0 -4px 18px rgba(30,35,40,.14)}
+  .inputwrap>.panel{order:1;width:100%!important;min-width:0!important}
+  #app{padding-bottom:16px}
+}
+.entrytbl{width:auto}
+.entrytbl td.no{width:44px}
+.entrytbl td.nm{min-width:168px;max-width:240px;overflow:hidden;text-overflow:ellipsis;padding-right:20px}
+.entrytbl tr:hover td{background:#F5F6F1}
+.entrytbl tr.here td{background:var(--ai-s)!important}
+.cell{min-width:104px;text-align:center;cursor:pointer;border-radius:6px;font-weight:700;font-size:16px;
+  padding:10px 4px!important}
+.cell:hover{box-shadow:inset 0 0 0 1px #B9BEB1}
+.cell.on{box-shadow:inset 0 0 0 2px var(--ai);background:#fff!important;color:var(--ai)}
+.cell.abs{color:var(--shu);font-size:13px}
+.cell.exc{color:#A9AEA3;font-size:13px;font-weight:600}
+.cell.blank{color:#BFC4B8;font-weight:400}
+/* AとCだけ下線を引く。Bは線なし */
+.cell.gA{box-shadow:inset 0 -3px 0 var(--gA)}
+.cell.gC{box-shadow:inset 0 -3px 0 var(--gC)}
+.cell.on.gA,.cell.on.gC{box-shadow:inset 0 0 0 2px var(--ai)}
+
+.padname{font-size:19px;font-weight:800;display:flex;align-items:baseline;gap:9px}
+.padname .no{color:var(--ai);font-size:15px}
+.nbtn{min-width:56px;height:48px;border-radius:7px;background:#fff;border:1px solid #C6CABE;
+  font-size:17px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+.nbtn:hover{border-color:var(--ai);color:var(--ai)}
+.nbtn:active{background:var(--ai-s)}
+.nbtn.abs{color:var(--shu);border-color:#E0BCB0;background:var(--shu-s)}
+.nbtn.exc{color:var(--sub);background:#F1F2ED;font-size:13.5px;font-weight:700}
+.nbtn.util{font-size:13.5px;font-weight:700;color:var(--sub)}
+.nbtn.on{box-shadow:inset 0 0 0 2px currentColor}
+.stepbtn{min-width:82px;height:48px;border-radius:7px;font-size:18px;font-weight:800;
+  display:inline-flex;align-items:center;justify-content:center;gap:4px;border:1px solid transparent}
+.stepbtn.A{background:var(--gA-s);color:var(--gA);border-color:var(--gA-b)}
+.stepbtn.B{background:#fff;color:var(--ink);border-color:#C6CABE}
+.stepbtn.C{background:var(--gC-s);color:var(--gC);border-color:var(--gC-b)}
+.stepbtn.on{box-shadow:inset 0 0 0 2px currentColor}
+.meter{height:6px;background:#DEE1D8;border-radius:3px;overflow:hidden;flex:1}
+.meter i{display:block;height:100%;background:var(--ai);border-radius:3px}
+
+.numtiles{display:flex;flex-wrap:wrap;gap:8px}
+.numtile{width:74px;height:62px;border-radius:8px;border:1px solid #C6CABE;background:#fff;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800}
+.numtile small{font-size:10px;color:var(--sub);font-weight:600;max-width:66px;overflow:hidden;text-overflow:ellipsis}
+.numtile .n{font-size:19px}
+.numtile.full{background:var(--ai);border-color:var(--ai);color:#fff}
+.numtile.full small{color:rgba(255,255,255,.82)}
+.numtile.part{background:var(--ai-s);border-color:var(--ai);color:var(--ai)}
+.numtile.here{box-shadow:0 0 0 3px var(--ai)}
+.numtile.abs{background:var(--shu-s);border-color:var(--shu);color:var(--shu)}
+.numtile.exc{background:#F1F2ED;color:#A9AEA3}
+.facebox{min-width:148px;border:1px solid #C6CABE;border-radius:8px;padding:9px 14px;cursor:pointer}
+.facebox.on{border-color:var(--ai);border-width:2px;background:var(--ai-s)}
+.facebox .v{font-size:25px;font-weight:800;min-height:33px}
+.facebox .v .ph{color:#BFC4B8;font-weight:400;font-size:17px}
+
+/* ===== ホーム ===== */
+.navgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:16px}
+.navbtn{display:flex;align-items:center;gap:11px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:14px 16px;font-weight:700;text-align:left;min-height:62px}
+.navbtn:hover{border-color:var(--ai);background:#fff}
+.navbtn .ic{font-size:21px;line-height:1}
+.navbtn small{display:block;font-weight:500;font-size:11.5px;color:var(--sub)}
+.unitbox{border:1px solid var(--line);border-radius:var(--r);padding:13px 15px;background:var(--card);position:relative}
+.unitbox:hover{border-color:#B9BEB1}
+.grip{cursor:grab;color:#BFC4B8;font-size:16px;padding:6px 6px 6px 2px;user-select:none}
+.grip:hover{color:var(--ai)}
+.unitbox.moving{opacity:.4}
+.unitbox.drop{outline:2px dashed var(--ai);outline-offset:2px}
+.oppline.drop2{outline:2px dashed var(--ai);outline-offset:1px}
+.unitools{display:none;position:absolute;top:8px;right:8px;align-items:center;gap:2px;background:var(--card)}
+.unitbox:hover .unitools{display:inline-flex}
+.oppline{position:relative;display:flex;align-items:center;gap:9px;padding:10px 9px;border-radius:7px;cursor:pointer;min-height:46px}
+.oppline:hover{background:#F4F5F0}
+.opptools{display:none;position:absolute;right:3px;top:50%;transform:translateY(-50%);align-items:center;background:#F4F5F0}
+.oppline:hover .opptools{display:inline-flex}
+@media (hover: none){
+  .unitools,.opptools{display:inline-flex;position:static;transform:none;background:transparent}
+}
+.uttl{font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.oppline .ottl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.notice{display:flex;align-items:center;gap:10px;background:#FBF3E9;border:1px solid #E8D5BC;
+  border-radius:8px;padding:11px 15px;font-size:13.5px;margin-bottom:14px}
+
+/* ===== 折りたたみカード ===== */
+.foldcard{padding:0;overflow:hidden}
+.foldhead{display:flex;width:100%;align-items:center;gap:10px;padding:14px 17px;text-align:left;min-height:54px}
+.foldhead:hover{background:#F4F5F0}
+.foldhead .arw{font-size:12px;color:var(--sub);flex-shrink:0}
+.foldcard.open .foldhead .arw{transform:rotate(90deg)}
+.foldbody{display:none;padding:0 17px 17px}
+.foldcard.open .foldbody{display:block}
+.forceopen .foldbody{display:block}
+.forceopen .arw{display:none}
+
+/* ===== 個人シート ===== */
+.psheet{width:100%;border-collapse:collapse}
+.psheet th{font-size:11px;color:var(--sub);text-align:left;padding:4px 7px;border-bottom:1px solid var(--line);position:static;background:transparent;white-space:nowrap}
+.psheet td{padding:5px 7px;border-bottom:1px solid var(--line2);font-size:12.5px;white-space:nowrap}
+.psheet .sumrow td{border-top:1px solid var(--line);background:#F4F5F0;font-weight:700}
+.plabel{font-weight:800;font-size:13px;margin:14px 0 6px;padding-left:8px;border-left:3px solid var(--ai)}
+.pchip{display:inline-block;background:#F1F2ED;border-radius:5px;padding:1px 7px;font-weight:700;font-size:12px}
+.initial{width:50px;height:50px;border-radius:8px;background:var(--ai);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800}
+.stuhead{display:flex;align-items:center;gap:14px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--sub);margin-top:10px;align-items:center}
+
+@media print{
+  @page{size:A4 portrait;margin:13mm}
+  body{background:#fff}
+  #hdr,.btn,.seg,#toast,.padcol,.no-print,.avg-col,.navgrid{display:none!important}
+  #app{max-width:100%;padding:0}
+  .panel{border:1px solid #DDD;break-inside:avoid;margin-top:10px}
+  .foldbody{display:block!important} .foldhead .arw{display:none}
+}
+
+/* ===== かぶせ表示 ===== */
+#ovl,#dlgwrap,#modalwrap{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;
+  background:rgba(30,35,40,.42)}
+.dlgbox,.modalbox{background:#fff;border-radius:12px;border:1px solid var(--line);padding:24px 26px;
+  box-shadow:0 12px 40px rgba(30,35,40,.28)}
+.dlgbox{max-width:440px;width:calc(100vw - 48px)}
+.modalbox{max-width:660px;width:calc(100vw - 48px);max-height:86vh;overflow:auto}
+.spin{width:32px;height:32px;border-radius:50%;border:3px solid var(--ai-s);border-top-color:var(--ai);
+  animation:sp .8s linear infinite;margin:0 auto 12px}
+@keyframes sp{to{transform:rotate(360deg)}}
+#toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);z-index:130;background:var(--ink);color:#fff;
+  border-radius:8px;padding:11px 20px;font-weight:600;font-size:13.5px;display:none;max-width:80vw}
+.wobble{animation:wb .3s}
+@keyframes wb{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+.boot{text-align:center;padding:70px 20px;color:var(--sub)}
+.lockwrap{display:flex;justify-content:center;padding:26px 0 40px}
+.lockbox{max-width:360px;width:100%;text-align:center;display:flex;flex-direction:column;align-items:center;padding:28px 24px}
+.pinrow{display:flex;gap:11px;justify-content:center;margin:14px 0 4px;min-height:18px}
+.pindot{width:14px;height:14px;border-radius:50%;border:1.5px solid #B9BEB1;background:#fff}
+.pindot.on{background:var(--ai);border-color:var(--ai)}
+.pinmsg{min-height:22px;font-size:12.5px;color:var(--gC);font-weight:700;margin-bottom:10px}
+.keygrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;width:100%;max-width:280px}
+.keypad{height:56px;border-radius:9px;border:1px solid #C6CABE;background:#fff;font-size:21px;font-weight:800}
+.keypad:hover{border-color:var(--ai);color:var(--ai)}
+.keypad:active{background:var(--ai-s)}
+.keypad.soft{font-size:12.5px;font-weight:700;color:var(--sub)}
+.keypad.go{font-size:14.5px;background:var(--ai);color:#fff;border-color:var(--ai)}
+.hero{text-align:center;padding:44px 20px}
+.jump{color:var(--ai);font-weight:700;cursor:pointer;text-decoration:underline}
+.kv{display:grid;grid-template-columns:132px 1fr;gap:10px 14px;align-items:center}
+.stepchip{display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:5px 9px;font-weight:800;font-size:14px}
+.stepchip button{font-size:11px;opacity:.6;padding:2px 4px}
+.facerow{border:1px solid var(--line);border-radius:8px;padding:10px 11px;margin-bottom:8px;background:#fff}
+.facerow.off{opacity:.5;background:#F6F7F3}
+.facerow .seq{font-size:11px;font-weight:800;color:var(--ai);width:44px}
+</style>
+
+<div id="hdr">
+  <div class="brand" onclick="go('home')" title="ホームへ">
+    <svg width="25" height="25" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3.2" y="2.4" width="17.6" height="19.2" rx="3.2" fill="#1F5D7A"/>
+      <path d="M14.6 2.4h3.9v6.4l-1.95-1.5-1.95 1.5z" fill="#B4543A"/>
+      <path d="M7.1 14.3l2.9 2.9 6.1-6.6" stroke="#fff" stroke-width="2.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <b>評価ノート</b>
+  </div>
+  <span id="clsChip"></span>
+  <span id="saveChip"></span>
+  <button class="gear" id="gearBtn" style="display:none" onclick="go('settings')" title="設定">⚙</button>
+</div>
+
+<div id="app"><div class="boot"><div class="spin"></div>起動中です。少しお待ちください。</div></div>
+
+<div class="foot">評価ノート &nbsp;·&nbsp; &copy; Hiroyuki</div>
+
+<div id="ovl"><div class="dlgbox" style="text-align:center;max-width:280px"><div class="spin"></div><div id="ovlMsg" style="font-weight:700"></div></div></div>
+<div id="dlgwrap"></div>
+<div id="modalwrap"></div>
+<div id="toast"></div>
+
+<script>
+/* ================= 用語 ================= */
+const KAN_ORDER = ['知','思','主'];
+const KAN_FULL  = {'知':'知識・技能','思':'思考・判断・表現','主':'主体的に学習に取り組む態度'};
+const KAN_SHORT = {'知':'知技','思':'思判表','主':'主体'};
+// 評価の記号は使わない(色だけで区別する)
+const ST_ABS = '欠';   // 欠席
+const ST_EXC = '除';   // このテストの対象にしない
+const TERMS = ['1学期','2学期','3学期'];
+
+let S = {
+  token:null, auth:{hasPin:false, wait:0, len:4},
+  b:null, rec:{}, ov:{}, sho:{}, exc:{},
+  queue:{}, undo:[],
+  view:'home', arg:null,
+  saveTimer:null, saveBusy:false, saveErr:false
+};
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function z2h(s){
+  return String(s==null?'':s)
+    .replace(/[０-９]/g, ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0))
+    .replace(/．/g,'.').replace(/[－ー−]/g,'-');
+}
+function num(v){
+  const s = z2h(v).trim();
+  if (s==='' || !/^-?\d+(\.\d+)?$/.test(s)) return null;
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+function avg(a){ return a.length ? a.reduce((x,y)=>x+y,0)/a.length : null; }
+function r1(v){ return v==null ? null : Math.round(v*10)/10; }
+function fmtDate(v){
+  if (!v) return '';
+  const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? m[0] : String(v);
+}
+function toast(msg, ms){
+  const t = $('toast'); t.textContent = msg; t.style.display='block';
+  clearTimeout(t._tm); t._tm = setTimeout(()=>{ t.style.display='none'; }, ms||2200);
+}
+function reportError(msg){
+  if (String(msg).indexOf('__AUTH__') >= 0) return;
+  unovl();
+  try { alertBox('うまくいきませんでした', String(msg) + '\n\nこの画面を閉じて、もう一度お試しください。'); }
+  catch(e){ toast('エラー: ' + msg, 5000); }
+}
+window.addEventListener('error', e=>reportError(e.message || 'エラーが発生しました'));
+window.addEventListener('unhandledrejection', e=>reportError((e.reason && e.reason.message) ? e.reason.message : 'エラーが発生しました'));
+
+/* ================= サーバー通信 ================= */
+function call(action, payload){
+  return new Promise((res, rej)=>{
+    google.script.run
+      .withSuccessHandler(json=>{
+        let r; try { r = JSON.parse(json); } catch(e){ rej(new Error('応答を読み取れませんでした')); return; }
+        if (r.ok){ res(r.data); return; }
+        if (r.auth){ lockOut(); rej(new Error('__AUTH__')); return; }
+        rej(new Error(r.error||'エラーが発生しました'));
+      })
+      .withFailureHandler(e=>rej(new Error('通信エラー: ' + (e && e.message ? e.message : e))))
+      .api(JSON.stringify({action, payload, token:S.token}));
+  });
+}
+function ovl(msg){ $('ovlMsg').textContent = msg||'読み込み中…'; $('ovl').style.display='flex'; }
+function unovl(){ $('ovl').style.display='none'; }
+
+/* ================= 小窓 ================= */
+function dlg(opt){
+  return new Promise(res=>{
+    const w = $('dlgwrap');
+    const btns = (opt.buttons||[{label:'OK', value:true, cls:'pri'}])
+      .map((b,i)=>`<button class="btn ${b.cls||'sec'}" data-i="${i}">${esc(b.label)}</button>`).join('');
+    w.innerHTML = `<div class="dlgbox"><h3 style="margin-bottom:8px">${esc(opt.title||'')}</h3>
+      <div class="sub" style="font-size:14px;white-space:pre-wrap">${esc(opt.msg||'')}</div>
+      <div class="row" style="justify-content:flex-end;margin-top:20px">${btns}</div></div>`;
+    w.style.display='flex';
+    w.querySelectorAll('button').forEach(el=>{
+      el.onclick = ()=>{ w.style.display='none'; res((opt.buttons||[{value:true}])[+el.dataset.i].value); };
+    });
+  });
+}
+function alertBox(title, msg){ return dlg({title, msg, buttons:[{label:'OK', value:true, cls:'pri'}]}); }
+function askYes(title, msg, danger){
+  return dlg({title, msg, buttons:[{label:'キャンセル', value:false}, {label:danger||'OK', value:true, cls: danger?'danger':'pri'}]});
+}
+function modal(html, closeOutside){
+  const w = $('modalwrap');
+  w.innerHTML = `<div class="modalbox">${html}</div>`;
+  w.style.display='flex';
+  w.onclick = e=>{ if (e.target===w && closeOutside!==false) shutModal(); };
+}
+function shutModal(){ $('modalwrap').style.display='none'; $('modalwrap').innerHTML=''; }
+// 入力欄の値は shutModal() より前に必ずここで取り出す
+function readFields(ids){
+  const out = {};
+  ids.forEach(id=>{ const el = $(id); out[id] = el ? el.value : ''; });
+  return out;
+}
+
+/* ================= 参照 ================= */
+function cls(){ return S.b ? S.b.cls : null; }
+function terms(){ return TERMS; }
+function termIndex(t){ const i = TERMS.indexOf(t); return i<0 ? -1 : i; }
+function setting(key, def){
+  const r = (S.b.settings||[]).find(x=>x['キー']===key);
+  return r && r['値'] !== '' ? r['値'] : def;
+}
+function stepValues(){
+  try { return JSON.parse(setting('段階数値','')) || {A:[100,95,90],B:[80,70,60],C:[55,50,45]}; }
+  catch(e){ return {A:[100,95,90],B:[80,70,60],C:[55,50,45]}; }
+}
+function baseKind(){ return setting('既定評価','test'); }
+const BASE_LABEL = { test:'テスト評価', mitori:'見取り評価', none:'手動で決める' };
+
+function subjects(){ return S.b.subjects.slice().sort((a,b)=>(num(a['表示順'])||99)-(num(b['表示順'])||99)); }
+function shownSubjects(){ return subjects().filter(s=>s['有効']!=='0'); }
+function allStudents(){ return S.b.students.slice().sort((a,b)=>(num(a['出席番号'])||0)-(num(b['出席番号'])||0)); }
+
+/* --- 教科ごとの対象児童 --- */
+function buildExc_(){
+  S.exc = {};
+  try {
+    const o = JSON.parse(setting('教科対象外','{}')) || {};
+    Object.keys(o).forEach(k=>{ S.exc[k] = {}; (o[k]||[]).forEach(id=>{ S.exc[k][id] = 1; }); });
+  } catch(e){ S.exc = {}; }
+}
+function takes(stuId, subjId){ const m = S.exc[subjId]; return !(m && m[stuId]); }
+function rosterOf(subjId){ return allStudents().filter(s=>takes(s['児童ID'], subjId)); }
+function saveRoster(subjId, offIds){
+  const o = {};
+  Object.keys(S.exc).forEach(k=>{ o[k] = Object.keys(S.exc[k]||{}); });
+  o[subjId] = offIds;
+  const json = JSON.stringify(o);
+  ovl('保存中…');
+  return call('saveSettings', {kv:{'教科対象外':json}}).then(()=>{
+    const r = (S.b.settings||[]).find(x=>x['キー']==='教科対象外');
+    if (r) r['値'] = json; else S.b.settings.push({'キー':'教科対象外','値':json});
+    buildExc_(); unovl(); render();
+  }).catch(e=>{ unovl(); alertBox('エラー', e.message); });
+}
+
+/* --- 評価機会と「面」 --- */
+// 観点構成の1要素 = テストの1つの面。{k:観点, max:満点, label:面の名前, unit:面の単元}
+function faces(opp){ try { return JSON.parse(opp['観点構成'])||[]; } catch(e){ return []; } }
+function faceName(opp, f){ return (f.label && String(f.label).trim()) ? String(f.label) : opp['機会名']; }
+function faceUnitId(opp, f){ return f.unit || opp['単元ID'] || ''; }
+function unitName(id){ const u = S.b.units.find(x=>x['単元ID']===id); return u ? u['単元名'] : ''; }
+// 表と裏で単元が違うテストかどうか
+function isSplit(opp){
+  const set = {};
+  faces(opp).forEach(f=>{ set[faceUnitId(opp, f)] = 1; });
+  return Object.keys(set).length > 1;
+}
+function splitUnitNames(opp){
+  const seen = [], out = [];
+  faces(opp).forEach(f=>{ const id = faceUnitId(opp, f); if (seen.indexOf(id)<0){ seen.push(id); out.push(unitName(id)||'単元なし'); } });
+  return out;
+}
+
+function rkey(oppId, stuId, kan){ return oppId+'|'+stuId+'|'+kan; }
+function getRec(oppId, stuId, kan){ return S.rec[rkey(oppId,stuId,kan)] || null; }
+function faceMax(f, r){ const m = r && r.max ? num(r.max) : null; return m!=null && m>0 ? m : f.max; }
+
+function unitSort(a,b){
+  const ta = a['学期'] ? termIndex(a['学期']) : -1, tb = b['学期'] ? termIndex(b['学期']) : -1;
+  if (ta !== tb) return ta - tb;
+  return (num(a['表示順'])||99) - (num(b['表示順'])||99);
+}
+function oppSort(a,b){
+  const av = num(a['表示順']), bv = num(b['表示順']);
+  return (av==null?1e9:av) - (bv==null?1e9:bv);
+}
+function unitsOf(subjId){ return S.b.units.filter(u=>u['教科ID']===subjId).sort(unitSort); }
+function oppsIn(subjId, unitId, term){
+  return S.b.opps.filter(o=>o['教科ID']===subjId && (o['単元ID']||'')===unitId
+      && (term==='年間'||o['学期']===term)).sort(oppSort);
+}
+function oppsOfSubject(subjId, term, kind){
+  const out = [];
+  unitsOf(subjId).forEach(u=>{
+    oppsIn(subjId, u['単元ID'], term).forEach(o=>{ if (!kind || o['種別']===kind) out.push({o, u}); });
+  });
+  oppsIn(subjId, '', term).forEach(o=>{ if (!kind || o['種別']===kind) out.push({o, u:null}); });
+  return out;
+}
+function bounds(subjId){
+  const s = S.b.subjects.find(x=>x['教科ID']===subjId);
+  return { A: s && num(s['A閾値'])!=null ? num(s['A閾値']) : 90,
+           B: s && num(s['B閾値'])!=null ? num(s['B閾値']) : 60 };
+}
+function gradeOf(pct, subjId){
+  if (pct==null) return null;
+  const b = bounds(subjId);
+  return pct>=b.A ? 'A' : pct>=b.B ? 'B' : 'C';
+}
+
+/* --- 集計:テストと見取りは別々に100%で評価する --- */
+function calcStu(stuId, subjId, term){
+  const b = bounds(subjId), base = baseKind();
+  const out = {};
+  KAN_ORDER.forEach(kan=>{
+    let tRaw=0, tMax=0, tN=0, tAbs=0, tExc=0;
+    let mRaw=0, mMax=0, mN=0, mAbs=0, mExc=0;
+    S.b.opps.forEach(opp=>{
+      if (opp['教科ID']!==subjId) return;
+      if (term!=='年間' && opp['学期']!==term) return;
+      const isTest = opp['種別']==='テスト';
+      faces(opp).forEach(f=>{
+        if (f.k!==kan) return;
+        const r = getRec(opp['機会ID'], stuId, kan);
+        if (!r) return;
+        if (r.state===ST_EXC){ isTest ? tExc++ : mExc++; return; }
+        if (r.state===ST_ABS){ isTest ? tAbs++ : mAbs++; return; }
+        if (r.raw==='') return;
+        const n = num(r.raw), mx = faceMax(f, r);
+        if (n==null || !mx) return;
+        if (isTest){ tRaw+=n; tMax+=mx; tN++; } else { mRaw+=n; mMax+=mx; mN++; }
+      });
+    });
+    const t = tMax ? r1(tRaw/tMax*100) : null;
+    const m = mMax ? r1(mRaw/mMax*100) : null;
+    const tG = t==null ? null : (t>=b.A ? 'A' : t>=b.B ? 'B' : 'C');
+    const mG = m==null ? null : (m>=b.A ? 'A' : m>=b.B ? 'B' : 'C');
+    out[kan] = {
+      t, tG, tRaw:r1(tRaw), tMax, tN, tAbs, tExc, tThin: t!=null && (tN<=2 || tAbs+tExc>=tN),
+      m, mG, mRaw:r1(mRaw), mMax, mN, mAbs, mExc, mThin: m!=null && (mN<=2 || mAbs+mExc>=mN),
+      auto:  base==='test' ? (t!=null?t:m) : base==='mitori' ? (m!=null?m:t) : null,
+      autoG: base==='test' ? (tG||mG)      : base==='mitori' ? (mG||tG)      : null,
+      A:b.A, B:b.B
+    };
+  });
+  return out;
+}
+// 1回のテストの、1つの面の結果
+function faceResult(opp, f, stuId){
+  const r = getRec(opp['機会ID'], stuId, f.k);
+  if (!r) return null;
+  if (r.state===ST_EXC) return {exc:true};
+  if (r.state===ST_ABS) return {abs:true};
+  if (r.raw==='') return null;
+  const n = num(r.raw), mx = faceMax(f, r);
+  if (n==null || !mx) return null;
+  return { raw:n, max:mx, pct: n/mx*100 };
+}
+// 1回のテストの合計
+function oppTotal(opp, stuId){
+  const fs = faces(opp);
+  let raw=0, max=0, n=0, abs=0, exc=0;
+  fs.forEach(f=>{
+    const r = faceResult(opp, f, stuId);
+    if (!r) return;
+    if (r.exc){ exc++; return; }
+    if (r.abs){ abs++; return; }
+    raw+=r.raw; max+=r.max; n++;
+  });
+  if (n===0){
+    if (fs.length && exc>=fs.length) return {exc:true};
+    if (abs) return {abs:true};
+    return null;
+  }
+  return { raw:r1(raw), max, pct: max ? raw/max*100 : null, whole: n+abs+exc===fs.length };
+}
+function oppAvg(opp){
+  const v = [];
+  rosterOf(opp['教科ID']).forEach(st=>{
+    const t = oppTotal(opp, st['児童ID']);
+    if (t && t.pct!=null) v.push(t.pct);
+  });
+  return avg(v);
+}
+function faceAvg(opp, f){
+  const v = [];
+  rosterOf(opp['教科ID']).forEach(st=>{
+    const r = faceResult(opp, f, st['児童ID']);
+    if (r && r.pct!=null) v.push(r.pct);
+  });
+  return avg(v);
+}
+
+/* --- バッジ --- */
+function gBadge(g, title){
+  if (!g) return `<span class="gbadge none">−</span>`;
+  return `<span class="gbadge ${g}" title="${esc(title||'')}">${g}</span>`;
+}
+function finalOf(x, ov){ return ov ? {g:ov.grade, manual:true, ov} : {g:x.autoG, manual:false, ov:null}; }
+function finalBadge(x, ov){
+  const f = finalOf(x, ov);
+  if (!f.g) return `<span class="gbadge none" title="まだ決まっていません">−</span>`;
+  if (f.manual){
+    const stale = ov.auto!=='' && x.auto!=null && Math.abs(num(ov.auto) - x.auto) > 0.05;
+    return `<span class="gbadge ${f.g}" title="手動で確定${ov.reason?': '+esc(ov.reason):''}${stale?' / 確定後に元の点数が変わっています':''}">${f.g}<span class="gmark">${stale?'!':'手'}</span></span>`;
+  }
+  return `<span class="gbadge ${f.g}" title="${BASE_LABEL[baseKind()]}から自動">${f.g}</span>`;
+}
+
+/* --- 確定評価・所見 --- */
+function buildMaps_(b){
+  S.rec = {};
+  b.records.forEach(r=>{ S.rec[r['キー']] = { raw:r['素点'], memo:r['メモ'], state:r['状態'], max:r['満点'] }; });
+  S.ov = {};
+  (b.overrides||[]).forEach(r=>{ S.ov[r['キー']] = { grade:r['評価'], reason:r['理由'], auto:r['自動値'] }; });
+  S.sho = {};
+  (b.shoken||[]).forEach(r=>{ S.sho[r['キー']] = r['本文']; });
+  buildExc_();
+}
+function ovK(stuId, subjId, kan, term){ return stuId+'|'+subjId+'|'+kan+'|'+term; }
+function getOv(stuId, subjId, kan, term){ return S.ov[ovK(stuId,subjId,kan,term)] || null; }
+function getMemoText(stuId, term){ return S.sho[stuId+'|'+term] || ''; }
+
+/* ================= 保存キュー ================= */
+function setSaveChip(){
+  const el = $('saveChip');
+  el.className=''; el.onclick=null;
+  if (S.saveErr){
+    el.className='err'; el.textContent='保存に失敗 — タップで再試行';
+    el.onclick = ()=>{ S.saveErr=false; setSaveChip(); flushSave(); };
+  } else if (S.saveBusy || Object.keys(S.queue).length){
+    el.className='saving'; el.textContent='保存中…';
+  } else {
+    el.textContent = S.b ? '保存済み' : '';
+  }
+}
+function queueRec(oppId, stuId, kan, raw, memo, state, max){
+  const key = rkey(oppId, stuId, kan);
+  S.undo.push({key, oppId, stuId, kan, prev: S.rec[key] ? Object.assign({}, S.rec[key]) : null});
+  if (S.undo.length > 60) S.undo.shift();
+  applyRec(key, oppId, stuId, kan, raw, memo, state, max);
+}
+function applyRec(key, oppId, stuId, kan, raw, memo, state, max){
+  raw = String(raw==null?'':raw); memo = memo||''; state = state||'';
+  if (raw==='' && state==='' && memo==='') delete S.rec[key];
+  else S.rec[key] = { raw, memo, state, max: max==null?'':String(max) };
+  S.queue[key] = { oppId, stuId, kan, raw, memo, state, max: max==null?'':String(max) };
+  setSaveChip();
+  clearTimeout(S.saveTimer);
+  S.saveTimer = setTimeout(flushSave, 1200);
+}
+function flushSave(){
+  if (S.saveBusy || S.saveErr) return;
+  const keys = Object.keys(S.queue);
+  if (!keys.length){ setSaveChip(); return; }
+  const batch = keys.map(k=>S.queue[k]);
+  const sent = {}; keys.forEach(k=>sent[k]=S.queue[k]);
+  S.queue = {};
+  S.saveBusy = true; setSaveChip();
+  call('saveRecords', {records:batch})
+    .then(()=>{ S.saveBusy=false; setSaveChip(); if (Object.keys(S.queue).length) flushSave(); })
+    .catch(()=>{
+      Object.keys(sent).forEach(k=>{ if (!S.queue[k]) S.queue[k]=sent[k]; });
+      S.saveBusy=false; S.saveErr=true; setSaveChip();
+    });
+}
+function stepBack(){
+  const u = S.undo.pop();
+  if (!u){ toast('取り消す操作がありません'); return; }
+  const p = u.prev;
+  applyRec(u.key, u.oppId, u.stuId, u.kan, p?p.raw:'', p?p.memo:'', p?p.state:'', p?p.max:'');
+  toast('1つ取り消しました'); render();
+}
+
+/* ================= 合言葉の画面 ================= */
+let LK = { pin:'', pin2:'', step:1, msg:'', busy:false };
+
+function lockOut(){
+  S.token = null; S.b = null;
+  LK = { pin:'', pin2:'', step:1, msg:'合言葉をもう一度入力してください', busy:false };
+  S.view = 'lock';
+  try { render(); } catch(e){}
+}
+function keyPush(d){
+  const max = 6;
+  if (LK.busy) return;
+  const cur = (S.auth.hasPin || LK.step===1) ? 'pin' : 'pin2';
+  if (LK[cur].length >= max) return;
+  LK[cur] += String(d);
+  LK.msg = '';
+  render();
+}
+function keyBack(){
+  if (LK.busy) return;
+  const cur = (S.auth.hasPin || LK.step===1) ? 'pin' : 'pin2';
+  LK[cur] = LK[cur].slice(0, -1);
+  render();
+}
+function keyGo(){
+  if (LK.busy) return;
+  if (S.auth.hasPin) return doLogin();
+  if (LK.step===1){
+    if (!/^\d{4,6}$/.test(LK.pin)){ LK.msg = '数字4〜6桁で決めてください'; render(); return; }
+    LK.step = 2; LK.msg = ''; render(); return;
+  }
+  if (LK.pin !== LK.pin2){ LK.msg = '2回目が合いません。もう一度入力してください'; LK.pin2=''; render(); return; }
+  LK.busy = true; render();
+  ovl('合言葉を登録中…');
+  call('setPin', {newPin: LK.pin}).then(r=>{
+    S.token = r.token; S.auth.hasPin = true;
+    return reloadBundle();
+  }).then(()=>{ unovl(); LK.busy=false; go(S.b ? 'home' : 'start'); toast('合言葉を登録しました'); })
+    .catch(e=>{ unovl(); LK.busy=false; LK.msg = e.message; LK.pin=''; LK.pin2=''; LK.step=1; render(); });
+}
+function doLogin(){
+  if (!/^\d{4,6}$/.test(LK.pin)){ LK.msg = '数字4〜6桁を入力してください'; render(); return; }
+  LK.busy = true; render();
+  ovl('確認中…');
+  call('login', {pin: LK.pin}).then(r=>{
+    S.token = r.token;
+    return reloadBundle();
+  }).then(()=>{ unovl(); LK.busy=false; LK.pin=''; go(S.b ? 'home' : 'start'); })
+    .catch(e=>{
+      unovl(); LK.busy=false; LK.pin='';
+      LK.msg = String(e.message).indexOf('__AUTH__')>=0 ? '合言葉を入力してください' : e.message;
+      render();
+    });
+}
+function vLock(){
+  const first = !S.auth.hasPin;
+  const cur = (!first || LK.step===1) ? LK.pin : LK.pin2;
+  const title = first ? (LK.step===1 ? '合言葉を決めてください' : 'もう一度入力してください') : '合言葉を入力してください';
+  const note  = first
+    ? (LK.step===1 ? '数字4〜6桁。次に開くときから必要になります。忘れないものにしてください。' : '確認のため、同じ数字をもう一度入力します。')
+    : '';
+  const dots = Array.from({length: Math.max(4, cur.length)}, (_,i)=>
+    `<span class="pindot ${i<cur.length?'on':''}"></span>`).join('');
+  const key = d=>`<button class="keypad" onclick="keyPush(${d})">${d}</button>`;
+  return `<div class="lockwrap">
+    <div class="panel lockbox">
+      <svg width="52" height="52" viewBox="0 0 24 24" aria-hidden="true" style="margin-bottom:10px">
+        <rect x="3.2" y="2.4" width="17.6" height="19.2" rx="3.2" fill="#1F5D7A"/>
+        <path d="M14.6 2.4h3.9v6.4l-1.95-1.5-1.95 1.5z" fill="#B4543A"/>
+        <path d="M7.1 14.3l2.9 2.9 6.1-6.6" stroke="#fff" stroke-width="2.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h2 style="margin-bottom:6px">${title}</h2>
+      ${note?`<p class="sub" style="margin-bottom:14px;max-width:300px">${note}</p>`:''}
+      <div class="pinrow">${dots}</div>
+      <div class="pinmsg">${esc(LK.msg||'')}</div>
+      <div class="keygrid">
+        ${[1,2,3,4,5,6,7,8,9].map(key).join('')}
+        <button class="keypad soft" onclick="keyBack()">1つ消す</button>
+        ${key(0)}
+        <button class="keypad go" onclick="keyGo()">${first && LK.step===1 ? '次へ' : '決定'}</button>
+      </div>
+      ${first?'':`<p class="sub" style="margin-top:16px;font-size:12px">忘れたときは、スプレッドシートの「拡張機能 → Apps Script」から resetPin を実行すると決め直せます。</p>`}
+    </div></div>`;
+}
+
+/* ================= 画面切替 ================= */
+function go(view, arg){
+  clearTimeout(S.saveTimer); flushSave();
+  S.view = view; S.arg = arg||null;
+  window.scrollTo(0,0); render();
+}
+function reloadBundle(){
+  return call('bundle', {}).then(b=>{ S.b = b.cls ? b : null; if (S.b) buildMaps_(S.b); });
+}
+function render(){
+  const c = cls();
+  $('gearBtn').style.display = c ? '' : 'none';
+  $('clsChip').textContent = c ? (c['クラス名'] + ' / ' + c['年度'] + '年度') : '';
+  setSaveChip();
+  const views = { lock:vLock, start:vStart, home:vHome, entry:vEntry, list:vList, person:vPerson,
+                  settings:vSettings, guide:vGuide, printall:vPrintAll };
+  if (S.view === 'lock'){
+    $('gearBtn').style.display = 'none';
+    $('clsChip').textContent = '';
+    $('saveChip').textContent = '';
+    $('app').innerHTML = vLock();
+    return;
+  }
+  if (!c && S.view !== 'guide') S.view = 'start';
+  $('app').innerHTML = (views[S.view]||vHome)();
+  const after = { entry:afterEntry, list:afterList };
+  if (after[S.view]) after[S.view]();
+}
+
+/* ================= 最初の登録 ================= */
+function vStart(){
+  return `<div class="panel hero">
+    <svg width="80" height="80" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3.2" y="2.4" width="17.6" height="19.2" rx="3.2" fill="#1F5D7A"/>
+      <path d="M14.6 2.4h3.9v6.4l-1.95-1.5-1.95 1.5z" fill="#B4543A"/>
+      <path d="M7.1 14.3l2.9 2.9 6.1-6.6" stroke="#fff" stroke-width="2.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h2 style="margin:16px 0 20px">クラスを登録すると使えます</h2>
+    <div class="row" style="justify-content:center">
+      <button class="btn pri big" onclick="openStartForm()">クラスを作る</button>
+      <button class="btn sec big" onclick="go('guide')">使い方を見る</button>
+    </div></div>`;
+}
+function openStartForm(){
+  modal(`<h3 style="margin-bottom:6px">クラスを作る</h3>
+    <p class="sub" style="margin-bottom:16px">12教科(国語〜総合)が自動で登録されます。使わない教科は、あとから設定で隠せます。</p>
+    <div class="kv">
+      <label>クラス名</label><input id="sfName" placeholder="例:2年D組">
+      <label>年度</label><input id="sfNendo" placeholder="例:令和8" value="令和8">
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:20px">
+      <button class="btn sec" onclick="shutModal()">キャンセル</button>
+      <button class="btn pri" id="sfGo">作成する</button>
+    </div>`, false);
+  $('sfGo').onclick = ()=>{
+    const f = readFields(['sfName','sfNendo']);
+    const name = f.sfName.trim(), nendo = f.sfNendo.trim();
+    if (!name){ toast('クラス名を入力してください'); return; }
+    shutModal(); ovl('クラスを作成中…');
+    call('setupClass', {name, nendo})
+      .then(()=>reloadBundle())
+      .then(()=>{ unovl(); go('home'); toast('クラスを作りました'); })
+      .catch(e=>{ unovl(); alertBox('作成できませんでした', e.message); });
+  };
+}
+
+/* ================= ホーム ================= */
+let homeSubj = null, homeTerm = '年間';
+
+// 4つの入口はそれぞれ別のかたちのアイコンにする
+const ICON = {
+  table:`<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#1F5D7A" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M3 14.5h18M9 9v11M15 9v11"/></svg>`,
+  person:`<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#1F5D7A" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c0-3.6 3.4-5.6 7.5-5.6s7.5 2 7.5 5.6"/></svg>`,
+  check:`<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#1F5D7A" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h9M4 12h9M4 17.5h6"/><circle cx="17.5" cy="16.5" r="4"/><path d="M17.5 14.6v2.1M17.5 18.6v.1"/></svg>`,
+  book:`<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#1F5D7A" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.2c2.8-.9 5.3-.9 8 .6v13c-2.7-1.5-5.2-1.5-8-.6z"/><path d="M20 5.2c-2.8-.9-5.3-.9-8 .6v13c2.7-1.5 5.2-1.5 8-.6z"/></svg>`,
+  save:`<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#1F5D7A" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v10.5M8.2 10.5 12 14.3l3.8-3.8"/><path d="M4.5 16.5v2.2c0 .9.7 1.6 1.6 1.6h11.8c.9 0 1.6-.7 1.6-1.6v-2.2"/></svg>`
+};
+
+// バックアップから1か月たっていたら促す
+function daysSinceBackup(){
+  const at = setting('最終バックアップ','');
+  if (!at) return null;
+  const m = String(at).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2]-1, +m[3]);
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+function backupNotice(){
+  const d = daysSinceBackup();
+  if (d != null && d < 30) return '';
+  const msg = d==null
+    ? 'まだ一度もバックアップを取っていません。'
+    : `前回のバックアップから <b>${d}日</b> たっています。`;
+  return `<div class="notice">${ICON.save}
+    <span>${msg}<br><span class="sub">万一に備えて、月に1回はバックアップを取ることをおすすめします。ボタンひとつで控えのファイルができます。</span></span>
+    <span class="grow"></span>
+    <button class="btn pri sm" onclick="runBackup()">バックアップを作成</button>
+    <button class="btn sec sm" onclick="go('settings','backup')">くわしく</button></div>`;
+}
+function runBackup(){
+  ovl('バックアップを作成中…');
+  call('createBackup', {}).then(r=>reloadBundle().then(()=>{
+    unovl(); render();
+    modal(`<h3 style="margin-bottom:8px">バックアップができました</h3>
+      <p class="sub" style="margin-bottom:6px">マイドライブに、次の名前でファイルを作りました。</p>
+      <p style="font-weight:800;margin-bottom:14px">${esc(r.name)}</p>
+      <p class="sub" style="margin-bottom:16px">このファイルを開くと、そのときの記録をそのまま確認できます。読み込み(復元)は 設定 → バックアップ から行えます。</p>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn sec" onclick="shutModal()">閉じる</button>
+        <a class="btn pri" href="${r.url}" target="_blank" rel="noopener" style="text-decoration:none">開いて確認する</a>
+      </div>`, true);
+  })).catch(e=>{ unovl(); alertBox('バックアップに失敗しました', e.message); });
+}
+
+function oppProgress(opp){
+  const fs = faces(opp), sts = rosterOf(opp['教科ID']);
+  let filled=0, total=0, exc=0;
+  sts.forEach(st=>fs.forEach(f=>{
+    const r = getRec(opp['機会ID'], st['児童ID'], f.k);
+    if (r && r.state===ST_EXC){ exc++; return; }
+    total++;
+    if (r && (r.raw!=='' || r.state===ST_ABS)) filled++;
+  }));
+  return {filled, total, exc};
+}
+function vHome(){
+  const subs = shownSubjects();
+  if (!subs.find(s=>s['教科ID']===homeSubj)) homeSubj = subs.length ? subs[0]['教科ID'] : null;
+  const sts = allStudents();
+  if (!sts.length){
+    return `<div class="panel hero">
+      <h3>まず名簿を登録しましょう</h3>
+      <p class="sub" style="margin:8px 0 18px">児童の名前を登録すると、点の入力が始められます。</p>
+      <button class="btn pri big" onclick="go('settings','roster')">名簿を登録する</button></div>`;
+  }
+  if (!subs.length) return `<div class="panel sub">表示する教科がありません。<span class="jump" onclick="go('settings','subj')">設定</span>で教科を追加してください。</div>`;
+
+  const half = S.b.opps.map(o=>({o, p:oppProgress(o)})).filter(x=>x.p.total>0 && x.p.filled>0 && x.p.filled<x.p.total);
+  const units = unitsOf(homeSubj).filter(u=>{
+    if (homeTerm==='年間') return true;
+    if (u['学期']===homeTerm) return true;
+    if (!u['学期']) return true;
+    return S.b.opps.some(o=>(o['単元ID']||'')===u['単元ID'] && o['学期']===homeTerm);
+  });
+  const shownIds = {}; subs.forEach(s=>shownIds[s['教科ID']]=1);
+  const termOpps = S.b.opps.filter(o=>shownIds[o['教科ID']] && (homeTerm==='年間'||o['学期']===homeTerm));
+  const doneCnt = termOpps.filter(o=>{ const p=oppProgress(o); return p.total>0 && p.filled>=p.total; }).length;
+  const pct = termOpps.length ? Math.round(doneCnt/termOpps.length*100) : 0;
+  const loose = oppsIn(homeSubj, '', homeTerm);
+  const subj = subs.find(s=>s['教科ID']===homeSubj);
+  const off = Object.keys(S.exc[homeSubj]||{}).length;
+
+  return `
+    ${half.length ? `<div class="notice">入力が途中のテストが <b>${half.length}件</b>
+      <span class="sub">${half.slice(0,3).map(x=>`${esc(x.o['機会名'])}(あと${x.p.total-x.p.filled})`).join(' / ')}</span>
+      <span class="grow"></span>
+      <button class="btn sec sm" onclick="go('entry','${half[0].o['機会ID']}')">続きを入力</button></div>` : ''}
+
+    ${backupNotice()}
+    <div class="navgrid">
+      <button class="navbtn" onclick="go('list')">${ICON.table}<span>成績一覧<small>単元ごと・観点別・ボーダー</small></span></button>
+      <button class="navbtn" onclick="openPersonPicker()">${ICON.person}<span>個人シート<small>懇談会・所見の材料に</small></span></button>
+      <button class="navbtn" onclick="go('list','undone')">${ICON.check}<span>未実施チェック<small>欠席・未入力を確認</small></span></button>
+      <button class="navbtn" onclick="go('guide')">${ICON.book}<span>使い方<small>はじめての方はこちら</small></span></button>
+    </div>
+
+    <div class="panel">
+      <div class="bar"><div class="chips">${subs.map(s=>`<button class="chip ${s['教科ID']===homeSubj?'on':''}" onclick="homeSubj='${s['教科ID']}';render()">${esc(s['教科名'])}</button>`).join('')}</div></div>
+      <hr class="rule">
+      <div class="bar">
+        <div class="seg">${['年間'].concat(TERMS).map(t=>`<button class="${homeTerm===t?'on':''}" onclick="homeTerm='${t}';render()">${t}</button>`).join('')}</div>
+        <span class="grow"></span>
+        ${termOpps.length ? `<div class="row" style="gap:8px"><div class="meter" style="width:110px"><i style="width:${pct}%"></i></div>
+          <span class="sub" style="font-size:12px;white-space:nowrap">${homeTerm} 入力完了 ${doneCnt}/${termOpps.length}</span></div>` : ''}
+        <span class="sub" style="font-size:12px">A:${subj?esc(subj['A閾値']):''}%〜 / B:${subj?esc(subj['B閾値']):''}%〜</span>
+      </div>
+      <div class="bar">
+        <button class="btn pri sm" onclick="openBatchBuilder()">単元とテストをまとめて作る</button>
+        <button class="btn sec sm" onclick="openUnitForm()">＋ 単元を追加</button>
+        <button class="btn sec sm" onclick="openSubjRoster('${homeSubj}')">この教科を受ける児童${off?`（${sts.length-off}/${sts.length}人）`:''}</button>
+      </div>
+      <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr))">
+        ${units.map(u=>unitBoxHtml(u, oppsIn(homeSubj, u['単元ID'], homeTerm))).join('')}
+        ${loose.length ? unitBoxHtml(null, loose) : ''}
+      </div>
+      ${!units.length && !loose.length ? `<div class="hero">
+        <h3>まだ単元がありません</h3>
+        <p class="sub" style="margin:8px 0 18px">「単元とテストをまとめて作る」から、一気に登録できます。</p>
+        <button class="btn pri big" onclick="openBatchBuilder()">単元とテストをまとめて作る</button></div>` : ''}
+    </div>`;
+}
+
+/* --- 教科ごとの対象児童 --- */
+function openSubjRoster(subjId){
+  const s = S.b.subjects.find(x=>x['教科ID']===subjId);
+  if (!s) return;
+  const sts = allStudents();
+  if (!sts.length){ toast('先に名簿を登録してください'); return; }
+  modal(`<h3 style="margin-bottom:4px">${esc(s['教科名'])}を受ける児童</h3>
+    <p class="sub" style="margin-bottom:14px">チェックを外した児童は、この教科の<b>入力画面・成績一覧・個人シートのどこにも出てこなくなります</b>。支援学級で別の学習をしている場合などに使ってください。すでに入力した点は消えません(チェックを戻せばまた出てきます)。</p>
+    <div class="row" style="margin-bottom:10px">
+      <button class="btn sec sm" onclick="document.querySelectorAll('.srChk').forEach(c=>c.checked=true)">全員にチェック</button>
+      <button class="btn sec sm" onclick="document.querySelectorAll('.srChk').forEach(c=>c.checked=false)">全員のチェックを外す</button>
+    </div>
+    <div style="max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px 10px">
+      ${sts.map(st=>`<label style="display:flex;gap:9px;align-items:center;padding:7px 2px;border-bottom:1px solid var(--line2)">
+        <input type="checkbox" class="srChk" value="${st['児童ID']}" ${takes(st['児童ID'], subjId)?'checked':''} style="width:18px;height:18px">
+        <span class="sub" style="width:32px">${esc(st['出席番号'])}</span><b>${esc(st['名前'])}</b></label>`).join('')}
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:16px">
+      <button class="btn sec" onclick="shutModal()">キャンセル</button>
+      <button class="btn pri" id="srGo">保存</button>
+    </div>`, false);
+  $('srGo').onclick = ()=>{
+    const off = [...document.querySelectorAll('.srChk')].filter(c=>!c.checked).map(c=>c.value);
+    shutModal();
+    saveRoster(subjId, off).then(()=>toast('対象児童を保存しました'));
+  };
+}
+
+/* --- 並び替え --- */
+let dragOpp = null, dragUnit = null;
+function oppDragStart(e, oppId, unitId){
+  dragOpp = {id:oppId, unit:unitId};
+  e.dataTransfer.effectAllowed='move'; e.stopPropagation();
+  const row = e.target.closest('.oppline');
+  if (row) setTimeout(()=>{ row.style.opacity='.4'; }, 0);
+}
+function oppDragEnd(){
+  dragOpp = null;
+  document.querySelectorAll('.oppline').forEach(r=>{ r.style.opacity=''; r.classList.remove('drop2'); });
+}
+function oppDragOver(e, oppId, unitId){
+  if (!dragOpp || dragOpp.id===oppId || dragOpp.unit!==unitId) return;
+  e.preventDefault(); e.stopPropagation();
+  e.currentTarget.classList.add('drop2');
+}
+function oppDragLeave(e){ e.currentTarget.classList.remove('drop2'); }
+function oppDrop(e, oppId, unitId){
+  e.preventDefault(); e.stopPropagation();
+  e.currentTarget.classList.remove('drop2');
+  const info = dragOpp; oppDragEnd();
+  if (!info || info.id===oppId || info.unit!==unitId) return;
+  const list = oppsIn(homeSubj, unitId, '年間');
+  const from = list.findIndex(o=>o['機会ID']===info.id), to = list.findIndex(o=>o['機会ID']===oppId);
+  if (from<0||to<0) return;
+  list.splice(to, 0, list.splice(from,1)[0]);
+  const orders = list.map((o,i)=>{ o['表示順']=String(i+1); return {id:o['機会ID'], order:String(i+1)}; });
+  render();
+  call('saveOppOrder', {orders}).then(()=>toast('並び順を保存しました')).catch(er=>alertBox('エラー', er.message));
+}
+function unitDragStart(e, uid){
+  dragUnit = uid; e.dataTransfer.effectAllowed='move';
+  const card = e.target.closest('.unitbox');
+  if (card) setTimeout(()=>card.classList.add('moving'), 0);
+}
+function unitDragEnd(){
+  dragUnit = null;
+  document.querySelectorAll('.unitbox').forEach(c=>c.classList.remove('moving','drop'));
+}
+function unitDragOver(e, uid){
+  if (!dragUnit || dragUnit===uid) return;
+  e.preventDefault(); e.dataTransfer.dropEffect='move';
+  e.currentTarget.classList.add('drop');
+}
+function unitDragLeave(e){ e.currentTarget.classList.remove('drop'); }
+function unitDrop(e, target){
+  e.preventDefault(); e.currentTarget.classList.remove('drop');
+  const src = dragUnit; unitDragEnd();
+  if (!src || src===target) return;
+  const list = unitsOf(homeSubj);
+  const from = list.findIndex(u=>u['単元ID']===src), to = list.findIndex(u=>u['単元ID']===target);
+  if (from<0||to<0) return;
+  list.splice(to, 0, list.splice(from,1)[0]);
+  const orders = list.map((u,i)=>{ u['表示順']=String(i+1); return {id:u['単元ID'], order:String(i+1)}; });
+  render();
+  call('saveUnitOrder', {orders}).then(()=>toast('並び順を保存しました')).catch(er=>alertBox('エラー', er.message));
+}
+
+function unitBoxHtml(u, opps){
+  const uid = u ? u['単元ID'] : '';
+  const title = u ? esc(u['単元名']) : '単元なし・学期をまたぐ見取り';
+  const dnd = u ? `ondragover="unitDragOver(event,'${uid}')" ondragleave="unitDragLeave(event)" ondrop="unitDrop(event,'${uid}')"` : '';
+  return `<div class="unitbox" ${dnd}>
+    <div class="row" style="margin-bottom:4px;flex-wrap:nowrap">
+      <h3 class="uttl" title="${title}">${title}</h3>
+      ${u && u['学期'] ? `<span class="tag gray">${esc(u['学期'])}</span>` : ''}
+      <span class="grow"></span>
+      ${u ? `<span class="unitools">
+        <span class="grip" draggable="true" title="ドラッグで並び替え" ondragstart="unitDragStart(event,'${uid}')" ondragend="unitDragEnd()">⠿</span>
+        <button class="btn icon" style="color:#8E948A" title="単元を編集" onclick="openUnitForm('${uid}')">編集</button>
+        <button class="btn icon" style="color:#8E948A" title="この単元を複製" onclick="openUnitCopy('${uid}')">複製</button>
+        <button class="btn icon" style="color:#B08070" title="単元を削除" onclick="removeUnit('${uid}')">削除</button></span>` : ''}
+    </div>
+    ${opps.map(o=>{
+      const p = oppProgress(o);
+      const full = p.total>0 && p.filled>=p.total;
+      return `<div class="oppline" onclick="go('entry','${o['機会ID']}')" ondragover="oppDragOver(event,'${o['機会ID']}','${uid}')" ondragleave="oppDragLeave(event)" ondrop="oppDrop(event,'${o['機会ID']}','${uid}')">
+        <span class="tag ${o['種別']==='テスト'?'test':'mit'}">${esc(o['種別'])}</span>
+        <span class="ottl" title="${esc(o['機会名'])}">${esc(o['機会名'])}</span>
+        ${isSplit(o) ? `<span class="tag gray" title="表と裏で単元が違います:${esc(splitUnitNames(o).join(' / '))}">表裏で単元違い</span>` : ''}
+        ${full ? `<span class="done">✓ 全員</span>` : `<span class="tag ${p.filled>0?'warn':'gray'}">${p.filled}/${p.total}</span>`}
+        ${p.exc ? `<span class="tag gray" title="除外している人数">除${p.exc}</span>` : ''}
+        ${(!u || o['学期'] !== u['学期']) ? `<span class="sub" style="font-size:11px">${esc(o['学期'])}</span>` : ''}
+        <span class="opptools">
+          <span class="grip" style="font-size:13px" draggable="true" title="ドラッグで並び替え" onclick="event.stopPropagation()" ondragstart="oppDragStart(event,'${o['機会ID']}','${uid}')" ondragend="oppDragEnd()">⠿</span>
+          <button class="btn icon" style="color:#8E948A" title="このテストを編集" onclick="event.stopPropagation();openOppForm('${o['機会ID']}')">編集</button>
+          <button class="btn icon" style="color:#B08070" title="これを削除" onclick="event.stopPropagation();removeOpp('${o['機会ID']}')">削除</button>
+        </span>
+      </div>`;
+    }).join('') || `<div class="sub" style="padding:6px 4px">まだテスト・見取りがありません</div>`}
+    <button class="btn ghost sm" style="margin-top:6px" onclick="openOppForm(null,'${uid}')">＋ テスト / 見取りを追加</button>
+  </div>`;
+}
+
+/* ================= 削除 ================= */
+function removeUnit(uid){
+  const u = S.b.units.find(x=>x['単元ID']===uid);
+  if (!u) return;
+  askYes('単元を削除', `「${u['単元名']}」と、その中のテスト・見取り・入力済みの記録がすべて削除されます。元に戻せません。\n本当に削除しますか?`, '削除する').then(yes=>{
+    if (!yes) return;
+    ovl('削除中…');
+    call('deleteUnit', {id:uid}).then(()=>reloadBundle()).then(()=>{ unovl(); render(); toast('単元を削除しました'); })
+      .catch(e=>{ unovl(); alertBox('エラー', e.message); });
+  });
+}
+function removeOpp(oppId){
+  const o = S.b.opps.find(x=>x['機会ID']===oppId);
+  if (!o) return;
+  askYes('削除の確認', `「${o['機会名']}」と入力済みの記録がすべて削除されます。元に戻せません。\n本当に削除しますか?`, '削除する').then(yes=>{
+    if (!yes) return;
+    ovl('削除中…');
+    call('deleteOpp', {id:oppId}).then(()=>reloadBundle()).then(()=>{ unovl(); if (S.view==='entry') go('home'); else render(); toast('削除しました'); })
+      .catch(e=>{ unovl(); alertBox('エラー', e.message); });
+  });
+}
+
+/* ================= 単元の複製 ================= */
+function openUnitCopy(uid){
+  const u = S.b.units.find(x=>x['単元ID']===uid);
+  if (!u) return;
+  const cnt = S.b.opps.filter(o=>o['単元ID']===uid).length;
+  modal(`<h3 style="margin-bottom:4px">単元を複製</h3>
+    <p class="sub" style="margin-bottom:14px">「${esc(u['単元名'])}」と、その中のテスト・見取り${cnt}件の設定(種別・観点・満点・面の名前・並び)をまるごと複製します。点数はコピーされません。</p>
+    <div class="kv">
+      <label>新しい単元名</label><input id="ucName" value="${esc(u['単元名'])}のコピー">
+      <label>学期</label><select id="ucTerm"><option value="" ${!u['学期']?'selected':''}>指定なし</option>${TERMS.map(t=>`<option ${u['学期']===t?'selected':''}>${t}</option>`).join('')}</select>
+      <label>実施日</label><input id="ucDate" type="date">
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:16px">
+      <button class="btn sec" onclick="shutModal()">キャンセル</button>
+      <button class="btn pri" id="ucGo">複製する</button>
+    </div>`, false);
+  $('ucGo').onclick = ()=>{
+    const f = readFields(['ucName','ucTerm','ucDate']);
+    const name = f.ucName.trim();
+    if (!name){ toast('単元名を入力してください'); return; }
+    const order = unitsOf(u['教科ID']).length + 1;
+    shutModal(); ovl('複製中…');
+    call('duplicateUnit', {unitId:uid, newName:name, term:f.ucTerm, date:f.ucDate, order:String(order)})
+      .then(()=>reloadBundle()).then(()=>{ unovl(); render(); toast('単元を複製しました'); })
+      .catch(e=>{ unovl(); alertBox('エラー', e.message); });
+  };
+}
+
+/* ================= まとめて作成 ================= */
+let BB = null;
+function defaultFaceOrder(){ return ['思','知','主']; }
+function newBBItem(type, order){
+  const ord = order || defaultFaceOrder();
+  return { type, name:'', ks: ord.map(k=>({k, on: type==='テスト' ? (k!=='主') : (k==='主'), max:100})) };
+}
+function newBBUnit(){
+  return { name:'', term: homeTerm!=='年間' ? homeTerm : '', date:'', items:[ newBBItem('テスト', BB?BB.order:null) ] };
+}
+function openBatchBuilder(){
+  if (!homeSubj){ toast('先に設定から教科を登録してください'); return; }
+  BB = { order: defaultFaceOrder(), units:[] };
+  BB.units.push(newBBUnit());
+  drawBB();
+}
+function bbOrder(ord){
+  BB.order = ord.split(',');
+  BB.units.forEach(u=>u.items.forEach(it=>{
+    it.ks = BB.order.map(k=>it.ks.find(x=>x.k===k) || {k, on:false, max:100});
+  }));
+  drawBB();
+}
+function bbKind(ui, ii, type){
+  const old = BB.units[ui].items[ii];
+  const nw = newBBItem(type, BB.order); nw.name = old.name;
+  BB.units[ui].items[ii] = nw;
+  drawBB();
+}
+function drawBB(){
+  const subj = S.b.subjects.find(x=>x['教科ID']===homeSubj);
+  modal(`<h3 style="margin-bottom:2px">${esc(subj?subj['教科名']:'')}の単元とテストをまとめて作る</h3>
+    <p class="sub" style="margin-bottom:10px">満点は観点ごとの数字です。表と裏で単元が違うテストは、作ったあとに「編集」から面ごとの単元を設定できます。</p>
+    <div class="row" style="margin-bottom:10px;background:#F4F5F0;border-radius:8px;padding:10px 12px">
+      <b style="font-size:13px">観点の並び</b>
+      <div class="seg">
+        <button class="${BB.order.join(',')==='思,知,主'?'on':''}" onclick="bbOrder('思,知,主')">思判表 → 知技</button>
+        <button class="${BB.order.join(',')==='知,思,主'?'on':''}" onclick="bbOrder('知,思,主')">知技 → 思判表</button>
+      </div>
+      <span class="sub" style="font-size:11.5px">入力画面と一覧の列もこの順になります</span>
+    </div>
+    <div style="max-height:50vh;overflow:auto;margin:0 -6px;padding:0 6px">
+    ${BB.units.map((u,ui)=>`
+      <div style="background:#F7F8F4;border:1px solid var(--line);border-radius:8px;padding:11px 13px;margin-bottom:10px">
+        <div class="row" style="flex-wrap:nowrap">
+          <b style="white-space:nowrap">単元${ui+1}</b>
+          <input placeholder="単元名(例:スイミー)" value="${esc(u.name)}" oninput="BB.units[${ui}].name=this.value" style="flex:1;min-width:120px">
+          <select onchange="BB.units[${ui}].term=this.value"><option value="" ${!u.term?'selected':''}>学期なし</option>${TERMS.map(t=>`<option ${u.term===t?'selected':''}>${t}</option>`).join('')}</select>
+          <input type="date" title="実施日(あとから変えられます)" value="${esc(u.date)}" onchange="BB.units[${ui}].date=this.value" style="width:148px">
+          ${BB.units.length>1?`<button class="btn icon" style="color:var(--shu)" title="この単元を消す" onclick="BB.units.splice(${ui},1);drawBB()">消す</button>`:''}
+        </div>
+        ${u.items.map((it,ii)=>`
+          <div class="row" style="margin-top:8px;padding-left:8px;flex-wrap:wrap">
+            <select onchange="bbKind(${ui},${ii},this.value)" style="padding:6px 8px"><option ${it.type==='テスト'?'selected':''}>テスト</option><option ${it.type==='見取り'?'selected':''}>見取り</option></select>
+            <input placeholder="${it.type==='テスト'?'テスト名':'見取り名'}" value="${esc(it.name)}" oninput="BB.units[${ui}].items[${ii}].name=this.value" style="flex:1;min-width:110px">
+            ${it.ks.map((kk,ki)=>`<label style="display:flex;align-items:center;gap:3px;font-size:12px;white-space:nowrap">
+              <input type="checkbox" ${kk.on?'checked':''} onchange="BB.units[${ui}].items[${ii}].ks[${ki}].on=this.checked;drawBB()" style="width:15px;height:15px">${KAN_SHORT[kk.k]}
+              <input type="number" value="${kk.max}" ${!kk.on?'disabled':''} oninput="BB.units[${ui}].items[${ii}].ks[${ki}].max=num(this.value)" style="width:54px;padding:4px 5px"></label>`).join('')}
+            <button class="btn icon" style="color:#A9AEA3" title="この行を消す" onclick="BB.units[${ui}].items.splice(${ii},1);drawBB()">×</button>
+          </div>`).join('')}
+        <button class="btn ghost sm" style="margin-top:8px" onclick="BB.units[${ui}].items.push(newBBItem('テスト',BB.order));drawBB()">＋ テスト/見取りを追加</button>
+      </div>`).join('')}
+    </div>
+    <button class="btn sec sm" onclick="BB.units.push(newBBUnit());drawBB()">＋ 単元を追加</button>
+    <div class="row" style="justify-content:flex-end;margin-top:12px">
+      <button class="btn sec" onclick="shutModal()">キャンセル</button>
+      <button class="btn pri" onclick="bbSave()">まとめて保存</button>
+    </div>`, false);
+}
+function bbSave(){
+  const payload = [];
+  const base = unitsOf(homeSubj).length;
+  for (let ui=0; ui<BB.units.length; ui++){
+    const u = BB.units[ui];
+    if (!u.name.trim()){ toast(`単元${ui+1}の名前を入力してください`); return; }
+    const opps = [];
+    for (let ii=0; ii<u.items.length; ii++){
+      const it = u.items[ii];
+      const anyOn = it.ks.some(k=>k.on);
+      if (!it.name.trim() && !anyOn && u.items.length===1) continue;
+      if (!it.name.trim()){ toast(`単元${ui+1}の${ii+1}行目の名前を入力してください`); return; }
+      const kanten = [];
+      for (const kk of it.ks){
+        if (!kk.on) continue;
+        const mx = num(kk.max);
+        if (mx==null || mx<=0 || mx>1000){ toast(`単元${ui+1}「${it.name}」の満点を確認してください`); return; }
+        kanten.push({k:kk.k, max:mx});
+      }
+      if (!kanten.length){ toast(`単元${ui+1}「${it.name}」の観点を1つ以上選んでください`); return; }
+      opps.push({ name:it.name.trim(), type:it.type, term:u.term, date:u.date, kanten:JSON.stringify(kanten) });
+    }
+    payload.push({ name:u.name.trim(), term:u.term, date:u.date, order:String(base+ui+1), opps });
+  }
+  if (!payload.length){ toast('単元を入力してください'); return; }
+  shutModal(); ovl('保存中…');
+  call('createUnitsBulk', {subjectId:homeSubj, units:payload})
+    .then(()=>reloadBundle()).then(()=>{
+      unovl(); render();
+      toast(`単元${payload.length}個・テスト/見取り${payload.reduce((a,u)=>a+u.opps.length,0)}件を登録しました`);
+    })
+    .catch(e=>{ unovl(); alertBox('エラー', e.message); });
+}
+
+/* ================= 単元フォーム ================= */
+function openUnitForm(uid){
+  const u = uid ? S.b.units.find(x=>x['単元ID']===uid) : null;
+  const subjId = u ? u['教科ID'] : homeSubj;
+  const subjName = (S.b.subjects.find(s=>s['教科ID']===subjId)||{})['教科名'] || '';
+  const defTerm = u ? u['学期'] : (homeTerm !== '年間' ? homeTerm : '');
+  modal(`<h3 style="margin-bottom:16px">${u?'単元を編集':'単元を追加'}</h3>
+    <div class="kv">
+      <label>教科</label><div style="font-weight:800;padding:4px 0">${esc(subjName)}</div>
+      <label>単元名</label><input id="ufName" value="${u?esc(u['単元名']):''}" placeholder="例:スイミー">
+      <label>学期</label><select id="ufTerm"><option value="" ${defTerm===''?'selected':''}>指定なし</option>${TERMS.map(t=>`<option ${defTerm===t?'selected':''}>${t}</option>`).join('')}</select>
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:20px">
+      ${u?`<button class="btn danger sm" id="ufDel">削除</button><span class="grow"></span>`:''}
+      <button class="btn sec" onclick="shutModal()">キャンセル</button>
+      <button class="btn pri" id="ufGo">${u?'保存':'追加'}</button>
+    </div>`, false);
+  $('ufGo').onclick = ()=>{
+    const f = readFields(['ufName','ufTerm']);
+    const name = f.ufName.trim();
+    if (!name){ toast('単元名を入力してください'); return; }
+    if (name.length > 40){ toast('単元名が長すぎます'); return; }
+    const p = u ? {id:uid, name, term:f.ufTerm, order:u['表示順']}
+                : {subjectId:subjId, name, term:f.ufTerm, order:String(unitsOf(subjId).length+1)};
+    shutModal(); ovl('保存中…');
+    call('saveUnit', p).then(()=>reloadBundle()).then(()=>{ unovl(); render(); })
+      .catch(e=>{ unovl(); alertBox('エラー', e.message); });
+  };
+  if (u) $('ufDel').onclick = ()=>{ shutModal(); removeUnit(uid); };
+}
+
+/* ================= テスト・見取りフォーム(面ごとの名前と単元) ================= */
+let FF = [], FF_SUBJ = null, FF_UNIT = '';
+function ffMove(i, d){
+  const j = i+d;
+  if (j<0 || j>=FF.length) return;
+  const t = FF[i]; FF[i] = FF[j]; FF[j] = t;
+  drawFaces();
+}
+function drawFaces(){
+  const host = $('ffList');
+  if (!host) return;
+  const units = unitsOf(FF_SUBJ);
+  host.innerHTML = FF.map((f,i)=>{
+    const seq = f.on ? (FF.filter((x,j)=>x.on&&j<i).length+1)+'枚目' : '—';
+    return `<div class="facerow ${f.on?'':'off'}">
+      <div class="row" style="flex-wrap:nowrap">
+        <span class="seq">${seq}</span>
+        <label style="display:flex;align-items:center;gap:7px;font-weight:700;min-width:180px">
+          <input type="checkbox" ${f.on?'checked':''} onchange="FF[${i}].on=this.checked;drawFaces()" style="width:17px;height:17px"> ${KAN_FULL[f.k]}
+        </label>
+        <span><input type="number" min="1" max="1000" value="${f.max}" ${f.on?'':'disabled'} oninput="FF[${i}].max=num(this.value)" style="width:78px"> 点満点</span>
+        <span class="grow"></span>
+        <button class="btn icon sec" title="上へ" ${i===0?'disabled':''} onclick="ffMove(${i},-1)">↑</button>
+        <button class="btn icon sec" title="下へ" ${i===FF.length-1?'disabled':''} onclick="ffMove(${i},1)">↓</button>
+      </div>
+      ${f.on?`<div class="row" style="margin-top:7px;padding-left:44px;flex-wrap:nowrap">
+        <span class="sub" style="font-size:11.5px;white-space:nowrap">この面の名前</span>
+        <input value="${esc(f.label||'')}" placeholder="空ならテスト名と同じ" oninput="FF[${i}].label=this.value" style="flex:1;min-width:120px">
+        <span class="sub" style="font-size:11.5px;white-space:nowrap">この面の単元</span>
+        <select onchange="FF[${i}].unit=this.value" style="max-width:180px">
+          <option value="">テストと同じ</option>
+          ${units.map(u=>`<option value="${u['単元ID']}" ${f.unit===u['単元ID']?'selected':''}>${esc(u['単元名'])}</option>`).join('')}
+        </select>
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+function openOppForm(oppId, unitId){
+  const o = oppId ? S.b.opps.find(x=>x['機会ID']===oppId) : null;
+  if (!o && !homeSubj){ toast('先に設定から教科を登録してください'); return; }
+  FF_SUBJ = o ? o['教科ID'] : homeSubj;
+  FF_UNIT = o ? (o['単元ID']||'') : (unitId||'');
+  if (o){
+    const st = faces(o);
+    FF = st.map(f=>({k:f.k, on:true, max:f.max, label:f.label||'', unit:f.unit||''}))
+      .concat(KAN_ORDER.filter(k=>!st.some(x=>x.k===k)).map(k=>({k, on:false, max:100, label:'', unit:''})));
+  } else {
+    FF = defaultFaceOrder().map(k=>({k, on:k!=='主', max:100, label:'', unit:''}));
+  }
+  const type = o ? o['種別'] : 'テスト';
+  const subjName = (S.b.subjects.find(s=>s['教科ID']===FF_SUBJ)||{})['教科名'] || '';
+  const defTerm = o ? o['学期'] : (homeTerm !== '年間' ? homeTerm : TERMS[0]);
+  modal(`<h3 style="margin-bottom:4px">${o?'テスト・見取りを編集':'テスト / 見取りを追加'}</h3>
+    <p class="sub" style="margin-bottom:14px">観点は上から順に、入力画面と一覧の列に並びます。答案の表裏の順に合わせてください。<br>
+      <b>表と裏で単元が違うテスト</b>は、面ごとに名前と単元を入れられます。1枚のテストとして扱われ、一覧では「表裏で単元違い」と表示されます。</p>
+    <div class="kv">
+      <label>教科</label><div style="font-weight:800;padding:4px 0">${esc(subjName)}</div>
+      <label>種別</label>
+      <div class="seg" id="ofType" style="${o?'opacity:.55;pointer-events:none':''}">
+        <button class="${type==='テスト'?'on':''}" data-v="テスト">テスト</button>
+        <button class="${type==='見取り'?'on':''}" data-v="見取り">見取り</button>
+      </div>
+      <label id="ofNameLbl">${type==='テスト'?'テスト名':'名前'}</label>
+      <input id="ofName" value="${o?esc(o['機会名']):(type==='テスト'?'単元テスト':'')}" placeholder="${type==='テスト'?'例:単元テスト':'例:ノート、ワークシートなど'}">
+      <label>学期</label><select id="ofTerm">${TERMS.map(t=>`<option ${defTerm===t?'selected':''}>${t}</option>`).join('')}</select>
+      <label>実施日</label><input id="ofDate" type="date" value="${o?esc(fmtDate(o['日付'])):''}">
+    </div>
+    <div style="margin-top:14px"><b style="font-size:13px">観点・満点・面の名前と単元</b>
+      <div id="ffList" style="margin-top:8px"></div></div>
+    <div class="row" style="justify-content:flex-end;margin-top:18px">
+      ${o?`<button class="btn danger sm" id="ofDel">削除</button><span class="grow"></span>`:''}
+      <button class="btn sec" onclick="shutModal()">キャンセル</button>
+      <button class="btn pri" id="ofGo">${o?'保存':'追加'}</button>
+    </div>`, false);
+  drawFaces();
+  let curType = type;
+  $('ofType').querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=>{
+      const before = curType;
+      curType = b.dataset.v;
+      $('ofType').querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b));
+      // ラベルと入力例を種別に合わせる。既定のまま・空のときだけ名前も差し替える
+      const lbl = $('ofNameLbl'), inp = $('ofName');
+      if (lbl) lbl.textContent = curType==='テスト' ? 'テスト名' : '名前';
+      if (inp){
+        inp.placeholder = curType==='テスト' ? '例:単元テスト' : '例:ノート、ワークシートなど';
+        const cur = inp.value.trim();
+        if (cur==='' || cur==='単元テスト'){ inp.value = curType==='テスト' ? '単元テスト' : ''; }
+      }
+      if (curType==='見取り' && before!=='見取り'){ FF.forEach(f=>{ f.on = f.k==='主'; f.max = 100; }); drawFaces(); }
+      if (curType==='テスト' && before!=='テスト'){ FF.forEach(f=>{ f.on = f.k!=='主'; f.max = 100; }); drawFaces(); }
+    };
+  });
+  $('ofGo').onclick = ()=>{
+    const fv = readFields(['ofName','ofTerm','ofDate']);
+    const name = fv.ofName.trim();
+    if (!name){ toast(curType==='テスト' ? 'テスト名を入力してください' : '名前を入力してください'); return; }
+    if (name.length > 40){ toast('名前が長すぎます'); return; }
+    const kanten = [];
+    for (const f of FF){
+      if (!f.on) continue;
+      const mx = num(f.max);
+      if (mx==null || mx<=0 || mx>1000){ toast('満点は1〜1000の数字で入力してください'); return; }
+      const e = {k:f.k, max:mx};
+      if (f.label && f.label.trim()) e.label = f.label.trim().slice(0,40);
+      if (f.unit) e.unit = f.unit;
+      kanten.push(e);
+    }
+    if (!kanten.length){ toast('観点を1つ以上選んでください'); return; }
+    const p = o ? {id:oppId, name, unitId:o['単元ID'], term:fv.ofTerm, date:fv.ofDate, kanten:JSON.stringify(kanten)}
+                : {subjectId:FF_SUBJ, unitId:FF_UNIT, name, type:curType, term:fv.ofTerm,
+                   date:fv.ofDate, kanten:JSON.stringify(kanten),
+                   order:String(oppsIn(FF_SUBJ, FF_UNIT, '年間').length+1)};
+    shutModal(); ovl('保存中…');
+    call('saveOpp', p).then(()=>reloadBundle()).then(()=>{ unovl(); render(); })
+      .catch(e=>{ unovl(); alertBox('エラー', e.message); });
+  };
+  if (o) $('ofDel').onclick = ()=>{ shutModal(); removeOpp(oppId); };
+}
+
+/* ================= 入力画面 ================= */
+let EV = { oppId:null, mode:'list', dir:'col', si:0, fi:0, step:null, pick:null };
+let jumpTo = null;
+function goEntryAt(oppId, stuId){ jumpTo = {oppId, stuId}; go('entry', oppId); }
+function curOpp(){ return S.b.opps.find(o=>o['機会ID']===S.arg); }
+
+function cellShow(r){
+  if (!r) return {t:'ー', c:'blank'};
+  if (r.state===ST_EXC) return {t:'除外', c:'exc'};
+  if (r.state===ST_ABS) return {t:'欠', c:'abs'};
+  if (r.raw==='') return {t:'ー', c:'blank'};
+  return {t:r.raw, c:''};
+}
+function vEntry(){
+  const opp = curOpp();
+  if (!opp) return `<div class="panel">テストが見つかりません。<span class="jump" onclick="go('home')">戻る</span></div>`;
+  if (EV.oppId !== opp['機会ID']) EV = { oppId:opp['機会ID'], mode:'list', dir:'col', si:0, fi:0, step:null, pick:null };
+  const fs = faces(opp), sts = rosterOf(opp['教科ID']);
+  if (!sts.length) return `<div class="panel">この教科を受ける児童が登録されていません。<span class="jump" onclick="openSubjRoster('${opp['教科ID']}')">対象児童を設定する</span></div>`;
+  if (EV.si >= sts.length) EV.si = 0;
+  if (EV.fi >= fs.length) EV.fi = 0;
+  if (EV.pick != null && EV.pick >= sts.length) EV.pick = null;
+  if (jumpTo && jumpTo.oppId === opp['機会ID']){
+    const idx = sts.findIndex(s=>s['児童ID']===jumpTo.stuId);
+    if (idx >= 0){
+      EV.si = idx;
+      if (EV.mode==='one') EV.pick = idx;
+      const empty = fs.findIndex(f=>{ const r = getRec(opp['機会ID'], sts[idx]['児童ID'], f.k); return !r || (r.raw==='' && !r.state); });
+      EV.fi = empty>=0 ? empty : 0;
+      EV.step = null;
+    }
+    jumpTo = null;
+  }
+  const unit = S.b.units.find(u=>u['単元ID']===opp['単元ID']);
+  const hasMemo = st=>fs.some(f=>{ const r = getRec(opp['機会ID'], st['児童ID'], f.k); return r && r.memo; });
+  const split = isSplit(opp);
+  let body;
+  if (EV.mode==='list'){
+    body = `<div class="tblwrap" style="max-height:calc(100vh - 230px)"><table class="entrytbl">
+      <tr><th style="width:46px">番号</th><th>名前</th>
+        ${fs.map((f,i)=>`<th style="text-align:center;cursor:pointer" onclick="EV.fi=${i};EV.step=null;render()">
+          ${i+1}枚目 ${KAN_SHORT[f.k]} <span style="font-weight:400">/${f.max}</span>${EV.fi===i&&fs.length>1?' ◀':''}
+          ${split?`<div style="font-weight:500;font-size:10.5px;color:var(--sub)">${esc(faceName(opp,f))}${faceUnitId(opp,f)!==(opp['単元ID']||'')?' ・'+esc(unitName(faceUnitId(opp,f))):''}</div>`:''}</th>`).join('')}
+        <th style="width:36px"></th></tr>
+      ${sts.map((st,si)=>{
+        const here = si===EV.si;
+        return `<tr class="${here?'here':''}">
+          <td class="sub no">${esc(st['出席番号'])}</td>
+          <td class="nm" style="font-weight:${here?'800':'600'}">${esc(st['名前'])}</td>
+          ${fs.map((f,fi)=>{
+            const r = getRec(opp['機会ID'], st['児童ID'], f.k);
+            const sh = cellShow(r);
+            const n = r && r.raw!=='' && !r.state ? num(r.raw) : null;
+            const mx = faceMax(f, r);
+            const gr = n!=null && mx ? gradeOf(n/mx*100, opp['教科ID']) : null;
+            return `<td class="cell ${here&&fi===EV.fi?'on':''} ${sh.c} ${gr?'g'+gr:''}" data-cell="${si}_${fi}" title="${gr?gr+' 判定':''}" onclick="EV.si=${si};EV.fi=${fi};EV.step=null;render()">${esc(sh.t)}</td>`;
+          }).join('')}
+          <td>${hasMemo(st)?'<span title="メモあり">✎</span>':''}</td>
+        </tr>`;
+      }).join('')}
+    </table></div>`;
+  } else {
+    body = oneByOneHtml(opp, fs, sts);
+  }
+  return `
+    <div class="bar">
+      <button class="btn sec sm" onclick="go('home')">‹ 戻る</button>
+      <div>
+        <div class="row" style="gap:8px"><h2 style="font-size:18px">${esc(opp['機会名'])}</h2>
+          <span class="tag ${opp['種別']==='テスト'?'test':'mit'}">${esc(opp['種別'])}</span>
+          ${split?`<span class="tag gray">表裏で単元違い:${esc(splitUnitNames(opp).join(' / '))}</span>`:''}</div>
+        <div class="sub">${unit?esc(unit['単元名'])+' / ':''}${esc(opp['学期'])}${opp['日付']?' / '+esc(fmtDate(opp['日付'])):''} ・ 対象${sts.length}人</div>
+      </div>
+      <span class="grow"></span>
+      <button class="btn sec sm" onclick="openOppForm('${opp['機会ID']}')">このテストを編集</button>
+    </div>
+    <div class="bar">
+      <div class="seg">
+        <button class="${EV.mode==='list'?'on':''}" onclick="EV.mode='list';EV.pick=null;render()">一覧で入力</button>
+        <button class="${EV.mode==='one'?'on':''}" onclick="EV.mode='one';render()">1人ずつ入力</button>
+      </div>
+      ${EV.mode==='list'&&fs.length>1?`<div class="seg">
+        <button class="${EV.dir==='col'?'on':''}" onclick="EV.dir='col';render()" title="同じ面を全員分→次の面">縦に進む</button>
+        <button class="${EV.dir==='row'?'on':''}" onclick="EV.dir='row';render()" title="1人の全部の面→次の子">横に進む</button>
+      </div>`:''}
+      <span class="grow"></span>
+      <span class="sub" style="font-size:12px">Enterでも次へ進めます</span>
+    </div>
+    <div class="inputwrap">
+      <div class="panel" style="padding:13px 16px;width:fit-content;max-width:100%;min-width:min(520px,100%)">${body}</div>
+      <div id="padCol" class="padcol"></div>
+    </div>`;
+}
+function oneByOneHtml(opp, fs, sts){
+  const status = st=>{
+    let f=0,k=0,x=0;
+    fs.forEach(fc=>{
+      const r = getRec(opp['機会ID'], st['児童ID'], fc.k);
+      if (!r) return;
+      if (r.state===ST_EXC){ x++; return; }
+      if (r.state===ST_ABS){ k++; f++; return; }
+      if (r.raw!=='') f++;
+    });
+    if (x===fs.length) return 'exc';
+    if (f===0) return '';
+    if (k===fs.length) return 'abs';
+    return f>=fs.length-x ? 'full' : 'part';
+  };
+  const sel = EV.pick!=null ? sts[EV.pick] : null;
+  const split = isSplit(opp);
+  return `
+    <p class="sub" style="margin-bottom:10px"><b>番号を押して → 点を押す</b>。次の子は自動で選ばれます。</p>
+    <div class="numtiles">
+      ${sts.map((st,i)=>`<button class="numtile ${status(st)} ${EV.pick===i?'here':''}" data-tile="${i}" onclick="EV.pick=${i};EV.fi=0;EV.step=null;render()">
+        <span class="n">${esc(st['出席番号'])}</span><small>${esc(st['名前'])}</small></button>`).join('')}
+    </div>
+    ${sel ? `<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:13px">
+      <div class="row">
+        <div class="padname"><span class="no">${esc(sel['出席番号'])}番</span> ${esc(sel['名前'])}</div>
+        <span class="grow"></span>
+        <button class="btn sec sm" onclick="EV.pick=null;render()">閉じる</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        ${fs.map((f,i)=>{
+          const r = getRec(opp['機会ID'], sel['児童ID'], f.k);
+          const sh = cellShow(r);
+          return `<div class="facebox ${EV.fi===i?'on':''}" onclick="EV.fi=${i};EV.step=null;render()">
+            <div class="sub" style="font-weight:700">${i+1}枚目 ${KAN_FULL[f.k]} <span style="font-weight:400">/${f.max}</span></div>
+            ${split?`<div class="sub" style="font-size:11px">${esc(faceName(opp,f))}</div>`:''}
+            <div class="v">${r&&r.raw!==''&&!r.state?esc(r.raw):`<span class="ph">${esc(sh.t==='ー'?'未入力':sh.t)}</span>`}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : `<p class="sub" style="margin-top:14px">↑ 番号をタップすると入力できます</p>`}`;
+}
+function afterEntry(){
+  const opp = curOpp(); if (!opp) return;
+  const fs = faces(opp), sts = rosterOf(opp['教科ID']);
+  if (!sts.length || !fs.length) return;
+  if (EV.mode==='one' && EV.pick==null){ drawPad(opp, null, null); return; }
+  const si = EV.mode==='one' ? EV.pick : Math.min(EV.si, sts.length-1);
+  const fi = Math.min(EV.fi, fs.length-1);
+  drawPad(opp, sts[si], fs[fi]);
+  const active = document.querySelector('.cell.on') || document.querySelector('.numtile.here');
+  if (active){
+    const wrap = active.closest('.tblwrap');
+    if (wrap){
+      const r = active.getBoundingClientRect(), w = wrap.getBoundingClientRect();
+      wrap.scrollTop += (r.top + r.height/2) - (w.top + w.height/2);
+    } else active.scrollIntoView({block:'nearest'});
+  }
+  const pi = $('padIn'); if (pi) pi.focus({preventScroll:true});
+}
+function drawPad(opp, st, f){
+  const host = $('padCol'); if (!host) return;
+  const p = oppProgress(opp);
+  const steps = stepValues();
+  const isMit = opp['種別']==='見取り';
+  const meter = `<div class="row" style="margin:4px 0 12px"><div class="meter"><i style="width:${p.total?p.filled/p.total*100:0}%"></i></div>
+    <span class="sub" style="font-size:12px;white-space:nowrap">${p.filled}/${p.total}${p.exc?' (除外'+p.exc+')':''}</span></div>`;
+  if (!st || !f){
+    host.innerHTML = `<div class="padname">入力パッド</div>
+      <p class="sub" style="margin:6px 0 10px">番号タイルをタップすると入力が始まります</p>${meter}`;
+    return;
+  }
+  const r = getRec(opp['機会ID'], st['児童ID'], f.k);
+  const max = f.max;
+  let nums = [];
+  for (let v = Math.floor(max/5)*5; v>=0; v-=5) nums.push(v);
+  if (nums[0]!==max) nums.unshift(max);
+  if (nums.length>24) nums = nums.slice(0,24);
+  const stepRow = isMit ? `<div class="row" style="gap:6px;margin-bottom:8px">
+      ${['A','B','C'].map(g=>`<button class="stepbtn ${g} ${EV.step===g?'on':''}" style="flex:1;min-width:0" onclick="tapStep('${g}')">${g}</button>`).join('')}
+    </div>` : '';
+  const grid = EV.step
+    ? `<div class="numgrid">${(steps[EV.step]||[]).map(v=>`<button class="nbtn" onclick="putVal(${v})">${v}</button>`).join('') || '<span class="sub" style="grid-column:1/-1">設定で数値を登録できます</span>'}</div>
+       <button class="nbtn util" style="width:100%;margin-top:6px" onclick="EV.step=null;render()">ぜんぶの数字を表示</button>`
+    : `<div class="numgrid">${nums.map(v=>`<button class="nbtn" onclick="putVal(${v})">${v}</button>`).join('')}</div>`;
+  host.innerHTML = `
+    <div class="padname"><span class="no">${esc(st['出席番号'])}番</span>${esc(st['名前'])}</div>
+    <div class="sub" style="font-weight:600">${KAN_FULL[f.k]} /${max}点満点${isSplit(opp)?' ・ '+esc(faceName(opp,f)):''}</div>
+    ${meter}
+    <div class="padgrid">
+      <div class="padmain">${stepRow}${grid}</div>
+      <div class="padside">
+        <input id="padIn" type="text" inputmode="numeric" placeholder="直接入力" autocomplete="off">
+        <div class="pair">
+          <button class="nbtn util" onclick="bump(-1)">−1</button>
+          <button class="nbtn util" onclick="bump(1)">＋1</button>
+        </div>
+        <button class="nbtn abs ${r&&r.state===ST_ABS?'on':''}" title="欠席。評価の母数には入りません" onclick="putState('${ST_ABS}')">欠席</button>
+        <div class="pair">
+          <button class="nbtn util" onclick="clearCell()">消す</button>
+          <button class="nbtn util" onclick="openMemo()">メモ</button>
+        </div>
+        <hr class="rule" style="margin:2px 0">
+        <button class="nbtn util" onclick="stepBack()">取消</button>
+        <button class="nbtn util" onclick="nextBlank()">次の未入力→</button>
+        ${EV.mode==='list' ? `<button class="nbtn util" onclick="openFillAll()">全員に同じ点</button>` : ''}
+        <button class="nbtn exc ${r&&r.state===ST_EXC?'on':''}"
+          title="この子はこのテストの対象にしない。母数にも入力の分母にも入りません" onclick="putState('${ST_EXC}')">除外する</button>
+      </div>
+    </div>
+    ${r&&r.state===ST_EXC ? `<p class="sub" style="margin-top:8px;color:var(--shu)">このテストの対象外にしています。もう一度「除外する」を押すと解除できます。</p>` : ''}`;
+}
+function tapStep(g){ EV.step = EV.step===g ? null : g; render(); }
+function curCell(){
+  const opp = curOpp(); if (!opp) return null;
+  const fs = faces(opp), sts = rosterOf(opp['教科ID']);
+  const si = EV.mode==='one' ? EV.pick : EV.si;
+  if (si==null || !sts[si]) return null;
+  const fi = Math.min(EV.fi, fs.length-1);
+  return { opp, fs, sts, si, fi, st:sts[si], f:fs[fi] };
+}
+function putVal(v){
+  const c = curCell(); if (!c) return;
+  const n = num(v);
+  if (n==null){ toast('数字を入力してください'); return; }
+  if (n<0 || n>c.f.max){
+    toast(`0〜${c.f.max}点の範囲で入力してください`);
+    const pad = $('padCol'); if (pad){ pad.classList.add('wobble'); setTimeout(()=>pad.classList.remove('wobble'), 350); }
+    return;
+  }
+  const prev = getRec(c.opp['機会ID'], c.st['児童ID'], c.f.k);
+  queueRec(c.opp['機会ID'], c.st['児童ID'], c.f.k, Math.round(n*10)/10, prev?prev.memo:'', '', c.f.max);
+  EV.step = null; blinkNext(c);
+}
+function putState(state){
+  const c = curCell(); if (!c) return;
+  const prev = getRec(c.opp['機会ID'], c.st['児童ID'], c.f.k);
+  const same = prev && prev.state===state;
+  queueRec(c.opp['機会ID'], c.st['児童ID'], c.f.k, '', prev?prev.memo:'', same?'':state, c.f.max);
+  EV.step = null;
+  if (same){ render(); toast('解除しました'); return; }
+  blinkNext(c);
+}
+function blinkNext(c){
+  const mode = EV.mode, si = mode==='one' ? EV.pick : EV.si, fi = c.fi;
+  moveNext(c); render();
+  setTimeout(()=>{
+    const el = document.querySelector(mode==='one' ? `[data-tile="${si}"]` : `[data-cell="${si}_${fi}"]`);
+    if (el){ el.style.outline='2px solid var(--ai)'; setTimeout(()=>{ el.style.outline=''; }, 600); }
+  }, 0);
+}
+function clearCell(){
+  const c = curCell(); if (!c) return;
+  queueRec(c.opp['機会ID'], c.st['児童ID'], c.f.k, '', '', '', '');
+  render();
+}
+function bump(d){
+  const c = curCell(); if (!c) return;
+  const r = getRec(c.opp['機会ID'], c.st['児童ID'], c.f.k);
+  const base = r && r.raw!=='' && !r.state ? num(r.raw) : null;
+  if (base==null){ toast('先に点数を入れてから ＋1 / −1 で微調整します'); return; }
+  queueRec(c.opp['機会ID'], c.st['児童ID'], c.f.k, Math.min(c.f.max, Math.max(0, base+d)), r?r.memo:'', '', c.f.max);
+  render();
+}
+function moveNext(c){
+  if (EV.mode==='one'){
+    if (EV.fi < c.fs.length-1){ EV.fi++; return; }
+    const nx = nextBlankStudent(c, EV.pick);
+    if (nx!=null){ EV.pick = nx; EV.fi = 0; }
+    else { EV.pick = null; EV.fi = 0; toast('全員入力済みです'); }
+    return;
+  }
+  if (EV.dir==='col'){
+    if (EV.si < c.sts.length-1) EV.si++;
+    else if (EV.fi < c.fs.length-1){ EV.fi++; EV.si = 0; }
+  } else {
+    if (EV.fi < c.fs.length-1) EV.fi++;
+    else if (EV.si < c.sts.length-1){ EV.si++; EV.fi = 0; }
+  }
+}
+function isBlank(oppId, stuId, kan){
+  const r = getRec(oppId, stuId, kan);
+  return !r || (r.raw==='' && !r.state);
+}
+function nextBlankStudent(c, from){
+  for (let s=1; s<=c.sts.length; s++){
+    const si = ((from==null?-1:from) + s + c.sts.length) % c.sts.length;
+    if (c.fs.some(f=>isBlank(c.opp['機会ID'], c.sts[si]['児童ID'], f.k))) return si;
+  }
+  return null;
+}
+function nextBlank(){
+  const c = curCell(); if (!c) return;
+  const total = c.sts.length * c.fs.length;
+  let si = EV.mode==='one' ? (EV.pick||0) : EV.si, fi = EV.fi;
+  for (let s=0; s<total; s++){
+    if (si < c.sts.length-1) si++;
+    else { si = 0; fi = (fi+1) % c.fs.length; }
+    if (isBlank(c.opp['機会ID'], c.sts[si]['児童ID'], c.fs[fi].k)){
+      if (EV.mode==='one') EV.pick = si; else EV.si = si;
+      EV.fi = fi; EV.step = null; render(); return;
+    }
+  }
+  toast('未入力はありません');
+}
+function openMemo(){
+  const c = curCell(); if (!c) return;
+  const r = getRec(c.opp['機会ID'], c.st['児童ID'], c.f.k);
+  modal(`<h3 style="margin-bottom:4px">${esc(c.st['名前'])} のメモ</h3>
+    <p class="sub" style="margin-bottom:12px">${esc(faceName(c.opp, c.f))} ・ ${KAN_FULL[c.f.k]}(所見の材料になります)</p>
+    <textarea id="memoTxt" rows="4" style="width:100%" placeholder="例:友達の意見を取り入れて考えを深めていた">${r?esc(r.memo):''}</textarea>
+    <div class="row" style="justify-content:flex-end;margin-top:14px">
+      <button class="btn sec" onclick="shutModal()">キャンセル</button>
+      <button class="btn pri" id="memoGo">保存</button>
+    </div>`, false);
+  $('memoGo').onclick = ()=>{
+    const txt = $('memoTxt').value.slice(0,500);
+    queueRec(c.opp['機会ID'], c.st['児童ID'], c.f.k, r?r.raw:'', txt, r?r.state:'', c.f.max);
+    shutModal(); render(); toast('メモを保存しました');
+  };
+}
+function openFillAll(){
+  const c = curCell(); if (!c) return;
+  modal(`<h3 style="margin-bottom:4px">全員に同じ点を入れる</h3>
+    <p class="sub" style="margin-bottom:14px">まず全員に同じ点を入れてから、例外の子だけ直すと速いです。欠席・除外にしている子はそのまま残します。</p>
+    <div class="kv">
+      <label>面(観点)</label><select id="faKan">${c.fs.map((f,i)=>`<option value="${i}" ${i===c.fi?'selected':''}>${i+1}枚目 ${KAN_FULL[f.k]} (/${f.max})</option>`).join('')}</select>
+      <label>点数</label><input id="faVal" type="number" style="width:100px">
+      <label></label><label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="faBlank" style="width:16px;height:16px">未入力の子だけに入れる</label>
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:16px">
+      <button class="btn sec" onclick="shutModal()">キャンセル</button>
+      <button class="btn pri" id="faGo">全員に入力</button>
+    </div>`, false);
+  $('faGo').onclick = ()=>{
+    const fi = +$('faKan').value, f = c.fs[fi];
+    const v = num($('faVal').value);
+    if (v==null || v<0 || v>f.max){ toast(`0〜${f.max}の数字で入力してください`); return; }
+    const onlyBlank = $('faBlank').checked;
+    let n = 0;
+    c.sts.forEach(st=>{
+      const r = getRec(c.opp['機会ID'], st['児童ID'], f.k);
+      if (r && (r.state===ST_ABS || r.state===ST_EXC)) return;
+      if (onlyBlank && r && r.raw!=='') return;
+      queueRec(c.opp['機会ID'], st['児童ID'], f.k, v, r?r.memo:'', '', f.max);
+      n++;
+    });
+    shutModal(); render(); toast(`${n}人に ${v}点 を入力しました(取消で1人ずつ戻せます)`);
+  };
+}
+document.addEventListener('keydown', e=>{
+  if (S.view !== 'entry') return;
+  if ($('modalwrap').style.display==='flex' || $('dlgwrap').style.display==='flex') return;
+  const pi = $('padIn');
+  if (e.key==='Enter'){
+    e.preventDefault();
+    if (pi && pi.value.trim()!==''){ const v = pi.value.trim(); pi.value=''; putVal(v); }
+    else { const c = curCell(); if (c){ moveNext(c); render(); } }
+    return;
+  }
+  if (document.activeElement===pi && pi.value.trim()!=='') return;
+  if (EV.mode!=='list') return;
+  const c = curCell(); if (!c) return;
+  if (e.key==='ArrowDown'){ e.preventDefault(); EV.si = Math.min(c.sts.length-1, EV.si+1); render(); }
+  if (e.key==='ArrowUp'){ e.preventDefault(); EV.si = Math.max(0, EV.si-1); render(); }
+  if (e.key==='ArrowRight'){ e.preventDefault(); EV.fi = Math.min(c.fs.length-1, EV.fi+1); render(); }
+  if (e.key==='ArrowLeft'){ e.preventDefault(); EV.fi = Math.max(0, EV.fi-1); render(); }
+  if (/^[0-9]$/.test(e.key) && pi){ pi.focus({preventScroll:true}); }
+});
+
+/* ================= 成績一覧 ================= */
+let LV = { tab:'kai', term:'年間', show:'both', kind:'テスト', subj:null,
+           kans:{'知':true,'思':true,'主':true}, undoneTestOnly:true, undoneBy:'test' };
+
+function vList(){
+  if (S.arg==='undone'){ LV.tab='undone'; S.arg=null; }
+  const tabs = [['kai','単元ごと'],['kanten','観点別'],['border','ボーダー'],['undone','未実施']];
+  const subs = shownSubjects().filter(s2=>S.b.opps.some(o=>o['教科ID']===s2['教科ID']));
+  if (subs.length && !subs.find(s2=>s2['教科ID']===LV.subj)) LV.subj = subs[0]['教科ID'];
+  const uk = LV.subj ? usedKans(LV.subj, LV.term) : [];
+  return `
+    <div class="bar">
+      <button class="btn sec sm" onclick="go('home')">‹ 戻る</button>
+      <div class="seg">${tabs.map(t=>`<button class="${LV.tab===t[0]?'on':''}" onclick="LV.tab='${t[0]}';render()">${t[1]}</button>`).join('')}</div>
+      ${LV.tab==='kai' ? `
+        <select class="subjsel" onchange="LV.subj=this.value;render()">${subs.map(s2=>`<option value="${s2['教科ID']}" ${s2['教科ID']===LV.subj?'selected':''}>${esc(s2['教科名'])}</option>`).join('')}</select>
+        <div class="seg">
+          <button class="${LV.kind==='テスト'?'on':''}" onclick="LV.kind='テスト';render()">テスト</button>
+          <button class="${LV.kind==='見取り'?'on':''}" onclick="LV.kind='見取り';render()">見取り</button>
+        </div>
+        <span class="row" style="gap:9px">${uk.map(k=>`<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;color:var(--sub)">
+          <input type="checkbox" ${LV.kans[k]!==false?'checked':''} onchange="LV.kans['${k}']=this.checked;render()" style="width:16px;height:16px">${KAN_SHORT[k]}</label>`).join('')}</span>
+        <button class="btn pri sm" onclick="exportKai()">Excel出力</button>` : ''}
+      ${LV.tab==='kanten' ? `
+        <div class="seg">
+          <button class="${LV.show==='both'?'on':''}" onclick="LV.show='both';render()">テストと見取り</button>
+          <button class="${LV.show==='test'?'on':''}" onclick="LV.show='test';render()">テスト</button>
+          <button class="${LV.show==='mitori'?'on':''}" onclick="LV.show='mitori';render()">見取り</button>
+          <button class="${LV.show==='final'?'on':''}" onclick="LV.show='final';render()">最終評価</button>
+        </div>
+        <button class="btn sec sm" onclick="openPaste()">コピー</button>
+        <button class="btn sec sm" onclick="PV.term=LV.term;go('printall')">全員印刷</button>
+        <button class="btn pri sm" onclick="exportKanten()">Excel出力</button>` : ''}
+      <span class="grow"></span>
+      <div class="seg">${['年間'].concat(TERMS).map(t=>`<button class="${LV.term===t?'on':''}" onclick="LV.term='${t}';render()">${t}</button>`).join('')}</div>
+    </div>
+    ${LV.tab==='kanten' ? kantenTable() : LV.tab==='kai' ? kaiTable() : LV.tab==='border' ? borderHtml() : undoneHtml()}`;
+}
+function afterList(){
+  const th = document.querySelector('th.stickL');
+  if (!th) return;
+  const w = Math.floor(th.getBoundingClientRect().width);
+  document.querySelectorAll('.stickL.stickEdge').forEach(el=>{ el.style.left = (w-1)+'px'; });
+}
+
+// その教科・その学期で、実際にチェックが入っている観点だけを返す
+function usedKans(subjId, term, kind){
+  const used = {};
+  S.b.opps.forEach(o=>{
+    if (o['教科ID']!==subjId) return;
+    if (term!=='年間' && o['学期']!==term) return;
+    if (kind && o['種別']!==kind) return;
+    faces(o).forEach(f=>{ used[f.k] = 1; });
+  });
+  return KAN_ORDER.filter(k=>used[k]);
+}
+// チェックを入れている観点だけに絞った面
+function pickedFaces(opp){ return faces(opp).filter(f=>LV.kans[f.k]!==false); }
+function totalOf(opp, stuId, fs){
+  let raw=0, max=0, n=0, abs=0, exc=0;
+  fs.forEach(f=>{
+    const r = faceResult(opp, f, stuId);
+    if (!r) return;
+    if (r.exc){ exc++; return; }
+    if (r.abs){ abs++; return; }
+    raw+=r.raw; max+=r.max; n++;
+  });
+  if (n===0){
+    if (fs.length && exc>=fs.length) return {exc:true};
+    if (abs) return {abs:true};
+    return null;
+  }
+  return { raw:r1(raw), max, pct: max ? raw/max*100 : null, whole: n+abs+exc===fs.length };
+}
+function avgOf(opp, fs){
+  const v = [];
+  rosterOf(opp['教科ID']).forEach(st=>{
+    const t = totalOf(opp, st['児童ID'], fs);
+    if (t && t.pct!=null) v.push(t.pct);
+  });
+  return avg(v);
+}
+function countCell(grades){
+  const c = {A:0,B:0,C:0};
+  grades.forEach(g=>{ if (c[g]!=null) c[g]++; });
+  return `<div class="cntline"><span class="cnt A">A ${c.A}</span><span class="cnt B">B ${c.B}</span><span class="cnt C">C ${c.C}</span></div>`;
+}
+
+/* --- 単元ごと(テスト・見取りを1回ずつ、観点に分けて表示) --- */
+function kaiCell(opp, stuId, subjId, fs){
+  const src = opp['種別']==='テスト' ? 'ts' : 'ms';
+  const split = isSplit(opp);
+  // 1行はつねに [観点][(面名)][点][％][評価] の桁で組む。空欄も桁として出す
+  const line = (head, faceLabel, pt, pc, gr, extra)=>
+    `<div class="kline${extra||''}"><span class="tg">${head}</span>${split?`<span class="fn">${faceLabel}</span>`:''}` +
+    `<span class="pt">${pt}</span><span class="pc">${pc}</span><span class="gr">${gr}</span></div>`;
+  const lines = fs.map(f=>{
+    const r = faceResult(opp, f, stuId);
+    const tag = `<span class="src ${src}" title="${KAN_FULL[f.k]}">${KAN_SHORT[f.k]}</span>`;
+    const fl = split ? `<span title="${esc(faceName(opp,f))} / ${esc(unitName(faceUnitId(opp,f))||'単元なし')}">${esc(faceName(opp,f))}</span>` : '';
+    if (!r)     return line(tag, fl, '<span class="nores">ー</span>', '', '');
+    if (r.exc)  return line(tag, fl, '<span class="nores">除外</span>', '', '');
+    if (r.abs)  return line(tag, fl, '<span style="color:var(--shu)">欠</span>', '', '');
+    return line(tag, fl, `${r.raw}/${r.max}`, `${Math.round(r.pct)}%`, gBadge(gradeOf(r.pct, subjId)));
+  }).join('');
+  const t = totalOf(opp, stuId, fs);
+  const head = '<b style="font-size:11px">計</b>';
+  let sum;
+  if (!t)          sum = line(head, '', '<span class="nores">ー</span>', '', '', ' ksum');
+  else if (t.exc)  sum = line(head, '', '<span class="nores">除外</span>', '', '', ' ksum');
+  else if (t.abs)  sum = line(head, '', '<span style="color:var(--shu)">欠席</span>', '', '', ' ksum');
+  else sum = line(head, '', `${t.raw}/${t.max}${t.whole?'':'<span class="sub" title="一部の面が未入力">…</span>'}`,
+                  `${Math.round(t.pct)}%`, gBadge(gradeOf(t.pct, subjId)), ' ksum');
+  return `<td class="kaicell${split?' split':''}">${lines}${sum}</td>`;
+}
+function kaiTable(){
+  const subs = shownSubjects().filter(s=>S.b.opps.some(o=>o['教科ID']===s['教科ID']));
+  if (!subs.length) return `<div class="panel sub">まだテスト・見取りがありません。ホームの「単元とテストをまとめて作る」から登録してください。</div>`;
+  const list = oppsOfSubject(LV.subj, LV.term).filter(x=>x.o['種別']===LV.kind);
+  const sts = rosterOf(LV.subj);
+  const subjId = LV.subj;
+  if (!list.length) return `<div class="panel sub">${LV.term}の${LV.kind}がありません。</div>`;
+  if (!sts.length) return `<div class="panel sub">この教科を受ける児童が登録されていません。</div>`;
+  const anyPicked = list.some(x=>pickedFaces(x.o).length);
+  if (!anyPicked) return `<div class="panel sub">観点のチェックがすべて外れています。上のチェックボックスで表示する観点を選んでください。</div>`;
+
+  const groups = [];
+  list.forEach(x=>{
+    const label = x.u ? x.u['単元名'] : '単元なし';
+    const last = groups[groups.length-1];
+    if (last && last.label===label) last.n++;
+    else groups.push({label, n:1});
+  });
+
+  return `<div class="panel" style="padding:13px"><div class="tblwrap"><table class="gridtbl">
+    <tr>
+      <th rowspan="3" class="stickL" style="left:0;width:36px">番号</th>
+      <th rowspan="3" class="stickL stickEdge" style="left:56px;min-width:110px">名前</th>
+      ${groups.map(g=>`<th colspan="${g.n}" style="text-align:center;border-left:1px solid var(--line)">${esc(g.label)}</th>`).join('')}
+    </tr>
+    <tr>${list.map(x=>`<th class="headcell" style="top:31px" onclick="go('entry','${x.o['機会ID']}')" title="タップすると入力画面へ">${esc(x.o['機会名'])}${isSplit(x.o)?' <span class="tag gray">表裏違い</span>':''}</th>`).join('')}</tr>
+    <tr>${list.map(x=>{
+        const fs = pickedFaces(x.o);
+        const mx = fs.reduce((a,f)=>a+f.max, 0);
+        return `<th style="top:62px;text-align:center;font-weight:400">${mx?mx+'点満点 ・ ':''}${esc(fmtDate(x.o['日付'])||x.o['学期'])}</th>`;
+      }).join('')}</tr>
+    ${sts.map(st=>`<tr>
+      <td class="sub stickL" style="left:0;width:36px">${esc(st['出席番号'])}</td>
+      <td class="stickL stickEdge" style="left:56px"><span class="jump" onclick="go('person','${st['児童ID']}')">${esc(st['名前'])}</span></td>
+      ${list.map(x=>kaiCell(x.o, st['児童ID'], subjId, pickedFaces(x.o))).join('')}
+    </tr>`).join('')}
+    <tr class="avgline">
+      <td class="stickL" style="left:0"></td><td class="stickL stickEdge" style="left:56px">クラス平均</td>
+      ${list.map(x=>{
+        const fs = pickedFaces(x.o);
+        const split = isSplit(x.o);
+        const ln = (head, pt, pc, extra)=>`<div class="kline${extra||''}"><span class="tg">${head}</span>${split?'<span class="fn"></span>':''}<span class="pt">${pt}</span><span class="pc">${pc}</span><span class="gr"></span></div>`;
+        const lines = fs.map(f=>{
+          const a = faceAvg(x.o, f);
+          return ln(`<span class="src ${x.o['種別']==='テスト'?'ts':'ms'}">${KAN_SHORT[f.k]}</span>`, '', a!=null?Math.round(a*10)/10+'%':'ー');
+        }).join('');
+        const t = avgOf(x.o, fs);
+        return `<td class="kaicell${split?' split':''}">${lines}${ln('<b style="font-size:11px">計</b>', '', t!=null?Math.round(t*10)/10+'%':'ー', ' ksum')}</td>`;
+      }).join('')}
+    </tr>
+    <tr class="cntrow">
+      <td class="stickL" style="left:0"></td><td class="stickL stickEdge" style="left:56px">評価の人数</td>
+      ${list.map(x=>{
+        const fs = pickedFaces(x.o);
+        const gs = sts.map(st=>{ const t = totalOf(x.o, st['児童ID'], fs); return t && t.pct!=null ? gradeOf(t.pct, subjId) : null; });
+        return `<td class="kaicell">${countCell(gs)}</td>`;
+      }).join('')}
+    </tr>
+  </table></div>
+  <p class="sub" style="margin-top:10px">テスト名をタップすると入力画面へ ・ 名前をタップで個人シート ・ 上のチェックで表示する観点を選べます ・ 「表裏違い」は面ごとに単元が違うテストです</p></div>`;
+}
+
+/* --- 観点別(点数 → ％ → 評価 の順) --- */
+function kantenTable(){
+  const subs = shownSubjects().filter(s=>S.b.opps.some(o=>o['教科ID']===s['教科ID']));
+  const sts = allStudents();
+  if (!subs.length) return `<div class="panel sub">まだテスト・見取りがありません。</div>`;
+  const cols = subs.map(s=>({s, ks: usedKans(s['教科ID'], LV.term)})).filter(c=>c.ks.length);
+  if (!cols.length) return `<div class="panel sub">${LV.term}に記録のある教科がありません。</div>`;
+  const mode = LV.show;
+  const oneLine = (cls2, label, raw, max, pct, g, n, thin)=>{
+    if (pct==null) return `<div class="kline"><span class="tg"><span class="src ${cls2}">${label}</span></span><span class="pt nores">ー</span><span class="pc"></span><span class="gr"></span></div>`;
+    return `<div class="kline"><span class="tg"><span class="src ${cls2}">${label}</span></span><span class="pt">${raw}/${max}</span><span class="pc">${Math.round(pct)}%</span><span class="gr">${gBadge(g)}${thin?`<span class="thin" title="有効な記録が${n}件">!</span>`:''}</span></div>`;
+  };
+  const shownGrade = x=>{
+    if (mode==='test') return x.tG;
+    if (mode==='mitori') return x.mG;
+    return x.autoG;
+  };
+  const cellFor = (st, s, k)=>{
+    if (!takes(st['児童ID'], s['教科ID'])) return `<td class="kancell nores" title="この教科の対象外です">—</td>`;
+    const x = calcStu(st['児童ID'], s['教科ID'], LV.term)[k];
+    const oc = `onclick="openDecide('${st['児童ID']}','${s['教科ID']}','${k}')" style="cursor:pointer"`;
+    if (mode==='both'){
+      return `<td class="kancell" ${oc}>
+        ${oneLine('ts','テ', x.tRaw, x.tMax, x.t, x.tG, x.tN, x.tThin)}
+        ${oneLine('ms','見', x.mRaw, x.mMax, x.m, x.mG, x.mN, x.mThin)}</td>`;
+    }
+    if (mode==='test')   return `<td class="kancell" ${oc}>${oneLine('ts','テ', x.tRaw, x.tMax, x.t, x.tG, x.tN, x.tThin)}</td>`;
+    if (mode==='mitori') return `<td class="kancell" ${oc}>${oneLine('ms','見', x.mRaw, x.mMax, x.m, x.mG, x.mN, x.mThin)}</td>`;
+    const ov = getOv(st['児童ID'], s['教科ID'], k, LV.term);
+    return `<td ${oc} style="text-align:center;cursor:pointer">${finalBadge(x, ov)}<div class="sub" style="font-size:10px">${x.auto!=null?Math.round(x.auto)+'%':''}</div></td>`;
+  };
+  return `<div class="panel" style="padding:13px"><div class="tblwrap"><table class="gridtbl">
+    <tr><th rowspan="2" class="stickL" style="left:0;width:36px">番号</th><th rowspan="2" class="stickL stickEdge" style="left:56px;min-width:118px">名前</th>
+      ${cols.map((c,ci)=>`<th colspan="${c.ks.length}" style="text-align:center;border-left:1px solid var(--line);${ci%2?'background:#F4F5F0':''}">${esc(c.s['教科名'])}</th>`).join('')}</tr>
+    <tr>${cols.map((c,ci)=>c.ks.map((k,i)=>`<th style="text-align:center;top:31px;${i===0?'border-left:1px solid var(--line);':''}${ci%2?'background:#F4F5F0':''}">${KAN_SHORT[k]}</th>`).join('')).join('')}</tr>
+    ${sts.map(st=>`<tr>
+      <td class="sub stickL" style="left:0;width:36px">${esc(st['出席番号'])}</td>
+      <td class="stickL stickEdge" style="left:56px"><span class="jump" onclick="go('person','${st['児童ID']}')">${esc(st['名前'])}</span></td>
+      ${cols.map(c=>c.ks.map(k=>cellFor(st, c.s, k)).join('')).join('')}
+    </tr>`).join('')}
+    <tr class="avgline">
+      <td class="stickL" style="left:0"></td><td class="stickL stickEdge" style="left:56px">クラス平均</td>
+      ${cols.map(c=>c.ks.map(k=>{
+        const tv=[], mv=[];
+        rosterOf(c.s['教科ID']).forEach(st=>{
+          const x = calcStu(st['児童ID'], c.s['教科ID'], LV.term)[k];
+          if (x.t!=null) tv.push(x.t);
+          if (x.m!=null) mv.push(x.m);
+        });
+        const a = avg(tv), b2 = avg(mv);
+        return `<td class="kancell">
+          <div class="kline"><span class="tg"><span class="src ts">テ</span></span><span class="pt"></span><span class="pc">${a!=null?Math.round(a*10)/10+'%':'ー'}</span><span class="gr"></span></div>
+          <div class="kline"><span class="tg"><span class="src ms">見</span></span><span class="pt"></span><span class="pc">${b2!=null?Math.round(b2*10)/10+'%':'ー'}</span><span class="gr"></span></div></td>`;
+      }).join('')).join('')}
+    </tr>
+    <tr class="cntrow">
+      <td class="stickL" style="left:0"></td><td class="stickL stickEdge" style="left:56px">評価の人数</td>
+      ${cols.map(c=>c.ks.map(k=>{
+        const gs = rosterOf(c.s['教科ID']).map(st=>{
+          const x = calcStu(st['児童ID'], c.s['教科ID'], LV.term)[k];
+          if (mode==='final'){ const ov = getOv(st['児童ID'], c.s['教科ID'], k, LV.term); return finalOf(x, ov).g; }
+          return shownGrade(x);
+        });
+        return `<td class="kancell">${countCell(gs)}</td>`;
+      }).join('')).join('')}
+    </tr>
+  </table></div>
+  <div class="legend">
+    <span>並びは <b>点数 → ％ → 評価</b></span>
+    <span><span class="src ts">テ</span>テストだけで100%評価</span>
+    <span><span class="src ms">見</span>見取りだけで100%評価</span>
+    <span><span class="gbadge A" style="width:22px;height:20px;font-size:12px">A</span><span class="gbadge B" style="width:22px;height:20px;font-size:12px">B</span><span class="gbadge C" style="width:22px;height:20px;font-size:12px">C</span></span>
+    <span><span class="thin">!</span>記録が少ない</span>
+    <span>—=この教科の対象外</span>
+    <span><b>セルをタップで最終評価を決められます</b></span>
+  </div></div>`;
+}
+
+function borderHtml(){
+  const subs = shownSubjects();
+  const nearA = [], nearC = [];
+  subs.forEach(s=>rosterOf(s['教科ID']).forEach(st=>{
+    const g = calcStu(st['児童ID'], s['教科ID'], LV.term);
+    KAN_ORDER.forEach(k=>{
+      const x = g[k];
+      [['ts', x.t, x.tG], ['ms', x.m, x.mG]].forEach(([trk, p, gr])=>{
+        if (p==null) return;
+        if (gr==='B' && x.A - p <= 3) nearA.push({st, s, k, trk, p, need:r1(x.A-p)});
+        if ((gr==='B' && p - x.B <= 3) || (gr==='C' && x.B - p <= 3)) nearC.push({st, s, k, trk, p, gr});
+      });
+    });
+  }));
+  const row = (e, note)=>`<div class="oppline" onclick="openDecide('${e.st['児童ID']}','${e.s['教科ID']}','${e.k}')">
+    <span class="src ${e.trk}">${e.trk==='ts'?'テ':'見'}</span>
+    <b style="min-width:96px">${esc(e.st['名前'])}</b>
+    <span class="tag subjtag">${esc(e.s['教科名'])}</span>
+    <span class="sub">${KAN_FULL[e.k]}</span>
+    <span class="grow"></span><span class="sub">${e.p}%</span><span class="tag gray">${note}</span></div>`;
+  return `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr))">
+    <div class="panel"><h3 style="color:var(--gA)">Aまであと僅か(3%以内)</h3>
+      <p class="sub" style="margin-bottom:8px">もう1回良い記録があればAに届くかもしれない子</p>
+      ${nearA.map(e=>row(e, `あと${e.need}%`)).join('') || '<p class="sub">該当なし</p>'}</div>
+    <div class="panel"><h3 style="color:var(--gC)">Cとの境目(±3%)</h3>
+      <p class="sub" style="margin-bottom:8px">記録が少ない・支援が必要かもしれない子</p>
+      ${nearC.map(e=>row(e, e.gr)).join('') || '<p class="sub">該当なし</p>'}</div>
+  </div>`;
+}
+
+// そのテストがどの単元のものかを表す(表裏で違うときは両方)
+function oppUnitLabel(opp){
+  if (isSplit(opp)) return splitUnitNames(opp).join(' / ');
+  const u = S.b.units.find(x=>x['単元ID']===opp['単元ID']);
+  return u ? u['単元名'] : '単元なし';
+}
+function undoneHtml(){
+  const opps = S.b.opps.filter(o=>(!LV.undoneTestOnly || o['種別']==='テスト') && (LV.term==='年間'||o['学期']===LV.term));
+  const stateOf = (o, stuId)=>faces(o).map(f=>{
+    const r = getRec(o['機会ID'], stuId, f.k);
+    return r ? (r.state || (r.raw===''?'':'済')) : '';
+  });
+  const seg = `<div class="bar">
+    <div class="seg">
+      <button class="${LV.undoneBy==='test'?'on':''}" onclick="LV.undoneBy='test';render()">テストから見る</button>
+      <button class="${LV.undoneBy==='stu'?'on':''}" onclick="LV.undoneBy='stu';render()">児童から見る</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--sub)">
+      <input type="checkbox" ${LV.undoneTestOnly?'checked':''} onchange="LV.undoneTestOnly=this.checked;render()" style="width:16px;height:16px">テストのみ</label>
+    <span class="sub" style="font-size:12px">除外にした子・その教科の対象外の子は出てきません</span></div>`;
+  if (LV.undoneBy==='test'){
+    return `<div class="panel">${seg}
+      ${opps.map(o=>{
+        const miss = [];
+        rosterOf(o['教科ID']).forEach(st=>{
+          const s = stateOf(o, st['児童ID']);
+          if (s.every(v=>v===ST_EXC)) return;
+          if (s.some(v=>v===ST_ABS)) miss.push({st, why:'欠席'});
+          else if (s.some(v=>v==='')) miss.push({st, why:'未入力'});
+        });
+        const subj = S.b.subjects.find(s=>s['教科ID']===o['教科ID']);
+        return `<div style="padding:10px 4px;border-bottom:1px solid var(--line2)">
+          <div class="row"><span class="tag ${o['種別']==='テスト'?'test':'mit'}">${esc(o['種別'])}</span>
+            <span class="tag subjtag">${subj?esc(subj['教科名']):''}</span>
+            <b>${esc(oppUnitLabel(o))}</b>
+            <span style="font-weight:600">${esc(o['機会名'])}</span>
+            <span class="sub">${esc(o['学期'])}</span>
+            <span class="grow"></span>
+            ${miss.length ? `<span class="tag warn">${miss.length}人</span>` : `<span class="done">✓ 全員入力済み</span>`}
+            <button class="btn ghost sm" onclick="go('entry','${o['機会ID']}')">入力へ</button></div>
+          ${miss.length ? `<div class="row" style="margin-top:6px">${miss.map(x=>`<span class="tag ${x.why==='欠席'?'warn':'gray'}" style="cursor:pointer;padding:6px 9px" title="タップでこの子の入力欄へ" onclick="goEntryAt('${o['機会ID']}','${x.st['児童ID']}')">${esc(x.st['名前'])}(${x.why})</span>`).join('')}</div>` : ''}
+        </div>`;
+      }).join('') || '<p class="sub">対象のテストがありません</p>'}</div>`;
+  }
+  return `<div class="panel">${seg}
+    ${allStudents().map(st=>{
+      const list = [];
+      opps.forEach(o=>{
+        if (!takes(st['児童ID'], o['教科ID'])) return;
+        const s = stateOf(o, st['児童ID']);
+        if (s.every(v=>v===ST_EXC)) return;
+        if (s.some(v=>v===ST_ABS)) list.push({o, why:'欠席'});
+        else if (s.some(v=>v==='')) list.push({o, why:'未入力'});
+      });
+      if (!list.length) return '';
+      return `<div style="padding:10px 4px;border-bottom:1px solid var(--line2)">
+        <div class="row"><b>${esc(st['出席番号'])} ${esc(st['名前'])}</b><span class="tag warn">${list.length}件</span></div>
+        <div class="row" style="margin-top:6px">${list.map(x=>`<span class="tag ${x.why==='欠席'?'warn':'gray'}" style="cursor:pointer;padding:6px 9px" title="タップでこの子の入力欄へ" onclick="goEntryAt('${x.o['機会ID']}','${st['児童ID']}')">${esc(oppUnitLabel(x.o))} / ${esc(x.o['機会名'])}(${x.why})</span>`).join('')}</div>
+      </div>`;
+    }).join('') || '<p class="sub">未実施・未入力はありません</p>'}</div>`;
+}
+
+/* ================= Excel出力 ================= */
+function exportKanten(){
+  const subs = shownSubjects().filter(s=>S.b.opps.some(o=>o['教科ID']===s['教科ID']));
+  const sts = allStudents();
+  if (!subs.length || !sts.length){ alertBox('出力できません', 'データがまだありません。'); return; }
+  const h1 = ['番号','名前'], h2 = ['',''];
+  subs.forEach(s=>KAN_ORDER.forEach(k=>{
+    h1.push(s['教科名']+' '+KAN_SHORT[k], '', '', '', '', '', '');
+    h2.push('テスト点','テスト満点','テスト%','テスト評価','見取り%','見取り評価','最終評価');
+  }));
+  const rows = sts.map(st=>{
+    const r = [st['出席番号'], st['名前']];
+    subs.forEach(s=>{
+      const taking = takes(st['児童ID'], s['教科ID']);
+      const g = taking ? calcStu(st['児童ID'], s['教科ID'], LV.term) : null;
+      KAN_ORDER.forEach(k=>{
+        if (!taking){ r.push('対象外','','','','','',''); return; }
+        const x = g[k], ov = getOv(st['児童ID'], s['教科ID'], k, LV.term);
+        r.push(x.t!=null?String(x.tRaw):'', x.t!=null?String(x.tMax):'',
+               x.t!=null?String(Math.round(x.t)):'', x.tG||'',
+               x.m!=null?String(Math.round(x.m)):'', x.mG||'', finalOf(x, ov).g||'');
+      });
+    });
+    return r;
+  });
+  ovl('Excelファイルを作成中…');
+  call('exportSeiseki', {
+    title: `${cls()['クラス名']} 観点別の評価(${LV.term})`,
+    note: `テストと見取りはそれぞれ100%で評価 / 最終評価の既定は「${BASE_LABEL[baseKind()]}」/ 欠席・除外は母数から除外 / 児童${sts.length}人`,
+    header: [h1, h2], rows
+  }).then(r=>{ unovl(); showDownload(r.url); })
+    .catch(e=>{ unovl(); alertBox('出力エラー', e.message); });
+}
+function exportKai(){
+  const list = oppsOfSubject(LV.subj, LV.term).filter(x=>x.o['種別']===LV.kind);
+  const sts = rosterOf(LV.subj);
+  const subj = S.b.subjects.find(s=>s['教科ID']===LV.subj);
+  if (!list.length || !sts.length){ alertBox('出力できません', 'データがまだありません。'); return; }
+  const h1 = ['番号','名前'], h2 = ['',''], h3 = ['',''];
+  list.forEach(x=>{
+    const fs = pickedFaces(x.o);
+    fs.forEach(f=>{
+      h1.push(unitName(faceUnitId(x.o, f)) || '単元なし', '', '');
+      h2.push(faceName(x.o, f) + ' / ' + KAN_SHORT[f.k], '', '');
+      h3.push('点/'+f.max, '%', '評価');
+    });
+    h1.push(x.u ? x.u['単元名'] : '単元なし', '', '');
+    h2.push(x.o['機会名'] + ' 合計', '', '');
+    h3.push('点/'+fs.reduce((a,f)=>a+f.max,0), '%', '評価');
+  });
+  const rows = sts.map(st=>{
+    const r = [st['出席番号'], st['名前']];
+    list.forEach(x=>{
+      pickedFaces(x.o).forEach(f=>{
+        const fr = faceResult(x.o, f, st['児童ID']);
+        if (!fr) r.push('','','');
+        else if (fr.exc) r.push('除外','','');
+        else if (fr.abs) r.push('欠席','','');
+        else r.push(String(fr.raw), String(Math.round(fr.pct)), gradeOf(fr.pct, LV.subj)||'');
+      });
+      const t = totalOf(x.o, st['児童ID'], pickedFaces(x.o));
+      if (!t) r.push('','','');
+      else if (t.exc) r.push('除外','','');
+      else if (t.abs) r.push('欠席','','');
+      else r.push(String(t.raw), String(Math.round(t.pct)), gradeOf(t.pct, LV.subj)||'');
+    });
+    return r;
+  });
+  const avgRow = ['', 'クラス平均'], cntRow = ['', '評価の人数'];
+  list.forEach(x=>{
+    const fs = pickedFaces(x.o);
+    fs.forEach(f=>{ const a = faceAvg(x.o, f); avgRow.push('', a!=null?String(Math.round(a*10)/10):'', ''); cntRow.push('','',''); });
+    const t = avgOf(x.o, fs); avgRow.push('', t!=null?String(Math.round(t*10)/10):'', '');
+    const c = {A:0,B:0,C:0};
+    sts.forEach(st=>{ const tt = totalOf(x.o, st['児童ID'], fs); const g = tt&&tt.pct!=null ? gradeOf(tt.pct, LV.subj) : null; if (c[g]!=null) c[g]++; });
+    cntRow.push('A'+c.A, 'B'+c.B, 'C'+c.C);
+  });
+  rows.push(avgRow); rows.push(cntRow);
+  ovl('Excelファイルを作成中…');
+  call('exportTests', {
+    title: `${cls()['クラス名']} ${subj?subj['教科名']:''} ${LV.kind}別の点(${LV.term})`,
+    note: `観点ごとに分けて出力 / 欠席・除外は平均に入れていません / ${LV.kind}${list.length}件 / 対象児童${sts.length}人`,
+    header: [h1, h2, h3], rows
+  }).then(r=>{ unovl(); showDownload(r.url); })
+    .catch(e=>{ unovl(); alertBox('出力エラー', e.message); });
+}
+function showDownload(url){
+  modal(`<h3 style="margin-bottom:8px">Excelファイルの準備ができました</h3>
+    <p class="sub" style="margin-bottom:16px">下のボタンを押すとダウンロードが始まります。出力したシートはこのスプレッドシートにも残ります(古いものは自動で片づきます)。</p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn sec" onclick="shutModal()">閉じる</button>
+      <a class="btn pri" href="${url}" target="_blank" rel="noopener" onclick="setTimeout(shutModal,400)" style="text-decoration:none">ダウンロード</a>
+    </div>`, true);
+}
+
+/* ================= 最終評価を決める ================= */
+function openDecide(stuId, subjId, kan){
+  const st = S.b.students.find(x=>x['児童ID']===stuId);
+  const s = S.b.subjects.find(x=>x['教科ID']===subjId);
+  if (!st || !s) return;
+  if (!takes(stuId, subjId)){ toast(`${st['名前']}さんは${s['教科名']}の対象外です`); return; }
+  const term = LV.term;
+  const x = calcStu(stuId, subjId, term)[kan];
+  const ov = getOv(stuId, subjId, kan, term);
+  const cur = ov ? ov.grade : null;
+  const btn = g=>`<button class="stepbtn ${g} ${cur===g?'on':''}" style="flex:1;min-width:0" onclick="setFinal('${stuId}','${subjId}','${kan}','${g}')">${g}</button>`;
+  const box = (cls2, label, raw, max, pct, g, n, abs, exc, thin)=>`
+    <div class="row" style="background:#F4F5F0;border-radius:8px;padding:11px 13px;flex:1;min-width:230px">
+      <span class="src ${cls2}">${label}</span>
+      ${pct!=null ? `<b style="font-size:15px">${raw}/${max}</b><b>${pct}%</b>${gBadge(g)}` : '<span class="sub">記録なし</span>'}
+      <span class="grow"></span>
+      <span class="sub" style="font-size:11.5px">${n}件${abs?' 欠'+abs:''}${exc?' 除'+exc:''}${thin?' ⚠少ない':''}</span>
+    </div>`;
+  modal(`<h3 style="margin-bottom:2px">${esc(st['名前'])} ・ ${esc(s['教科名'])} ・ ${KAN_SHORT[kan]}</h3>
+    <p class="sub" style="margin-bottom:12px">「${term}」の最終評価を決めます。元の点数・見取りは変わりません。</p>
+    <div class="row" style="margin-bottom:14px;align-items:stretch">
+      ${box('ts','テ', x.tRaw, x.tMax, x.t, x.tG, x.tN, x.tAbs, x.tExc, x.tThin)}
+      ${box('ms','見', x.mRaw, x.mMax, x.m, x.mG, x.mN, x.mAbs, x.mExc, x.mThin)}
+    </div>
+    <p class="sub" style="margin-bottom:8px">既定では<b>${BASE_LABEL[baseKind()]}</b>がそのまま最終評価になります(設定で変更可)。下のボタンで上書きできます。</p>
+    <div class="row" style="gap:8px;margin-bottom:10px;flex-wrap:nowrap">
+      ${btn('A')}${btn('B')}${btn('C')}
+      <button class="btn sec" style="flex:1.3;white-space:nowrap" onclick="setFinal('${stuId}','${subjId}','${kan}','')">自動のまま</button>
+    </div>
+    <input id="dcReason" placeholder="理由メモ(任意):例 単元末に大きく伸びたため" style="width:100%" value="${ov&&ov.reason?esc(ov.reason):''}">
+    <div class="row" style="margin-top:14px">
+      <button class="btn ghost sm" onclick="shutModal();go('person','${stuId}')">個人シートで材料を見る</button>
+      <span class="grow"></span>
+      <button class="btn sec sm" onclick="shutModal()">閉じる</button>
+    </div>`, true);
+}
+function setFinal(stuId, subjId, kan, grade){
+  const term = LV.term;
+  const reason = ($('dcReason') ? $('dcReason').value : '').slice(0,200);
+  const auto = calcStu(stuId, subjId, term)[kan].auto;
+  shutModal(); ovl('保存中…');
+  call('saveOverride', {stuId, subjId, kan, term, grade, reason, autoValue: auto==null?'':String(auto)})
+    .then(()=>{
+      const k = ovK(stuId, subjId, kan, term);
+      if (grade) S.ov[k] = {grade, reason, auto: auto==null?'':String(auto)}; else delete S.ov[k];
+      unovl(); render();
+      toast(grade ? `${grade} で確定しました` : '自動に戻しました');
+    })
+    .catch(e=>{ unovl(); alertBox('エラー', e.message); });
+}
+
+/* ================= 貼り付け用コピー ================= */
+function openPaste(){
+  const subs = shownSubjects().filter(s=>S.b.opps.some(o=>o['教科ID']===s['教科ID']));
+  if (!subs.length){ alertBox('コピーできません', 'まだデータがありません。'); return; }
+  modal(`<h3 style="margin-bottom:2px">貼り付け用にコピー</h3>
+    <p class="sub" style="margin-bottom:14px">校務支援システムやExcelに <b>Ctrl+V</b> でそのまま貼り付けられます(${LV.term})。</p>
+    <div class="kv">
+      <label>教科</label><select id="pcSubj"><option value="">すべての教科</option>${subs.map(s=>`<option value="${s['教科ID']}">${esc(s['教科名'])}</option>`).join('')}</select>
+      <label>内容</label><select id="pcMode">
+        <option value="final">最終評価(A/B/C)</option>
+        <option value="test">テスト評価(A/B/C)</option>
+        <option value="mitori">見取り評価(A/B/C)</option>
+        <option value="testpct">テスト%</option>
+        <option value="mitoripct">見取り%</option>
+      </select>
+      <label>付ける列</label>
+      <div class="row">
+        <label style="display:flex;gap:5px;align-items:center"><input type="checkbox" id="pcNo" checked style="width:16px;height:16px">番号</label>
+        <label style="display:flex;gap:5px;align-items:center"><input type="checkbox" id="pcName" checked style="width:16px;height:16px">名前</label>
+        <label style="display:flex;gap:5px;align-items:center"><input type="checkbox" id="pcHead" checked style="width:16px;height:16px">見出し行</label>
+      </div>
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:14px">
+      <button class="btn sec" onclick="shutModal()">閉じる</button>
+      <button class="btn pri" id="pcGo">コピーする</button>
+    </div>`, true);
+  $('pcGo').onclick = ()=>{
+    const subjId = $('pcSubj').value, mode = $('pcMode').value;
+    const useNo = $('pcNo').checked, useName = $('pcName').checked, useHead = $('pcHead').checked;
+    const list = subjId ? subs.filter(s=>s['教科ID']===subjId) : subs;
+    const lines = [];
+    if (useHead){
+      const h = [];
+      if (useNo) h.push('番号');
+      if (useName) h.push('名前');
+      list.forEach(s=>KAN_ORDER.forEach(k=>h.push(s['教科名']+KAN_SHORT[k])));
+      lines.push(h.join('\t'));
+    }
+    allStudents().forEach(st=>{
+      const r = [];
+      if (useNo) r.push(st['出席番号']);
+      if (useName) r.push(st['名前']);
+      list.forEach(s=>{
+        const taking = takes(st['児童ID'], s['教科ID']);
+        const g = taking ? calcStu(st['児童ID'], s['教科ID'], LV.term) : null;
+        KAN_ORDER.forEach(k=>{
+          if (!taking){ r.push(''); return; }
+          const x = g[k];
+          if (mode==='final') r.push(finalOf(x, getOv(st['児童ID'], s['教科ID'], k, LV.term)).g || '');
+          else if (mode==='test') r.push(x.tG || '');
+          else if (mode==='mitori') r.push(x.mG || '');
+          else if (mode==='testpct') r.push(x.t!=null ? String(Math.round(x.t)) : '');
+          else r.push(x.m!=null ? String(Math.round(x.m)) : '');
+        });
+      });
+      lines.push(r.join('\t'));
+    });
+    copyText(lines.join('\n'));
+  };
+}
+function copyText(text){
+  const done = ()=>{ shutModal(); toast('コピーしました。Ctrl+V で貼り付けられます'); };
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=>copyFallback(text, done));
+  } else copyFallback(text, done);
+}
+function copyFallback(text, done){
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch(e){}
+  document.body.removeChild(ta);
+  if (ok){ done(); return; }
+  modal(`<h3 style="margin-bottom:8px">手動でコピーしてください</h3>
+    <p class="sub" style="margin-bottom:10px">下の欄をクリック(全選択されます)して Ctrl+C でコピーしてください。</p>
+    <textarea rows="8" style="width:100%;font-size:12px" onclick="this.select()">${esc(text)}</textarea>
+    <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn pri" onclick="shutModal()">閉じる</button></div>`, true);
+}
+
+/* ================= 個人シート ================= */
+let PV = { term:'年間', mode:'teacher', open:{}, stu:null };
+function toggleSubjCard(sid){ PV.open[sid] = !PV.open[sid]; render(); }
+function openAllCards(v){
+  shownSubjects().forEach(s=>{ if (S.b.opps.some(o=>o['教科ID']===s['教科ID'])) PV.open[s['教科ID']] = v; });
+  render();
+}
+function prevTerm(t){ const i = TERMS.indexOf(t); return i>0 ? TERMS[i-1] : null; }
+function personCfg(){
+  const def = { tests:1, dateCol:1, avg:1, mitori:1, mitoriDetail:1, kanten:1, growth:1, badges:1 };
+  try { Object.assign(def, JSON.parse(setting('個人シート設定','{}'))||{}); } catch(e){}
+  return def;
+}
+function openPersonCfg(){
+  const c = personCfg();
+  const items = [
+    ['tests','テストの記録(観点ごとの表)'],
+    ['dateCol','　└ 実施日の列'],
+    ['avg','　└ クラス平均(先生用モードのみ)'],
+    ['mitori','授業のようす(見取り)'],
+    ['mitoriDetail','　└ 見取りの明細(先生用モードのみ)'],
+    ['kanten','観点別のまとめ(テストと見取りを並べる)'],
+    ['growth','　└ 前学期からの伸び'],
+    ['badges','教科名の横の評価バッジ']
+  ];
+  modal(`<h3 style="margin-bottom:4px">個人シートの表示カスタム</h3>
+    <p class="sub" style="margin-bottom:12px">チェックを外した項目は、画面にも印刷にも出なくなります。Excel出力の中身は変わりません。</p>
+    ${items.map(it=>`<label style="display:flex;gap:8px;align-items:center;padding:6px 0">
+      <input type="checkbox" class="pcfg" data-k="${it[0]}" ${c[it[0]]?'checked':''} style="width:16px;height:16px">${it[1]}</label>`).join('')}
+    <div class="row" style="justify-content:flex-end;margin-top:14px">
+      <button class="btn sec" onclick="shutModal()">キャンセル</button>
+      <button class="btn pri" id="pcfgGo">保存</button>
+    </div>`, false);
+  $('pcfgGo').onclick = ()=>{
+    const cfg = {};
+    document.querySelectorAll('.pcfg').forEach(cb=>cfg[cb.dataset.k] = cb.checked ? 1 : 0);
+    shutModal(); ovl('保存中…');
+    call('saveSettings', {kv:{'個人シート設定':JSON.stringify(cfg)}}).then(()=>{
+      const r = (S.b.settings||[]).find(x=>x['キー']==='個人シート設定');
+      if (r) r['値'] = JSON.stringify(cfg); else S.b.settings.push({'キー':'個人シート設定','値':JSON.stringify(cfg)});
+      unovl(); render(); toast('表示設定を保存しました');
+    }).catch(e=>{ unovl(); alertBox('エラー', e.message); });
+  };
+}
+
+function buildPerson(stuId, teacher){
+  const all = shownSubjects();
+  const subs = all.filter(s=>S.b.opps.some(o=>o['教科ID']===s['教科ID']) && takes(stuId, s['教科ID']));
+  const G = {}; subs.forEach(s=>G[s['教科ID']] = calcStu(stuId, s['教科ID'], PV.term));
+  const withData = subs.filter(s=>KAN_ORDER.some(k=>G[s['教科ID']][k].t!=null || G[s['教科ID']][k].m!=null));
+  const C = personCfg();
+  const cards = withData.map(s=>{
+    const g = G[s['教科ID']];
+    const testList = oppsOfSubject(s['教科ID'], PV.term, 'テスト');
+    const mitList  = oppsOfSubject(s['教科ID'], PV.term, '見取り');
+    const showAvg = teacher && !!C.avg;
+    const anyDate = !!C.dateCol && testList.some(x=>x.o['日付']);
+    // この教科のテストで使われている観点だけ列にする
+    const usedKans = KAN_ORDER.filter(k=>testList.some(x=>faces(x.o).some(f=>f.k===k)));
+    let sumRaw=0, sumMax=0;
+    testList.forEach(x=>{ const t = oppTotal(x.o, stuId); if (t && t.pct!=null){ sumRaw+=t.raw; sumMax+=t.max; } });
+    const testPct = sumMax ? sumRaw/sumMax*100 : null;
+
+    const cell3 = (r, subjId)=>{
+      if (!r) return `<td class="nores">ー</td><td class="nores">ー</td><td class="nores">ー</td>`;
+      if (r.exc) return `<td class="nores" colspan="3">除外</td>`;
+      if (r.abs) return `<td style="color:var(--shu);font-weight:700" colspan="3">欠席</td>`;
+      return `<td style="font-weight:700">${r.raw}<span class="sub">/${r.max}</span></td>
+              <td><span class="pchip">${Math.round(r.pct)}%</span></td>
+              <td>${gBadge(gradeOf(r.pct, subjId))}</td>`;
+    };
+    const testTable = C.tests && testList.length ? `
+      <div class="plabel">テストの記録(観点ごと)</div>
+      <div style="overflow-x:auto"><table class="psheet">
+        <tr>${anyDate?'<th rowspan="2">実施日</th>':''}<th rowspan="2">単元</th><th rowspan="2">テスト名</th>
+          ${usedKans.map(k=>`<th colspan="3" style="text-align:center;border-left:1px solid var(--line)">${KAN_SHORT[k]}</th>`).join('')}
+          <th colspan="3" style="text-align:center;border-left:1px solid var(--line)">合計</th>
+          ${showAvg?'<th rowspan="2" class="avg-col" style="text-align:right">クラス平均</th>':''}</tr>
+        <tr>${usedKans.map(()=>`<th style="border-left:1px solid var(--line)">点</th><th>％</th><th>評価</th>`).join('')}
+          <th style="border-left:1px solid var(--line)">点</th><th>％</th><th>評価</th></tr>
+        ${testList.map(x=>{
+          const fs = faces(x.o), split = isSplit(x.o);
+          const t = oppTotal(x.o, stuId);
+          const cavg = showAvg ? oppAvg(x.o) : null;
+          const unitCell = split ? splitUnitNames(x.o).join(' / ') : (x.u ? x.u['単元名'] : 'ー');
+          const nameCell = split ? fs.map(f=>faceName(x.o,f)).join(' / ') : x.o['機会名'];
+          return `<tr>
+            ${anyDate?`<td class="sub">${esc(fmtDate(x.o['日付'])||x.o['学期'])}</td>`:''}
+            <td class="sub">${esc(unitCell)}</td>
+            <td style="font-weight:600">${esc(nameCell)}${split?' <span class="tag gray">表裏違い</span>':''}</td>
+            ${usedKans.map(k=>{
+              const f = fs.find(z=>z.k===k);
+              if (!f) return `<td class="nores" style="border-left:1px solid var(--line)">−</td><td class="nores">−</td><td class="nores">−</td>`;
+              return cell3(faceResult(x.o, f, stuId), s['教科ID']).replace('<td', '<td style="border-left:1px solid var(--line)"');
+            }).join('')}
+            ${(()=>{
+              if (!t) return `<td class="nores" style="border-left:1px solid var(--line)" colspan="3">ー</td>`;
+              if (t.exc) return `<td class="nores" style="border-left:1px solid var(--line)" colspan="3">除外</td>`;
+              if (t.abs) return `<td style="border-left:1px solid var(--line);color:var(--shu);font-weight:700" colspan="3">欠席</td>`;
+              return `<td style="border-left:1px solid var(--line);font-weight:800">${t.raw}<span class="sub">/${t.max}</span></td>
+                      <td><span class="pchip">${Math.round(t.pct)}%</span></td><td>${gBadge(gradeOf(t.pct, s['教科ID']))}</td>`;
+            })()}
+            ${showAvg?`<td class="avg-col sub" style="text-align:right">${cavg!=null?Math.round(cavg*10)/10+'%':'ー'}</td>`:''}
+          </tr>`;
+        }).join('')}
+        <tr class="sumrow">${anyDate?'<td></td>':''}<td></td><td>テストの合計</td>
+          ${usedKans.map(k=>{
+            const x = g[k];
+            return `<td style="border-left:1px solid var(--line)">${x.t!=null?x.tRaw+'/'+x.tMax:'ー'}</td>
+                    <td>${x.t!=null?Math.round(x.t)+'%':''}</td><td>${x.t!=null?gBadge(x.tG):''}</td>`;
+          }).join('')}
+          <td style="border-left:1px solid var(--line)">${testPct!=null?sumRaw+'/'+sumMax:'ー'}</td>
+          <td>${testPct!=null?Math.round(testPct)+'%':''}</td>
+          <td>${testPct!=null?gBadge(gradeOf(testPct, s['教科ID'])):''}</td>
+          ${showAvg?'<td class="avg-col"></td>':''}</tr>
+      </table></div>` : '';
+
+    const mitBlock = !C.mitori || !mitList.length ? '' : `
+      <div class="plabel">授業のようす(見取り)</div>
+      <div class="row" style="gap:16px;flex-wrap:wrap">
+        ${KAN_ORDER.map(k=>{ const x=g[k]; if (x.m==null) return '';
+          return `<span style="font-size:13px"><b>${KAN_SHORT[k]}</b> ${x.mRaw}/${x.mMax} ・ ${x.m}% ${x.mN}回</span>`; }).join('')}
+      </div>
+      ${teacher && C.mitoriDetail ? `<div class="no-print" style="margin-top:6px"><table class="psheet">
+        <tr><th>日付</th><th>見取り名</th><th>観点</th><th style="text-align:right">点</th></tr>
+        ${mitList.map(x=>faces(x.o).map(f=>{
+          const r = getRec(x.o['機会ID'], stuId, f.k);
+          if (!r || (r.raw==='' && !r.state)) return '';
+          const v = r.state===ST_ABS ? '<span style="color:var(--shu)">欠</span>'
+                  : r.state===ST_EXC ? '<span class="sub">除外</span>'
+                  : esc(r.raw)+'/'+faceMax(f,r);
+          return `<tr><td class="sub">${esc(fmtDate(x.o['日付'])||x.o['学期'])}</td><td>${esc(faceName(x.o,f))}</td><td>${KAN_SHORT[f.k]}</td><td style="text-align:right;font-weight:700">${v}</td></tr>`;
+        }).join('')).join('')}</table></div>` : ''}`;
+
+    const line = (x, which)=>{
+      const pct = which==='t' ? x.t : x.m;
+      const g2  = which==='t' ? x.tG : x.mG;
+      const raw = which==='t' ? x.tRaw : x.mRaw;
+      const max = which==='t' ? x.tMax : x.mMax;
+      const n   = which==='t' ? x.tN : x.mN;
+      const thin= which==='t' ? x.tThin : x.mThin;
+      const cls2= which==='t' ? 'ts' : 'ms';
+      const lbl = which==='t' ? 'テ' : '見';
+      if (pct==null) return `<div class="kline" style="margin-top:4px"><span class="src ${cls2}">${lbl}</span><span class="sub">記録なし</span></div>`;
+      return `<div class="kline" style="margin-top:4px"><span class="src ${cls2}">${lbl}</span>
+        <b style="min-width:66px">${raw}/${max}</b><b style="min-width:42px">${pct}%</b>${gBadge(g2)}
+        <span class="sub" style="font-size:11px">${n}件${thin?' ⚠少ない':''}</span></div>`;
+    };
+    const kantenBlock = !C.kanten ? '' : `
+      <div class="plabel">観点別のまとめ(点数 → ％ → 評価)</div>
+      ${KAN_ORDER.map(k=>{
+        const x = g[k]; if (x.t==null && x.m==null) return '';
+        const ov = getOv(stuId, s['教科ID'], k, PV.term);
+        let growth = '';
+        if (prevTerm(PV.term) && C.growth){
+          const pt = prevTerm(PV.term);
+          const pv = calcStu(stuId, s['教科ID'], pt)[k];
+          const before = pv.t!=null ? pv.t : pv.m, now = x.t!=null ? x.t : x.m;
+          if (before!=null && now!=null){
+            const d = Math.round((now-before)*10)/10;
+            const col = d>0?'var(--ko)':d<0?'var(--shu)':'var(--sub)';
+            growth = `<span class="sub" style="font-size:11px;margin-left:8px">${pt} ${before}% → <span style="color:${col};font-weight:700">${d>0?'+':''}${d}</span></span>`;
+          }
+        }
+        return `<div style="margin-top:9px;padding:8px 10px;background:#F7F8F4;border-radius:8px">
+          <div class="row"><b style="width:56px">${KAN_SHORT[k]}</b>
+            <span class="sub" style="font-size:11.5px">最終評価</span>${finalBadge(x, ov)}${growth}</div>
+          ${line(x,'t')}${line(x,'m')}</div>`;
+      }).join('')}`;
+
+    const open = !!PV.open[s['教科ID']];
+    return `<div class="panel foldcard ${open?'open':''}" style="margin-top:14px">
+      <button class="foldhead" onclick="toggleSubjCard('${s['教科ID']}')">
+        <span class="arw">▸</span>
+        <h3>${esc(s['教科名'])}</h3>
+        <span class="sub" style="font-size:12px">テスト ${testPct!=null?sumRaw+'/'+sumMax+' ('+Math.round(testPct)+'%)':'ー'}</span>
+        <span class="grow"></span>
+        ${C.badges ? KAN_ORDER.map(k=>{ const x=g[k]; if (x.t==null && x.m==null) return '';
+          return `<span title="${KAN_FULL[k]}">${finalBadge(x, getOv(stuId, s['教科ID'], k, PV.term))}</span>`; }).join('') : ''}
+      </button>
+      <div class="foldbody">
+        <div class="sub" style="font-size:11px;margin:6px 0 2px">A:${esc(s['A閾値'])}%以上 / B:${esc(s['B閾値'])}%以上</div>
+        ${testTable}${mitBlock}${kantenBlock}
+      </div></div>`;
+  }).join('');
+  return { cards, withData };
+}
+
+function vPerson(){
+  const st = S.b.students.find(x=>x['児童ID']===S.arg);
+  if (!st) return `<div class="panel">児童が見つかりません。<span class="jump" onclick="go('home')">戻る</span></div>`;
+  const stuId = st['児童ID'];
+  const teacher = PV.mode==='teacher';
+  if (PV.stu !== stuId){ PV.stu = stuId; PV.open = {}; }
+  const built = buildPerson(stuId, teacher);
+  const memo = getMemoText(stuId, PV.term);
+  return `
+    <div class="bar">
+      <button class="btn sec sm" onclick="go('list')">‹ 戻る</button>
+      <div class="stuhead"><div class="initial">${esc((st['名前']||'?').slice(0,1))}</div>
+        <div><h2>${esc(st['名前'])}</h2><div class="sub">${esc(cls()['クラス名'])} ・ ${esc(st['出席番号'])}番 ・ ${PV.term}</div></div></div>
+      <span class="grow"></span>
+      <div class="seg">${['年間'].concat(TERMS).map(t=>`<button class="${PV.term===t?'on':''}" onclick="PV.term='${t}';render()">${t}</button>`).join('')}</div>
+    </div>
+    <div class="bar">
+      <div class="seg">
+        <button class="${teacher?'on':''}" onclick="PV.mode='teacher';render()">先生用</button>
+        <button class="${!teacher?'on':''}" onclick="PV.mode='parent';render()">懇談会用</button>
+      </div>
+      <span class="sub" style="font-size:12px">${teacher?'クラス平均・見取りの明細・先生メモも表示中(印刷には出ません)':'保護者に見せられる内容だけ表示中'}</span>
+      <span class="grow"></span>
+      <button class="btn sec sm" onclick="openPersonCfg()">表示</button>
+      <button class="btn sec sm" onclick="window.print()">印刷</button>
+      <button class="btn pri sm" onclick="exportPerson('${stuId}')">Excel出力</button>
+    </div>
+    ${built.withData.length ? `<div class="row no-print" style="margin:12px 0 0">
+      <b style="font-size:15px">教科ごとの記録</b><span class="sub" style="font-size:12px">教科名をタップで開閉</span><span class="grow"></span>
+      <button class="btn sec sm" onclick="openAllCards(true)">すべて開く</button>
+      <button class="btn sec sm" onclick="openAllCards(false)">すべて閉じる</button>
+    </div>` : ''}
+    ${built.cards || '<div class="panel" style="margin-top:14px"><p class="sub">まだ記録がありません</p></div>'}
+    ${teacher ? `<div class="panel no-print" style="margin-top:14px">
+      <h3 style="margin-bottom:4px">先生からのメモ(${PV.term})</h3>
+      <p class="sub" style="margin-bottom:8px">所見の下書きなどに。この欄は<b>先生用モードだけ</b>に表示され、印刷・懇談会用には出ません。</p>
+      <textarea id="memoBox" rows="3" style="width:100%" placeholder="例:2学期は説明文の読み取りが安定してきた。発表にも自信が…">${esc(memo)}</textarea>
+      <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn pri sm" onclick="savePersonMemo('${stuId}')">メモを保存</button></div>
+    </div>` : ''}`;
+}
+function savePersonMemo(stuId){
+  const el = $('memoBox'); if (!el) return;
+  const text = el.value.slice(0,1000);
+  ovl('保存中…');
+  call('saveShoken', {stuId, term:PV.term, text}).then(()=>{
+    S.sho[stuId+'|'+PV.term] = text;
+    unovl(); toast('メモを保存しました');
+  }).catch(e=>{ unovl(); alertBox('エラー', e.message); });
+}
+function exportPerson(stuId){
+  const st = S.b.students.find(x=>x['児童ID']===stuId);
+  const subs = shownSubjects().filter(s=>S.b.opps.some(o=>o['教科ID']===s['教科ID']) && takes(stuId, s['教科ID']));
+  const blocks = [];
+  subs.forEach(s=>{
+    const g = calcStu(stuId, s['教科ID'], PV.term);
+    if (!KAN_ORDER.some(k=>g[k].t!=null || g[k].m!=null)) return;
+    const testList = oppsOfSubject(s['教科ID'], PV.term, 'テスト');
+    const usedKans = KAN_ORDER.filter(k=>testList.some(x=>faces(x.o).some(f=>f.k===k)));
+    const header = ['実施日','単元','テスト名'];
+    usedKans.forEach(k=>header.push(KAN_SHORT[k]+'点', KAN_SHORT[k]+'%', KAN_SHORT[k]+'評価'));
+    header.push('合計点','合計%','合計評価');
+    const rows = testList.map(x=>{
+      const fs = faces(x.o), split = isSplit(x.o);
+      const r = [fmtDate(x.o['日付'])||x.o['学期'],
+                 split ? splitUnitNames(x.o).join(' / ') : (x.u?x.u['単元名']:''),
+                 split ? fs.map(f=>faceName(x.o,f)).join(' / ') : x.o['機会名']];
+      usedKans.forEach(k=>{
+        const f = fs.find(z=>z.k===k);
+        if (!f){ r.push('','',''); return; }
+        const fr = faceResult(x.o, f, stuId);
+        if (!fr) r.push('','','');
+        else if (fr.exc) r.push('除外','','');
+        else if (fr.abs) r.push('欠席','','');
+        else r.push(fr.raw+'/'+fr.max, String(Math.round(fr.pct)), gradeOf(fr.pct, s['教科ID'])||'');
+      });
+      const t = oppTotal(x.o, stuId);
+      if (!t) r.push('','','');
+      else if (t.exc) r.push('除外','','');
+      else if (t.abs) r.push('欠席','','');
+      else r.push(t.raw+'/'+t.max, String(Math.round(t.pct)), gradeOf(t.pct, s['教科ID'])||'');
+      return r;
+    });
+    if (rows.length) blocks.push({heading:s['教科名']+' テストの記録', header, rows});
+    const kr = KAN_ORDER.filter(k=>g[k].t!=null || g[k].m!=null).map(k=>{
+      const x = g[k], f = finalOf(x, getOv(stuId, s['教科ID'], k, PV.term));
+      return [KAN_FULL[k],
+              x.t!=null?x.tRaw+'/'+x.tMax:'', x.t!=null?String(x.t):'', x.tG||'', String(x.tN),
+              x.m!=null?x.mRaw+'/'+x.mMax:'', x.m!=null?String(x.m):'', x.mG||'', String(x.mN),
+              f.g||'', String(x.tAbs+x.mAbs), String(x.tExc+x.mExc)];
+    });
+    if (kr.length) blocks.push({heading:s['教科名']+' 観点別のまとめ',
+      header:['観点','テスト点','テスト%','テスト評価','テスト件数','見取り点','見取り%','見取り評価','見取り件数','最終評価','欠席','除外'], rows:kr});
+  });
+  const memos = [];
+  S.b.opps.forEach(o=>faces(o).forEach(f=>{
+    const r = getRec(o['機会ID'], stuId, f.k);
+    if (r && r.memo) memos.push([fmtDate(o['日付'])||o['学期'], faceName(o,f), KAN_FULL[f.k], r.memo]);
+  }));
+  if (memos.length) blocks.push({heading:'見取りメモ', header:['日付','テスト・見取り','観点','メモ'], rows:memos});
+  if (!blocks.length){ alertBox('出力できません', 'この子の記録がまだありません。'); return; }
+  ovl('Excelファイルを作成中…');
+  call('exportKojin', {
+    title: `${st['名前']} 個人シート(${PV.term}) - ${cls()['クラス名']}`,
+    note: 'テストと見取りはそれぞれ100%で評価 / 欠席・除外は平均に入れていません',
+    blocks
+  }).then(r=>{ unovl(); showDownload(r.url); })
+    .catch(e=>{ unovl(); alertBox('出力エラー', e.message); });
+}
+function openPersonPicker(){
+  const sts = allStudents();
+  if (!sts.length){ toast('先に名簿を登録してください'); return; }
+  modal(`<h3 style="margin-bottom:14px">個人シートを開く</h3>
+    <div class="numtiles">${sts.map(st=>`<button class="numtile" onclick="shutModal();go('person','${st['児童ID']}')">
+      <span class="n">${esc(st['出席番号'])}</span><small>${esc(st['名前'])}</small></button>`).join('')}</div>`);
+}
+
+/* ================= 全員印刷 ================= */
+function vPrintAll(){
+  const sts = allStudents();
+  return `
+    <div class="bar no-print">
+      <button class="btn sec sm" onclick="go('list')">‹ 戻る</button>
+      <h2>個人シート 一括印刷</h2>
+      <span class="sub">${PV.term} ・ 懇談会用の内容</span>
+      <span class="grow"></span>
+      <button class="btn pri" onclick="window.print()">${sts.length}人分を印刷</button>
+    </div>
+    <div class="forceopen">
+    ${sts.map(st=>{
+      const b = buildPerson(st['児童ID'], false);
+      if (!b.withData.length) return '';
+      return `<div style="page-break-after:always">
+        <div class="row" style="margin:6px 0 8px"><div class="initial">${esc((st['名前']||'?').slice(0,1))}</div>
+          <div><b style="font-size:18px">${esc(st['名前'])}</b><div class="sub">${esc(cls()['クラス名'])} ・ ${esc(st['出席番号'])}番 ・ ${PV.term}</div></div></div>
+        ${b.cards}</div>`;
+    }).join('')}
+    </div>`;
+}
+
+/* ================= 使い方 ================= */
+let GOPEN = {};
+const GUIDE = [
+  { t:'はじめての方へ ― 5分で使えるようになります', b:`
+    <p>評価ノートは、<b>テストの点</b>と<b>授業中の見取り</b>を記録して、観点ごとのABCを出すためのアプリです。ふだん使うのは次の3画面だけです。</p>
+    <div class="panel" style="background:#F4F5F0;padding:13px 15px;margin:10px 0">
+      <b>① ホーム</b> … 単元とテストが並ぶ画面。テスト名を押すと点の入力へ。<br>
+      <b>② 成績一覧</b> … クラス全員の点とABCを見る画面。<br>
+      <b>③ 個人シート</b> … 1人分をまとめた画面。懇談会や所見づくりに。
+    </div>
+    <p><b>最初にやること(順番どおりに進めてください)</b></p>
+    <ol style="padding-left:20px;line-height:2">
+      <li><b>名簿を登録する</b><br>右上の ⚙ →「名簿」タブ。1行に1人ずつ名前を貼り付けて「まとめて追加」。<b>出席番号は入れなくてかまいません</b>(自動で1から振られます)。</li>
+      <li><b>単元とテストを作る</b><br>ホームで教科を選び、<b>「単元とテストをまとめて作る」</b>。単元名と、その中のテスト名・満点をまとめて登録できます。</li>
+      <li><b>点を入力する</b><br>単元の中のテスト名を押すと入力画面へ。数字を押すだけで、次の子に自動で進みます。</li>
+      <li><b>月に1回バックアップを取る</b><br>ホームに案内が出たら「バックアップを作成」を押すだけです。</li>
+    </ol>
+    <p class="sub" style="margin-top:10px">入力した点は自動で保存されます(右上に「保存済み」と出ます)。保存ボタンを押す必要も、スプレッドシートを直接さわる必要もありません。</p>` },
+
+  { t:'言葉の意味(最初に読むと迷いません)', b:`
+    <table class="psheet" style="margin-top:4px">
+      <tr><th style="width:96px">言葉</th><th>意味</th></tr>
+      <tr><td><b>単元</b></td><td>「スイミー」「たし算とひき算」など、教科書のまとまり。この中にテストや見取りを入れます。</td></tr>
+      <tr><td><b>テスト</b></td><td>点数で記録するもの。単元テスト、漢字テストなど。</td></tr>
+      <tr><td><b>見取り</b></td><td>授業中のようすを記録するもの。ノート、ワークシート、発表、作品など。A/B/Cのボタンから点にできます。</td></tr>
+      <tr><td><b>観点</b></td><td>知識・技能／思考・判断・表現／主体的に学習に取り組む態度 の3つ。画面では<b>知技・思判表・主体</b>と短く出ます。</td></tr>
+      <tr><td><b>面(枚目)</b></td><td>1枚のテストの表・裏のこと。観点ごとに1つの面として扱います。</td></tr>
+      <tr><td><b>満点</b></td><td>その面が何点満点か。50点満点で入力しても、％は自動で計算されます。</td></tr>
+    </table>` },
+
+  { t:'名簿を登録する', b:`
+    <p>右上の <b>⚙ → 「名簿」タブ</b>で登録します。</p>
+    <ul style="padding-left:20px;line-height:1.9">
+      <li>大きな入力欄に<b>1行1人</b>で名前を貼り付け →「まとめて追加」。名簿ファイルからコピーしてそのまま貼れます。</li>
+      <li><b>出席番号は入れなくてかまいません。</b>名前だけを並べれば、上から順に1・2・3…と自動で振られます。</li>
+      <li>番号を自分で決めたいときだけ「1 青山はると」のように、番号と名前のあいだにスペースを入れてください。</li>
+      <li>あとから直したいときは、下の一覧で番号や名前を書き換えて「保存」。</li>
+      <li>転出などで消すときは「削除」。<b>その子の記録もすべて消えます</b>のでご注意ください。</li>
+    </ul>` },
+
+  { t:'その教科を受けない児童を外す', b:`
+    <p>支援学級で別の学習をしているなど、<b>その教科を一緒に受けていない児童</b>がいる場合の設定です。</p>
+    <ul style="padding-left:20px;line-height:1.9">
+      <li>ホームで教科を選び、<b>「この教科を受ける児童」</b>を押します(⚙設定 → 教科・評価基準 の「受ける児童」からも開けます)。</li>
+      <li>児童名の横のチェックを外すと、その子は<b>この教科の入力画面・成績一覧・個人シート・未実施チェック・Excel出力のどこにも出てこなくなります</b>。</li>
+      <li>教科ごとに設定できます。国語だけ外す、算数と国語を外す、といった使い分けができます。</li>
+      <li>すでに入力した点は消えません。チェックを戻せば、また元どおり出てきます。</li>
+      <li>観点別の一覧では、対象外の教科のらんが「—」になります。</li>
+    </ul>
+    <p class="sub" style="margin-top:8px">1つのテストだけ受けない場合は、この設定ではなく入力画面の「除外」を使ってください。</p>` },
+
+  { t:'単元とテストを作る', b:`
+    <p>ホームで教科を選び、<b>「単元とテストをまとめて作る」</b>から一気に登録できます。1つずつ足したいときは、単元の下の「＋ テスト / 見取りを追加」から。</p>
+    <ul style="padding-left:20px;line-height:1.9">
+      <li><b>種別でテストを選ぶ</b>と、名前のらんに<b>「単元テスト」</b>が自動で入ります。そのままでも、書き換えてもかまいません。</li>
+      <li><b>見取りを選ぶ</b>と、らんの名前が「名前」に変わり、「ノート、ワークシートなど」という例が出ます。</li>
+      <li><b>満点</b>は観点ごとの数字です。50点満点のテストなら「50」と入れてください。</li>
+      <li>チェックを入れなかった観点は、そのテストでは使われません。<b>成績一覧にも出てきません。</b></li>
+      <li>単元やテストの並び順は、左の <b>⠿</b> をドラッグで入れ替えられます。</li>
+      <li>似た単元は「複製」で構成ごとコピーできます。点数はコピーされません。</li>
+    </ul>` },
+
+  { t:'観点の並びをテストに合わせる', b:`
+    <p>国語のワークテストは<b>表が思・判・表、裏が知・技</b>という並びのものが多くあります。評価ノートは観点の順番を自由に決められるので、<b>丸つけした紙の順にそのまま打てます</b>。</p>
+    <ul style="padding-left:20px;line-height:1.9">
+      <li><b>まとめて作るとき</b>:上の「観点の並び」で <b>思判表 → 知技</b> か <b>知技 → 思判表</b> を選びます。</li>
+      <li><b>あとから変えるとき</b>:テストの「編集」を押し、観点の行の <b>↑ ↓</b> で入れ替えます。左に「1枚目」「2枚目」と出るので、答案と見比べて確認できます。</li>
+    </ul>` },
+
+  { t:'表と裏で単元が違うテスト', b:`
+    <p>1枚のテストなのに、<b>表がスイミー、裏が漢字の広場</b>のように単元が違うことがあります。この場合も1枚のテストとして扱ったまま、面ごとに名前と単元を分けられます。</p>
+    <ul style="padding-left:20px;line-height:1.9">
+      <li>テストの<b>「編集」</b>を押すと、観点の行ごとに<b>「この面の名前」</b>と<b>「この面の単元」</b>を入れられます。</li>
+      <li>空欄のままなら、テスト名・テストの単元がそのまま使われます。ふつうのテストは何も入れなくて大丈夫です。</li>
+      <li>面ごとに単元が違うテストには、一覧やホームで <b>「表裏で単元違い」</b>という印が付きます。</li>
+      <li><b>単元ごと</b>の一覧では「スイミー 45/50 90% A」「漢字の広場 40/50 80% B」のように分けて表示され、下に合計が出ます。</li>
+      <li><b>個人シート</b>でも、単元らんとテスト名らんに両方が並んで出ます。</li>
+    </ul>` },
+
+  { t:'点を入力する', b:`
+    <p>単元の中のテスト名を押すと入力画面が開きます。やり方は2つあり、どちらでも同じデータになります。</p>
+    <ul style="padding-left:20px;line-height:1.9">
+      <li><b>一覧で入力</b>:左に名簿、右(スマホでは下)に数字パッド。数字を押すと名簿に入り、自動で次の子へ進みます。Enterキーでも進めます。</li>
+      <li><b>1人ずつ入力</b>:番号タイルを押してから点数。<b>答案の束の順のまま</b>入れられます。</li>
+      <li><b>全員に同じ点</b>:先に全員へ同じ点を入れて、例外の子だけ直すと速いです。</li>
+      <li><b>＋1 / −1</b>:入れたあとの微調整に。<b>取消</b>:入れ間違えたら1つ前に戻せます。</li>
+      <li><b>次の未入力→</b>:飛ばしたところに一発で戻れます。</li>
+    </ul>
+    <p>入れた点の下には、<b>その点の評価と同じ色の線</b>が引かれます。表を眺めるだけで、A・B・Cの散らばりが見て取れます。</p>` },
+
+  { t:'見取りを点にする', b:`
+    <p>種別を「見取り」にしたものを作ると、入力パッドに <b>A / B / C ボタン</b>が出ます。</p>
+    <ul style="padding-left:20px;line-height:1.9">
+      <li>「Aの上位だな」と思ったら <b>A → 100</b> のように2タップ。数値の候補は ⚙設定 →「段階ボタン」で自由に変えられます。</li>
+      <li>数字を直接入れてもかまいません。</li>
+      <li>点と一緒に <b>メモ</b>を残せます。<b>所見を書くときの材料</b>になり、個人シートとExcel出力に出てきます。</li>
+    </ul>` },
+
+  { t:'欠席と除外の使い分け', b:`
+    <p>点が付けられない子には2つのボタンがあります。<b>意味が違うので使い分けてください。</b></p>
+    <div class="panel" style="background:#F4F5F0;padding:13px 15px;margin:10px 0">
+      <b>欠席</b> … 受けるはずだったが、休んでいて受けていない。<br>
+      　→ 評価の母数に入りません。<b>未実施チェックに出る</b>ので、追試のときに拾えます。<br><br>
+      <b>除外</b> … このテストだけ対象にしない(転入前だった、別の課題に取り組んでいた など)。<br>
+      　→ 評価の母数に入りません。<b>未実施チェックにも出ず、入力の進み具合(◯/◯)の分母からも外れます</b>。
+    </div>
+    <ul style="padding-left:20px;line-height:1.9">
+      <li>どちらも同じボタンをもう一度押すと解除できます。</li>
+      <li>「全員に同じ点」を使っても、欠席・除外にした子はそのまま守られます。</li>
+      <li><b>0点と欠席はまったく別もの</b>です。0点は母数に入り、平均を下げます。</li>
+      <li>その教科をずっと受けない子は、テストごとの「除外」ではなく<b>「この教科を受ける児童」</b>で外してください。</li>
+    </ul>` },
+
+  { t:'成績一覧の見かた', b:`
+    <p>ホームの「成績一覧」から。4つのタブがあります。</p>
+    <ul style="padding-left:20px;line-height:1.9">
+      <li><b>単元ごと</b><br>教科を選ぶと、テストごとに<b>観点を分けて、点数・％・評価</b>が並び、下に合計が出ます。上の<b>チェックボックス</b>で、表示する観点(知技・思判表・主体)を選べます。「思判表だけ見たい」というときに便利です。上の切り替えで「見取り」も同じ形で見られます。</li>
+      <li><b>観点別</b><br>児童×教科×観点で、<b>点数 → ％ → 評価</b> の順に並びます。青い「テ」がテスト、緑の「見」が見取りで、上下に並べて見比べられます。</li>
+      <li><b>ボーダー</b><br>Aまであと3%以内の子、Cとの境目にいる子の一覧。教科名は<b>青いラベル</b>で示されるので、観点名と見分けられます。</li>
+      <li><b>未実施</b><br>欠席・未入力の子を「テストから」「児童から」の両方向で確認。名前を押すと、その子の入力欄へ直接飛べます。</li>
+    </ul>
+    <p>単元ごと・観点別のいちばん下には<b>クラス平均</b>と<b>評価の人数(Aが何人、Bが何人、Cが何人)</b>が出ます。学年で人数のバランスを確かめるときに使えます。</p>` },
+
+  { t:'ABCが決まるしくみ', b:`
+    <p><b>テストと見取りは、それぞれ100%で別々に評価します。</b>合成はしません。</p>
+    <div class="panel" style="background:#F4F5F0;padding:13px 15px;margin:10px 0">
+      <b>テスト評価</b> … その観点のテストの<b>合計点 ÷ 合計満点</b> → ％ → A/B/Cを判定<br>
+      <b>見取り評価</b> … その観点の見取りの<b>合計点 ÷ 合計満点</b> → ％ → A/B/Cを判定<br><br>
+      「Aの基準」以上なら <b>A</b>、「Bの基準」以上なら <b>B</b>、それ未満は <b>C</b>
+    </div>
+    <ul style="padding-left:20px;line-height:1.9">
+      <li>2つを並べて見ることで、<b>「テストはできるが授業では受け身」「テストは苦手だが取り組みは丁寧」</b>といった差が見えます。</li>
+      <li><b>欠席・除外にした分は、点にも満点にも入りません。</b></li>
+      <li>有効な記録が2件以下のときや、欠席・除外が多いときは <span class="thin">!</span> が出ます。判断の根拠が薄いという合図です。</li>
+      <li><b>A/Bの基準</b>は ⚙設定 →「教科・評価基準」で、教科ごとに変えられます。</li>
+      <li>色は <span class="gbadge A" style="width:22px;height:20px;font-size:12px">A</span> がいちばん目立ち、次に <span class="gbadge C" style="width:22px;height:20px;font-size:12px">C</span>、<span class="gbadge B" style="width:22px;height:20px;font-size:12px">B</span> は控えめです。多くを占めるBに目を奪われず、両端に気づけるようにしています。</li>
+    </ul>` },
+
+  { t:'最終評価を決める', b:`
+    <p>指導要録などに書く<b>最終評価</b>は、テスト評価と見取り評価を見比べて先生が決めます。</p>
+    <ul style="padding-left:20px;line-height:1.9">
+      <li>既定では<b>テスト評価</b>がそのまま最終評価になります(テストがない観点は見取り評価)。⚙設定 →「評価の出し方」で変えられます。</li>
+      <li>観点別の一覧で<b>セルを押す</b>と、テスト評価と見取り評価が並んだ画面が開きます。そこでA/B/Cをワンタップで確定でき、理由メモも残せます。</li>
+      <li>手で決めたセルには <b>手</b>の印が付きます。「自動のまま」でいつでも戻せます。</li>
+      <li>確定したあとに元の点数が変わると <b>!</b> に変わります。見直しの合図です。</li>
+    </ul>` },
+
+  { t:'個人シートを使う(懇談会・所見)', b:`
+    <p>一覧で<b>児童名を押す</b>と個人シートが開きます。ホームの「個人シート」からも選べます。</p>
+    <ul style="padding-left:20px;line-height:1.9">
+      <li>テストの記録は<b>観点ごとに分けて、点数・％・評価</b>が並びます。右端に合計、下に教科全体の合計が出ます。</li>
+      <li><b>先生用 / 懇談会用</b>を切り替えられます。懇談会用では、クラス平均・見取りの明細・先生メモが隠れます。</li>
+      <li><b>印刷</b>を押すと、どちらのモードでもA4縦・懇談会用の内容で出ます。</li>
+      <li><b>表示</b>で、載せる項目を選べます。</li>
+      <li>全員分をまとめて印刷したいときは、観点別の画面から「全員印刷」。</li>
+    </ul>` },
+
+  { t:'書き出す・貼り付ける', b:`
+    <ul style="padding-left:20px;line-height:1.9">
+      <li><b>コピー</b>:評価を、校務支援システムやExcelに<b>そのままCtrl+Vで貼り付け</b>られます。</li>
+      <li><b>Excel出力</b>:単元ごと・観点別・個人シートを書き出せます。単元ごとは観点に分かれた形で、クラス平均と評価の人数も付いて出ます。</li>
+      <li>出力したファイルの2行目には<b>出力日時と集計の条件</b>が入るので、いつの状態か必ず分かります。</li>
+    </ul>` },
+
+  { t:'バックアップと読み込み', b:`
+    <p>大切な記録なので、<b>月に1回はバックアップ</b>を取ってください。前回から1か月たつと、ホームに案内が出ます。</p>
+    <ul style="padding-left:20px;line-height:1.9">
+      <li><b>作り方</b>:ホームの案内か、⚙設定 →「バックアップ」から<b>「バックアップを作成する」</b>を押すだけです。マイドライブに<b>「評価ノート_バックアップ_日付」</b>という名前のファイルができます。</li>
+      <li>そのファイルを開けば、そのときの記録をそのまま確認できます。</li>
+      <li><b>読み込み(復元)</b>:⚙設定 →「バックアップ」の下の欄に、バックアップファイルのURLを貼り付けて「読み込む」。<b>今の記録はすべて置き換わります</b>ので、先に今の状態のバックアップを取ってから行ってください。</li>
+      <li>年度末は、バックアップを取ってから「記録だけ消す」か「すべて消す」を選ぶと安心です。</li>
+    </ul>
+    <p class="sub" style="margin-top:8px">初回だけ、Googleから「ドライブへのアクセスを許可しますか」といった確認が出ることがあります。許可すると使えるようになります。</p>` },
+
+  { t:'学期の切替・年度の終わり', b:`
+    <ul style="padding-left:20px;line-height:1.9">
+      <li>各画面の <b>年間 / 1学期 / 2学期 / 3学期</b> タブで、その学期の記録だけに絞れます。</li>
+      <li>1学期のテストを2学期に回したいときは、テストの「編集」で学期を変えれば点ごと移動します。</li>
+      <li>年度の終わりは、まず<b>バックアップを作成</b>。そのうえで ⚙設定 →「クラス・年度」で「記録だけ消す」か「すべて消す」を選びます。</li>
+      <li>このファイルは<b>1クラス専用</b>です。別のクラスを扱うときは、スプレッドシートをコピーして別ファイルとして使ってください。</li>
+    </ul>` },
+
+  { t:'困ったとき', b:`
+    <ul style="padding-left:20px;line-height:1.9">
+      <li><b>「保存に失敗」と出た</b>:通信の一時的なエラーです。その表示を押すと、もう一度送られます。入力した内容は消えていません。</li>
+      <li><b>画面が真っ白・反応しない</b>:ブラウザを再読み込みしてください(Windows: Ctrl+Shift+R / Mac: Cmd+Shift+R)。</li>
+      <li><b>間違えて消した</b>:削除は元に戻せません。バックアップがあれば、そこから読み込めます。</li>
+      <li><b>入力した点はどこにある?</b>:同じスプレッドシートの「記録」シートです。直接さわらなくても大丈夫です。</li>
+      <li><b>スマホ・タブレットでも使えます</b>:入力パッドは画面の下に出ます。</li>
+    </ul>` }
+];
+function toggleGuide(i){ GOPEN[i] = !GOPEN[i]; render(); }
+function guideAll(v){ GUIDE.forEach((_,i)=>GOPEN[i]=v); render(); }
+function vGuide(){
+  if (!Object.keys(GOPEN).length) GOPEN[0] = true;
+  const back = S.b ? `go('home')` : `go('start')`;
+  return `
+    <div class="bar">
+      <button class="btn sec sm" onclick="${back}">‹ 戻る</button>
+      <h2>使い方</h2>
+      <span class="grow"></span>
+      <button class="btn sec sm" onclick="guideAll(true)">すべて開く</button>
+      <button class="btn sec sm" onclick="guideAll(false)">すべて閉じる</button>
+    </div>
+    <p class="sub" style="margin-bottom:14px">見出しを押すと開きます。はじめての方は上から順に読んでみてください。</p>
+    ${GUIDE.map((m,i)=>`<div class="panel foldcard ${GOPEN[i]?'open':''}" style="margin-bottom:10px">
+        <button class="foldhead" onclick="toggleGuide(${i})">
+          <span class="arw">▸</span>
+          <span class="sub" style="font-weight:800;color:var(--ai);width:26px">${String(i+1).padStart(2,'0')}</span>
+          <h3 style="font-size:15.5px">${esc(m.t)}</h3>
+        </button>
+        <div class="foldbody" style="line-height:1.85">${m.b}</div>
+      </div>`).join('')}`;
+}
+
+/* ================= 設定 ================= */
+let SET = 'basic';
+function vSettings(){
+  if (S.arg==='roster'){ SET='roster'; S.arg=null; }
+  if (S.arg==='subj'){ SET='subj'; S.arg=null; }
+  if (S.arg==='backup'){ SET='backup'; S.arg=null; }
+  const tabs = [['basic','評価の出し方'],['step','段階ボタン'],['subj','教科・評価基準'],['roster','名簿'],['backup','バックアップ'],['pin','合言葉'],['cls','クラス・年度']];
+  let body = '';
+  if (SET==='basic'){
+    const base = baseKind();
+    const opt = (v,label,desc)=>`<label style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid ${base===v?'var(--ai)':'var(--line)'};border-radius:8px;margin-bottom:8px;cursor:pointer;background:${base===v?'var(--ai-s)':'#fff'}">
+      <input type="radio" name="baseSel" value="${v}" ${base===v?'checked':''} style="width:18px;height:18px;margin-top:2px">
+      <span><b>${label}</b><br><span class="sub">${desc}</span></span></label>`;
+    body = `<div class="panel">
+      <h3 style="margin-bottom:6px">テストと見取りは、それぞれ100%で評価します</h3>
+      <p class="sub" style="margin-bottom:14px">合成はしません。観点ごとに合計点÷合計満点で％を出し、テスト評価と見取り評価の2つを並べて見比べられます。</p>
+      <hr class="rule">
+      <h3 style="margin-bottom:8px">最終評価をどうするか</h3>
+      <p class="sub" style="margin-bottom:12px">指導要録などに使う最終評価の既定です。どれを選んでも、セルを押せば1つずつ手で決められます。</p>
+      ${opt('test','テスト評価をそのまま使う','いちばん手間がかかりません。テストがない観点(主体など)は見取り評価を使います。')}
+      ${opt('mitori','見取り評価をそのまま使う','見取りを主な材料にしている場合に。見取りがない観点はテスト評価を使います。')}
+      ${opt('none','毎回、手で決める','自動では何も入りません。')}
+      <button class="btn pri sm" style="margin-top:8px" onclick="saveBase()">保存</button></div>`;
+  }
+  if (SET==='step'){
+    const sv = stepValues();
+    body = `<div class="panel"><h3 style="margin-bottom:4px">見取りの段階ボタン</h3>
+      <p class="sub" style="margin-bottom:16px">見取りの入力でA/B/Cを押したときに出る数値の候補です。作文を「Aの上位だから100」のように2タップで付けられます。</p>
+      ${['A','B','C'].map(g=>`<div class="row" style="margin-bottom:12px">
+        <span class="gbadge ${g}" style="width:34px;height:32px">${g}</span>
+        <div class="row">${(sv[g]||[]).map(v=>`<span class="stepchip" style="background:var(--${{A:'ai',B:'ko',C:'shu'}[g]}-s);color:var(--${{A:'ai',B:'ko',C:'shu'}[g]})">${v}<button onclick="delStep('${g}',${v})">×</button></span>`).join('')}</div>
+        <input type="number" id="stIn_${g}" style="width:76px" placeholder="点数">
+        <button class="btn sec sm" onclick="addStep('${g}')">追加</button>
+      </div>`).join('')}
+      <p class="sub">※ 追加・削除するとすぐ保存されます</p></div>`;
+  }
+  if (SET==='subj'){
+    const subs = subjects();
+    const sts = allStudents();
+    body = `<div class="panel"><h3 style="margin-bottom:4px">教科と評価基準</h3>
+      <p class="sub" style="margin-bottom:12px">まず全教科まとめて設定し、変えたい教科だけ下の表で個別に調整するのがおすすめです。</p>
+      <div class="row" style="background:#F4F5F0;border-radius:8px;padding:12px 14px;margin-bottom:16px">
+        <b>全教科まとめて設定</b>
+        <span class="sub">A:</span><input type="number" id="bkA" style="width:76px" placeholder="90"><span class="sub">%以上</span>
+        <span class="sub" style="margin-left:6px">B:</span><input type="number" id="bkB" style="width:76px" placeholder="60"><span class="sub">%以上</span>
+        <button class="btn pri sm" onclick="applyAllBounds()">全教科に適用</button>
+      </div>
+      <div class="tblwrap" style="max-height:none"><table>
+        <tr><th>表示</th><th>順</th><th>教科名</th><th>Aの基準(%以上)</th><th>Bの基準(%以上)</th><th>受ける児童</th><th></th><th></th></tr>
+        ${subs.map(s=>{
+          const off = Object.keys(S.exc[s['教科ID']]||{}).length;
+          return `<tr>
+          <td style="text-align:center"><input type="checkbox" ${s['有効']!=='0'?'checked':''} onchange="toggleSubjShown('${s['教科ID']}', this.checked)" style="width:17px;height:17px" title="チェックを外すと画面に出なくなります(データは消えません)"></td>
+          <td><input value="${esc(s['表示順'])}" id="so_${s['教科ID']}" style="width:52px"></td>
+          <td><input value="${esc(s['教科名'])}" id="sn_${s['教科ID']}" style="width:126px"></td>
+          <td><input type="number" value="${esc(s['A閾値'])}" id="sa_${s['教科ID']}" style="width:74px"></td>
+          <td><input type="number" value="${esc(s['B閾値'])}" id="sb_${s['教科ID']}" style="width:74px"></td>
+          <td><button class="btn sec sm" onclick="openSubjRoster('${s['教科ID']}')">${sts.length-off}/${sts.length}人</button></td>
+          <td><button class="btn ghost sm" onclick="saveSubjRow('${s['教科ID']}')">保存</button></td>
+          <td><button class="btn sm" style="color:var(--shu)" onclick="removeSubj('${s['教科ID']}')">削除</button></td>
+        </tr>`;}).join('')}
+      </table></div>
+      <div class="row" style="margin-top:12px"><input id="newSubj" placeholder="新しい教科名"><button class="btn pri sm" onclick="addSubj()">＋ 追加</button></div></div>`;
+  }
+  if (SET==='roster'){
+    const sts = allStudents();
+    body = `<div class="panel"><h3 style="margin-bottom:4px">名簿(${sts.length}人)</h3>
+      <p class="sub" style="margin-bottom:6px">1行に1人ずつ名前を入れて「まとめて追加」。</p>
+      <p class="sub" style="margin-bottom:12px;color:var(--ai);font-weight:700">出席番号は入れなくてかまいません。名前だけを並べれば、上から順に1・2・3…と自動で振られます。<br>
+        <span style="font-weight:400;color:var(--sub)">番号を自分で決めたいときだけ「1 青山はると」のように、番号と名前のあいだにスペースを入れてください。</span></p>
+      <textarea id="bulkRoster" rows="4" style="width:100%" placeholder="青山はると&#10;井上さくら&#10;上田そうた&#10;(番号は入れなくてOK)"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn pri sm" onclick="bulkAddRoster()">まとめて追加</button>
+        <button class="btn sec sm" onclick="renumber()">番号を1から振り直す</button>
+      </div>
+      <div class="tblwrap" style="max-height:400px;margin-top:16px"><table>
+        <tr><th>番号</th><th>名前</th><th></th><th></th></tr>
+        ${sts.map(st=>`<tr>
+          <td><input value="${esc(st['出席番号'])}" id="rn_${st['児童ID']}" style="width:58px"></td>
+          <td><input value="${esc(st['名前'])}" id="rm_${st['児童ID']}" style="width:158px"></td>
+          <td><button class="btn ghost sm" onclick="saveStuRow('${st['児童ID']}')">保存</button></td>
+          <td><button class="btn sm" style="color:var(--shu)" onclick="removeStu('${st['児童ID']}')">削除</button></td>
+        </tr>`).join('')}
+      </table></div></div>`;
+  }
+  if (SET==='backup'){
+    const at = setting('最終バックアップ','');
+    const nm = setting('最終バックアップ名','');
+    const url = setting('最終バックアップURL','');
+    const d = daysSinceBackup();
+    body = `<div class="panel">
+      <h3 style="margin-bottom:6px">バックアップを作る</h3>
+      <p class="sub" style="margin-bottom:12px">今の記録をまるごと控えたファイルを、マイドライブに作ります。ファイル名は<b>「評価ノート_バックアップ_日付」</b>です。<br>
+        入力した点・単元・名簿・設定のすべてが入ります。月に1回を目安にどうぞ。</p>
+      <div class="row" style="background:#F4F5F0;border-radius:8px;padding:12px 14px;margin-bottom:14px">
+        <b>前回のバックアップ</b>
+        ${at ? `<span>${esc(at)}${d!=null?`(${d}日前)`:''}</span>
+               <span class="sub">${esc(nm)}</span>
+               ${url?`<a class="jump" href="${esc(url)}" target="_blank" rel="noopener">開く</a>`:''}`
+             : '<span class="sub">まだありません</span>'}
+      </div>
+      <button class="btn pri" onclick="runBackup()">バックアップを作成する</button>
+    </div>
+    <div class="panel">
+      <h3 style="margin-bottom:6px">バックアップから読み込む(復元)</h3>
+      <p class="sub" style="margin-bottom:12px">バックアップのファイルを開いて、アドレスバーのURLをそのまま貼り付けてください。<br>
+        <b style="color:var(--shu)">今このファイルに入っている記録は、すべて置き換わります。</b>先に「バックアップを作成する」で今の状態を控えておくと安全です。</p>
+      <input id="rsUrl" placeholder="https://docs.google.com/spreadsheets/d/.../edit" style="width:100%">
+      <div class="row" style="margin-top:10px">
+        <button class="btn danger" onclick="runRestore()">このバックアップを読み込む</button>
+        <span class="sub">読み込んだあとは画面が自動で更新されます</span>
+      </div>
+    </div>`;
+  }
+  if (SET==='pin'){
+    body = `<div class="panel">
+      <h3 style="margin-bottom:6px">合言葉を変える</h3>
+      <p class="sub" style="margin-bottom:14px">アプリを開くときに聞かれる数字です。<b>毎回</b>必要になります(画面を再読み込みしたときも聞かれます)。</p>
+      <div class="kv" style="max-width:420px">
+        <label>今の合言葉</label><input id="pnOld" type="password" inputmode="numeric" autocomplete="off" placeholder="数字4〜6桁">
+        <label>新しい合言葉</label><input id="pnNew" type="password" inputmode="numeric" autocomplete="off" placeholder="数字4〜6桁">
+        <label>もう一度</label><input id="pnNew2" type="password" inputmode="numeric" autocomplete="off" placeholder="確認のため">
+      </div>
+      <button class="btn pri sm" style="margin-top:14px" onclick="changePin()">変更する</button>
+    </div>
+    <div class="panel">
+      <h3 style="margin-bottom:6px">この鍵で守れること・守れないこと</h3>
+      <table class="psheet">
+        <tr><th style="width:130px"></th><th></th></tr>
+        <tr><td><b>守れる</b></td><td>このアプリのURLを知っている人が、勝手に中身を見ること</td></tr>
+        <tr><td><b>守れない</b></td><td>スプレッドシートそのものを開ける人(共有相手・管理者)が記録を見ること</td></tr>
+      </table>
+      <p class="sub" style="margin-top:10px">スプレッドシートの共有相手を自分だけにしておくことが、いちばん確実な守りです。</p>
+    </div>
+    <div class="panel">
+      <h3 style="margin-bottom:6px">忘れてしまったとき</h3>
+      <p class="sub">スプレッドシートの「拡張機能 → Apps Script」を開き、関数の一覧から <b>resetPin</b> を選んで実行してください。合言葉が外れ、次にアプリを開いたときに決め直せます。記録は消えません。</p>
+    </div>`;
+  }
+  if (SET==='cls'){
+    const c = cls();
+    body = `<div class="panel"><h3 style="margin-bottom:14px">クラス情報</h3>
+      <div class="kv" style="max-width:420px">
+        <label>クラス名</label><input id="ecName" value="${esc(c['クラス名'])}">
+        <label>年度</label><input id="ecNendo" value="${esc(c['年度'])}">
+      </div>
+      <button class="btn pri sm" style="margin-top:14px" onclick="saveClsInfo()">保存</button></div>
+    <div class="panel"><h3 style="margin-bottom:6px">年度の終わりに</h3>
+      <p class="sub" style="margin-bottom:12px">先に <b>ファイル → コピーを作成</b> で1年分をまるごと保存しておくのがおすすめです。<br>このファイルは1クラス専用です。別のクラスを扱うときは、スプレッドシートをコピーして別ファイルとして使ってください。</p>
+      <div class="row">
+        <button class="btn sec" onclick="clearRecords()">記録だけ消す(単元・テストの枠は残す)</button>
+        <span class="grow"></span>
+        <button class="btn danger sm" onclick="resetAll()">すべて消して最初からやり直す</button>
+      </div></div>
+    <div class="panel"><h3 style="margin-bottom:6px">記入例を入れる</h3>
+      <p class="sub" style="margin-bottom:12px">国語に「スイミー」「漢字の広場」と、<b>表と裏で単元が違うテスト</b>の例、見取りの例を作ります。使い方を試したいときに。</p>
+      <button class="btn sec sm" onclick="addExample()">記入例を追加する</button></div>`;
+  }
+  return `
+    <div class="bar">
+      <button class="btn sec sm" onclick="go('home')">‹ 戻る</button><h2>設定</h2>
+      <span class="grow"></span>
+    </div>
+    <div class="bar"><div class="seg">${tabs.map(t=>`<button class="${SET===t[0]?'on':''}" onclick="SET='${t[0]}';render()">${t[1]}</button>`).join('')}</div></div>
+    ${body}`;
+}
+function afterOk(msg){ return ()=>reloadBundle().then(()=>{ unovl(); render(); if (msg) toast(msg); }); }
+function saveBase(){
+  const el = document.querySelector('input[name="baseSel"]:checked');
+  if (!el){ toast('どれか1つを選んでください'); return; }
+  ovl('保存中…');
+  call('saveSettings', {kv:{'既定評価':el.value}}).then(afterOk('保存しました'))
+    .catch(e=>{ unovl(); alertBox('エラー', e.message); });
+}
+function saveSteps(v){
+  ovl('保存中…');
+  call('saveSettings', {kv:{'段階数値':JSON.stringify(v)}}).then(afterOk())
+    .catch(e=>{ unovl(); alertBox('エラー', e.message); });
+}
+function addStep(g){
+  const v = num($('stIn_'+g).value);
+  if (v==null || v<0 || v>100){ toast('0〜100の数字で入力してください'); return; }
+  const sv = stepValues();
+  if ((sv[g]||[]).indexOf(v)>=0){ toast('すでに登録されています'); return; }
+  sv[g] = (sv[g]||[]).concat([v]).sort((a,b)=>b-a);
+  saveSteps(sv);
+}
+function delStep(g, v){
+  const sv = stepValues();
+  sv[g] = (sv[g]||[]).filter(x=>x!==v);
+  saveSteps(sv);
+}
+function applyAllBounds(){
+  const a = num($('bkA').value), b = num($('bkB').value);
+  if (a==null||b==null||a<0||a>100||b<0||b>100){ toast('AとBの基準を0〜100で入力してください'); return; }
+  if (b>=a){ toast('Bの基準はAの基準より小さくしてください'); return; }
+  askYes('全教科に適用', `すべての教科の基準を「A:${a}%以上 / B:${b}%以上」に変更します。個別設定していた値も上書きされます。`).then(yes=>{
+    if (!yes) return;
+    ovl('適用中…');
+    call('saveSubjectsBulk', {a:String(a), b:String(b)}).then(afterOk(`全教科を A:${a}% / B:${b}% にしました`))
+      .catch(e=>{ unovl(); alertBox('エラー', e.message); });
+  });
+}
+function toggleSubjShown(id, on){
+  call('setSubjectVisible', {id, on}).then(()=>{
+    const s = S.b.subjects.find(x=>x['教科ID']===id);
+    if (s) s['有効'] = on ? '1' : '0';
+    toast(on ? '表示するようにしました' : '隠しました(データは残っています)');
+  }).catch(e=>alertBox('エラー', e.message));
+}
+function saveSubjRow(id){
+  const name = $('sn_'+id).value.trim(), a = num($('sa_'+id).value), b = num($('sb_'+id).value), o = $('so_'+id).value.trim();
+  if (!name){ toast('教科名を入力してください'); return; }
+  if (a==null||b==null||a<0||a>100||b<0||b>100){ toast('基準は0〜100で入力してください'); return; }
+  if (b>=a){ toast('Bの基準はAの基準より小さくしてください'); return; }
+  ovl('保存中…');
+  call('saveSubject', {id, name, order:o||'99', a:String(a), b:String(b)}).then(afterOk('保存しました'))
+    .catch(e=>{ unovl(); alertBox('エラー', e.message); });
+}
+function addSubj(){
+  const name = $('newSubj').value.trim();
+  if (!name){ toast('教科名を入力してください'); return; }
+  ovl('追加中…');
+  call('saveSubject', {name, order:String(S.b.subjects.length+1)}).then(afterOk())
+    .catch(e=>{ unovl(); alertBox('エラー', e.message); });
+}
+function removeSubj(id){
+  const s = S.b.subjects.find(x=>x['教科ID']===id);
+  if (!s) return;
+  askYes('教科を削除', `「${s['教科名']}」を削除すると、この教科の単元・テスト・記録・最終評価もすべて消えます。元に戻せません。\n本当に削除しますか?`, '削除する').then(yes=>{
+    if (!yes) return;
+    ovl('削除中…');
+    call('deleteSubject', {id}).then(afterOk('削除しました')).catch(e=>{ unovl(); alertBox('エラー', e.message); });
+  });
+}
+function saveStuRow(id){
+  const no = z2h($('rn_'+id).value).trim(), name = $('rm_'+id).value.trim();
+  if (!name){ toast('名前を入力してください'); return; }
+  if (num(no)==null){ toast('番号は数字で入力してください'); return; }
+  ovl('保存中…');
+  call('saveStudent', {id, no, name}).then(afterOk('保存しました'))
+    .catch(e=>{ unovl(); alertBox('エラー', e.message); });
+}
+function removeStu(id){
+  const st = S.b.students.find(x=>x['児童ID']===id);
+  if (!st) return;
+  askYes('児童を削除', `「${st['名前']}」の記録・最終評価・メモもすべて削除されます。転出などで消す場合のみ実行してください。\n本当に削除しますか?`, '削除する').then(yes=>{
+    if (!yes) return;
+    ovl('削除中…');
+    call('deleteStudent', {id}).then(afterOk('削除しました')).catch(e=>{ unovl(); alertBox('エラー', e.message); });
+  });
+}
+function renumber(){
+  askYes('出席番号の振り直し', '今の並び順のまま、出席番号を1から振り直します。よろしいですか?').then(yes=>{
+    if (!yes) return;
+    ovl('振り直し中…');
+    call('renumberStudents', {}).then(afterOk('番号を振り直しました')).catch(e=>{ unovl(); alertBox('エラー', e.message); });
+  });
+}
+function bulkAddRoster(){
+  const lines = $('bulkRoster').value.split('\n').map(s=>s.trim()).filter(s=>s);
+  if (!lines.length){ toast('名前を入力してください'); return; }
+  if (lines.length > 60){ toast('一度に登録できるのは60人までです'); return; }
+  let maxNo = Math.max(0, ...S.b.students.map(s=>num(s['出席番号'])||0));
+  const list = lines.map(raw=>{
+    const line = z2h(raw);
+    const m = line.match(/^(\d+)[\s,、\t]+(.+)$/);
+    if (m) return {no:m[1], name:m[2].trim().slice(0,20)};
+    maxNo++; return {no:String(maxNo), name:line.slice(0,20)};
+  });
+  ovl(`${list.length}人を登録中…`);
+  call('addStudentsBulk', {list}).then(afterOk(`${list.length}人を登録しました`))
+    .catch(e=>{ unovl(); alertBox('エラー', e.message); });
+}
+function saveClsInfo(){
+  const name = $('ecName').value.trim(), nendo = $('ecNendo').value.trim();
+  if (!name){ toast('クラス名を入力してください'); return; }
+  ovl('保存中…');
+  call('updateClass', {name, nendo}).then(afterOk('保存しました'))
+    .catch(e=>{ unovl(); alertBox('エラー', e.message); });
+}
+function clearRecords(){
+  askYes('記録だけ消す', '入力した点数・見取り・最終評価・メモをすべて消します。単元とテストの枠は残ります。\n先にファイルのコピーを作っておくことをおすすめします。', '記録を消す').then(yes=>{
+    if (!yes) return;
+    ovl('削除中…');
+    call('clearRecords', {}).then(afterOk('記録を消しました')).catch(e=>{ unovl(); alertBox('エラー', e.message); });
+  });
+}
+function resetAll(){
+  askYes('すべて消す', 'クラス・名簿・教科・単元・テスト・記録のすべてを削除します。元に戻せません。', '削除する').then(yes=>{
+    if (!yes) return;
+    askYes('最終確認', '本当にすべて消しますか?この操作は取り消せません。', '完全に削除する').then(y2=>{
+      if (!y2) return;
+      ovl('削除中…');
+      call('resetAll', {}).then(()=>reloadBundle()).then(()=>{ unovl(); go('start'); toast('すべて削除しました'); })
+        .catch(e=>{ unovl(); alertBox('エラー', e.message); });
+    });
+  });
+}
+function runRestore(){
+  const url = $('rsUrl') ? $('rsUrl').value.trim() : '';
+  if (!url){ toast('バックアップのURLを貼り付けてください'); return; }
+  askYes('バックアップから読み込む', '今このファイルに入っている記録は、すべて置き換わります。元に戻すには、読み込む前のバックアップが必要です。\n本当に読み込みますか?', '読み込む').then(yes=>{
+    if (!yes) return;
+    askYes('最終確認', '本当に置き換えますか?この操作は取り消せません。', '置き換える').then(y2=>{
+      if (!y2) return;
+      ovl('読み込み中…');
+      call('restoreBackup', {url}).then(r=>reloadBundle().then(()=>{
+        unovl(); go('home');
+        alertBox('読み込みました', `「${r.name}」から ${r.rows} 行を読み込みました。`);
+      })).catch(e=>{ unovl(); alertBox('読み込めませんでした', e.message); });
+    });
+  });
+}
+function changePin(){
+  const f = readFields(['pnOld','pnNew','pnNew2']);
+  if (!/^\d{4,6}$/.test(f.pnNew)){ toast('新しい合言葉は数字4〜6桁で決めてください'); return; }
+  if (f.pnNew !== f.pnNew2){ toast('2回目が合いません'); return; }
+  ovl('変更中…');
+  call('setPin', {oldPin:f.pnOld, newPin:f.pnNew}).then(r=>{
+    S.token = r.token;
+    unovl(); render(); toast('合言葉を変えました');
+  }).catch(e=>{ unovl(); alertBox('変更できませんでした', e.message); });
+}
+function addExample(){
+  ovl('記入例を作成中…');
+  call('createExample', {}).then(afterOk('記入例を追加しました')).catch(e=>{ unovl(); alertBox('エラー', e.message); });
+}
+
+/* ================= 起動 ================= */
+document.addEventListener('visibilitychange', ()=>{ if (document.hidden) flushSave(); });
+window.addEventListener('beforeunload', e=>{
+  if (Object.keys(S.queue).length || S.saveBusy){ flushSave(); e.preventDefault(); e.returnValue=''; }
+});
+function boot(){
+  call('authState', {}).then(a=>{
+    S.auth = a;
+    if (a.hasPin || a.wait > 0){
+      LK = { pin:'', pin2:'', step:1, msg: a.wait>0 ? `間違いが続いたため、あと${a.wait}秒お待ちください` : '', busy:false };
+      S.view = 'lock'; render(); return null;
+    }
+    // まだ合言葉がないときは、決めてもらってから中に入る
+    LK = { pin:'', pin2:'', step:1, msg:'', busy:false };
+    S.view = 'lock'; render(); return null;
+  }).catch(e=>{
+    $('app').innerHTML = `<div class="panel" style="text-align:center">
+      <h3>読み込みに失敗しました</h3>
+      <p class="sub" style="margin:8px 0 16px">${esc(e.message)}</p>
+      <button class="btn pri" onclick="location.reload()">再読み込み</button></div>`;
+  });
+}
+function bootOld(){
+  reloadBundle().then(()=>{ S.view = S.b ? 'home' : 'start'; render(); })
+    .catch(e=>{
+      $('app').innerHTML = `<div class="panel" style="text-align:center">
+        <h3>読み込みに失敗しました</h3>
+        <p class="sub" style="margin:8px 0 16px">${esc(e.message)}</p>
+        <button class="btn pri" onclick="location.reload()">再読み込み</button></div>`;
+    });
+}
+window.addEventListener('load', boot);
+</script>
+
+<!-- ここが最終行です(貼り付け確認用: HYOKANOTE-HTML-END) -->
