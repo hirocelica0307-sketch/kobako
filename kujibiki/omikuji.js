@@ -19,6 +19,7 @@
     let phase = 'idle';           // idle → shaking → out → paper
     let energy = 0, drag = null, lastDir = 0, autoT = 0;
     let motionOn = false;
+    let lastIdx = -1;     // いま 出て いる 棒の しゅるい
 
     function init(el) {
         sec = el;
@@ -28,9 +29,13 @@
         $$('[name="omLimit"]', sec).forEach(r => r.addEventListener('change', () => tbl.refresh()));
         $$('[data-preset]', sec).forEach(b => b.addEventListener('click', () => tbl.set(PRESETS[b.dataset.preset])));
         $('[data-act="refill"]', sec).addEventListener('click', () => { st.stock = null; persist(); root.Kuji.closeSheets(); renderLeft(); });
+        $('[data-act="refillStage"]', sec).addEventListener('click', () => { if (phase === 'idle') { st.stock = null; persist(); renderLeft(); } });
         $('[data-act="shake"]', sec).addEventListener('click', autoShake);
         $('[data-act="motion"]', sec).addEventListener('click', toggleMotion);
-        $('[data-act="again"]', sec).addEventListener('click', () => { closePaper(); });
+        // つぎを どう ひくか：棒を のぞく ／ もどす（とじる も もどす）
+        $('[data-act="takeAgain"]', sec).addEventListener('click', () => { takeOut(); closePaper(); setTimeout(autoShake, 200); });
+        $('[data-act="again"]', sec).addEventListener('click', () => { closePaper(); setTimeout(autoShake, 200); });
+        $('[data-act="closePaper"]', sec).addEventListener('click', () => closePaper());
         box.addEventListener('pointerdown', onDown);
         root.addEventListener('pointermove', onMove);
         root.addEventListener('pointerup', onUp);
@@ -65,12 +70,16 @@
         const el = $('.om-left', sec);
         if (st.limit === 'inf') {
             el.innerHTML = '<b>かぎりなし</b>';
+            $('[data-act="refillStage"]', sec).hidden = true;
+            $('[data-act="shake"]', sec).disabled = false;
+            sec.classList.remove('empty');
             return;
         }
         const s = stock();
         const tot = L.stockTotal(s);
         el.innerHTML = `のこり <b>${tot}</b> 本` + (st.showLeft ? '<small>' + s.map(x => `${esc(x.label)} ${x.n}`).join('・') + '</small>' : '');
         $('[data-act="shake"]', sec).disabled = tot <= 0;
+        $('[data-act="refillStage"]', sec).hidden = !st.stock || tot === L.stockTotal(st.items);
         sec.classList.toggle('empty', tot <= 0);
     }
 
@@ -148,12 +157,9 @@
         box.classList.remove('auto', 'rattle');
         box.style.transform = '';
         let idx, label, lv;
-        if (st.limit === 'stock') {
-            const d = L.drawFromStock(stock());
-            idx = d.index; st.stock = d.stock; persist();
-        } else {
-            idx = L.weightedPick(st.items);
-        }
+        // ひいた だけでは へらさない（へらすのは「棒を のぞいて」を えらんだ とき）
+        idx = L.weightedPick(st.limit === 'stock' ? stock() : st.items);
+        lastIdx = idx;
         const it = st.items[idx] || { label: '？', lv: 'normal' };
         label = it.label; lv = it.lv || 'normal';
         const num = 1 + Math.floor(Math.random() * (st.limit === 'stock' ? Math.max(1, L.stockTotal(st.items)) : 100));
@@ -172,7 +178,9 @@
         if (root.Kuji.current() !== 'omikuji') return;
         phase = 'paper';
         const p = $('.om-paper', sec);
-        p.className = 'om-paper lv-' + lv;
+        p.className = 'om-paper lv-' + lv + (st.limit === 'stock' ? ' stock' : '');
+        $('[data-act="again"] .lbl', p).textContent = st.limit === 'stock' ? '棒を もどして もういちど' : 'もういちど ひく';
+        $('[data-act="takeAgain"]', p).disabled = L.stockTotal(stock()) <= 1;
         $('.om-num', p).textContent = num + ' ばん';
         const t = $('.om-word', p);
         t.textContent = label;
@@ -186,6 +194,13 @@
             FX.confettiBurst(r.left + r.width / 2, r.top + r.height * 0.3, lv === 'super' ? 160 : 80);
         }
         root.Kuji.setBusy(false);
+    }
+    /** 出た 棒を のぞく（本数を きめる とき） */
+    function takeOut() {
+        if (st.limit !== 'stock' || lastIdx < 0) return;
+        const s = stock();
+        if (s[lastIdx] && s[lastIdx].n > 0) { s[lastIdx] = Object.assign({}, s[lastIdx], { n: s[lastIdx].n - 1 }); st.stock = s; persist(); }
+        lastIdx = -1;
     }
     function closePaper(silent) {
         const p = $('.om-paper', sec);

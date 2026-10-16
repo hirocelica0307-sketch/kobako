@@ -47,6 +47,7 @@
             // とちゅうで ぬけた ときは、出る はずの 玉を 出た ことに する
             if (chosen && !st.called.includes(chosen.id)) { st.called.push(chosen.id); persist(); }
             phase = 'idle'; chosen = null; exitBall = null; omega = 0;
+            balls = balls.filter(b => !b.guide);
             root.Kuji.setBusy(false);
         }
         endPop(true);
@@ -153,6 +154,7 @@
             for (const b of balls) {
                 b.vy += grav * h;
                 b.vx *= 0.999; b.vy *= 0.999;
+                if (b.guide) guideStep(b, h, wall, grav);
                 b.x += b.vx * h; b.y += b.vy * h;
                 // かべ
                 const d = Math.hypot(b.x, b.y), lim = wall - b.r;
@@ -160,16 +162,21 @@
                     const nx = b.x / d, ny = b.y / d;
                     b.x = nx * lim; b.y = ny * lim;
                     const vn = b.vx * nx + b.vy * ny;
-                    // かべの うごき（まわって いる）
-                    const wx = -omega * ny * wall, wy = omega * nx * wall;
-                    let tx = -ny, ty = nx;
-                    const vt = b.vx * tx + b.vy * ty, wt = wx * tx + wy * ty;
-                    const nvt = vt + (wt - vt) * Math.min(1, 0.35 + Math.abs(omega) * 0.04);
-                    const nvn = vn > 0 ? -vn * 0.35 : vn;
-                    b.vx = nx * nvn + tx * nvt; b.vy = ny * nvn + ty * nvt;
+                    if (b.guide) {
+                        // 出口へ むかう 玉は かべを すべる（まさつで おそく ならない）
+                        if (vn > 0) { b.vx -= vn * nx; b.vy -= vn * ny; }
+                    } else {
+                        // かべの うごき（まわって いる）
+                        const wx = -omega * ny * wall, wy = omega * nx * wall;
+                        const tx = -ny, ty = nx;
+                        const vt = b.vx * tx + b.vy * ty, wt = wx * tx + wy * ty;
+                        const nvt = vt + (wt - vt) * Math.min(1, 0.35 + Math.abs(omega) * 0.04);
+                        const nvn = vn > 0 ? -vn * 0.35 : vn;
+                        b.vx = nx * nvn + tx * nvt; b.vy = ny * nvn + ty * nvt;
+                    }
                 }
-                // ひれ（玉を もちあげる）
-                for (let f = 0; f < FINS; f++) {
+                // ひれ（玉を もちあげる）。出口へ むかう 玉は ひれの 手前を ころがる
+                for (let f = 0; f < FINS && !b.guide; f++) {
                     const fa = ang + f * Math.PI * 2 / FINS;
                     const ux = Math.cos(fa), uy = Math.sin(fa);
                     const t = b.x * ux + b.y * uy;
@@ -196,12 +203,14 @@
                     if (Math.abs(dx) > rr || Math.abs(dy) > rr) continue;
                     const d2 = dx * dx + dy * dy;
                     if (d2 >= rr * rr || d2 < 1e-9) continue;
-                    const d = Math.sqrt(d2), nx = dx / d, ny = dy / d, over = (rr - d) / 2;
-                    a.x -= nx * over; a.y -= ny * over; b.x += nx * over; b.y += ny * over;
+                    const d = Math.sqrt(d2), nx = dx / d, ny = dy / d, over = rr - d;
+                    // 出口へ むかう 玉は じぶんの 道を すすみ、まわりの 玉だけ おしのける
+                    const wa = a.guide ? 0 : b.guide ? 1 : 0.5, wb = 1 - wa;
+                    a.x -= nx * over * wa; a.y -= ny * over * wa; b.x += nx * over * wb; b.y += ny * over * wb;
                     const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
                     if (rv < 0) {
-                        const j2 = -(1 + 0.5) * rv / 2;
-                        a.vx -= j2 * nx; a.vy -= j2 * ny; b.vx += j2 * nx; b.vy += j2 * ny;
+                        const j2 = -(1 + 0.5) * rv;
+                        a.vx -= j2 * nx * wa; a.vy -= j2 * ny * wa; b.vx += j2 * nx * wb; b.vy += j2 * ny * wb;
                     }
                 }
             }
@@ -234,58 +243,112 @@
         if (!G) return;
         phaseT += dt * 1000;
         if (phase === 'spin') {
-            const up = 450, down = 800;
+            const up = 450, down = 1000;
             const target = 9;
             if (phaseT < up) omega = target * (phaseT / up);
             else if (phaseT < spinDur - down) omega = target * (1 + 0.08 * Math.sin(phaseT / 120));
-            else if (phaseT < spinDur) omega = target * Math.max(0, (spinDur - phaseT) / down);
-            else {
+            else if (phaseT < spinDur) {
+                // ゆっくり とまる（さいごは なめらかに 0 へ）
+                const u = (spinDur - phaseT) / down;
+                omega = target * u * u;
+            } else {
                 omega = 0;
                 if (stopRattle) { stopRattle(); stopRattle = null; }
-                startExit();
+                startGuide();
             }
         } else {
             omega *= Math.exp(-3 * dt);
         }
         ang += omega * dt;
         physics(dt);
+        if (phase === 'guide') checkGuide();
         if (phase === 'exit') moveExit(dt);
+        if (sec.dataset.phase !== phase) sec.dataset.phase = phase;   // いまの だんかい（たしかめ用）
     }
 
-    /* 玉が 出口へ → ころがって トレイへ */
-    function startExit() {
+    /* ---------- えらばれた 玉が 出てくる ----------
+       1) guide：えらばれた 玉が 光り、球の 中を ころがって 出口へ むかう（まわりの 玉は おしのけられる）
+       2) exit ：出口から すべり台へ。さかを ころがって だんだん はやく なり、トレイで ポンポン はねて とまる */
+    function startGuide() {
         const b = balls.find(x => x.id === chosen.id);
+        if (!b) { phase = 'guide'; phaseT = 0; return; }
+        b.guide = true;
+        b.gt = 0;
+        phase = 'guide'; phaseT = 0;
+        S.play('sparkle');
+    }
+    /** 出口の すぐ 内がわ（玉の 中心が くる ところ） */
+    function holeInside(r) {
+        const lim = G.R * 0.965 - r;
+        return { x: Math.cos(G.hole.a) * lim, y: Math.sin(G.hole.a) * lim };
+    }
+    /** 出口へ ひっぱる 力（だんだん つよく、ちかづくと ゆっくり） */
+    function guideStep(b, h, wall, grav) {
+        b.gt += h;
+        const T = holeInside(b.r);
+        const dx = T.x - b.x, dy = T.y - b.y, dist = Math.hypot(dx, dy) || 1;
+        // はじめの 0.3びょうは その場で 光るだけ（どの 玉か 見えるように）→ うごきだす
+        const ramp = Math.min(1, Math.max(0, (b.gt - 0.3) / 0.4));
+        // とおい ときは はやく、ちかづくと ゆっくり。でも とまらない（かならず 出口へ とどく）
+        const speed = L.clamp(dist * 4.5, G.R * 0.7, G.R * 2.2) * ramp + (b.gt > 1.7 ? G.R * 0.8 : 0);
+        const tvx = dx / dist * speed, tvy = dy / dist * speed;
+        const k = Math.min(1, h * (4 + 10 * ramp));
+        // 重力を うちけしつつ、めあての はやさへ すこしずつ ちかづける
+        b.vy -= grav * h * ramp;
+        b.vx += (tvx - b.vx) * k; b.vy += (tvy - b.vy) * k;
+    }
+    function checkGuide() {
+        const b = balls.find(x => x.guide);
+        if (!b) { startExit(null); return; }
+        const T = holeInside(b.r);
+        if ((phaseT > 600 && Math.hypot(T.x - b.x, T.y - b.y) < b.r * 0.5) || phaseT > 2800) startExit(b);
+    }
+    function startExit(b) {
         balls = balls.filter(x => x !== b);
-        const sx = b ? b.x + G.gx : G.gx, sy = b ? b.y + G.gy : G.gy;
-        exitBall = { x: sx, y: sy, r: b ? b.r : ballR(1), t: 0, sx, sy, spin: 0 };
+        const h = G.hole, tr = G.tray;
+        const len = Math.hypot(tr.x - h.x, tr.y - h.y);
+        const ux = (tr.x - h.x) / len, uy = (tr.y - h.y) / len;
+        const r = b ? b.r : ballR(1);
+        // 出口の 内がわ → 出口 → すべり台（s は すべり台の 上の 長さ。マイナスは 球の 中）
+        const T = holeInside(r);
+        const s0 = -Math.hypot(h.x - (G.gx + T.x), h.y - (G.gy + T.y));
+        const v0 = b ? Math.max(G.R * 0.6, b.vx * ux + b.vy * uy) : G.R * 0.6;
+        exitBall = { s: s0, s0, p0x: G.gx + T.x, p0y: G.gy + T.y, v: v0, len, ux, uy, r, spin: b ? b.spin : 0, x: G.gx + T.x, y: G.gy + T.y, bounce: 0, landed: false };
         phase = 'exit'; phaseT = 0;
-        S.play('whoosh');
+        S.play('kachi');
     }
     function moveExit(dt) {
-        const e = exitBall;
-        e.t += dt;
-        const h = G.hole, tr = G.tray;
-        const T1 = 0.45, T2 = 1.15;
-        if (e.t < T1) {
-            const u = easeInOut(e.t / T1);
-            e.x = e.sx + (h.x - e.sx) * u; e.y = e.sy + (h.y - e.sy) * u;
-            e.spin += dt * 8;
-        } else if (e.t < T2) {
-            const u = (e.t - T1) / (T2 - T1);
-            const uu = u * u;  // さかを ころがって はやく なる
-            e.x = h.x + (tr.x - h.x) * uu; e.y = h.y + (tr.y - h.y) * uu;
-            e.spin += dt * 18;
-            if (!e.clack) { e.clack = true; S.play('kachi'); }
-        } else if (!e.landed) {
-            e.landed = true;
-            e.x = tr.x; e.y = tr.y;
-            S.play('pop', 1);
-            const r = cv.getBoundingClientRect();
-            FX.sparks(r.left + tr.x, r.top + tr.y, 40, { colors: ['#ffffff', '#ffe14d'], max: 360 });
-            setTimeout(() => showPop(), 250);
+        const e = exitBall, h = G.hole, tr = G.tray;
+        if (!e.landed) {
+            // さかを ころがる：重力の さかの むきの ぶんだけ はやく なる
+            const acc = G.R * 5.2 * Math.max(0.35, e.uy) * 0.7;
+            e.v += acc * dt;
+            e.s += e.v * dt;
+            e.spin += (e.v * dt) / e.r;
+            if (e.s < 0) {
+                // まだ 球の 中：出口の 内がわ から 出口へ
+                const f = e.s / e.s0;
+                e.x = h.x + (e.p0x - h.x) * f; e.y = h.y + (e.p0y - h.y) * f;
+            } else {
+                e.x = h.x + e.ux * e.s; e.y = h.y + e.uy * e.s;
+            }
+            if (e.s >= e.len) {
+                e.landed = true; e.t = 0;
+                e.x = tr.x; e.y = tr.y;
+                S.play('pop', 1);
+                const r = cv.getBoundingClientRect();
+                FX.sparks(r.left + tr.x, r.top + tr.y, 40, { colors: ['#ffffff', '#ffe14d'], max: 360 });
+            }
+        } else {
+            // トレイで ポン、ポン、と 小さく はねて とまる
+            e.t += dt;
+            const k = e.t / 0.55;
+            e.bounce = k < 1 ? Math.abs(Math.sin(k * Math.PI * 2)) * (1 - k) * e.r * 1.1 : 0;
+            e.spin += dt * 4 * Math.max(0, 1 - k);
+            e.x = tr.x; e.y = tr.y - e.bounce;
+            if (k >= 1 && !e.shown) { e.shown = true; setTimeout(() => showPop(), 150); }
         }
     }
-    const easeInOut = u => u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
 
     /* 大きく 見せる */
     function showPop() {
@@ -404,12 +467,20 @@
         // 玉
         c.save();
         c.translate(gx, gy);
-        for (const b of balls) drawBall(c, b.x, b.y, b.r, items[b.id], b.spin);
+        for (const b of balls) if (!b.guide) drawBall(c, b.x, b.y, b.r, items[b.id], b.spin);
         // ひれ
         c.strokeStyle = 'rgba(230,240,255,0.75)'; c.lineWidth = Math.max(3, R * 0.035); c.lineCap = 'round';
         for (let f = 0; f < FINS; f++) {
             const fa = ang + f * Math.PI * 2 / FINS;
             c.beginPath(); c.moveTo(Math.cos(fa) * R * 0.6, Math.sin(fa) * R * 0.6); c.lineTo(Math.cos(fa) * R * 0.97, Math.sin(fa) * R * 0.97); c.stroke();
+        }
+        // えらばれた 玉（光りながら 出口へ）
+        for (const b of balls) if (b.guide) {
+            const pulse = 1 + 0.12 * Math.sin(performance.now() / 70);
+            const big = 1 + 0.25 * Math.min(1, (b.gt || 0) / 0.3);   // すこしずつ 大きく して 目立たせる
+            c.strokeStyle = 'rgba(255,240,150,0.9)'; c.lineWidth = Math.max(2, b.r * 0.18);
+            c.beginPath(); c.arc(b.x, b.y, b.r * big * 1.35 * pulse, 0, Math.PI * 2); c.stroke();
+            drawBall(c, b.x, b.y, b.r * big, items[b.id], b.spin, true);
         }
         c.restore();
 
@@ -448,8 +519,9 @@
         // ころがる 玉
         if (exitBall) {
             const e = exitBall;
-            const rr = e.landed ? e.r * 1.25 : e.r;
-            drawBall(c, e.x, e.y, rr, chosen, e.spin, true);
+            // すべり台に 出たら すこしずつ 大きく 見せる
+            const grow = e.landed ? 1.5 : 1.25 + 0.25 * Math.max(0, Math.min(1, e.s / e.len));
+            drawBall(c, e.x, e.y, e.r * grow, chosen, e.spin, true);
         }
 
         // まんなかの 軸と ハンドル

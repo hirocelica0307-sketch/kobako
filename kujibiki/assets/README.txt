@@ -4,6 +4,7 @@
 この フォルダーの 素材は、すべて 下の ライブラリから ダウンロードして 保存した ものです。
 ライセンスの 全文は リポジトリ直下の THIRD_PARTY_LICENSES.txt に あります（画面には 表示しません）。
 2026-10-16 に 依頼者に 候補（素材名・ライブラリ・ライセンス）を 見せて、この 一覧で よいと きめました。
+ばくだん リレーを なくした ときに Bomb（bomb.webp）は けしました。
 
 1. emoji/*.webp … Microsoft Fluent Emoji「3D」（MIT License）
    入手もと: https://github.com/microsoft/fluentui-emoji （assets/<名前>/3D/*_3d.png）
@@ -40,9 +41,8 @@ confetti-ball.webp	Confetti ball	ガチャガチャ（メニュー）・あた�
 glowing-star.webp	Glowing star	チームわけ・席がえ（メニュー）	https://github.com/microsoft/fluentui-emoji/blob/main/assets/Glowing%20star/3D/glowing_star_3d.png
 trophy.webp	Trophy	発表の じゅんばん（メニュー）・大あたりの けっか	https://github.com/microsoft/fluentui-emoji/blob/main/assets/Trophy/3D/trophy_3d.png
 drum.webp	Drum	発表の じゅんばん（ドラムロール中）	https://github.com/microsoft/fluentui-emoji/blob/main/assets/Drum/3D/drum_3d.png
-bomb.webp	Bomb	ばくだん リレー	https://github.com/microsoft/fluentui-emoji/blob/main/assets/Bomb/3D/bomb_3d.png
-fire.webp	Fire	あみだくじ（メニュー・導火線の 火）・ばくだんの 火	https://github.com/microsoft/fluentui-emoji/blob/main/assets/Fire/3D/fire_3d.png
-collision.webp	Collision	あみだくじ・ばくだんの ドカン！	https://github.com/microsoft/fluentui-emoji/blob/main/assets/Collision/3D/collision_3d.png
+fire.webp	Fire	あみだくじ（メニュー・導火線の 火）	https://github.com/microsoft/fluentui-emoji/blob/main/assets/Fire/3D/fire_3d.png
+collision.webp	Collision	あみだくじの ドカン！	https://github.com/microsoft/fluentui-emoji/blob/main/assets/Collision/3D/collision_3d.png
 shinto-shrine.webp	Shinto shrine	おみくじ（メニュー・うしろの 鳥居）	https://github.com/microsoft/fluentui-emoji/blob/main/assets/Shinto%20shrine/3D/shinto_shrine_3d.png
 scroll.webp	Scroll	おみくじの 紙	https://github.com/microsoft/fluentui-emoji/blob/main/assets/Scroll/3D/scroll_3d.png
 ghost.webp	Ghost	はずれの けっか	https://github.com/microsoft/fluentui-emoji/blob/main/assets/Ghost/3D/ghost_3d.png

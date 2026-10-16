@@ -1,31 +1,58 @@
 /* くじびき ひろば ── おと
    音声ファイルは つかわず、Web Audio API で その場で 合成します（ネットが なくても 鳴る）。
-   iPhone などは 画面を さわるまで 音が 出ないので、さいしょの タップで unlock() します。
-   ながく 鳴る 音（ドラムロール・導火線・ガラガラ）は start〜() が「とめる 関数」を かえします。 */
+   ながく 鳴る 音（ドラムロール・導火線・ガラガラ）は start〜() が「とめる 関数」を かえします。
+   ------------------------------------------------------------------
+   音が きちんと 出る ための しくみ
+   - ブラウザは「画面を さわる（タップ・クリック・キー）」まで 音を 止めて いる。
+     common.js が pointerup・touchend・click・keydown の たびに unlock() を よび、止まって いたら 再開する
+     （指を おいた だけ＝タッチの pointerdown では 再開 できない 決まりが あるので、はなした ときも よぶ）
+   - 再開には すこし 時間が かかる。その あいだの 音は すてずに 予約して おき、
+     ながく 鳴る 音は 再開した しゅんかんから 鳴りはじめる
+   - iPhone・iPad で 画面を けしたり アプリを きりかえたり すると とまる（interrupted）ので、もどった ときに 再開する
+   - iPhone・iPad の マナーモードでも 鳴る ように、音の しゅるいを「再生」に する（つかえる 端末 だけ）
+   ------------------------------------------------------------------ */
 (function (root) {
     'use strict';
 
     let ctx = null, out = null, noiseBuf = null;
     let on = true;
 
+    let primed = false;
     function unlock() {
         const AC = root.AudioContext || root.webkitAudioContext;
         if (!AC) return;
+        try {
+            // iPhone・iPad：マナーモードでも 鳴らす（Safari 16.4 いこう）
+            if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback';
+        } catch (e) { /* つかえない 端末 */ }
         try {
             if (!ctx) {
                 ctx = new AC();
                 const comp = ctx.createDynamicsCompressor();
                 comp.threshold.value = -12; comp.ratio.value = 5;
-                out = ctx.createGain(); out.gain.value = 0.8;
+                out = ctx.createGain(); out.gain.value = 1.0;
                 out.connect(comp); comp.connect(ctx.destination);
                 noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
                 const d = noiseBuf.getChannelData(0);
                 for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+                ctx.addEventListener && ctx.addEventListener('statechange', () => { if (ctx.state !== 'running') primed = false; });
             }
-            if (ctx.state === 'suspended') ctx.resume();
+            if (ctx.state !== 'running' && ctx.state !== 'closed') {
+                const r = ctx.resume();
+                if (r && r.catch) r.catch(() => {});
+            }
+            // さわった しゅんかんに 無音を 1つ 鳴らす（iPhone・iPad で 音を 出せる じょうたいに する）
+            if (!primed) {
+                primed = true;
+                const b = ctx.createBuffer(1, 1, 22050);
+                const s = ctx.createBufferSource();
+                s.buffer = b; s.connect(ctx.destination); s.start(0);
+            }
         } catch (e) { /* 音が 出なくても くじは 動く */ }
     }
-    const ready = () => on && ctx && ctx.state === 'running';
+    /* 再開を まって いる あいだ（suspended）も 予約は できる。closed だけ だめ */
+    const ready = () => on && ctx && ctx.state !== 'closed';
+    const running = () => ctx && ctx.state === 'running';
     const now = () => ctx.currentTime;
 
     /* ---------- 部品 ---------- */
@@ -68,11 +95,12 @@
     }
     /** くりかえし 鳴らす 音。step(t) が つぎの 間かく（びょう）を かえす。とめる 関数を かえす */
     function loop(step) {
-        if (!ready()) return () => {};
+        if (!ctx) return () => {};
         let alive = true, next = now() + 0.02;
         const timer = setInterval(() => {
             if (!alive) return;
-            if (!on) { next = now() + 0.05; return; }
+            // 音なし・再開まち の あいだは 予約しない（再開したら すぐ 鳴りはじめる）
+            if (!on || !running()) { next = now() + 0.02; return; }
             while (next < now() + 0.12) {
                 const dt = step(next);
                 next += Math.max(0.008, dt);
@@ -215,6 +243,7 @@
     /** 導火線の パチパチ */
     function startCrackle() {
         if (!ready()) return () => {};
+        if (!running()) unlock();
         // シューッ（ずっと）
         const src = ctx.createBufferSource();
         src.buffer = noiseBuf; src.loop = true;
@@ -260,12 +289,13 @@
 
     function play(name, arg) {
         if (!ready() || !SFX[name]) return;
+        if (!running()) unlock();
         try { SFX[name](arg); } catch (e) { /* 音が 出なくても くじは 動く */ }
     }
     function setOn(v) { on = !!v; }
 
     root.KujiSound = {
-        unlock, play, setOn, isOn: () => on,
+        unlock, play, setOn, isOn: () => on, state: () => (ctx ? ctx.state : 'none'),
         startDrumroll, startCrackle, startShimmer, startRattle,
     };
 })(typeof window !== 'undefined' ? window : globalThis);

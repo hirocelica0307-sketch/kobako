@@ -25,6 +25,7 @@
         $$('[name="gcLimit"]', sec).forEach(r => r.addEventListener('change', () => tbl.refresh()));
         $('[data-act="turn"]', sec).addEventListener('click', onAct);
         $('[data-act="refill"]', sec).addEventListener('click', () => { st.stock = null; persist(); root.Kuji.closeSheets(); renderLeft(); });
+        $('[data-act="refillStage"]', sec).addEventListener('click', () => { if (phase === 'idle') { st.stock = null; persist(); renderLeft(); } });
         cv.addEventListener('click', onAct);
         new ResizeObserver(resize).observe(wrap);
     }
@@ -51,8 +52,10 @@
     }
     function renderLeft() {
         const el = $('.gc-left', sec);
-        if (st.limit === 'inf') { el.innerHTML = '<b>かぎりなし</b>'; setBtn(); return; }
+        const rb = $('[data-act="refillStage"]', sec);
+        if (st.limit === 'inf') { el.innerHTML = '<b>かぎりなし</b>'; rb.hidden = true; setBtn(); return; }
         const tot = L.stockTotal(stock());
+        rb.hidden = !st.stock || tot === L.stockTotal(st.items);
         el.innerHTML = `のこり <b>${tot}</b> こ`;
         setBtn();
     }
@@ -99,15 +102,19 @@
             return;
         }
         S.unlock();
-        let idx;
-        if (st.limit === 'stock') { const d = L.drawFromStock(stock()); idx = d.index; st.stock = d.stock; persist(); }
-        else idx = L.weightedPick(st.items);
+        // ひいた だけでは へらさない（へらすのは「のぞいて もういちど」を えらんだ とき）
+        const idx = L.weightedPick(st.limit === 'stock' ? stock() : st.items);
         const it = st.items[idx] || { label: '？', lv: 'normal' };
-        cap = { label: it.label, lv: it.lv || 'normal', col: it.lv === 'super' ? 'gold' : CAPS[Math.floor(Math.random() * CAPS.length)], x: 0, y: 0, rot: 0, open: 0, wob: 0 };
+        cap = { idx, label: it.label, lv: it.lv || 'normal', col: it.lv === 'super' ? 'gold' : CAPS[Math.floor(Math.random() * CAPS.length)], x: 0, y: 0, rot: 0, open: 0, wob: 0 };
         phase = 'crank'; t = 0;
         root.Kuji.setBusy(true);
         stopRattle = S.startRattle(() => 0.6);
         renderLeft();
+    }
+    /** 出た カプセルを のぞく（こ数を きめる とき） */
+    function takeOut(i) {
+        const s = stock();
+        if (s[i] && s[i].n > 0) { s[i] = Object.assign({}, s[i], { n: s[i].n - 1 }); st.stock = s; persist(); renderLeft(); }
     }
     function open() {
         phase = 'opening'; t = 0;
@@ -163,7 +170,13 @@
                 root.Kuji.showResult({
                     level: c.lv, img: c.lv === 'lose' ? 'ghost' : c.lv === 'super' ? 'trophy' : 'confetti-ball',
                     sub: 'カプセルの 中は …', title: c.label,
-                    buttons: [{ label: 'もういちど', ic: 'play', primary: true, act: () => setTimeout(turn, 120) }, { label: 'とじる', ic: 'check-circle' }],
+                    note: st.limit === 'stock' ? `のこり ${L.stockTotal(stock())}こ` : '',
+                    buttons: (st.limit === 'stock' && L.stockTotal(stock()) > 1
+                        ? [{ label: `「${root.Kuji.short(c.label, 8)}」を のぞいて もういちど`, ic: 'skip-forward', primary: true, act: () => { takeOut(c.idx); setTimeout(turn, 120); } }]
+                        : []).concat([
+                        { label: st.limit === 'stock' ? 'もどして もういちど' : 'もういちど', ic: 'play', primary: true, cls: 'alt', act: () => setTimeout(turn, 120) },
+                        { label: 'とじる', ic: 'check-circle' },
+                    ]),
                     onClose: () => { cap = null; phase = 'idle'; setBtn(); renderLeft(); },
                 });
             }

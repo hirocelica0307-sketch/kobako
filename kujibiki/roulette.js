@@ -8,7 +8,7 @@
 
     const COLORS = ['#ff4d6d', '#ff9f1c', '#ffd23f', '#7bd84a', '#2ec4b6', '#3a86ff', '#8f5bff', '#ff5dc8', '#ff6b3d', '#00b4d8', '#a3e635', '#f72585'];
     const DUR = { short: 4200, normal: 7000, long: 11000 };
-    const DEF = { text: L.numberList(1, 12).join('\n'), dur: 'normal', remove: false, pool: null, history: [] };
+    const DEF = { text: L.numberList(1, 12).join('\n'), dur: 'normal', pool: null, history: [] };
 
     let sec, cv, cx, wrap, cache = null, size = 0, dpr = 1;
     let st, ed;
@@ -53,15 +53,12 @@
     function onSheetOpen() {
         ed.set(st.text);
         sec.querySelectorAll('[name="rlDur"]').forEach(r => { r.checked = r.value === st.dur; });
-        $('[name="rlRemove"]', sec).checked = !!st.remove;
     }
     function onSheetClose() {
         const text = ed.get();
         if (text !== st.text) { st.text = text; st.pool = null; win = -1; }
         const d = sec.querySelector('[name="rlDur"]:checked');
         st.dur = d ? d.value : 'normal';
-        st.remove = $('[name="rlRemove"]', sec).checked;
-        if (!st.remove) st.pool = null;
         persist(); rebuild();
     }
 
@@ -294,22 +291,26 @@
         const lv = L.levelOfLabel(label, 'win');
         const [hx, hy] = hubPoint();
         FX.ring(hx, hy, '#fff6a8', 900, 12);
-        const rest = st.remove ? sp.items.length - 1 : sp.items.length;
-        if (st.remove) {
-            const p = sp.items.slice(); p.splice(sp.idx, 1);
-            st.pool = p;
-        }
         persist(); renderHist();
+        // つぎを どう まわすか えらぶ：出た ものを のぞく ／ そのまま
         const btns = [];
-        if (rest > 0) btns.push({ label: 'もういちど まわす', ic: 'play', primary: true, act: () => setTimeout(startSpin, 150) });
+        if (sp.items.length > 1) {
+            btns.push({ label: `「${root.Kuji.short(label, 8)}」を のぞいて まわす`, ic: 'skip-forward', primary: true, act: () => { exclude(sp.items, sp.idx); setTimeout(startSpin, 150); } });
+        }
+        btns.push({ label: 'そのまま もういちど', ic: 'play', primary: true, cls: 'alt', act: () => setTimeout(startSpin, 150) });
         btns.push({ label: 'とじる', ic: 'check-circle' });
         root.Kuji.showResult({
             level: lv, img: lv === 'lose' ? 'ghost' : lv === 'super' ? 'trophy' : 'party-popper',
             sub: 'ルーレットの けっか', title: label,
-            note: st.remove ? `のこり ${rest}こ` : '',
+            note: st.pool ? `いまの ルーレット：のこり ${sp.items.length}こ` : '',
             buttons: btns,
-            onClose: () => { if (st.remove) { win = -1; rebuild(); } },
         });
+    }
+    /** 出た ものを ばんから のぞく（中身の 入力は そのまま。「もどす」で ぜんぶ もどる） */
+    function exclude(items, idx) {
+        const p = items.slice(); p.splice(idx, 1);
+        st.pool = p; win = -1;
+        persist(); rebuild();
     }
 
     function loop() {

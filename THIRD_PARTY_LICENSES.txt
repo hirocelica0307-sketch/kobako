@@ -10,7 +10,7 @@ Microsoft Fluent Emoji（3D）
                 mahjong/assets/fx/fairy.webp（なみ麻雀 の アドバイスを する 妖精）
                 各アプリの assets/app-icon.png・app-icon-180.png（ブラウザの タブ・ホーム画面の アイコン）
                 timer/assets/icon/（タイマー・ストップウォッチ の アイコン：Stopwatch）
-                kujibiki/assets/emoji/（くじびき ひろば の メニュー・けっか・導火線の 火・ばくだん などの 絵）
+                kujibiki/assets/emoji/（くじびき ひろば の メニュー・けっか・導火線の 火・ドカン などの 絵）
   入手もと: https://github.com/microsoft/fluentui-emoji
   ライセンス: MIT License
 ================================================================

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#140f2e">
-<meta name="description" content="ルーレット・あみだくじ・ビンゴ・おみくじ・ガチャガチャ・チームわけ・席がえ・発表の じゅんばん・ばくだんリレー。派手な 演出の くじびき アプリ。">
+<meta name="description" content="ルーレット・あみだくじ・ビンゴ・おみくじ・ガチャガチャ・チームわけ・席がえ・発表の じゅんばん。派手な 演出の くじびき アプリ。">
 <title>くじびき ひろば</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -43,7 +43,6 @@
         <button class="card" data-go="bingo" style="--c1:#3a86ff;--c2:#6d28d9"><img src="assets/emoji/crystal-ball.webp" alt=""><b>ビンゴ</b><small>ガラガラ まわすと 玉が ころがり出る</small></button>
         <button class="card" data-go="omikuji" style="--c1:#e11d48;--c2:#7f1d1d"><img src="assets/emoji/shinto-shrine.webp" alt=""><b>おみくじ</b><small>はこを シャカシャカ ふって 1本 ひく</small></button>
         <button class="card" data-go="gacha" style="--c1:#ec4899;--c2:#8b5cf6"><img src="assets/emoji/confetti-ball.webp" alt=""><b>ガチャガチャ</b><small>ハンドルを まわして カプセルを パカッ</small></button>
-        <button class="card" data-go="bomb" style="--c1:#475569;--c2:#111827"><img src="assets/emoji/bomb.webp" alt=""><b>ばくだん リレー</b><small>だれの ところで ばくはつ する？</small></button>
         <button class="card" data-go="team" style="--c1:#10b981;--c2:#0e7490"><img src="assets/emoji/glowing-star.webp" alt=""><b>チームわけ・席がえ</b><small>名前の カードが とんでいく</small></button>
         <button class="card" data-go="order" style="--c1:#f59e0b;--c2:#b45309"><img src="assets/emoji/trophy.webp" alt=""><b>発表の じゅんばん</b><small>スロットで 1人ずつ きめる</small></button>
       </div>
@@ -66,7 +65,7 @@
         </aside>
       </div>
       <div class="actions">
-        <span class="rl-left chip" hidden>のこり <b></b> <button class="btn ghost sm" data-act="restore"><span class="ic" data-ic="arrow-counter-clockwise"></span>もどす</button></span>
+        <span class="rl-left chip" hidden>のこり <b></b> こ <button class="btn ghost sm" data-act="restore"><span class="ic" data-ic="arrow-counter-clockwise"></span>もどす</button></span>
         <button class="btn huge primary" data-act="spin"><span class="ic" data-ic="play"></span><span>まわす！</span></button>
       </div>
       <div class="sheet-wrap" hidden><div class="sheet">
@@ -95,12 +94,9 @@
             </div>
           </div>
           <div class="field">
-            <label class="check"><input type="checkbox" name="rlRemove"><span>当たった ものは つぎから はずす（同じ ものが 2回 出ない）</span></label>
-          </div>
-          <div class="field">
             <button class="btn ghost" data-act="clearHist"><span class="ic" data-ic="trash"></span>けっかの きろくを けす</button>
           </div>
-          <p class="note">「大あたり」「1等」を 入れると ものすごく 派手に、「はずれ」は ざんねんな 演出に なります。</p>
+          <p class="note">けっかが 出たら「○を のぞいて まわす」（出た ものを ルーレットから はずして のこりで まわす）か「そのまま もういちど」を えらべます。はずした ものは 画面の「もどす」で ぜんぶ もどります。<br>「大あたり」「1等」を 入れると ものすごく 派手に、「はずれ」は ざんねんな 演出に なります。</p>
         </div>
       </div></div>
     </section>
@@ -262,11 +258,16 @@
             <div class="om-word"></div>
             <img src="assets/emoji/scroll.webp" alt="" class="om-scroll">
           </div>
-          <button class="btn huge primary" data-act="again"><span class="ic" data-ic="arrow-counter-clockwise"></span><span>もういちど ひく</span></button>
+          <div class="om-btns">
+            <button class="btn huge primary stock-only" data-act="takeAgain"><span class="ic" data-ic="skip-forward"></span><span>棒を のぞいて もういちど</span></button>
+            <button class="btn huge primary alt" data-act="again"><span class="ic" data-ic="arrow-counter-clockwise"></span><span class="lbl">棒を もどして もういちど</span></button>
+            <button class="btn ghost" data-act="closePaper"><span class="ic" data-ic="check-circle"></span>とじる</button>
+          </div>
         </div>
       </div>
       <div class="actions">
         <span class="om-left chip"></span>
+        <button class="btn ghost sm om-refill" data-act="refillStage" hidden><span class="ic" data-ic="arrow-counter-clockwise"></span>ぜんぶ もどす</button>
         <button class="btn ghost" data-act="motion"><span class="ic" data-ic="device-mobile"></span>端末を ふって ひく</button>
         <button class="btn huge primary" data-act="shake"><span class="ic" data-ic="hand-tap"></span><span>シャカシャカ ふる</span></button>
       </div>
@@ -276,7 +277,7 @@
           <div class="field">
             <label>ひきかた</label>
             <div class="seg">
-              <label><input type="radio" name="omLimit" value="stock"><span>本数を きめる（ひいた 棒は もどさない）</span></label>
+              <label><input type="radio" name="omLimit" value="stock"><span>本数を きめる（ひいた あとに、棒を のぞくか もどすか えらぶ）</span></label>
               <label><input type="radio" name="omLimit" value="inf"><span>かぎりなし（数は 出やすさ）</span></label>
             </div>
           </div>
@@ -308,6 +309,7 @@
       </div>
       <div class="actions">
         <span class="gc-left chip"></span>
+        <button class="btn ghost sm" data-act="refillStage" hidden><span class="ic" data-ic="arrow-counter-clockwise"></span>ぜんぶ もどす</button>
         <button class="btn huge primary" data-act="turn"><span class="ic" data-ic="arrows-clockwise"></span><span class="lbl">ハンドルを まわす</span></button>
       </div>
       <div class="sheet-wrap" hidden><div class="sheet">
@@ -316,7 +318,7 @@
           <div class="field">
             <label>ひきかた</label>
             <div class="seg">
-              <label><input type="radio" name="gcLimit" value="stock"><span>こ数を きめる（なくなったら おわり）</span></label>
+              <label><input type="radio" name="gcLimit" value="stock"><span>こ数を きめる（出た あとに、のぞくか もどすか えらぶ）</span></label>
               <label><input type="radio" name="gcLimit" value="inf"><span>かぎりなし（数は 出やすさ）</span></label>
             </div>
           </div>
@@ -334,47 +336,7 @@
       </div></div>
     </section>
 
-    <!-- ================= ⑥ ばくだん リレー ================= -->
-    <section class="scr mode bomb" data-scr="bomb" hidden>
-      <div class="stage">
-        <div class="bm-wrap"><canvas class="bm-cv" aria-label="ばくだん"></canvas></div>
-      </div>
-      <div class="actions">
-        <span class="hint bm-hint"></span>
-        <button class="btn huge primary" data-act="start"><span class="ic" data-ic="play"></span><span class="lbl">スタート！</span></button>
-      </div>
-      <div class="sheet-wrap" hidden><div class="sheet">
-        <header><h2><span class="ic" data-ic="pencil-simple"></span>ばくだん リレーの せってい</h2><button class="btn primary" data-close>OK</button></header>
-        <div class="sheet-body">
-          <div class="field">
-            <label>あそびかた</label>
-            <div class="seg">
-              <label><input type="radio" name="bmMode" value="pass"><span>端末を まわす（となりへ わたす）</span></label>
-              <label><input type="radio" name="bmMode" value="circle"><span>画面の 中で まわす（名前の 中から 1人）</span></label>
-            </div>
-          </div>
-          <div class="field">
-            <label>ばくはつ までの 時間（この あいだの どこか。画面には 出ません）</label>
-            <div class="mini-form"><input type="number" name="bmMin" min="3" max="300" aria-label="みじかい ほう"> びょう 〜 <input type="number" name="bmMax" min="3" max="300" aria-label="ながい ほう"> びょう</div>
-          </div>
-          <div class="field bm-names" hidden>
-            <label>名前（1行に 1人・30人 まで）</label>
-            <div class="listed">
-              <textarea rows="7" spellcheck="false"></textarea>
-              <div class="gen">
-                <span class="count"></span><span class="grow"></span>
-                <input type="number" data-from value="1" aria-label="はじめ">〜<input type="number" data-to value="8" aria-label="おわり">
-                <input type="text" data-suffix value="ばん" class="suffix" aria-label="あとに つける ことば">
-                <button class="btn sm" data-gen><span class="ic" data-ic="list-numbers"></span>つくる</button>
-                <button class="btn ghost sm" data-clear aria-label="けす"><span class="ic" data-ic="trash"></span></button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div></div>
-    </section>
-
-    <!-- ================= ⑦ チームわけ・席がえ ================= -->
+    <!-- ================= ⑥ チームわけ・席がえ ================= -->
     <section class="scr mode team" data-scr="team" hidden>
       <div class="tm-tabs">
         <button data-tab="team"><span class="ic" data-ic="users-three"></span>チームわけ</button>
@@ -443,7 +405,7 @@
       </div></div>
     </section>
 
-    <!-- ================= ⑧ 発表の じゅんばん ================= -->
+    <!-- ================= ⑦ 発表の じゅんばん ================= -->
     <section class="scr mode order" data-scr="order" hidden>
       <div class="stage">
         <div class="od-main">
@@ -528,7 +490,6 @@
 <script src="bingo.js"></script>
 <script src="omikuji.js"></script>
 <script src="gacha.js"></script>
-<script src="bomb.js"></script>
 <script src="team.js"></script>
 <script src="order.js"></script>
 <script>Kuji.start();</script>

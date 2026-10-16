@@ -33,6 +33,12 @@
     }
     const imgSrc = name => 'assets/emoji/' + name + '.webp';
 
+    /** ながい ことばを n 文字で きる */
+    function short(s, n) {
+        const a = Array.from(String(s));
+        return a.length > n ? a.slice(0, n - 1).join('') + '…' : a.join('');
+    }
+
     function esc(s) {
         return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
@@ -61,9 +67,6 @@
             const sec = $('[data-scr="' + name + '"]');
             if (!m._inited) { m._inited = true; m.init(sec); }
             if (m.enter) m.enter();
-        }
-        if ((location.hash || '#').slice(1) !== (name === 'menu' ? '' : name)) {
-            history.replaceState(null, '', name === 'menu' ? location.pathname + location.search : '#' + name);
         }
     }
 
@@ -143,7 +146,7 @@
         resultBtns = o.buttons || [{ label: 'OK', primary: true }];
         resultBtns.forEach((b, i) => {
             const el = document.createElement('button');
-            el.className = 'btn big' + (b.primary ? ' primary' : ' ghost');
+            el.className = 'btn big' + (b.primary ? ' primary' : ' ghost') + (b.cls ? ' ' + b.cls : '');
             el.innerHTML = (b.ic ? '<span class="ic" data-ic="' + b.ic + '"></span>' : '') + '<span>' + esc(b.label) + '</span>';
             el.addEventListener('click', () => { closeResult(); if (b.act) b.act(); });
             bw.appendChild(el);
@@ -216,9 +219,8 @@
     /* ---------- はじまり ---------- */
     function start() {
         root.KujiIcons.fill(document);
-        // 音
-        const snd = load('sound', { on: true });
-        S.setOn(snd.on);
+        // 音：ひらく たびに「あり」から はじめる（まえに けした ままで 音が 出ない ことが ない ように）
+        S.setOn(true);
         const sb = $('#btnSound');
         const showSnd = () => {
             sb.innerHTML = '<span class="ic" data-ic="' + (S.isOn() ? 'speaker-high' : 'speaker-slash') + '"></span>';
@@ -227,7 +229,7 @@
             root.KujiIcons.fill(sb);
         };
         showSnd();
-        sb.addEventListener('click', () => { S.setOn(!S.isOn()); save('sound', { on: S.isOn() }); showSnd(); });
+        sb.addEventListener('click', () => { S.setOn(!S.isOn()); showSnd(); });
         // 大きく 表示
         const fb = $('#btnFull');
         const showFull = () => {
@@ -254,14 +256,21 @@
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape') { if (!$('#result').hidden) closeResult(); else closeSheets(); }
         });
-        // さいしょに さわった ときに 音を つかえる ように
+        // さわる たびに 音を つかえる ように（くわしくは sound.js の はじめ）。
+        // capture で よぶので、ボタンの 処理より さきに 音が 再開する
         const unlock = () => { S.unlock(); keepAwake(); };
-        document.addEventListener('pointerdown', unlock, { passive: true });
-        document.addEventListener('keydown', unlock);
-        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
+        ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach(ev =>
+            document.addEventListener(ev, unlock, { capture: true, passive: true }));
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') { keepAwake(); if (S.state() !== 'none') S.unlock(); }
+        });
 
-        root.addEventListener('hashchange', () => go((location.hash || '#').slice(1) || 'menu'));
-        go((location.hash || '#').slice(1) || 'menu');
+        // ひらく たびに かならず メニュー（トップページ）から。
+        // まえの URL に #roulette などが のこって いても つかわない
+        if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+        go('menu');
+        // 「もどる」で ページに もどって きた とき（ブラウザが まえの 画面を おぼえて いる とき）も メニューへ
+        root.addEventListener('pageshow', e => { if (e.persisted) go('menu'); });
         // フォントが そろったら canvas を かきなおす
         if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => {
             const m = modes[current];
@@ -270,7 +279,7 @@
     }
 
     root.Kuji = {
-        $, $$, load, save, img, imgSrc, esc, register, go, setBusy, isBusy: () => busy,
+        $, $$, load, save, img, imgSrc, esc, short, register, go, setBusy, isBusy: () => busy,
         listEditor, showResult, closeResult, celebrate, confirm: confirmBox, closeSheets,
         current: () => current, start,
     };
