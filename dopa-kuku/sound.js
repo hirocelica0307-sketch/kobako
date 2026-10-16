@@ -177,6 +177,92 @@
             noise(t, 0.1, 0.3, 'lowpass', 1200);
             [2093, 3136, 4186].forEach((f, i) => tone('triangle', f, t + 0.05, 0.7, 0.07 - i * 0.015, { hold: 0.05 }));
         },
+        /* ピンポーン（クイズの 正解チャイム） */
+        pinpon(t) {
+            tone('sine', 1318.5, t, 0.5, 0.18, { hold: 0.12 });
+            tone('sine', 2637, t, 0.25, 0.04);
+            tone('sine', 1046.5, t + 0.28, 0.9, 0.2, { hold: 0.2 });
+            tone('sine', 2093, t + 0.28, 0.4, 0.04);
+        },
+        /* ブザー（ブーーッ。ラストスパートの 合図） */
+        buzzer(t) {
+            tone('square', 196, t, 0.7, 0.09, { hold: 0.55, lp: 1800 });
+            tone('sawtooth', 207, t, 0.7, 0.07, { hold: 0.55, lp: 1800 });
+        },
+        /* ピピッ（みじかい アラーム） */
+        alarm(t) {
+            tone('square', 1760, t, 0.07, 0.07);
+            tone('square', 1760, t + 0.11, 0.07, 0.07);
+        },
+        /* エアホーン（パァーン） */
+        airhorn(t) {
+            [233, 294, 349].forEach(f => tone('sawtooth', f, t, 0.75, 0.07, { attack: 0.02, hold: 0.45, lp: 2400, detune: 8 }));
+        },
+        /* 鐘（教会の かね。音の 高さが ずれた 倍音を かさねる） */
+        bell(t) { bellAt(t, 523.25, 1, 2.2); },
+        bellSmall(t) { bellAt(t, 1046.5, 0.5, 0.9); },
+        /* 銅鑼（ジャーン） */
+        gong(t) {
+            [1, 1.48, 1.95, 2.42, 2.95, 3.6, 4.4, 5.2].forEach((k, i) => tone('sine', 110 * k, t, 2.4 - i * 0.18, 0.09 / (1 + i * 0.4), { attack: 0.03 + i * 0.01, vib: [3 + i, 2 + i] }));
+            noise(t, 1.6, 0.08, 'bandpass', 900);
+        },
+        /* 太鼓（ドンドン） */
+        taiko(t) {
+            [0, 0.18].forEach((d, i) => {
+                tone('sine', 120, t + d, 0.4, 0.6 - i * 0.15, { to: 55, glide: 0.25 });
+                noise(t + d, 0.08, 0.2, 'lowpass', 600);
+            });
+        },
+        /* ハープ（ポロロロン。ペンタトニックで 上がる） */
+        harp(t) {
+            [60, 62, 64, 67, 69, 72, 74, 76, 79, 81, 84, 86].forEach((m, i) => tone('triangle', mtof(m + 12), t + i * 0.04, 0.6, 0.06, { attack: 0.003 }));
+        },
+        harpPluck(t) { tone('triangle', mtof(88), t, 0.5, 0.08); tone('sine', mtof(100), t, 0.3, 0.03); },
+        /* キラキラーン（鐘の アルペジオ） */
+        kirakira(t) { [84, 88, 91, 96, 100].forEach((m, i) => bellAt(t + i * 0.07, mtof(m), 0.35, 0.8)); },
+        twinkle(t) { tone('sine', 2637, t, 0.25, 0.07); tone('sine', 3951, t + 0.05, 0.3, 0.05); },
+        /* ガラスの 音（チリーン） */
+        glass(t) { [3520, 5274, 7040].forEach((f, i) => tone('sine', f, t + i * 0.01, 0.5, 0.05 - i * 0.012)); },
+        /* カミナリ（バリッ ＋ ゴロゴロ） */
+        thunder(t) {
+            noise(t, 0.18, 0.45, 'highpass', 2500);
+            noise(t + 0.05, 1.6, 0.4, 'lowpass', 260);
+            noise(t + 0.4, 1.2, 0.25, 'lowpass', 160);
+        },
+        /* ビリッ（でんき） */
+        zap(t) {
+            for (let i = 0; i < 6; i++) noise(t + i * 0.028, 0.02, 0.18, 'bandpass', 3000 + i * 400);
+            tone('sawtooth', 90, t, 0.18, 0.06, { lp: 1200 });
+        },
+        /* 合唱（アー） */
+        choir(t) { choirAt(t, 0.9); },
+        choirShort(t) { choirAt(t, 0.35); },
+        /* レーザー（ピュン） */
+        pew(t) { tone('square', 2200, t, 0.18, 0.06, { to: 180, glide: 0.16 }); },
+        lasers(t) { for (let i = 0; i < 5; i++) tone('square', 2400 - i * 150, t + i * 0.09, 0.18, 0.06, { to: 200, glide: 0.16 }); },
+        /* ヒュ〜〜（花火が のぼる 笛） */
+        whistle(t) { tone('sine', 900, t, 0.85, 0.06, { to: 2600, glide: 0.8, vib: [9, 30], hold: 0.6 }); },
+        /* シンバル（シャーン） */
+        shimmer(t) { noise(t, 1.0, 0.12, 'highpass', 7000); },
+        /* シンセの 和音（ズンッ） */
+        synth(t) { [57, 64, 69, 72].forEach(m => tone('sawtooth', mtof(m), t, 0.35, 0.045, { lp: 3000, lpTo: 400, detune: 10 })); },
+        /* ドゴーン（スーパーノヴァ） */
+        boom(t) {
+            tone('sine', 90, t, 1.4, 0.7, { to: 28, glide: 1.1 });
+            noise(t, 1.5, 0.35, 'lowpass', 500);
+        },
+        boomSmall(t) { tone('sine', 110, t, 0.45, 0.4, { to: 35, glide: 0.35 }); },
+        /* シュイーン（ワープ） */
+        warp(t) {
+            tone('sawtooth', 80, t, 1.1, 0.08, { to: 2600, glide: 1.0, lp: 600, lpTo: 8000, hold: 0.7 });
+            tone('sawtooth', 82, t, 1.1, 0.06, { to: 2650, glide: 1.0, lp: 600, lpTo: 8000, hold: 0.7, detune: 20 });
+        },
+        zip(t) { tone('sawtooth', 300, t, 0.14, 0.05, { to: 3200, glide: 0.12, lp: 5000 }); },
+        /* ワー！（歓声） */
+        crowd(t) {
+            for (let i = 0; i < 4; i++) noise(t + i * 0.12, 1.6 - i * 0.2, 0.09, 'bandpass', 700 + i * 350);
+            noise(t, 1.8, 0.05, 'highpass', 3000);
+        },
         /* シュバッ（帯が 横切る 音） */
         whoosh(t) {
             const c = R.c, n = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
@@ -228,6 +314,22 @@
         noise(t2, 0.5, 0.06, 'highpass', 6000);
     }
 
+    /** 鐘：音の 高さが ずれた 倍音を かさね、ひくい 音ほど 長く のこす */
+    function bellAt(t, f, vol, len) {
+        [[0.5, 1], [1, 0.8], [1.19, 0.5], [1.51, 0.45], [2, 0.4], [2.52, 0.25], [2.66, 0.2], [3.01, 0.15], [4.17, 0.1]].forEach(([k, a], i) =>
+            tone('sine', f * k, t, len / (1 + i * 0.35), 0.12 * vol * a, { attack: 0.003 }));
+    }
+
+    /** 合唱：3つの こえを すこし ずらして かさね、「アー」の ひびきに する */
+    function choirAt(t, len) {
+        [57, 64, 69, 76].forEach((m, i) => {
+            tone('sawtooth', mtof(m), t, len, 0.03, { attack: 0.12, hold: len * 0.5, lp: 1400, detune: i * 7 - 10, vib: [5, 3] });
+        });
+    }
+
+    /* オルゴール（ぎんが の 正解ごと。ドレミファソラシドで 上がる） */
+    for (let s = 0; s < 8; s++) RECIPE['music' + s] = t => { tone('sine', C6 * SCALE[s] * 2, t, 0.9, 0.09, { attack: 0.002 }); tone('sine', C6 * SCALE[s] * 6, t, 0.25, 0.02); };
+
     /* ---------- BGM の レシピ（4小節。Lv3 ビート・Lv4 メロディ・Lv5 アップテンポ・Lv8 キラキラ） ---------- */
     const ROOTS = [45, 41, 43, 40];                                   /* Am F G E */
     const CHORDS = [[69, 72, 76], [65, 69, 72], [67, 71, 74], [64, 68, 71]];
@@ -244,8 +346,10 @@
         b5: { lv: 5, bpm: 152 },
         b6: { lv: 6, bpm: 152 },
         b8: { lv: 8, bpm: 152 },
+        b9: { lv: 9, bpm: 164 },       /* 100れんぞく〜：はやく、鐘の メロディと シンバル */
+        b10: { lv: 10, bpm: 176 },     /* 160れんぞく〜：もっと はやく、シンセの アルペジオと スネアの 連打 */
     };
-    const bgmKeyOf = lv => (lv >= 8 ? 'b8' : lv >= 6 ? 'b6' : lv >= 5 ? 'b5' : lv >= 4 ? 'b4' : 'b3');
+    const bgmKeyOf = lv => (lv >= 10 ? 'b10' : lv >= 9 ? 'b9' : lv >= 8 ? 'b8' : lv >= 6 ? 'b6' : lv >= 5 ? 'b5' : lv >= 4 ? 'b4' : 'b3');
     const stepDur = key => 60 / BGM[key].bpm / 4;
 
     function bgmStep(t, step, dur, lv) {
@@ -267,11 +371,23 @@
             if (s === 0) noise(t, 0.6, 0.07, 'highpass', 5000);
         }
         if (lv >= 8) tone('triangle', mtof(CHORDS[bar][s % 3] + 24), t, dur * 0.9, 0.035);     /* キラキラ */
+        if (lv >= 9) {                                                                     /* 鐘の メロディ・シンバル */
+            const m = MELO[bar][s];
+            if (m) tone('sine', mtof(m + 12), t, dur * 3, 0.03);
+            if (s === 0 || s === 8) noise(t, 0.5, 0.06, 'highpass', 6000);
+        }
+        if (lv >= 10) {                                                                    /* シンセ・スネア */
+            tone('sawtooth', mtof(CHORDS[bar][s % 3] + (s % 2 ? 24 : 12)), t, dur * 0.7, 0.022, { lp: 4000 });
+            if (bar === 3 && s >= 12) noise(t, 0.06, 0.16, 'bandpass', 2000);
+        }
     }
 
     /* ---------- データ作り（OfflineAudioContext） ---------- */
     const buf = {};
-    const LEN = { gyuin: 1.1, fanfare: 1.2, fanfareBig: 1.9, don: 0.45, kyuin: 0.4, jara: 1.0, siren: 0.95, stamp: 0.85, whoosh: 0.5 };
+    const LEN = { gyuin: 1.1, fanfare: 1.2, fanfareBig: 1.9, don: 0.45, kyuin: 0.4, jara: 1.0, siren: 0.95, stamp: 0.85, whoosh: 0.5,
+        pinpon: 1.3, buzzer: 0.8, alarm: 0.3, airhorn: 0.85, bell: 2.3, bellSmall: 1.0, gong: 2.6, taiko: 0.65, harp: 1.2, harpPluck: 0.55,
+        kirakira: 1.2, twinkle: 0.4, glass: 0.55, thunder: 2.0, zap: 0.3, choir: 1.0, choirShort: 0.45, pew: 0.25, lasers: 0.7,
+        whistle: 0.95, shimmer: 1.05, synth: 0.4, boom: 1.6, boomSmall: 0.5, warp: 1.2, zip: 0.2, crowd: 1.9, music: 0.95 };
 
     /* ドクン…ドクン…（リーチの 心臓の 音）。のこり 3・2・1問で だんだん はやく */
     const HEART = { heart3: 84, heart2: 108, heart1: 138 };
@@ -280,11 +396,14 @@
         tone('sine', 62, t + 0.17, 0.14, 0.38, { to: 38, glide: 0.1 });
     }
 
+    /* 音の データの こまかさ：32000（1びょうに 32000点。高い 音も 16000Hz まで のこる）。作る 手間が 3分の2 に なる */
+    const RATE = () => Math.min(ctx.sampleRate, 32000);
+
     /** recipe を seconds びょうぶんの 音の データに する */
     function renderBuffer(seconds, recipe) {
         const OAC = root.OfflineAudioContext || root.webkitOfflineAudioContext;
         if (!OAC || !ctx) return Promise.resolve(null);
-        const sr = ctx.sampleRate;
+        const sr = RATE();
         const off = new OAC(1, Math.ceil(seconds * sr), sr);
         const saved = { c: R.c, dest: R.dest, noise: R.noise };
         R.c = off;
@@ -299,7 +418,6 @@
         });
     }
 
-    const pauseTick = () => new Promise(r => setTimeout(r, 0));
 
     /** ループの さいごから はみ出した 音を あたまに かさねる */
     function wrapLoop(b, loopLen) {
@@ -315,40 +433,65 @@
         小節の さいごから はみ出した ひびきは つぎの 小節（4小節めは あたま）に かさねる */
     async function renderBgm(key) {
         const dur = stepDur(key), bar = dur * 16, loopLen = bar * 4;
-        const n = Math.round(loopLen * ctx.sampleRate);
-        const o = ctx.createBuffer(1, n, ctx.sampleRate);
+        const sr = RATE();
+        const n = Math.round(loopLen * sr);
+        const o = ctx.createBuffer(1, n, sr);
         const d = o.getChannelData(0);
         for (let b = 0; b < 4; b++) {
             const part = await renderBuffer(bar + 0.6, t => {
                 for (let i = 0; i < 16; i++) bgmStep(t + i * dur, b * 16 + i, dur, BGM[key].lv);
             });
             if (!part) return;
-            const src = part.getChannelData(0), at = Math.round(b * bar * ctx.sampleRate);
+            const src = part.getChannelData(0), at = Math.round(b * bar * sr);
             for (let i = 0; i < src.length; i++) d[(at + i) % n] += src[i];
-            await pauseTick();
+            await idle();
         }
         buf[key] = o;
     }
 
+    /* 手が あいた ときに すすめる（画面の かきかえや 入力の じゃまを しない） */
+    const idle = () => new Promise(r => (root.requestIdleCallback ? root.requestIdleCallback(() => r(), { timeout: 250 }) : setTimeout(r, 30)));
+
+    /* はやく いる 音から じゅんに 作る（あとの だんかいの 音は あとまわし） */
+    const EARLY = ['pi', 'count', 'countGo', 'don', 'pon', 'kyuin', 'gyuin', 'fanfare', 'fanfareBig', 'jara', 'siren', 'stamp', 'whoosh', 'pinpon', 'airhorn', 'crowd'];
+
+    async function renderSfx(name) {
+        if (buf[name] || !RECIPE[name]) return;
+        const b = await renderBuffer(LEN[name.replace(/\d+$/, '')] || 0.7, RECIPE[name]);
+        if (b) buf[name] = b;
+        await idle();
+    }
+
     let prerendered = false;
+    /** さいしょ：ゲームの はじめから いる 音（効果音・心臓の 音・Lv8 までの BGM） */
     async function prerender() {
         if (prerendered || !ctx) return;
         prerendered = true;
-        for (const name of Object.keys(RECIPE)) {
-            const b = await renderBuffer(LEN[name.replace(/\d+$/, '')] || 0.7, RECIPE[name]);
-            if (b) buf[name] = b;
-            await pauseTick();
-        }
+        const pik = Object.keys(RECIPE).filter(n => /^pikon/.test(n));
+        for (const name of EARLY.concat(pik)) await renderSfx(name);
         for (const key of Object.keys(HEART)) {
             const loop = 60 / HEART[key];
             const b = await renderBuffer(loop + 0.4, t => { heartAt(t); });
             if (b) buf[key] = wrapLoop(b, loop);
-            await pauseTick();
+            await idle();
         }
-        for (const key of Object.keys(BGM)) {
-            await renderBgm(key);
-            if (bgm.want === key) bgmLevel(bgm.lv, true);
-        }
+        for (const key of ['b3', 'b4', 'b5', 'b6', 'b8']) await bgmReady(key);
+    }
+
+    async function bgmReady(key) {
+        if (buf[key]) return;
+        await renderBgm(key);
+        if (bgm.want === key) bgmLevel(bgm.lv, true);
+    }
+
+    /** あとの だんかいの 音は、ちかづいてから 作る（40れんぞくで 60〜の 音、80で 100〜の BGM、140で 160〜の BGM）。
+        そこまで いかない 子の 端末では 作らないので かるい */
+    const prepared = {};
+    async function prepare(combo) {
+        if (!ctx || !prerendered) return;
+        if (combo >= 40 && !prepared.sfx) { prepared.sfx = 1; for (const name of Object.keys(RECIPE)) await renderSfx(name); }
+        if (combo >= 80 && !prepared.b9) { prepared.b9 = 1; await bgmReady('b9'); }
+        if (combo >= 140 && !prepared.b10) { prepared.b10 = 1; await bgmReady('b10'); }
     }
 
     /* ---------- 鳴らす ---------- */
@@ -391,6 +534,9 @@
     const siren = () => play('siren', 0, 1, true);
     const stamp = delay => play('stamp', delay, 1, true);
     const whoosh = () => play('whoosh', 0, 1, true);
+    /** 名前で 鳴らす（ピンポーン・ブザー・鐘・銅鑼・太鼓 など）。important で 重なっても はぶかない */
+    const sfxPlay = (name, delay, vol, important) => { if (RECIPE[name]) play(name, delay, vol, important); };
+    const music = step => play('music' + (((step % 8) + 8) % 8), 0, 0.9);
 
     /* ---------- リーチ：心臓の 音を ループ再生 ＋ BGM を 小さく ---------- */
     let heartSrc = null, heartKey = null, duck = 1;
@@ -480,8 +626,9 @@
 
     root.DopaSound = {
         unlock, setSound, setBgm, pause,
-        pi, pikon, kyuin, kyuinKyuin, gyuin, don, fanfare, pon, count, jara, siren, stamp, whoosh,
-        bgmLevel, bgmStop, hush, reach,
+        pi, pikon, kyuin, kyuinKyuin, gyuin, don, fanfare, pon, count, jara, siren, stamp, whoosh, music,
+        play: sfxPlay,
+        bgmLevel, bgmStop, hush, reach, prepare,
         /** BGM の テンポと いまの 拍の いち（0〜1）。背景の 光を BGM に あわせる ため */
         beat() {
             if (!ctx || !bgm.src || !bgm.key) return null;

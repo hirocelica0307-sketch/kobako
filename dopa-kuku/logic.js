@@ -85,27 +85,54 @@
 
     /* ---------- リーチ（つぎの 大演出の 予告） ----------
        大演出まで「あと 3問」から リーチに なる。運では なく、あと 何問かが はっきり 見える。
-       もとに なる 大演出：10・20（ドパタイム）・30（超ドパ）・40（激アツ）・50（にじドパ）・
-       60 70 80 …（確定）・100・しんきろく（いままでの さいこう＋1。さいこうが 5 いじょうの とき） */
+       もとに なる 大演出：10問ごとの 大演出（下の TIERS）・しんきろく（いままでの さいこう＋1。さいこうが 5 いじょうの とき） */
     const REACH_LEN = 3;
-    const REACH_ORDER = ['hyaku', 'niji', 'dopa', 'chodopa', 'atsu', 'kakutei', 'newrec', 'ten'];   /* かさなった ときの 名前の じゅん */
-    const REACH_LABEL = {
-        ten: '10れんぞく', dopa: 'ドパタイム', chodopa: '超ドパ', atsu: '激アツ', niji: 'にじドパ',
-        kakutei: '確定', hyaku: '100れんぞく', newrec: 'しんきろく',
+    /* ---------- 10問ごとの 大演出（200問まで だんだん 派手に） ----------
+       60〜190 は 毎回 ちがう 演出（tier）。200 は「でんせつ」。200 より 先は 10問ごとに 確定演出 */
+    const TIERS = {
+        10: { id: 'ten', name: '10れんぞく', icon: '' },
+        20: { id: 'dopa', name: 'ドパタイム', icon: '🔥' },
+        30: { id: 'chodopa', name: '超ドパ', icon: '🔥' },
+        40: { id: 'atsu', name: '激アツ', icon: '🔥' },
+        50: { id: 'niji', name: 'にじドパ', icon: '🌈' },
+        60: { id: 'ryusei', name: '流星群', icon: '🌠' },
+        70: { id: 'kaminari', name: 'カミナリ', icon: '⚡' },
+        80: { id: 'aurora', name: 'オーロラ', icon: '🌌' },
+        90: { id: 'ginga', name: 'ぎんが', icon: '🌀' },
+        100: { id: 'hyaku', name: '100れんぞく', icon: '👑' },
+        110: { id: 'hoshi', name: '星の雨', icon: '⭐' },
+        120: { id: 'laser', name: 'レーザー', icon: '🔆' },
+        130: { id: 'hanabi', name: '花火大会', icon: '🎆' },
+        140: { id: 'houseki', name: '宝石', icon: '💎' },
+        150: { id: 'chouniji', name: '超にじドパ', icon: '🌈' },
+        160: { id: 'neon', name: 'ネオン', icon: '🌃' },
+        170: { id: 'nova', name: 'スーパーノヴァ', icon: '💥' },
+        180: { id: 'warp', name: 'ワープ', icon: '🚀' },
+        190: { id: 'last', name: 'ラストスパート', icon: '🚨' },
+        200: { id: 'legend', name: 'でんせつ', icon: '🏆' },
     };
+    const MAX_TIER = 200;
 
-    /** n れんぞく めに 起きる 大演出の しゅるい（ない ときは 空） */
+    /** n れんぞく めの 大演出（10問ごと。ない ときは null）。200 より 先は 確定演出 */
+    function tierAt(n) {
+        if (n <= 0 || n % 10) return null;
+        if (TIERS[n]) return Object.assign({ n }, TIERS[n]);
+        return { n, id: 'kakutei', name: `${n}れんぞく`, icon: '🏆' };
+    }
+
+    /** いまの だんかい（いちばん 近く 通りすぎた 10問ごとの 大演出。200 で とまる） */
+    function tierOf(combo) {
+        const t = Math.min(MAX_TIER, Math.floor(combo / 10) * 10);
+        return t >= 10 ? tierAt(t) : null;
+    }
+
+    /** n れんぞく めに 起きる 大演出（10問ごと ＋ しんきろく）。かさなった ときは 大演出が 先 */
     function bigEventsAt(n, best) {
         const out = [];
-        if (n === 10) out.push('ten');
-        if (n === 20) out.push('dopa');
-        if (n === 30) out.push('chodopa');
-        if (n === 40) out.push('atsu');
-        if (n === 50) out.push('niji');
-        if (n === 100) out.push('hyaku');
-        else if (n > 50 && n % 10 === 0) out.push('kakutei');
+        const t = tierAt(n);
+        if (t) out.push(t.id);
         if (best >= 5 && n === best + 1) out.push('newrec');
-        return out.sort((p, q) => REACH_ORDER.indexOf(p) - REACH_ORDER.indexOf(q));
+        return out;
     }
 
     /** いま combo れんぞく。つぎの 大演出まで あと REACH_LEN 問 いないなら リーチ（ちがえば null） */
@@ -113,10 +140,9 @@
         for (let left = 1; left <= REACH_LEN; left++) {
             const kinds = bigEventsAt(combo + left, best || 0);
             if (!kinds.length) continue;
-            const kind = kinds[0];
-            const label = kind === 'kakutei' ? `${combo + left}れんぞく` : REACH_LABEL[kind];
-            const extra = kinds.slice(1).map(k => REACH_LABEL[k]).filter(s => s !== label);
-            return { left, target: combo + left, kind, kinds, label: [label].concat(extra).join('＆') };
+            const n = combo + left, kind = kinds[0];
+            const names = kinds.map(k => (k === 'newrec' ? 'しんきろく' : tierAt(n).name));
+            return { left, target: n, kind, kinds, label: names.join('＆') };
         }
         return null;
     }
@@ -180,7 +206,7 @@
     root.DopaLogic = {
         COURSES, LEVELS, MAX_LEVEL, LIMITS, NIJI_HOLD,
         courseById, problemsOf, keyOf, avoidCount, pickQuestion, judge,
-        levelOf, kakuteiOf, isMilestone, REACH_LEN, bigEventsAt, reachOf,
+        levelOf, kakuteiOf, isMilestone, REACH_LEN, TIERS, MAX_TIER, tierAt, tierOf, bigEventsAt, reachOf,
         bestKey, topMiss, sanitizeSettings, sanitizeCounts, kukuReading,
     };
 })(typeof window !== 'undefined' ? window : globalThis);
