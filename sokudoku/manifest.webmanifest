@@ -1,0 +1,12 @@
+{
+  "name": "速読ラボ",
+  "short_name": "速読ラボ",
+  "description": "理解したまま速く読むための、大人向けの読書トレーニング。",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7f6f2",
+  "theme_color": "#f7f6f2"
+}

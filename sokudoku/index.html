@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f7f6f2">
+<meta name="description" content="理解したまま速く読むための、大人向けの読書トレーニング。速さと理解度を一緒に測り、ペースガイド・くり返し読み・要点読みで練習します。">
+<title>速読ラボ</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ========== ホーム ========== -->
+<section id="home" class="screen">
+  <header class="bar">
+    <h1 class="logo">速読ラボ</h1>
+    <button class="txt-btn" data-go="settings">設定</button>
+  </header>
+  <div class="wrap">
+    <p class="lead">理解したまま、少しずつ速く読む。</p>
+    <div id="homeStats" class="card stats"></div>
+    <h2 class="sec">練習をえらぶ</h2>
+    <div id="modeList" class="modes"></div>
+    <h2 class="sec">そのほか</h2>
+    <div class="links">
+      <button class="row-btn" data-go="library"><b>文章を追加・管理</b><span>青空文庫のファイル・自分の文章を読みこむ</span></button>
+      <button class="row-btn" data-go="records"><b>記録</b><span>速さと理解度の移り変わり</span></button>
+      <button class="row-btn" data-go="about"><b>このアプリの考え方</b><span>どんな練習が効くのか（研究のまとめ）</span></button>
+    </div>
+  </div>
+</section>
+
+<!-- ========== 文章をえらぶ ========== -->
+<section id="pick" class="screen" hidden>
+  <header class="bar">
+    <button class="txt-btn back" data-go="home">← もどる</button>
+    <h1 id="pickTitle">文章をえらぶ</h1>
+    <span></span>
+  </header>
+  <div class="wrap">
+    <p id="pickNote" class="note"></p>
+    <div class="tabs" id="pickTabs">
+      <button data-tab="orig" class="on">オリジナル</button>
+      <button data-tab="user">青空文庫・自分の文章</button>
+    </div>
+    <div id="pickList" class="list"></div>
+  </div>
+</section>
+
+<!-- ========== 読む ========== -->
+<section id="read" class="screen reading" hidden>
+  <header class="bar slim">
+    <button class="txt-btn" id="readQuit">✕ やめる</button>
+    <span id="readInfo" class="read-info"></span>
+    <span id="readClock" class="clock"></span>
+  </header>
+  <div id="skimBar" class="skim-bar" hidden><i></i></div>
+  <div id="reader" class="reader">
+    <article id="page" class="page"></article>
+  </div>
+  <div id="readCover" class="cover">
+    <div class="cover-card">
+      <h2 id="coverTitle"></h2>
+      <div id="coverBody"></div>
+      <button id="coverGo" class="big-btn">スタート</button>
+    </div>
+  </div>
+  <footer class="read-ctrl" id="readCtrl"></footer>
+</section>
+
+<!-- ========== 確認問題 ========== -->
+<section id="quiz" class="screen" hidden>
+  <header class="bar"><span></span><h1>確認問題</h1><span></span></header>
+  <div class="wrap">
+    <p class="note" id="quizNote">本文は見ずに答えます。わからないときは、いちばん近いと思うものを選んでください。</p>
+    <div id="quizList"></div>
+    <button id="quizDone" class="big-btn" disabled>答え合わせ</button>
+  </div>
+</section>
+
+<!-- ========== 思い出しチェック（問題の無い文章） ========== -->
+<section id="recall" class="screen" hidden>
+  <header class="bar"><span></span><h1>思い出しチェック</h1><span></span></header>
+  <div class="wrap">
+    <p class="note">本文を見ずに、どんな内容だったかを思い出してみましょう。思い出そうとすること自体が、内容をしっかり覚えるのに役立ちます。</p>
+    <label class="field"><span>ひとことでまとめると？（書かなくてもかまいません）</span>
+      <textarea id="recallText" rows="4" placeholder="例：主人公が友人との約束を守るために走りつづける話"></textarea>
+    </label>
+    <p class="field-label">どのくらい理解できましたか？</p>
+    <div id="recallRate" class="rate"></div>
+    <button id="recallDone" class="big-btn" disabled>結果を見る</button>
+  </div>
+</section>
+
+<!-- ========== 結果 ========== -->
+<section id="result" class="screen" hidden>
+  <header class="bar"><span></span><h1>結果</h1><span></span></header>
+  <div class="wrap" id="resultBody"></div>
+</section>
+
+<!-- ========== 文章の追加・管理 ========== -->
+<section id="library" class="screen" hidden>
+  <header class="bar">
+    <button class="txt-btn back" data-go="home">← もどる</button>
+    <h1>文章を追加・管理</h1>
+    <span></span>
+  </header>
+  <div class="wrap">
+    <div class="card">
+      <h2 class="card-h">青空文庫の作品を読みこむ</h2>
+      <ol class="steps">
+        <li><a href="https://www.aozora.gr.jp/" target="_blank" rel="noopener">青空文庫</a>で読みたい作品の「図書カード」を開く</li>
+        <li>下の方の「ファイルのダウンロード」で、<b>テキストファイル(ルビあり)</b>の zip をスマホに保存する</li>
+        <li>下のボタンで、保存した zip（または .txt）を選ぶ</li>
+      </ol>
+      <label class="file-btn">ファイルを選ぶ（.zip / .txt）<input type="file" id="fileIn" accept=".zip,.txt,application/zip,text/plain"></label>
+      <p class="note small">ルビ（よみがな）はそのまま使えます。注記や記号の説明は自動で取りのぞき、末尾の底本・入力者などの情報は作品の「情報」に残します。</p>
+    </div>
+    <div class="card">
+      <h2 class="card-h">文章を貼りつける</h2>
+      <label class="field"><span>題名</span><input id="pasteTitle" type="text" maxlength="80" placeholder="例：自分で選んだ記事"></label>
+      <label class="field"><span>著者（なくてもよい）</span><input id="pasteAuthor" type="text" maxlength="60"></label>
+      <label class="field"><span>本文</span><textarea id="pasteBody" rows="7" placeholder="ここに文章を貼りつけます。青空文庫のテキスト（《》のルビつき）もそのまま使えます。"></textarea></label>
+      <button id="pasteAdd" class="big-btn sub">確認する</button>
+    </div>
+    <div id="impPreview" class="card preview" hidden></div>
+    <h2 class="sec">読みこんだ文章</h2>
+    <div id="libList" class="list"></div>
+  </div>
+</section>
+
+<!-- ========== 記録 ========== -->
+<section id="records" class="screen" hidden>
+  <header class="bar">
+    <button class="txt-btn back" data-go="home">← もどる</button>
+    <h1>記録</h1>
+    <span></span>
+  </header>
+  <div class="wrap">
+    <div id="recSummary" class="card stats"></div>
+    <div class="tabs" id="recTabs">
+      <button data-m="check" class="on">速さチェック</button>
+      <button data-m="pace">ペース読み</button>
+      <button data-m="repeat">くり返し</button>
+      <button data-m="skim">要点読み</button>
+    </div>
+    <div id="recChart" class="chart-box"></div>
+    <div id="recList" class="rec-list"></div>
+  </div>
+</section>
+
+<!-- ========== 設定 ========== -->
+<section id="settings" class="screen" hidden>
+  <header class="bar">
+    <button class="txt-btn back" data-go="home">← もどる</button>
+    <h1>設定</h1>
+    <span></span>
+  </header>
+  <div class="wrap">
+    <div class="card">
+      <h2 class="card-h">表示</h2>
+      <div class="set"><span>文字の大きさ</span><div class="stepper"><button data-step="fontSize" data-d="-1">−</button><b id="vFontSize"></b><button data-step="fontSize" data-d="1">＋</button></div></div>
+      <div class="set"><span>行の間</span><div class="stepper"><button data-step="lineHeight" data-d="-0.1">−</button><b id="vLineHeight"></b><button data-step="lineHeight" data-d="0.1">＋</button></div></div>
+      <div class="set"><span>書体</span><div class="seg" data-set="font"><button data-v="gothic">ゴシック</button><button data-v="mincho">明朝</button></div></div>
+      <div class="set"><span>向き</span><div class="seg" data-set="vertical"><button data-v="false">横書き</button><button data-v="true">縦書き</button></div></div>
+      <div class="set"><span>文節の区切り</span><div class="seg" data-set="sep"><button data-v="none">なし</button><button data-v="gap">すき間</button><button data-v="line">線</button></div></div>
+      <div class="set"><span>ルビ（よみがな）</span><div class="seg" data-set="ruby"><button data-v="true">表示</button><button data-v="false">かくす</button></div></div>
+      <div class="set"><span>画面の色</span><div class="seg" data-set="theme"><button data-v="auto">自動</button><button data-v="light">白</button><button data-v="sepia">セピア</button><button data-v="dark">黒</button></div></div>
+      <div id="setPreview" class="page preview-page"></div>
+    </div>
+    <div class="card">
+      <h2 class="card-h">練習</h2>
+      <div class="set"><span>ペースガイドの形</span><div class="seg" data-set="guide"><button data-v="hl">色づけ</button><button data-v="dim">色づけ＋読んだ所をうすく</button></div></div>
+      <div class="set"><span>ペース読みの目標</span><div class="stepper"><button data-step="pace" data-d="-10">−</button><b id="vPace"></b><button data-step="pace" data-d="10">＋</button></div></div>
+      <div class="set"><span>読んでいる間の時計</span><div class="seg" data-set="showTimer"><button data-v="true">表示</button><button data-v="false">かくす</button></div></div>
+      <div class="set"><span>目の休けいの合図</span><div class="seg" data-set="rest"><button data-v="20">20分ごと</button><button data-v="30">30分ごと</button><button data-v="0">なし</button></div></div>
+      <div class="set"><span>長い作品の区切り</span><div class="seg" data-set="sectionSize"><button data-v="1000">約1000字</button><button data-v="2000">約2000字</button><button data-v="3000">約3000字</button></div></div>
+    </div>
+    <div class="card">
+      <h2 class="card-h">データ</h2>
+      <p class="note small">記録と読みこんだ文章は、このスマホのブラウザの中だけに保存されます。機種変更のときは書き出して、新しいスマホで読みこんでください。</p>
+      <div class="btn-row">
+        <button id="dataExport" class="big-btn sub">書き出す</button>
+        <label class="big-btn sub file-lbl">読みこむ<input type="file" id="dataImport" accept=".json,application/json"></label>
+      </div>
+      <button id="dataClear" class="txt-btn danger">記録をすべて消す</button>
+    </div>
+  </div>
+</section>
+
+<!-- ========== このアプリの考え方 ========== -->
+<section id="about" class="screen" hidden>
+  <header class="bar">
+    <button class="txt-btn back" data-go="home">← もどる</button>
+    <h1>このアプリの考え方</h1>
+    <span></span>
+  </header>
+  <div class="wrap prose">
+    <div class="card">
+      <h2 class="card-h">「速さ」と「理解」はいっしょに測る</h2>
+      <p>読む速さの研究をまとめた大きなレビュー（Rayner ほか, 2016）は、ふつうの読み手が理解をたもったまま速さを2倍・3倍にするのはむずかしく、速く読もうとするほど理解は落ちやすい（速さと正確さのトレードオフ）と結論づけています。</p>
+      <p>そこでこのアプリでは、いつも<b>速さ（字/分）</b>と<b>理解度（%）</b>を両方記録し、その2つをかけた<b>理解して読めた速さ（実効速度）</b>を目安にします。理解度が下がったら、ペースも自動で少し下げます。</p>
+    </div>
+    <div class="card">
+      <h2 class="card-h">練習の4つのモード</h2>
+      <dl class="dl">
+        <dt>速さチェック</dt><dd>ふだんどおりに読んで、今の速さと理解度を測ります。はじめに読んだことのない文章で測るのがおすすめです。</dd>
+        <dt>ペース読み</dt><dd>文章は全部見えたまま、読む場所が文節ごとに色づけされて進みます。ふだんより少しだけ速いペースに合わせて読む練習です。前の文に戻りたいときは、その文字をタップすれば戻れます（読み返しは理解を保つための大切な動きです）。子どもの読みの研究では、画面で読む場所を案内しながら黙読する練習で、読解の成績が上がったという報告があります。</dd>
+        <dt>くり返し読み</dt><dd>同じ文章を3回読み、回を重ねるごとに速くなるのを確かめます。読みのなめらかさ（流暢さ）を育てる方法として、研究の裏づけがいちばん多い練習です（主に子どもの研究）。</dd>
+        <dt>要点読み</dt><dd>ふだんの40%の時間で全体に目を通し、要点だけをつかむ練習です。時間が足りないとき、全体をざっと読むと前半だけ読むより要点をよく覚えていた、という研究があります。細かいところは落ちやすいので、目的に合わせて「じっくり読む」と使い分けます。</dd>
+      </dl>
+    </div>
+    <div class="card">
+      <h2 class="card-h">入れていない練習</h2>
+      <p><b>1語ずつ高速で表示する方法（RSVP）</b>：目を動かす時間は読む時間の1割にも満たず、読み返しができなくなる分、理解が落ちやすいと報告されています。</p>
+      <p><b>視野を広げる・目を速く動かす訓練</b>：一度に読める範囲は、読む力がついた結果として広がるもので、訓練で広げると速く読めるという確かな証拠は見つかっていません。</p>
+      <p><b>心の中の声（音読のような声）を消す練習</b>：心の中の声は理解を助けていて、むりに消すと、むずかしい文章ほど理解が落ちやすいとされています。</p>
+    </div>
+    <div class="card">
+      <h2 class="card-h">ほんとうに速くなるには</h2>
+      <p>読む速さを決めているのは目の速さではなく、ことばを見て意味をつかむ処理の速さです。<b>知っていることばと知識を増やし、たくさん読む</b>ことが、いちばん確実な近道です。このアプリの練習は、その上で「少し速いペースに慣れる」「目的に合わせて読み分ける」ためのものです。</p>
+      <p class="note small">文字数は、空白とルビ（よみがな）を除いた本文の字数で数えています。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========== 休けい ========== -->
+<div id="rest" class="modal" hidden>
+  <div class="modal-card">
+    <h2>目を休めましょう</h2>
+    <p>画面から目をはなして、20秒ほど遠くを見てください。</p>
+    <div class="rest-count" id="restCount">20</div>
+    <button id="restSkip" class="txt-btn">あとで</button>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="logic.js"></script>
+<script src="texts.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
