@@ -55,6 +55,7 @@
         body.classList.toggle('lite1', Q.tier >= 1);
         body.classList.toggle('lite2', Q.tier >= 2);
         P.setAmbient(Q.tier === 0 && level >= 5 ? (level >= 8 ? 'rainbow' : level >= 7 ? 'gold' : 'ember') : null);
+        if (combo >= 60) applyTier(combo);
     }
 
     function setTier(n) {
@@ -127,8 +128,35 @@
         level = n;
         for (let i = 1; i <= 8; i++) body.classList.toggle('lv' + i, i <= n);
         applyMode();
-        S.bgmLevel(n);
+        S.bgmLevel(bgmLv());
         syncBeat();
+    }
+
+    /* BGM の 段階：100れんぞく から 9、160れんぞく から 10（もっと はやく にぎやかに） */
+    let combo = 0;
+    const bgmLv = () => (level < 8 ? level : combo >= 160 ? 10 : combo >= 100 ? 9 : 8);
+
+    /* =====================================================================
+       10問ごとの だんかい（60〜200）：場面（シーン）と HUD の しるし
+       ===================================================================== */
+    const SCENE_OF = {
+        ryusei: 'ryusei', aurora: 'aurora', ginga: 'ginga', hyaku: 'crown', hoshi: 'hoshi', laser: 'laser',
+        hanabi: 'hanabi', neon: 'neon', nova: 'nova', warp: 'warp', last: 'last',
+    };
+    const hudRank = $('#hudRank');
+    function applyTier(c) {
+        const t = L.tierOf(c);
+        if (hudRank) hudRank.textContent = t && t.icon ? t.icon : '';
+        /* 場面は あたらしい ものから じゅんに、端末に あわせた 数だけ 出す（ふつう 4・かるさ1 で 2・かるさ2 で 1） */
+        const max = Q.tier >= 2 ? 0 : Q.tier === 1 ? 1 : calm() ? 2 : 3;
+        let list = [];
+        if (c >= 200) list = ['hanabi', 'laser', 'warp', 'crown'];
+        else for (let n = 60; n <= c; n += 10) { const id = SCENE_OF[L.tierAt(n).id]; if (id) list.push(id); }
+        list = max ? list.slice(-max) : [];
+        /* オーロラ・スーパーノヴァは CSS の 層（stage に しるしを つける） */
+        stage.classList.toggle('sc-aurora', list.includes('aurora'));
+        stage.classList.toggle('sc-nova', list.includes('nova'));
+        P.setScenes(list.filter(id => id !== 'aurora' && id !== 'nova'));
     }
 
     /* 背景の 光を BGM の 拍に あわせる（BGM が まだ なら テンポだけ あわせる） */
@@ -200,6 +228,21 @@
         else S.pi();
         if (lv >= 3 && !(lv === 5 && e.prevLevel < 5)) S.don(0.45);
         if (lv >= 7) S.jara(0.05);                     /* Lv7〜 正解ごとに ジャラジャラ */
+        accent(e.combo);
+    }
+
+    /* 60れんぞく から：だんかいごとに ちがう 音を 正解ごとに かさねる（200 から先は ぜんぶ じゅんばんに） */
+    const ACCENT = {
+        ryusei: 'twinkle', kaminari: 'zap', aurora: 'choirShort', hyaku: 'bellSmall', hoshi: 'harpPluck', laser: 'pew',
+        hanabi: 'taiko', houseki: 'glass', chouniji: 'shimmer', neon: 'synth', nova: 'boomSmall', warp: 'zip', last: 'alarm',
+    };
+    const ACCENT_ALL = Object.values(ACCENT);
+    function accent(c) {
+        const t = L.tierOf(c);
+        if (!t || c < 60 || L.tierAt(c)) return;       /* 大演出の 正解は 大演出の 音だけ */
+        if (t.id === 'ginga') { S.music(c); return; }
+        const name = c >= 200 ? ACCENT_ALL[c % ACCENT_ALL.length] : ACCENT[t.id];
+        if (name) S.play(name, 0.04, t.id === 'hanabi' ? 0.7 : 1);
     }
 
     /* 衝撃波の 色（レベルごと） */
@@ -212,6 +255,14 @@
         /* 問題の うしろから 光の 輪が 広がる（Lv0 は 小さく。レベルが 上がるほど 大きく・2重に） */
         P.shockwave({ x: cx, y: cy, r0: big * 0.4, r1: big * (lv >= 1 ? 1.1 + lv * 0.08 : 0.75), width: 8 + lv * 2, color: WAVE[lv] });
         if (lv >= 4) later(() => P.shockwave({ x: cx, y: cy, r0: big * 0.45, r1: big * 1.6, width: 10, color: lv >= 8 ? WAVE[(e.combo % 8) + 1] : '#ffffff', life: 0.65 }), 90);
+        /* 50 から 先は 10問ごとに 輪が ふえる（さいだい 3まい 足す） */
+        const T = Math.floor(Math.min(e.combo, 200) / 10);
+        for (let i = 0; i < Math.min(3, Math.floor((T - 5) / 5) + 1) && T >= 6 && Q.tier === 0; i++) {
+            later(() => P.shockwave({ x: cx, y: cy, r0: big * 0.5, r1: big * (1.9 + i * 0.4), width: 8, color: WAVE[(e.combo + i * 3) % 9], life: 0.7 }), 160 + i * 80);
+        }
+        if (e.combo >= 70 && !calm() && Q.tier < 2) P.lightning();             /* カミナリ から：正解ごとに 1本 */
+        if (e.combo >= 140) P.gems({ x: cx, y: r.top + 4, count: 8 });          /* 宝石 から：宝石が ふきだす */
+        if (e.combo >= 60 && e.combo % 2 === 0 && Q.tier < 2) P.meteors(2);    /* 流星群 から：流れ星 */
         if (lv >= 1) {
             P.stars({ x: cx, y: r.top + r.height * 0.35, r: r.width * 0.5, count: 5 + Math.min(lv, 6) });
             if (ring.animate) ring.animate([{ opacity: 0.95, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(1.07)' }], { duration: 500, easing: 'ease-out' });
@@ -258,11 +309,11 @@
     function words(e) {
         const lv = e.level;
         if (e.passBest && e.best < 5) sub('きろく こえた！', 'best');
-        else if (lv >= 3 && !BIG[e.combo]) {
+        else if (lv >= 3 && !L.tierAt(e.combo)) {
             const list = SHOUT[lv];
             sub(list[e.combo % list.length], lv === 7 ? 'atsu' : '');
         }
-        if (e.kakutei || BIG[e.combo]) return;         /* 大演出は べつの 文字 */
+        if (L.tierAt(e.combo)) return;                 /* 大演出は べつの 文字 */
         if (e.milestone) telop(`${e.combo}れんぞく!`, lv >= 5 ? 'hot' : '', 1000);
     }
 
@@ -283,6 +334,7 @@
     /* 10・30・40・しんきろく の 大演出（20・50・60〜・100 は 下の 専用の 演出） */
     const BIG = { 10: ten, 30: chodopa, 40: atsu };
     function ten() {
+        S.play('pinpon', 0.05, 1, true);
         band('10れんぞく!!', 'blue');
         telop('10れんぞく!!', 'hot', 1000);
         S.don(1);
@@ -290,6 +342,7 @@
         P.shockwave({ x: r.left + r.width / 2, y: r.top + r.height / 2, r0: 60, r1: Math.max(innerWidth, innerHeight), width: 22, color: '#5ab8ff', life: 0.8 });
     }
     function chodopa() {
+        S.play('airhorn', 0, 1, true);
         band('超ドパ!!', 'purple');
         later(() => band('超ドパ!!', 'purple', true), 120);
         telop('超ドパ!!', 'cutin', 1100);
@@ -307,6 +360,111 @@
         for (let i = 0; i < 3; i++) later(() => P.firework({ type: 'willow' }), i * 150);
         shake('m');
     }
+    /* ---------- 60〜200：10問ごとに ちがう 大演出 ---------- */
+    /* 大演出の 光の 輪：端末が おもい ときは 数を へらし、細く する */
+    function waves(n, make) {
+        const k = Q.tier === 0 ? n : Q.tier === 1 ? Math.min(n, 2) : 1;
+        for (let i = 0; i < k; i++) later(() => { const o = make(i); if (Q.tier) o.width = (o.width || 14) * 0.6; P.shockwave(o); }, i * 100);
+    }
+
+    function tierCommon(name, cls, wave) {
+        band(name + '!!', cls);
+        telop(name + '!!', 'tier ' + cls, 1100);
+        stamp('確定');
+        S.don(1);
+        const r = qRect();
+        P.shockwave({ x: r.left + r.width / 2, y: r.top + r.height / 2, r0: 60, r1: Math.hypot(innerWidth, innerHeight) * 0.7, width: 24, color: wave || '#ffffff', life: 0.85 });
+        P.coins({ count: 30 });
+        shake('m');
+    }
+    const center = () => { const r = qRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, r }; };
+    const TIER_FX = {
+        ryusei() { tierCommon('流星群', 'teal', '#9fe8ff'); S.play('kirakira', 0.1, 1, true); S.play('bell', 0.35, 0.8, true); P.meteors(18); },
+        kaminari() {
+            tierCommon('カミナリ', 'electric', '#7ab8ff'); S.play('thunder', 0.05, 1, true);
+            if (!calm()) for (let i = 0; i < 3; i++) later(() => P.lightning({ life: 0.35 }), i * 140);
+        },
+        aurora() { tierCommon('オーロラ', 'aurora', '#7dffc8'); S.play('choir', 0.05, 1, true); S.play('shimmer', 0.2, 0.8, true); P.confetti({ count: 80, colors: ['#7dffc8', '#9fa8ff', '#ff9ff0', '#ffffff'] }); },
+        ginga() {
+            tierCommon('ぎんが', 'navy', '#cfe3ff'); S.play('harp', 0.05, 1, true); S.play('kirakira', 0.6, 0.8, true);
+            const c = center(); P.stars({ x: c.x, y: c.y, r: c.r.width * 0.5, count: 30, colors: ['#ffffff', '#cfe3ff', '#ffe9a8'] });
+        },
+        hoshi() { tierCommon('星の雨', 'star', '#fff27a'); S.play('harp', 0.05, 1, true); S.play('twinkle', 0.5, 1, true); const c = center(); P.stars({ x: c.x, y: c.y, r: c.r.width * 0.5, count: 40 }); },
+        laser() {
+            tierCommon('レーザー', 'cyan', '#4df3ff'); S.play('lasers', 0.05, 1, true);
+            const c = center();
+            waves(3, i => ({ x: c.x, y: c.y, r0: 40, r1: Math.max(innerWidth, innerHeight), width: 12, color: ['#4df3ff', '#ff4df0', '#7dff6b'][i], life: 0.7 }));
+        },
+        hanabi() {
+            tierCommon('花火大会', 'night', '#ffb347'); S.play('whistle', 0, 1, true); S.play('taiko', 0.8, 1, true);
+            for (let i = 0; i < 6; i++) later(() => P.firework({ type: ['peony', 'ring', 'willow'][i % 3], trail: true }), 200 + i * 120);
+        },
+        houseki() { tierCommon('宝石', 'gem', '#ff9ff0'); S.play('glass', 0.05, 1, true); S.play('kirakira', 0.25, 1, true); const c = center(); P.gems({ x: c.x, y: c.r.top, count: 60 }); },
+        chouniji() {
+            spawn(fxl, 'niji-burst', null, 1300);
+            band('超にじドパ!!', 'rainbow');
+            later(() => band('超にじドパ!!', 'rainbow', true), 130);
+            telop('超にじドパ!!', 'niji', 1500);
+            stamp('確定');
+            S.play('gong', 0.05, 1, true);
+            S.kyuinKyuin(3);
+            S.fanfare(true, 0.3);
+            const c = center();
+            waves(5, i => ({ x: c.x, y: c.y, r0: 60, r1: Math.hypot(innerWidth, innerHeight) * 0.8, width: 20, color: WAVE[i + 2], life: 0.9 }));
+            P.confetti({ count: 200 });
+            P.coins({ count: 60 });
+            shake('m');
+        },
+        neon() { tierCommon('ネオン', 'neon', '#ff4df0'); S.play('synth', 0.05, 1, true); S.play('airhorn', 0.25, 1, true); P.confetti({ count: 80, colors: ['#ff4df0', '#4df3ff', '#ffffff', '#b48cff'] }); },
+        nova() {
+            tierCommon('スーパーノヴァ', 'nova', '#fff3b0'); S.play('boom', 0.05, 1, true);
+            const c = center();
+            waves(6, i => ({ x: c.x, y: c.y, r0: 30, r1: Math.hypot(innerWidth, innerHeight) * (0.5 + i * 0.12), width: 26 - i * 3, color: i % 2 ? '#ffffff' : '#ffd23f', life: 0.9 }));
+            P.coins({ count: 60 });
+        },
+        warp() { tierCommon('ワープ', 'warp', '#dff1ff'); S.play('warp', 0.05, 1, true); P.meteors(20); },
+        last() {
+            tierCommon('ラストスパート', 'red', '#ff4d6d');
+            S.play('buzzer', 0.05, 1, true); S.play('buzzer', 0.85, 1, true); S.play('alarm', 1.6, 1, true);
+            later(() => sub('あと10問で でんせつ!!', 'atsu'), 700);
+        },
+        legend() {
+            spawn(fxl, 'niji-burst', null, 1300);
+            band('でんせつ!!', 'gold');
+            later(() => band('でんせつ!!', 'rainbow', true), 140);
+            later(() => band('でんせつ!!', 'red'), 300);
+            telop('🏆でんせつの 九九マスター!!', 'hyaku', 2000);
+            stamp('伝説');
+            S.fanfare(true, 0.05);
+            S.play('bell', 0.1, 1, true);
+            S.play('gong', 0.5, 1, true);
+            S.play('crowd', 0.2, 1, true);
+            S.play('airhorn', 0.9, 1, true);
+            S.jara(0.3);
+            const c = center();
+            waves(6, i => ({ x: c.x, y: c.y, r0: 40, r1: Math.hypot(innerWidth, innerHeight) * 0.9, width: 22, color: WAVE[(i * 2) % 9], life: 0.9 }));
+            for (let i = 0; i < 8; i++) later(() => P.firework({ type: ['peony', 'ring', 'willow'][i % 3], trail: true, gold: i % 2 === 0 }), i * 130);
+            P.confetti({ count: 300 });
+            P.coins({ count: 150 });
+            P.gems({ count: 40 });
+            shake('m');
+        },
+    };
+
+    /** 200 より 先の 10問ごと（ぜんぶ のせ の みじかい 版） */
+    function kakuteiBig(e) {
+        spawn(fxl, 'niji-burst short', null, 900);
+        band(`${e.combo}れんぞく!!`, 'rainbow');
+        stamp('伝説');
+        S.kyuinKyuin(3);
+        S.fanfare(false, 0.15);
+        S.play('bell', 0.2, 0.8, true);
+        P.confetti({ count: 120 });
+        P.coins({ count: 50 });
+        for (let i = 0; i < 3; i++) later(() => P.firework({ type: ['ring', 'willow', 'peony'][i], trail: true }), i * 130);
+        telop(`${e.combo}れんぞく!`, 'niji short', 1000);
+    }
+
     function newRecord() {
         band('しんきろく!!', 'gold');
         telop('👑しんきろく!!', 'atsu', 1200, 7);
@@ -341,7 +499,7 @@
             S.kyuinKyuin(3);
             telop('にじドパ!!', 'niji', 1500);
             const r = qRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
-            for (let i = 0; i < 4; i++) later(() => P.shockwave({ x, y, r0: 60, r1: Math.max(innerWidth, innerHeight) * 1.2, width: 20, color: WAVE[i * 2 + 1], life: 0.9 }), i * 120);
+            waves(4, i => ({ x, y, r0: 60, r1: Math.max(innerWidth, innerHeight) * 1.2, width: 20, color: WAVE[i * 2 + 1], life: 0.9 }));
         }, 300);
         later(() => {
             shake('l');
@@ -351,20 +509,8 @@
             for (let i = 0; i < 4; i++) later(() => P.firework({ type: 'ring', hue: i * 90 }), i * 120);
             S.fanfare(true);
             S.jara(0.3);
+            S.play('crowd', 0.2, 0.8, true);
         }, 760);
-    }
-
-    /** 確定演出（60・70・80 …）：虹ドパの みじかい 版（0.8びょう） */
-    function kakutei(e) {
-        S.kyuinKyuin(3);
-        S.fanfare(false, 0.15);
-        spawn(fxl, 'niji-burst short', null, 900);
-        band(`${e.combo}れんぞく!!`, 'rainbow');
-        stamp('確定');
-        P.confetti({ count: 120 });
-        P.coins({ count: 40 });
-        P.firework({ type: 'ring' });
-        telop(`${e.combo}れんぞく!`, 'niji short', 1000);
     }
 
     /** 100れんぞく!!!（専用の 特大演出） */
@@ -379,6 +525,8 @@
         later(() => band('100れんぞく!!!', 'rainbow', true), 150);
         stamp('神');
         S.jara(0.2);
+        S.play('bell', 0.1, 1, true);
+        S.play('crowd', 0.3, 1, true);
         P.confetti({ count: 250, gold: true });
         P.confetti({ count: 200 });
         P.coins({ count: 120 });
@@ -390,18 +538,27 @@
        できごとを うけとる
        ===================================================================== */
     D.bus.on('correct', e => {
+        combo = e.combo;
+        if (e.combo % 10 === 0) S.prepare(e.combo);   /* あとの だんかいの 音を ちかづいてから 作る */
         sound(e);                                      /* 音は すぐ（できている 音を 流すだけ なので かるい） */
         afterPaint(() => {
             echo(e.answer, e.level);
             burst(e);
             words(e);
-            if (e.kakutei === 'niji') niji();
-            else if (e.kakutei === 'hyaku') hyaku();
-            else if (e.kakutei === 'kakutei') kakutei(e);
-            else if (BIG[e.combo]) BIG[e.combo]();
+            const t = L.tierAt(e.combo);
+            if (t) {
+                if (t.id === 'niji') niji();
+                else if (t.id === 'hyaku') hyaku();
+                else if (BIG[e.combo]) BIG[e.combo]();
+                else if (TIER_FX[t.id]) TIER_FX[t.id]();
+                else if (t.id === 'kakutei') kakuteiBig(e);
+                /* 20（ドパタイム）は レベルの かわりめで 出す */
+            }
+            if (e.combo >= 10) applyTier(e.combo);
+            if (e.combo === 100 || e.combo === 160) { S.bgmLevel(bgmLv()); syncBeat(); }
             /* しんきろく（さいこうが 5 いじょうの とき）。ほかの 大演出と かさなる ときは はんこ だけ */
             if (e.passBest && e.best >= 5) {
-                if (e.kakutei || BIG[e.combo] || e.combo === 20) stamp('新');
+                if (t) stamp('新');
                 else newRecord();
             }
         });
@@ -430,7 +587,7 @@
             reachEl.animate([{ transform: 'translateX(-50%) scale(1.3)' }, { transform: 'translateX(-50%) scale(1)' }], { duration: 400, easing: 'cubic-bezier(.2,1.6,.4,1)' });
         }
         reachEl.innerHTML = `<i>リーチ!</i>あと<b>${rc.left}</b>問で ${rc.label}`;
-        const quiet = combo != null && (BIG[combo] || combo === 20 || L.kakuteiOf(combo) || L.isMilestone(combo));
+        const quiet = combo != null && (L.tierAt(combo) || L.isMilestone(combo));
         /* はいった ときは サイレン ＋「リーチ!!」。のこり 1問に なったら 表示が 金わくに なり、心臓の 音が はやく なる */
         if (!was) {
             S.siren();
@@ -460,6 +617,9 @@
 
     function reset() {
         gen++;
+        combo = 0;
+        if (hudRank) hudRank.textContent = '';
+        stage.classList.remove('sc-aurora', 'sc-nova');
         clearTimers();
         watch(false);
         setReach(null);
@@ -495,6 +655,7 @@
             P.clear();
             tz.innerHTML = '';
             fxl.innerHTML = '';
+            stage.classList.remove('sc-aurora', 'sc-nova');
             setLevel(0);
         }, 330);
     });

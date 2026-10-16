@@ -1,4 +1,6 @@
-/* ドパ九九 ── 粒子エンジン（紙吹雪・星・花火・光の粒・メダル・衝撃波・火の粉）
+/* ドパ九九 ── 粒子エンジン（紙吹雪・星・花火・光の粒・メダル・衝撃波・火の粉・宝石・カミナリ）と 場面（シーン）
+   場面：流星群・ぎんが・王冠の きらめき・星の雨・レーザー・花火大会・ネオンの 床・ワープ・回転灯。
+   この canvas 1まいに 細い 線や 点で かくので かるい（広い 光の オーロラ・スーパーノヴァは CSS の 層。同時に 出す 場面の 数は effects.js が きめる）
    画面いっぱいの canvas 1まいに requestAnimationFrame で かきます。
    canvas は 問題・テンキーの「うしろ」に あるので、粒子が 問題に かさなる ことは ありません。
    同時に 出せるのは 800こ まで（スマホは 400こ）。粒子が ない ときは ループを 止めます。 */
@@ -17,6 +19,9 @@
     let timeScale = 1;        /* ゲームオーバーの スロー */
     let ambient = null;       /* つねに まう 光の粒（'ember' 火の粉 | 'gold' | 'rainbow'） */
     let ambientAcc = 0;
+    let scenes = [];          /* いま 出して いる 場面 */
+    let sceneT = 0;           /* 場面の 時計（びょう） */
+    const acc = {};           /* 場面ごとの 出す タイミング */
 
     const CONFETTI = ['#ff3b6b', '#ffb300', '#ffe14d', '#34d27b', '#29b6ff', '#7c5cff', '#ff5ce1', '#ffffff'];
     const GOLD = ['#fff4b0', '#ffe066', '#ffd23f', '#f5b700', '#e09a00', '#fffbe6'];
@@ -230,6 +235,159 @@
         }
     }
 
+    const GEMS = ['#ff4d8d', '#4de1ff', '#7dff6b', '#ffe14d', '#b48cff', '#ffffff'];
+
+    /** 宝石。x, y から ふきあげる（なければ 上から ふらせる） */
+    function gems(o) {
+        o = o || {};
+        const c = n(o.count || 16);
+        for (let i = 0; i < c; i++) {
+            const burst = o.x != null, a = rnd(-Math.PI * 0.9, -Math.PI * 0.1), sp = rnd(380, 820);
+            if (!add({
+                k: 'd', x: burst ? o.x + rnd(-30, 30) : rnd(0, W), y: burst ? o.y : rnd(-H * 0.4, -10),
+                vx: burst ? Math.cos(a) * sp : rnd(-30, 30), vy: burst ? Math.sin(a) * sp : rnd(120, 300),
+                g: 520, drag: 1.2, size: rnd(9, 16), rot: rnd(-0.4, 0.4), vr: rnd(-3, 3),
+                life: 0, max: rnd(1.4, 2.2), color: pick(GEMS),
+            })) break;
+        }
+    }
+
+    /** カミナリ。上の ふちから ギザギザに おりる（画面ぜんたいは 光らせない） */
+    function lightning(o) {
+        o = o || {};
+        const x0 = o.x != null ? o.x : rnd(W * 0.05, W * 0.95), y1 = o.y != null ? o.y : rnd(H * 0.35, H * 0.7);
+        const pts = [[x0, -10]];
+        const steps = 10;
+        let x = x0;
+        for (let i = 1; i <= steps; i++) {
+            x += rnd(-W * 0.035, W * 0.035);
+            pts.push([x, -10 + (y1 + 10) * i / steps]);
+        }
+        add({ k: 'z', x: 0, y: 0, vx: 0, vy: 0, g: 0, drag: 0, life: 0, max: o.life || 0.28, pts });
+    }
+
+    /** 流れ星を まとめて 出す */
+    function meteors(count) {
+        const c = n(count || 12);
+        for (let i = 0; i < c; i++) {
+            if (!add({
+                k: 'k', x: rnd(W * 0.2, W * 1.3), y: rnd(-H * 0.3, H * 0.25), vx: -rnd(800, 1200), vy: rnd(420, 640),
+                g: 0, drag: 0, size: rnd(18, 26), life: 0, max: rnd(0.8, 1.2), color: pick(['#ffffff', '#bfe6ff', '#fff3b0']), tr: true, tl: 0.16,
+            })) break;
+        }
+    }
+
+    /* ---------- 場面（シーン） ---------- */
+    /** 出す 場面を きめる（例：['ryusei', 'aurora']） */
+    function setScenes(list) {
+        scenes = (list || []).slice();
+        if (scenes.length) run();
+    }
+
+    /** 場面が 出す 粒（流星・星の雨・王冠の きらめき・花火大会） */
+    function spawnScenes(dt) {
+        const k = scale * budget;
+        const tick = (id, rate, fn) => {
+            acc[id] = (acc[id] || 0) + dt * rate * k;
+            while (acc[id] >= 1) { acc[id] -= 1; fn(); }
+        };
+        for (const id of scenes) {
+            if (id === 'ryusei') tick(id, 3, () => add({
+                k: 'k', x: rnd(W * 0.3, W * 1.2), y: rnd(-40, H * 0.3), vx: -rnd(700, 1000), vy: rnd(380, 560),
+                g: 0, drag: 0, size: rnd(16, 24), life: 0, max: rnd(0.7, 1.0), color: pick(['#ffffff', '#bfe6ff', '#fff3b0']), tr: true, tl: 0.14,
+            }));
+            else if (id === 'hoshi') tick(id, 4, () => add({
+                k: 's', x: rnd(0, W), y: -20, vx: rnd(-30, 30), vy: rnd(120, 220), g: 60, drag: 0, size: rnd(12, 22),
+                rot: rnd(0, 6.28), vr: rnd(-3, 3), life: 0, max: rnd(2.5, 3.5), color: pick(['#fff27a', '#ffd23f', '#ffb3e6', '#b3e5ff']),
+            }));
+            else if (id === 'crown') tick(id, 10, () => {
+                const side = Math.floor(Math.random() * 4);
+                const x = side === 1 ? W - 6 : side === 3 ? 6 : rnd(0, W), y = side === 0 ? 6 : side === 2 ? H - 6 : rnd(0, H);
+                add({ k: 'g', x, y, vx: rnd(-20, 20), vy: rnd(-20, 20), g: 0, drag: 0, size: rnd(14, 26), life: 0, max: rnd(0.6, 1.0), color: pick(GOLD), tw: 0 });
+            });
+            else if (id === 'hanabi') tick(id, 1.3, () => firework({ type: ['peony', 'ring', 'willow'][Math.floor(sceneT * 1.3) % 3], trail: true }));
+        }
+    }
+
+    /* 場面の 絵（線と 点だけ。粒の うしろに かく） */
+    const SEED = Array.from({ length: 90 }, (_, i) => [(Math.sin(i * 12.9898) * 43758.5453) % 1, (Math.sin(i * 78.233) * 12543.123) % 1].map(v => Math.abs(v)));
+    function drawScenes() {
+        const t = sceneT, d = dpr;
+        cx.setTransform(1, 0, 0, 1, 0, 0);
+        cx.globalCompositeOperation = 'lighter';
+        for (const id of scenes) {
+            if (id === 'ginga') {
+                /* ぎんが：まん中で まわる うずまきの 星 */
+                const R = Math.min(W, H) * 0.48, x0 = W / 2, y0 = H / 2;
+                for (let arm = 0; arm < 2; arm++) {
+                    for (let i = 0; i < 70; i++) {
+                        const a = i * 0.16 + t * 0.35 + arm * Math.PI, r = (i / 70) * R;
+                        cx.globalAlpha = 0.25 + 0.6 * (1 - i / 70);
+                        cx.fillStyle = i % 3 ? '#cfe3ff' : '#ffe9a8';
+                        const sz = (i % 5 ? 2 : 3.5) * d;
+                        cx.fillRect((x0 + Math.cos(a) * r) * d - sz / 2, (y0 + Math.sin(a) * r * 0.6) * d - sz / 2, sz, sz);
+                    }
+                }
+            } else if (id === 'laser') {
+                /* レーザー：下の 両すみから 色の 光線が ゆれる */
+                const L = Math.hypot(W, H);
+                for (let i = 0; i < 6; i++) {
+                    const left = i < 3, a = -Math.PI / 2 + (left ? 1 : -1) * (0.25 + 0.55 * (0.5 + 0.5 * Math.sin(t * (1.1 + i * 0.23) + i)));
+                    const x0 = left ? 0 : W, y0 = H;
+                    cx.strokeStyle = HUES[(i * 2 + Math.floor(t * 2)) % 12];
+                    cx.beginPath();
+                    cx.moveTo(x0 * d, y0 * d);
+                    cx.lineTo((x0 + Math.cos(a) * L) * d, (y0 + Math.sin(a) * L) * d);
+                    cx.globalAlpha = 0.2; cx.lineWidth = 8 * d; cx.stroke();
+                    cx.globalAlpha = 0.8; cx.lineWidth = 3 * d; cx.stroke();
+                }
+            } else if (id === 'neon') {
+                /* ネオンの 床：おくに むかって ながれる マス目 */
+                const y0 = H * 0.66, vx = W / 2;
+                cx.globalAlpha = 0.5;
+                cx.lineWidth = 2 * d;
+                cx.strokeStyle = '#ff4df0';
+                cx.beginPath();
+                for (let i = -10; i <= 10; i++) { cx.moveTo((vx + i * W * 0.02) * d, y0 * d); cx.lineTo((vx + i * W * 0.16) * d, H * d); }
+                cx.stroke();
+                cx.strokeStyle = '#4df3ff';
+                cx.beginPath();
+                for (let i = 0; i < 9; i++) {
+                    const k = ((i + (t * 1.2) % 1) / 9), y = y0 + (H - y0) * k * k;
+                    cx.moveTo(0, y * d); cx.lineTo(W * d, y * d);
+                }
+                cx.stroke();
+            } else if (id === 'warp') {
+                /* ワープ：まん中から 外へ とびだす 星の すじ */
+                const R = Math.hypot(W, H) * 0.6, x0 = W / 2, y0 = H / 2;
+                cx.strokeStyle = '#dff1ff';
+                cx.lineWidth = 2 * d;
+                cx.globalAlpha = 0.75;
+                cx.beginPath();
+                for (let i = 0; i < SEED.length; i++) {
+                    const ang = SEED[i][0] * Math.PI * 2, ph = (t * 0.9 + SEED[i][1]) % 1, r1 = ph * ph * R, r0 = r1 * 0.75;
+                    cx.moveTo((x0 + Math.cos(ang) * r0) * d, (y0 + Math.sin(ang) * r0) * d);
+                    cx.lineTo((x0 + Math.cos(ang) * r1) * d, (y0 + Math.sin(ang) * r1) * d);
+                }
+                cx.stroke();
+            } else if (id === 'last') {
+                /* 回転灯：上の 両すみで 赤い 光が まわる */
+                const L = Math.hypot(W, H) * 0.7;
+                for (let i = 0; i < 2; i++) {
+                    const x0 = i ? W : 0, a = t * 3.2 + i * Math.PI;
+                    cx.strokeStyle = '#ff2438';
+                    cx.beginPath();
+                    cx.moveTo(x0 * d, 0);
+                    cx.lineTo((x0 + Math.cos(a) * L) * d, Math.abs(Math.sin(a)) * L * d);
+                    cx.globalAlpha = 0.18; cx.lineWidth = 26 * d; cx.stroke();
+                    cx.globalAlpha = 0.5; cx.lineWidth = 6 * d; cx.stroke();
+                }
+            }
+        }
+        cx.globalAlpha = 1;
+        cx.globalCompositeOperation = 'source-over';
+    }
+
     /* ---------- うごかす・かく ---------- */
     function run() {
         if (raf || !cv) return;
@@ -242,6 +400,8 @@
         const dt = Math.min(0.05, (t - last) / 1000) * timeScale;
         last = t;
         if (ambient) spawnAmbient(dt);
+        sceneT += dt;
+        if (scenes.length) spawnScenes(dt);
 
         const next = [];
         for (const p of list) {
@@ -270,12 +430,13 @@
         list = next;
         draw();
 
-        raf = list.length || ambient ? requestAnimationFrame(frame) : 0;
+        raf = list.length || ambient || scenes.length ? requestAnimationFrame(frame) : 0;
     }
 
     function draw() {
         cx.setTransform(1, 0, 0, 1, 0, 0);
         cx.clearRect(0, 0, cv.width, cv.height);
+        if (scenes.length) drawScenes();
         const star = starPath();
         for (const p of list) {
             const fade = p.k === 'c' || p.k === 'm' ? Math.min(1, (p.max - p.life) * 2.5) : 1 - p.life / p.max;
@@ -296,6 +457,30 @@
                 cx.beginPath();
                 cx.arc(dpr * p.x, dpr * p.y, r * dpr, 0, Math.PI * 2);
                 cx.stroke();
+            } else if (p.k === 'z') {
+                /* カミナリ：ギザギザの 線（太い うすい 線 ＋ 細い しろい 線） */
+                cx.globalCompositeOperation = 'lighter';
+                cx.setTransform(1, 0, 0, 1, 0, 0);
+                cx.beginPath();
+                p.pts.forEach(([x, y], i) => (i ? cx.lineTo(dpr * x, dpr * y) : cx.moveTo(dpr * x, dpr * y)));
+                cx.globalAlpha = fade * 0.45;
+                cx.strokeStyle = '#7ab8ff';
+                cx.lineWidth = 12 * dpr;
+                cx.stroke();
+                cx.globalAlpha = fade;
+                cx.strokeStyle = '#ffffff';
+                cx.lineWidth = 3 * dpr;
+                cx.stroke();
+            } else if (p.k === 'd') {
+                /* 宝石：ひしがた ＋ しろい ひかり */
+                const c = Math.cos(p.rot) * p.size * dpr, sn = Math.sin(p.rot) * p.size * dpr;
+                cx.globalCompositeOperation = 'source-over';
+                cx.globalAlpha = Math.min(1, fade * 1.5) * (0.7 + 0.3 * Math.sin(p.life * 12));
+                cx.setTransform(c, sn, -sn, c, dpr * p.x, dpr * p.y);
+                cx.fillStyle = p.color;
+                cx.beginPath(); cx.moveTo(0, -1); cx.lineTo(0.62, 0); cx.lineTo(0, 1); cx.lineTo(-0.62, 0); cx.closePath(); cx.fill();
+                cx.fillStyle = 'rgba(255,255,255,.8)';
+                cx.beginPath(); cx.moveTo(0, -1); cx.lineTo(0.25, -0.2); cx.lineTo(-0.2, -0.1); cx.closePath(); cx.fill();
             } else if (p.k === 'c') {
                 const c = Math.cos(p.rot), s = Math.sin(p.rot), f = Math.cos(p.fl);
                 cx.globalCompositeOperation = 'source-over';
@@ -324,7 +509,8 @@
                     cx.strokeStyle = p.color;
                     cx.lineWidth = 2.2 * dpr;
                     cx.beginPath();
-                    cx.moveTo(dpr * (p.x - p.vx * 0.06), dpr * (p.y - p.vy * 0.06));
+                    const tl = p.tl || 0.06;
+                    cx.moveTo(dpr * (p.x - p.vx * tl), dpr * (p.y - p.vy * tl));
                     cx.lineTo(dpr * p.x, dpr * p.y);
                     cx.stroke();
                 }
@@ -339,6 +525,7 @@
     function clear() {
         list = [];
         ambient = null;
+        scenes = [];
         if (cx) {
             cx.setTransform(1, 0, 0, 1, 0, 0);
             cx.clearRect(0, 0, cv.width, cv.height);
@@ -346,7 +533,7 @@
     }
 
     root.DopaParticles = {
-        init, resize, confetti, stars, firework, coins, shockwave, setAmbient, clear,
+        init, resize, confetti, stars, firework, coins, shockwave, gems, lightning, meteors, setAmbient, setScenes, clear,
         setScale(k) { scale = k; },
         setBudget(k) { budget = k; limit = Math.round(LIMIT * k); },
         setTimeScale(k) { timeScale = k; },
