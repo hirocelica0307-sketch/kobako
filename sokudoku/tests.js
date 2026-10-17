@@ -1,11 +1,19 @@
 /* 速読ラボ ── 自動テスト
    node tests.js でも、tests.html をブラウザで開いても動きます。
-   画面を使わない処理（logic.js）と、練習用の文章（texts.js）を確かめます。 */
+   画面を使わない処理（logic.js）と、入っている文章（texts/catalog.js と texts/*.txt）を確かめます。 */
 (function (root) {
     'use strict';
-    if (!root.SokuLogic && typeof require === 'function') { require('./logic.js'); require('./texts.js'); }
+    const NODE = typeof require === 'function' && typeof window === 'undefined';
+    if (NODE) { require('./logic.js'); require('./texts/catalog.js'); }
     const L = root.SokuLogic;
-    const TEXTS = root.SokuTexts.TEXTS;
+    const CATALOG = root.SokuCatalog;
+
+    /** 文章ファイルを読む（node は fs、ブラウザは fetch） */
+    async function readText(id) {
+        if (NODE) return require('fs').readFileSync(require('path').join(__dirname, 'texts', id + '.txt'), 'utf8');
+        const r = await fetch('texts/' + id + '.txt');
+        return r.text();
+    }
 
     const chunksOf = s => L.chunkLine(s).map(c => c.map(u => u.t).join(''));
 
@@ -89,14 +97,16 @@
         const long = 'それはまったくもってどうしようもないことだったのかもしれないとおもった。';
         const c5 = chunksOf(long);
         t('chunkLine：長いひらがなの並びも短く分ける（文字は1つも失わない）', c5.length >= 3 && c5.join('') === long, c5.join('|'));
-        const all = TEXTS.map(x => x.body).join('\n');
+        const FILES = {};
+        for (const w of CATALOG) FILES[w.id] = L.parseTextFile(await readText(w.id));
+        const all = CATALOG.filter(w => w.mode !== 'long').flatMap(w => FILES[w.id].sections).join('\n');
         const lay = L.layout(all);
         const joined = lay.map(p => p.chunks.map(c => c.units.map(u => u.t).join('')).join('')).join('\n');
-        t('layout：オリジナル全文で、区切ったあとも文字がそのまま', joined === L.plainText(all).split('\n').map(l => (l.trim() ? l : '')).join('\n'));
+        t('layout：練習用の全文で、区切ったあとも文字がそのまま', joined === L.plainText(all).split('\n').map(l => (l.trim() ? l : '')).join('\n'));
         const lensSum = lay.reduce((s, p) => s + p.chunks.reduce((a, c) => a + c.len, 0), 0);
         t('layout：まとまりの文字数の合計 ＝ countChars', lensSum === L.countChars(all), lensSum + ' / ' + L.countChars(all));
         const maxChunk = Math.max(...lay.flatMap(p => p.chunks.map(c => c.len)));
-        t('layout：オリジナル全文で、いちばん長いまとまりも16字以下', maxChunk <= 16, String(maxChunk));
+        t('layout：練習用の全文で、いちばん長いまとまりも16字以下', maxChunk <= 16, String(maxChunk));
 
         /* ---------- 青空文庫 ---------- */
         const a = L.cleanAozora(AOZORA);
@@ -164,6 +174,8 @@
         ];
         t('baseline：速さチェックとくり返し1回めの中央値（ペース・要点は入れない）', L.baseline(recs) === 450, String(L.baseline(recs)));
         t('baseline：記録なし → null', L.baseline([]) === null);
+        t('baseline：読んだことのある文章（reread）と色づけの回（guided）は入れない', L.baseline([{ mode: 'check', cpm: 500 }, { mode: 'check', cpm: 2000, reread: true }, { mode: 'check', cpm: 900, guided: true }]) === 500);
+        t('baseline：色づけの回しか無いときはそれを使う', L.baseline([{ mode: 'check', cpm: 700, guided: true }]) === 700);
 
         /* ---------- 問題 ---------- */
         let seed = 7;
@@ -172,25 +184,42 @@
         const sq = L.shuffleQuestion(q, rng);
         t('shuffleQuestion：並べかえても正解の中身は同じ', sq.choices[sq.answer] === '正' && sq.choices.length === 4);
 
-        /* ---------- 練習用の文章 ---------- */
+        /* ---------- 入っている文章 ---------- */
         const ids = new Set();
-        let bad = [];
-        for (const x of TEXTS) {
-            if (ids.has(x.id)) bad.push(x.id + ' id がかぶる');
-            ids.add(x.id);
-            if (!x.title || !x.body || ![1, 2, 3].includes(x.level)) bad.push(x.id + ' 題名・本文・level');
-            if (x.questions.length < 4) bad.push(x.id + ' 問題が4問より少ない');
-            if (!x.questions.some(q => q.type === 'main')) bad.push(x.id + ' 要点の問題がない');
-            for (const q of x.questions) {
-                if (q.choices.length !== 4) bad.push(x.id + ' 選択肢が4つでない');
-                if (!(q.answer >= 0 && q.answer < q.choices.length)) bad.push(x.id + ' answer の番号');
-                if (!['main', 'detail', 'infer'].includes(q.type)) bad.push(x.id + ' type');
-                if (new Set(q.choices).size !== q.choices.length) bad.push(x.id + ' 同じ選択肢');
-            }
-            const n = L.countChars(x.body);
-            if (n < 600 || n > 1400) bad.push(x.id + ' 字数 ' + n);
+        const bad = [];
+        for (const w of CATALOG) {
+            if (ids.has(w.id)) bad.push(w.id + ' id がかぶる');
+            ids.add(w.id);
+            const f = FILES[w.id];
+            const why = L.checkTextFile(f);
+            if (why.length) bad.push(w.id + ' ' + why.join('・'));
+            if (f.sections.length !== w.secs.length || f.sections.some((x, i) => L.countChars(x) !== w.secs[i])) bad.push(w.id + ' 目録の区間と本文がちがう（node tools/build-catalog.js を実行）');
+            if (w.mode !== 'long' && f.questions.some(qs => qs.length < 3)) bad.push(w.id + ' 問題が足りない区間がある');
+            if (w.source === '青空文庫' && !f.credit.startsWith('底本')) bad.push(w.id + ' 底本の情報が無い');
+            if (/〓/.test(f.sections.join(''))) bad.push(w.id + ' 字の出ない外字（〓）がある');
+            if (/［＃|《》/.test(f.sections.join(''))) bad.push(w.id + ' 注記が残っている');
         }
-        t('練習用の文章：' + TEXTS.length + '本・形が正しい（4問以上・4択・要点の問題あり・600〜1400字）', !bad.length && TEXTS.length >= 8, bad.join(' / '));
+        const modes = ['check', 'pace', 'repeat', 'skim'];
+        const per = modes.map(m => CATALOG.filter(w => w.mode === m).reduce((n, w) => n + w.secs.length, 0));
+        t('入っている文章：' + CATALOG.length + '作品・形が正しい（問題3問以上・4択・正解あり・要点の問題あり・目録と一致・底本あり）', !bad.length, bad.slice(0, 8).join(' / '));
+        t('練習ごとの文章：どの練習にも20区間以上（' + modes.map((m, i) => m + ' ' + per[i]).join('・') + '）', per.every(n => n >= 20));
+        t('練習ごとの文章：ひとつの作品は1つの練習だけに入っている', CATALOG.every(w => ['check', 'pace', 'repeat', 'skim', 'long'].includes(w.mode)));
+        t('長編：人間失格・こころ・坊っちゃん・銀河鉄道の夜が入っている', ['l-ningen', 'l-kokoro', 'l-bocchan', 'l-ginga'].every(id => ids.has(id)));
+        t('名作：走れメロス・蜘蛛の糸・山月記・黒猫（ポー）が問題つきで入っている', ['c-melos', 'c-kumo', 'c-sangetsu', 'c-kuroneko'].every(id => ids.has(id) && FILES[id].questions.every(q => q.length >= 3)));
+        if (NODE) {
+            const { buildCatalog } = require('./tools/build-catalog.js');
+            t('目録 texts/catalog.js が texts/*.txt と一致（ずれていたら node tools/build-catalog.js）', JSON.stringify(buildCatalog()) === JSON.stringify(CATALOG));
+        }
+
+        /* ---------- 文章ファイルの読みとり ---------- */
+        const sample = ['title: 例', 'author: だれか', 'level: 2', 'mode: check', '@@本文', '　一つめ。', '@@区切り', '　二つめ。',
+            '@@問題', '[1]', 'Q main 問い一', '- ちがう', '+ 正しい', '- ちがう二', '- ちがう三', '[2]', 'Q detail 問い二', '+ あ', '- い', '- う', '- え', '@@底本', '底本：テスト'].join('\n');
+        const ps = L.parseTextFile(sample);
+        t('parseTextFile：題名・区間・問題・正解の番号・底本', ps.meta.title === '例' && ps.meta.level === 2 && ps.sections.length === 2 && ps.sections[1] === '　二つめ。'
+            && ps.questions[0][0].answer === 1 && ps.questions[0][0].type === 'main' && ps.questions[1][0].choices.length === 4 && ps.credit === '底本：テスト', JSON.stringify(ps).slice(0, 200));
+        t('checkTextFile：問題が3問より少ないと知らせる', L.checkTextFile(ps).some(x => /3問/.test(x)));
+        const ca = L.cleanAozora(['黒い猫', 'THE CAT', 'だれか作者　Someone', 'だれか訳', '', '-------------------------------------------------------', '【テキスト中に現れる記号について】', '-------------------------------------------------------', '本文。', '', '底本：x'].join('\n'));
+        t('cleanAozora：訳者の行を分け、英語の題名と著者の英語名を外す', ca.title === '黒い猫' && ca.author === 'だれか作者' && ca.translator === 'だれか訳', JSON.stringify([ca.title, ca.author, ca.translator]));
 
         /* ---------- 表示 ---------- */
         t('fmtTime：65秒 → 1分05秒・42秒', L.fmtTime(65000) === '1分05秒' && L.fmtTime(42000) === '42秒');

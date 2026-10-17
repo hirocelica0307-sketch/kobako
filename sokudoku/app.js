@@ -1,10 +1,10 @@
 /* 速読ラボ ── 画面の動き
-   画面を使わない処理は logic.js（SokuLogic）、練習用の文章は texts.js（SokuTexts）にあります。
+   画面を使わない処理は logic.js（SokuLogic）、入っている文章の目録は texts/catalog.js（SokuCatalog）、
+   本文と問題は texts/<id>.txt にあります。
    保存先はこのブラウザの localStorage だけ（サーバーなし）。 */
 (function () {
     'use strict';
     const L = window.SokuLogic;
-    const ORIGINAL = window.SokuTexts.TEXTS;
     const $ = id => document.getElementById(id);
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -20,6 +20,7 @@
     const DEFAULTS = {
         fontSize: 19, lineHeight: 1.9, font: 'gothic', vertical: false, sep: 'none', ruby: true,
         theme: 'auto', guide: 'hl', pace: null, showTimer: true, rest: 20, sectionSize: 2000,
+        guideIn: { check: false, repeat: false, skim: false }, // ペース読み以外でも色づけを使うか
     };
     let settings = Object.assign({}, DEFAULTS, load(KEY.set, {}));
     let records = load(KEY.rec, []);
@@ -30,12 +31,13 @@
 
     /* ---------- モード ---------- */
     const MODES = {
-        check: { name: '速さチェック', desc: 'ふだんどおりに読んで、今の速さと理解度を測る' },
-        pace: { name: 'ペース読み', desc: '読む場所の色づけに合わせて、少し速いペースで読む' },
-        repeat: { name: 'くり返し読み', desc: '同じ文章を3回読んで、なめらかに読めるようにする' },
-        skim: { name: '要点読み', desc: 'ふだんの40%の時間で、要点だけをつかむ' },
+        check: { name: '速さチェック', ic: 'gauge', desc: 'ふだんどおりに読んで、今の速さと理解度を測る' },
+        pace: { name: 'ペース読み', ic: 'highlighter', desc: '読む場所の色づけに合わせて、少し速いペースで読む' },
+        repeat: { name: 'くり返し読み', ic: 'repeat', desc: '同じ文章を3回読んで、なめらかに読めるようにする' },
+        skim: { name: '要点読み', ic: 'list-magnifying-glass', desc: 'ふだんの40%の時間で、要点だけをつかむ' },
     };
     const REPEAT_ROUNDS = 3;
+    const IC = name => window.SokuIcons ? SokuIcons.ic(name) : '';
 
     const baseline = () => L.baseline(records);
     const currentPace = () => settings.pace || L.startPace(baseline());
@@ -122,9 +124,10 @@
         $('homeStats').innerHTML = html;
         const rec = !records.length ? 'check' : null;
         $('modeList').innerHTML = Object.entries(MODES).map(([k, m]) => {
-            let extra = '';
-            if (k === 'pace') extra = `<span>目標 ${currentPace()} 字/分</span>`;
-            return `<button class="mode${rec === k ? ' rec' : ''}" data-mode="${k}"><b>${m.name}${rec === k ? '<em class="tag">はじめに</em>' : ''}</b><span>${m.desc}</span>${extra}<i>›</i></button>`;
+            const st = poolStat(k);
+            let extra = `<span class="pool">専用の文章 ${st.all}区間・まだ読んでいない ${st.unread}区間</span>`;
+            if (k === 'pace') extra += `<span>目標 ${currentPace()} 字/分</span>`;
+            return `<button class="mode${rec === k ? ' first' : ''}" data-mode="${k}">${IC(m.ic)}<b>${m.name}${rec === k ? '<em class="tag">はじめに</em>' : ''}</b><span>${m.desc}</span>${extra}<i>${IC('caret-right')}</i></button>`;
         }).join('');
     }
     $('modeList').addEventListener('click', e => {
@@ -132,18 +135,59 @@
         if (b) openPick(b.dataset.mode);
     });
 
+    /* ---------- 入っている文章 ---------- */
+    // 目録（texts/catalog.js）には一覧に出すことだけがある。本文と問題は読むときに texts/<id>.txt から読む
+    const CATALOG = window.SokuCatalog || [];
+    const workById = id => CATALOG.find(w => w.id === id);
+    const textCache = {};
+    async function loadText(id) {
+        if (textCache[id]) return textCache[id];
+        const res = await fetch(`texts/${id}.txt`);
+        if (!res.ok) throw new Error('文章を読みこめませんでした（' + res.status + '）');
+        const t = L.parseTextFile(await res.text());
+        textCache[id] = t;
+        return t;
+    }
+
+    /* ---------- 読んだ区間の記録 ---------- */
+    // seen：{ "作品id#区間番号": { m: 練習の種類, ts: 時刻 } }。前の版の { 作品id: 回数 } は #0 として読む
+    function loadSeen() {
+        const s = load(KEY.seen, {});
+        for (const k of Object.keys(s)) if (!k.includes('#')) { s[k + '#0'] = { m: 'check', ts: 0 }; delete s[k]; }
+        return s;
+    }
+    let seenMap = loadSeen();
+    const isSeen = (id, sec) => !!seenMap[id + '#' + sec];
+    function markSeen(id, sec, mode) { seenMap[id + '#' + sec] = { m: mode, ts: Date.now() }; save(KEY.seen, seenMap); }
+    const readCount = w => w.secs.reduce((n, _, i) => n + (isSeen(w.id, i) ? 1 : 0), 0);
+    const nextUnread = w => w.secs.findIndex((_, i) => !isSeen(w.id, i));
+    const poolOf = mode => CATALOG.filter(w => w.mode === mode);
+    function poolStat(mode) {
+        let all = 0, unread = 0;
+        for (const w of poolOf(mode)) { all += w.secs.length; unread += w.secs.length - readCount(w); }
+        return { all, unread };
+    }
+    /** その練習の文章のうち、まだ読んでいない区間を順に1つ（読みかけの作品があればその続き） */
+    function nextNew(mode) {
+        const pool = poolOf(mode);
+        const started = pool.find(w => readCount(w) > 0 && nextUnread(w) >= 0);
+        const w = started || pool.find(w => nextUnread(w) >= 0);
+        return w ? { work: w, sec: nextUnread(w) } : null;
+    }
+
     /* ---------- 文章をえらぶ ---------- */
-    let pickMode = 'check', pickTab = 'orig';
-    const seen = () => load(KEY.seen, {});
-    function markSeen(id) { const s = seen(); s[id] = (s[id] || 0) + 1; save(KEY.seen, s); }
+    let pickMode = 'check', pickTab = 'pool', pickKind = 'all';
     const PICK_NOTE = {
-        check: '速さを正しく測るには、まだ読んだことのない文章がおすすめです。',
+        check: '速さを正しく測るために、この練習には、ほかの練習では出てこない専用の文章が入っています。',
         pace: '色づけが文節ごとに進みます。おくれても大丈夫。前に戻りたいときは文字をタップします。',
-        repeat: '同じ文章を3回読みます。1回めはふつうに、2回め・3回めは少しなめらかに。',
-        skim: '時間内に全体へ目を通し、要点だけをつかみます。確認問題は要点の問題だけです。',
+        repeat: '同じ文章を3回読みます。この練習専用の文章です。',
+        skim: '時間内に全体へ目を通し、要点だけをつかみます。この練習専用の文章です。',
     };
+    const KINDS = [['all', 'すべて'], ['小説', '小説'], ['説明文', '説明文・随筆'], ['名作', '日本の名作'], ['海外名作', '海外の名作']];
+    const kindOf = w => (w.kind === '随筆' ? '説明文' : w.kind);
     function openPick(mode) {
         pickMode = mode;
+        if (pickTab !== 'long' && pickTab !== 'user') pickTab = 'pool';
         $('pickTitle').textContent = MODES[mode].name;
         $('pickNote').textContent = PICK_NOTE[mode];
         renderPick();
@@ -157,20 +201,44 @@
     });
     const stars = n => '★'.repeat(n) + '☆'.repeat(3 - n);
     const LEVEL = { 1: 'やさしめ', 2: 'ふつう', 3: 'むずかしめ' };
+    const byLine = w => [w.author, w.translator, w.style ? '' : ''].filter(Boolean).join('・');
+
+    /** 作品の行：区間ボタンつき */
+    function workItem(w) {
+        const n = w.secs.reduce((a, b) => a + b, 0);
+        const done = readCount(w), next = nextUnread(w);
+        const meta = [
+            byLine(w) ? `<span>${esc(byLine(w))}</span>` : '',
+            w.style ? `<span class="sty">${esc(w.style.replace('の書きぶりをまねたオリジナル', 'の書きぶりで（オリジナル）'))}</span>` : '',
+            `<span>${stars(w.level)}</span>`,
+            `<span>${n}字${w.secs.length > 1 ? `・${w.secs.length}区間` : ''}</span>`,
+            done ? `<span class="done">${done === w.secs.length ? '読了' : `${done}/${w.secs.length}区間 読んだ`}</span>` : '',
+        ].join('');
+        const secs = w.secs.length > 1
+            ? `<div class="secs">${w.secs.map((c, i) => `<button data-w="${w.id}" data-sec="${i}" class="${isSeen(w.id, i) ? 'read' : ''}${i === next ? ' next' : ''}" title="${c}字">${i + 1}</button>`).join('')}</div>`
+            : '';
+        return `<div class="item${done === w.secs.length ? ' all-read' : ''}"><button class="item-main" data-w="${w.id}"><span class="kind">${esc(w.kind)}</span><h3>${esc(w.title)}</h3><div class="meta">${meta}</div></button>${secs}</div>`;
+    }
+
     function renderPick() {
         document.querySelectorAll('#pickTabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === pickTab));
-        const s = seen();
         let html = '';
-        if (pickTab === 'orig') {
-            html = ORIGINAL.map(t => {
-                const n = L.countChars(t.body);
-                const last = [...records].reverse().find(r => r.textId === t.id);
-                return `<button class="item" data-orig="${t.id}"><h3>${esc(t.title)}</h3>
-                    <div class="meta"><span>${stars(t.level)} ${LEVEL[t.level]}</span><span>${t.genre}</span><span>${n}字</span>
-                    ${s[t.id] ? `<span class="done">読んだことあり${last ? `（前回 ${last.cpm}字/分）` : ''}</span>` : ''}</div></button>`;
-            }).join('');
+        if (pickTab === 'pool') {
+            const st = poolStat(pickMode);
+            const nx = nextNew(pickMode);
+            html += `<div class="card new-card"><div><b>${st.unread}</b><span> / ${st.all}区間がまだ読んでいない文章</span></div>
+                ${nx ? `<button class="big-btn" id="pickNew">新しい文章で始める</button><p class="note small">次は「${esc(nx.work.title)}」${nx.work.secs.length > 1 ? `の${nx.sec + 1}区間め` : ''}（${nx.work.secs[nx.sec]}字）</p>`
+                    : '<p class="note">この練習の文章はすべて読みました。もう一度読むこともできますが、内容を覚えているため、速さと理解度は参考の記録になります。「長編」や「自分の文章」も使えます。</p>'}</div>
+                <div class="chips" id="pickKinds">${KINDS.map(([k, n]) => `<button data-kind="${k}" class="${pickKind === k ? 'on' : ''}">${n}</button>`).join('')}</div>`;
+            const list = poolOf(pickMode).filter(w => pickKind === 'all' || kindOf(w) === pickKind);
+            const unread = list.filter(w => readCount(w) < w.secs.length), read = list.filter(w => readCount(w) === w.secs.length);
+            html += unread.map(workItem).join('') || '<div class="empty">この種類の、まだ読んでいない文章はありません</div>';
+            if (read.length) html += `<details class="read-box"><summary>読み終えた文章（${read.length}）</summary>${read.map(workItem).join('')}</details>`;
+        } else if (pickTab === 'long') {
+            html += `<p class="note">青空文庫の長い作品を、約3000字ずつの区間に分けて読みます。どの練習からでも読めます（確認問題はなく、思い出しチェックをします）。読んだ区間は、ほかの練習でも「読んだ」になります。</p>`;
+            html += poolOf('long').map(workItem).join('');
         } else if (!userTexts.length) {
-            html = `<div class="empty">まだありません。<br>ホームの「文章を追加・管理」から、青空文庫の作品や自分の文章を読みこめます。</div>
+            html = `<div class="empty">まだありません。<br>ホームの「文章を追加・管理」から、青空文庫のファイルや自分の文章を読みこめます。</div>
                 <button class="big-btn sub" data-go="library">文章を追加する</button>`;
         } else {
             html = userTexts.map(t => {
@@ -186,32 +254,66 @@
         $('pickList').innerHTML = html;
     }
     $('pickList').addEventListener('click', e => {
-        const o = e.target.closest('[data-orig]');
-        if (o) {
-            const t = ORIGINAL.find(x => x.id === o.dataset.orig);
-            return startSession(pickMode, { id: t.id, title: t.title, body: t.body, questions: t.questions, source: 'orig' });
+        if (e.target.closest('#pickNew')) {
+            const nx = nextNew(pickMode);
+            if (nx) startWork(pickMode, nx.work, nx.sec);
+            return;
+        }
+        const k = e.target.closest('[data-kind]');
+        if (k) { pickKind = k.dataset.kind; renderPick(); return; }
+        const b = e.target.closest('[data-w]');
+        if (b) {
+            const w = workById(b.dataset.w);
+            let sec = b.dataset.sec != null ? +b.dataset.sec : nextUnread(w);
+            if (sec < 0) sec = 0;
+            if (isSeen(w.id, sec) && !confirm('読んだことのある区間です。内容を覚えているので、速さと理解度は参考の記録になります（ふだんの速さには入れません）。読みますか？')) return;
+            startWork(pickMode, w, sec);
+            return;
         }
         const u = e.target.closest('[data-user]');
         if (u) {
             const t = userTexts.find(x => x.id === u.dataset.user);
             const i = +u.dataset.sec;
-            const multi = t.sections.length > 1;
-            startSession(pickMode, {
-                id: t.id + (multi ? '#' + i : ''), userId: t.id, sec: i, secCount: t.sections.length,
-                title: t.title + (multi ? `（${i + 1}/${t.sections.length}）` : ''), author: t.author,
-                body: t.sections[i], questions: null, source: t.source,
-            });
+            startSession(pickMode, userSection(t, i));
         }
     });
+    const userSection = (t, i) => ({
+        id: t.id, sec: i, secCount: t.sections.length, userId: t.id,
+        title: t.title + (t.sections.length > 1 ? `（${i + 1}/${t.sections.length}）` : ''), author: t.author,
+        body: t.sections[i], questions: null, source: t.source, credit: t.credit,
+    });
+
+    /** 入っている作品の1区間で練習を始める（本文を読みこんでから） */
+    async function startWork(mode, w, sec) {
+        let t;
+        try { t = await loadText(w.id); } catch (err) { toast(navigator.onLine === false ? 'インターネットにつながっていないため、まだ読んでいない文章を開けません' : err.message); return; }
+        const multi = t.sections.length > 1;
+        const qs = t.questions[sec] && t.questions[sec].length ? t.questions[sec] : null;
+        startSession(mode, {
+            id: w.id, sec, secCount: t.sections.length, work: w,
+            title: w.title + (multi ? `（${sec + 1}/${t.sections.length}）` : ''),
+            author: [w.author, w.translator].filter(Boolean).join('・'),
+            body: t.sections[sec], questions: qs, source: w.source, credit: t.credit, style: w.style,
+        });
+    }
 
     /* ---------- 練習の流れ ---------- */
-    let S = null; // いまの練習 { mode, text, chars, round, rounds:[ms], answers, ... }
+    let S = null; // いまの練習 { mode, text, chars, round, rounds:[ms], guide, pace, answers, ... }
 
     function startSession(mode, text) {
-        S = { mode, text, chars: L.countChars(text.body), round: 1, rounds: [], pace: currentPace() };
-        if (mode === 'skim') S.limit = L.skimLimitMs(S.chars, baseline());
+        S = {
+            mode, text, chars: L.countChars(text.body), round: 1, rounds: [], pace: currentPace(),
+            reread: isSeen(text.id, text.sec),
+            guide: mode === 'pace' || !!(settings.guideIn && settings.guideIn[mode]),
+        };
+        if (mode === 'skim') {
+            S.limit = L.skimLimitMs(S.chars, baseline());
+            S.skimPace = L.clampPace(S.chars / (S.limit / 60000));
+        }
         openReader();
     }
+    /** 色づけの速さ（要点読みは制限時間に合わせる） */
+    const guidePace = () => (S.mode === 'skim' ? S.skimPace : S.pace);
 
     /* ---------- 読む画面 ---------- */
     const reader = $('reader'), page = $('page');
@@ -222,23 +324,36 @@
     let sessionReadMs = 0; // この画面を開いてから読んだ時間（休けいの合図用）
 
     function openReader() {
-        const isPace = S.mode === 'pace';
-        pageClasses(page, !isPace);
+        pageClasses(page, !S.guide);
         reader.classList.toggle('vertical', settings.vertical);
         lens = renderText(page, S.text.body, S.round === 1 ? { title: S.text.title, author: S.text.author } : { title: S.text.title });
         chunkEls = Array.from(page.querySelectorAll('.c'));
-        times = L.schedule(lens, S.pace);
+        times = L.schedule(lens, guidePace());
         activeMs = 0; pacerMs = 0; curIdx = -1; running = false;
         $('readInfo').textContent = MODES[S.mode].name + (S.mode === 'repeat' ? `　${S.round}/${REPEAT_ROUNDS}回め` : '');
         $('readClock').textContent = '';
         $('skimBar').hidden = S.mode !== 'skim';
         if (S.mode === 'skim') $('skimBar').firstElementChild.style.transform = 'scaleX(1)';
-        reader.scrollTop = 0;
-        reader.scrollLeft = 0;
         renderCtrl();
         showCover();
         show('read');
-        if (settings.vertical) requestAnimationFrame(() => { reader.scrollLeft = 0; });
+        // 画面を出してから先頭へ（かくれている間は位置を変えられない）
+        reader.scrollTop = 0;
+        reader.scrollLeft = 0;
+        requestAnimationFrame(() => { reader.scrollTop = 0; reader.scrollLeft = 0; });
+    }
+
+    /** スタート前の案内にのせる「色づけ」の切りかえ（ペース読み以外） */
+    function guideBox() {
+        if (S.mode === 'pace' || S.round > 1) return '';
+        const on = S.guide;
+        let detail = '';
+        if (on && S.mode === 'skim') detail = `<p class="note small">制限時間に合わせて <b>${S.skimPace}字/分</b> で進みます。</p>`;
+        else if (on) {
+            detail = `<div class="pace-big"><button class="round-btn" data-pace="-20">−</button><b id="coverPace">${S.pace}<small> 字/分</small></b><button class="round-btn" data-pace="20">＋</button></div>`;
+            if (S.mode === 'check') detail += '<p class="note small">色づけを使うと、測る速さは色づけの速さに近くなります。この回は「ふだんの速さ」には入れません。</p>';
+        }
+        return `<div class="guide-box"><div class="set"><span>読む場所の色づけ</span><div class="seg" id="guideSeg"><button data-g="0" class="${on ? '' : 'on'}">なし</button><button data-g="1" class="${on ? 'on' : ''}">あり</button></div></div>${detail}</div>`;
     }
 
     function showCover() {
@@ -256,18 +371,30 @@
             const prev = S.rounds.length ? `<p>${S.round - 1}回め：<b>${L.cpm(S.chars, S.rounds[S.rounds.length - 1])}字/分</b>（${L.fmtTime(S.rounds[S.rounds.length - 1])}）</p>` : '';
             body = prev + (S.round === 1
                 ? `<p>同じ文章を${REPEAT_ROUNDS}回読みます。1回めはふつうに読み、読み終わったら「読み終わった」を押してください。</p>`
-                : `<p>${S.round}回めです。2回め以降は、内容がわかっている分、なめらかに読めるはずです。意味を追いながら、少しだけテンポよく読んでみましょう。</p>`);
+                : `<p>${S.round}回めです。2回め以降は、内容がわかっている分、なめらかに読めるはずです。意味を追いながら、少しだけテンポよく読んでみましょう。</p>`
+                    + (S.guide ? `<div class="pace-big"><button class="round-btn" data-pace="-20">−</button><b id="coverPace">${S.pace}<small> 字/分</small></b><button class="round-btn" data-pace="20">＋</button></div>` : ''));
         } else if (m === 'skim') {
             body = `<p>制限時間は<b>${L.fmtTime(S.limit)}</b>（ふだんの約40%）。すべてを読むのではなく、要点をつかみます。</p>
                 <ul><li>はじめの段落と最後の段落はしっかり読む</li><li>各段落の最初の文を拾う</li><li>「しかし」「つまり」「だからこそ」のあとに注目</li></ul>
                 <p>時間になると本文がかくれて、要点の問題に進みます。</p>`;
         }
+        if (S.reread) body += '<p class="note small">読んだことのある区間なので、この回は参考の記録になります。</p>';
         $('coverTitle').textContent = S.mode === 'repeat' && S.round > 1 ? `${S.round}回め` : S.text.title;
-        $('coverBody').innerHTML = body;
+        $('coverBody').innerHTML = body + guideBox();
         $('coverGo').textContent = S.round > 1 ? `${S.round}回めをスタート` : 'スタート';
         $('readCover').hidden = false;
     }
     $('coverBody').addEventListener('click', e => {
+        const g = e.target.closest('[data-g]');
+        if (g) {
+            S.guide = g.dataset.g === '1';
+            settings.guideIn = Object.assign({}, settings.guideIn, { [S.mode]: S.guide });
+            saveSettings();
+            pageClasses(page, !S.guide);
+            renderCtrl();
+            showCover();
+            return;
+        }
         const b = e.target.closest('[data-pace]');
         if (!b) return;
         S.pace = L.clampPace(S.pace + +b.dataset.pace);
@@ -275,18 +402,25 @@
     });
     $('coverGo').addEventListener('click', () => {
         $('readCover').hidden = true;
-        if (S.mode === 'pace') { times = L.schedule(lens, S.pace); settings.pace = S.pace; saveSettings(); }
+        if (S.guide) {
+            times = L.schedule(lens, guidePace());
+            if (S.mode === 'pace') { settings.pace = S.pace; saveSettings(); }
+        }
         resume();
     });
 
+    // 止めているときは「再開」、読んでいるときは「停止」（色づけなし は「一時停止」）
+    const pauseLabel = paused => paused ? IC('play') + '再開'
+        : IC('pause') + (S.guide && S.mode !== 'skim' ? '停止' : '一時停止');
     function renderCtrl() {
         const c = $('readCtrl');
-        if (S.mode === 'pace') {
-            c.innerHTML = `<button id="cPause">一時停止</button>
+        const done = S.mode === 'pace' || (S.guide && S.mode !== 'skim') ? '終わる' : '読み終わった';
+        if (S.guide && S.mode !== 'skim') {
+            c.innerHTML = `<button id="cPause">${pauseLabel(false)}</button>
                 <div class="pace-ctl"><button data-pd="-20">−</button><b id="cPace">${S.pace}<small>字/分</small></b><button data-pd="20">＋</button></div>
-                <button id="cDone" class="pri grow">終わる</button>`;
+                <button id="cDone" class="pri grow">${done}</button>`;
         } else {
-            c.innerHTML = `<button id="cPause">一時停止</button><button id="cDone" class="pri grow">読み終わった</button>`;
+            c.innerHTML = `<button id="cPause">${pauseLabel(false)}</button><button id="cDone" class="pri grow">${done}</button>`;
         }
     }
     $('readCtrl').addEventListener('click', e => {
@@ -303,17 +437,16 @@
         const i = Math.max(0, Math.min(curIdx, lens.length - 1));
         const frac = times[i + 1] > times[i] ? (pacerMs - times[i]) / (times[i + 1] - times[i]) : 0;
         S.pace = nv;
-        times = L.schedule(lens, S.pace);
+        times = L.schedule(lens, guidePace());
         pacerMs = times[i] + Math.max(0, Math.min(1, frac)) * (times[i + 1] - times[i]);
         const el = $('cPace');
         if (el) el.innerHTML = `${S.pace}<small>字/分</small>`;
-        settings.pace = S.pace;
-        saveSettings();
+        if (S.mode === 'pace') { settings.pace = S.pace; saveSettings(); }
     }
 
-    // 文字をタップ → ペース読みのときはそこから
+    // 文字をタップ → 色づけがあるときは、そこから
     page.addEventListener('click', e => {
-        if (S?.mode !== 'pace') return;
+        if (!S || !S.guide) return;
         const c = e.target.closest('.c');
         if (!c) return;
         const i = +c.dataset.i;
@@ -327,7 +460,7 @@
         running = true;
         lastTick = performance.now();
         const b = $('cPause');
-        if (b) b.textContent = '一時停止';
+        if (b) b.innerHTML = pauseLabel(false);
         requestWake();
         raf = requestAnimationFrame(tick);
     }
@@ -337,7 +470,7 @@
         running = false;
         cancelAnimationFrame(raf);
         const b = $('cPause');
-        if (b) b.textContent = '再開';
+        if (b) b.innerHTML = pauseLabel(true);
         releaseWake();
         if (!byUser) toast('一時停止しました（画面からはなれたため）');
     }
@@ -348,10 +481,10 @@
         activeMs += dt;
         sessionReadMs += dt;
         if (settings.showTimer) $('readClock').textContent = L.fmtTime(activeMs);
-        if (S.mode === 'pace') {
+        if (S.guide) {
             pacerMs += dt;
             const i = L.indexAt(times, pacerMs);
-            if (i >= lens.length) { highlight(-1); if (!once) { running = false; finishReading(); } return; }
+            if (i >= lens.length) { highlight(-1); if (!once) { running = false; finishReading(S.mode === 'skim'); } return; }
             if (i !== curIdx) highlight(i);
         }
         if (S.mode === 'skim') {
@@ -416,7 +549,7 @@
             if (S.round < REPEAT_ROUNDS) { S.round++; openReader(); return; }
         }
         if (S.mode === 'skim') S.timeUp = !!timeUp;
-        if (S.text.source === 'orig') markSeen(S.text.id);
+        markSeen(S.text.id, S.text.sec, S.mode);
         if (S.text.questions) openQuiz(); else openRecall();
     }
 
@@ -483,12 +616,14 @@
         const base = baseline(); // この回を入れる前のふだんの速さ
         const speed = L.cpm(S.chars, S.mode === 'repeat' ? S.rounds[S.rounds.length - 1] : S.ms);
         const rec = {
-            ts: Date.now(), mode: S.mode, textId: S.text.id, title: S.text.title, chars: S.chars,
+            ts: Date.now(), mode: S.mode, textId: S.text.id, sec: S.text.sec, title: S.text.title, chars: S.chars,
             ms: S.mode === 'repeat' ? S.rounds.reduce((a, b) => a + b, 0) : S.ms,
             cpm: speed, comp: S.comp, compType: S.compType, eff: L.effective(speed, S.comp),
         };
         if (S.mode === 'repeat') rec.rounds = S.rounds.map(ms => L.cpm(S.chars, ms));
-        if (S.mode === 'pace') rec.pace = S.pace;
+        if (S.guide) rec.pace = guidePace();
+        if (S.guide && S.mode !== 'pace') rec.guided = true;
+        if (S.reread) rec.reread = true;
         if (S.mode === 'skim') { rec.limit = S.limit; rec.timeUp = S.timeUp; }
         if (S.summary) rec.summary = S.summary;
         records.push(rec);
@@ -561,21 +696,25 @@
         }
         if (rec.summary) html += `<div class="card"><h2 class="card-h">あなたのまとめ</h2><p>${esc(rec.summary)}</p></div>`;
 
-        html += `<button class="big-btn" id="resAgain">${rec.mode === 'pace' ? '次の文章もペース読み' : 'もう一度（別の文章で）'}</button>`;
-        if (S.text.userId && S.text.sec + 1 < S.text.secCount) html += `<button class="big-btn sub" id="resNextSec">続き（${S.text.sec + 2}区間め）を${MODES[rec.mode].name}</button>`;
+        const nx = nextNew(rec.mode);
+        const inPool = S.text.work && S.text.work.mode === rec.mode;
+        if (nx) html += `<button class="big-btn" id="resNew">次の新しい文章で${MODES[rec.mode].name}</button><p class="note small center">次は「${esc(nx.work.title)}」${nx.work.secs.length > 1 ? `の${nx.sec + 1}区間め` : ''}・この練習のまだ読んでいない文章は あと${poolStat(rec.mode).unread}区間</p>`;
+        if (!inPool && S.text.sec + 1 < S.text.secCount) html += `<button class="big-btn sub" id="resNextSec">続き（${S.text.sec + 2}区間め）を${MODES[rec.mode].name}</button>`;
+        html += `<button class="big-btn sub" id="resAgain">文章をえらぶ</button>`;
         if (rec.mode === 'pace') html += `<button class="big-btn sub" id="resSame">同じ文章をもう一度（${settings.pace}字/分）</button>`;
         html += `<button class="big-btn sub" data-go="home">ホームへ</button>`;
+        if (S.text.credit) html += `<details class="credit-box"><summary class="note small">この作品について（底本・入力者など）</summary><div class="credit">${esc(S.text.credit)}</div></details>`;
+        else if (S.text.style) html += `<p class="note small center">この文章は、${esc(S.text.style.replace('の書きぶりをまねたオリジナル', ''))}の書きぶりをまねて、このアプリのために書いたオリジナルです。</p>`;
         $('resultBody').innerHTML = html;
     }
     $('resultBody').addEventListener('click', e => {
-        if (e.target.closest('#resAgain')) { const m = S.mode; openPick(m); return; }
+        if (e.target.closest('#resAgain')) { openPick(S.mode); return; }
+        if (e.target.closest('#resNew')) { const nx = nextNew(S.mode); if (nx) startWork(S.mode, nx.work, nx.sec); return; }
         if (e.target.closest('#resSame')) { const t = S.text; startSession('pace', t); return; }
         if (e.target.closest('#resNextSec')) {
-            const t = userTexts.find(x => x.id === S.text.userId), i = S.text.sec + 1;
-            startSession(S.mode, {
-                id: t.id + '#' + i, userId: t.id, sec: i, secCount: t.sections.length,
-                title: t.title + `（${i + 1}/${t.sections.length}）`, author: t.author, body: t.sections[i], questions: null, source: t.source,
-            });
+            const i = S.text.sec + 1;
+            if (S.text.userId) { const t = userTexts.find(x => x.id === S.text.userId); if (t) startSession(S.mode, userSection(t, i)); }
+            else if (S.text.work) startWork(S.mode, S.text.work, i);
         }
     });
 
@@ -810,7 +949,7 @@
     }));
 
     $('dataExport').addEventListener('click', () => {
-        const data = { app: 'sokudoku', version: 1, exported: new Date().toISOString(), settings, records, texts: userTexts, seen: seen() };
+        const data = { app: 'sokudoku', version: 1, exported: new Date().toISOString(), settings, records, texts: userTexts, seen: seenMap };
         const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -832,6 +971,7 @@
             records = d.records;
             userTexts = d.texts || [];
             saveSettings(); saveRecords(); saveTexts(); save(KEY.seen, d.seen || {});
+            seenMap = loadSeen();
             applyTheme();
             renderSettings();
             toast('読みこみました');
@@ -843,16 +983,31 @@
         if (!confirm('記録をすべて消しますか？（読みこんだ文章と設定は残ります）')) return;
         records = [];
         saveRecords();
-        save(KEY.seen, {});
+        seenMap = {};
+        save(KEY.seen, seenMap);
         settings.pace = null;
         saveSettings();
         renderSettings();
         toast('記録を消しました');
     });
 
+    $('dataOffline').addEventListener('click', async () => {
+        const btn = $('dataOffline');
+        btn.disabled = true;
+        let ok = 0;
+        for (const w of CATALOG) {
+            try { await loadText(w.id); ok++; } catch (e) { /* 取れなかったものは数えない */ }
+            btn.textContent = `保存しています… ${ok}/${CATALOG.length}`;
+        }
+        btn.disabled = false;
+        btn.textContent = 'すべての文章をこの端末に保存';
+        toast(ok === CATALOG.length ? `${ok}作品を保存しました` : `${ok}/${CATALOG.length}作品を保存しました（つながりを確かめて、もう一度おしてください）`);
+    });
+
     /* ---------- はじめ ---------- */
     applyTheme();
     if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
+    if (window.SokuIcons) SokuIcons.fill();
     show('home');
     if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
