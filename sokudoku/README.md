@@ -92,6 +92,7 @@ Q main 問題文      ← main（要点）・detail（くわしく）・infer（
 | `tools/` | 目録づくり・青空文庫の作品の取りこみ |
 | `tests.js` / `tests.html` | 自動テスト。`node tests.js` でも、`tests.html` をブラウザでひらいても動く（文章ファイルの形・目録との一致もたしかめる） |
 | `sw.js` / `manifest.webmanifest` | オフラインでひらく・ホーム画面に追加 |
+| `assets/` | アイコン（ホーム画面：Fluent Emoji 3D の Open book、ボタン：Phosphor Icons regular。どちらも MIT。くわしくは `assets/README.txt`） |
 
 ## 数え方
 
@@ -100,5 +101,4 @@ Q main 問題文      ← main（要点）・detail（くわしく）・infer（
 
 ## まだのこと
 
-- 絵・アイコンは使っていません（ボタンは文字だけ）。ホーム画面のアイコンも、素材の候補を見てもらってから入れます（CLAUDE.md のきまり）
 - 実機（iPhone・Android）でのたしかめ

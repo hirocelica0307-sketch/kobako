@@ -31,12 +31,13 @@
 
     /* ---------- モード ---------- */
     const MODES = {
-        check: { name: '速さチェック', desc: 'ふだんどおりに読んで、今の速さと理解度を測る' },
-        pace: { name: 'ペース読み', desc: '読む場所の色づけに合わせて、少し速いペースで読む' },
-        repeat: { name: 'くり返し読み', desc: '同じ文章を3回読んで、なめらかに読めるようにする' },
-        skim: { name: '要点読み', desc: 'ふだんの40%の時間で、要点だけをつかむ' },
+        check: { name: '速さチェック', ic: 'gauge', desc: 'ふだんどおりに読んで、今の速さと理解度を測る' },
+        pace: { name: 'ペース読み', ic: 'highlighter', desc: '読む場所の色づけに合わせて、少し速いペースで読む' },
+        repeat: { name: 'くり返し読み', ic: 'repeat', desc: '同じ文章を3回読んで、なめらかに読めるようにする' },
+        skim: { name: '要点読み', ic: 'list-magnifying-glass', desc: 'ふだんの40%の時間で、要点だけをつかむ' },
     };
     const REPEAT_ROUNDS = 3;
+    const IC = name => window.SokuIcons ? SokuIcons.ic(name) : '';
 
     const baseline = () => L.baseline(records);
     const currentPace = () => settings.pace || L.startPace(baseline());
@@ -126,7 +127,7 @@
             const st = poolStat(k);
             let extra = `<span class="pool">専用の文章 ${st.all}区間・まだ読んでいない ${st.unread}区間</span>`;
             if (k === 'pace') extra += `<span>目標 ${currentPace()} 字/分</span>`;
-            return `<button class="mode${rec === k ? ' rec' : ''}" data-mode="${k}"><b>${m.name}${rec === k ? '<em class="tag">はじめに</em>' : ''}</b><span>${m.desc}</span>${extra}<i>›</i></button>`;
+            return `<button class="mode${rec === k ? ' first' : ''}" data-mode="${k}">${IC(m.ic)}<b>${m.name}${rec === k ? '<em class="tag">はじめに</em>' : ''}</b><span>${m.desc}</span>${extra}<i>${IC('caret-right')}</i></button>`;
         }).join('');
     }
     $('modeList').addEventListener('click', e => {
@@ -408,15 +409,18 @@
         resume();
     });
 
+    // 止めているときは「再開」、読んでいるときは「停止」（色づけなし は「一時停止」）
+    const pauseLabel = paused => paused ? IC('play') + '再開'
+        : IC('pause') + (S.guide && S.mode !== 'skim' ? '停止' : '一時停止');
     function renderCtrl() {
         const c = $('readCtrl');
         const done = S.mode === 'pace' || (S.guide && S.mode !== 'skim') ? '終わる' : '読み終わった';
         if (S.guide && S.mode !== 'skim') {
-            c.innerHTML = `<button id="cPause">停止</button>
+            c.innerHTML = `<button id="cPause">${pauseLabel(false)}</button>
                 <div class="pace-ctl"><button data-pd="-20">−</button><b id="cPace">${S.pace}<small>字/分</small></b><button data-pd="20">＋</button></div>
                 <button id="cDone" class="pri grow">${done}</button>`;
         } else {
-            c.innerHTML = `<button id="cPause">一時停止</button><button id="cDone" class="pri grow">${done}</button>`;
+            c.innerHTML = `<button id="cPause">${pauseLabel(false)}</button><button id="cDone" class="pri grow">${done}</button>`;
         }
     }
     $('readCtrl').addEventListener('click', e => {
@@ -456,7 +460,7 @@
         running = true;
         lastTick = performance.now();
         const b = $('cPause');
-        if (b) b.textContent = S.guide && S.mode !== 'skim' ? '停止' : '一時停止';
+        if (b) b.innerHTML = pauseLabel(false);
         requestWake();
         raf = requestAnimationFrame(tick);
     }
@@ -466,7 +470,7 @@
         running = false;
         cancelAnimationFrame(raf);
         const b = $('cPause');
-        if (b) b.textContent = '再開';
+        if (b) b.innerHTML = pauseLabel(true);
         releaseWake();
         if (!byUser) toast('一時停止しました（画面からはなれたため）');
     }
@@ -1003,6 +1007,7 @@
     /* ---------- はじめ ---------- */
     applyTheme();
     if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
+    if (window.SokuIcons) SokuIcons.fill();
     show('home');
     if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
