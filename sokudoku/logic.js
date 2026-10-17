@@ -178,15 +178,16 @@
         let s = String(raw).replace(/^﻿/, '').replace(/\r\n?/g, '\n');
         const lines = s.split('\n');
         // 配布ファイルの形：題名・著者の行 →「-----」で囲まれた記号の説明 → 本文 → 底本
-        let bodyStart = 0, title = '', author = '';
+        let bodyStart = 0, title = '', author = '', translator = '';
         const dash = lines.findIndex(l => /^-{10,}/.test(l));
         if (dash >= 0 && dash < 60 && /【テキスト中に現れる記号について】/.test(lines.slice(dash, dash + 3).join(''))) {
             const dash2 = lines.findIndex((l, k) => k > dash && /^-{10,}/.test(l));
             bodyStart = dash2 > 0 ? dash2 + 1 : dash + 1;
             const before = lines.slice(0, dash).map(l => l.trim()).filter(Boolean);
-            // いちばん下の行が著者（訳者がいれば2行になるが、ここでは最後の1行）、残りが題名と副題
-            title = before.length >= 2 ? before.slice(0, -1).join(' ') : (before[0] || '');
-            author = before.length >= 2 ? before[before.length - 1] : '';
+            // いちばん下の行が著者。「〜訳」の行があれば訳者で、その上が著者。残りが題名と副題
+            if (before.length >= 3 && /訳$/.test(before[before.length - 1])) translator = before.pop();
+            title = before.length >= 2 ? before.slice(0, -1).filter(l => !/^[\x20-\x7e]+$/.test(l)).join(' ') : (before[0] || '');
+            author = before.length >= 2 ? before[before.length - 1].replace(/[　 ]+[\x20-\x7e]+$/, '') : '';
         }
         let bodyLines = lines.slice(bodyStart);
         // 末尾の「底本：」から後ろを credit に分ける
@@ -209,7 +210,7 @@
             return units.map(u => (u.r ? '｜' + u.t + '《' + u.r + '》' : u.t)).join('').replace(/[ \t]+$/, '');
         }).join('\n');
         body = body.replace(/\n{3,}/g, '\n\n').replace(/^\n+|\n+$/g, '');
-        return { title: plainText(title), author: plainText(author), body, credit };
+        return { title: plainText(title), author: plainText(author), translator: plainText(translator), body, credit };
     }
 
     /** 文字列が青空文庫のテキストらしいか（ルビ記号・注記・底本のどれかがある） */
@@ -235,6 +236,80 @@
             else out.push(rest);
         }
         return out.filter(x => x.trim());
+    }
+
+    /* ---------- 入っている文章のファイル（texts/*.txt） ---------- */
+    /* 形：
+         title: 題名          ← 「名前: 値」の行が続く（title・author・translator・kind・genre・style・level・mode・source）
+         @@本文
+         （区間1の本文）
+         @@区切り
+         （区間2の本文）
+         @@問題
+         [1]                  ← 区間の番号（1から）
+         Q main 問題文         ← main（要点）・detail（くわしく）・infer（読みとり）
+         + 正解
+         - まちがい（3つ）
+         @@底本
+         （青空文庫の底本・入力者などの情報） */
+    const QTYPES = ['main', 'detail', 'infer'];
+
+    /** texts/*.txt を読みとる。返り値 { meta, sections: [本文], questions: [[問題]], credit } */
+    function parseTextFile(src) {
+        const lines = String(src).replace(/^﻿/, '').replace(/\r\n?/g, '\n').split('\n');
+        const meta = {};
+        const body = [];
+        const questions = [];
+        const credit = [];
+        let part = 'head', sec = -1, q = null;
+        for (const line of lines) {
+            if (/^@@本文\s*$/.test(line)) { part = 'body'; body.push([]); continue; }
+            if (/^@@区切り\s*$/.test(line)) { body.push([]); continue; }
+            if (/^@@問題\s*$/.test(line)) { part = 'q'; continue; }
+            if (/^@@底本\s*$/.test(line)) { part = 'credit'; continue; }
+            if (part === 'head') {
+                const m = line.match(/^([a-z]+):\s*(.*)$/);
+                if (m) meta[m[1]] = m[2].trim();
+            } else if (part === 'body') {
+                body[body.length - 1].push(line);
+            } else if (part === 'q') {
+                let m;
+                if ((m = line.match(/^\[(\d+)\]\s*$/))) { sec = +m[1] - 1; questions[sec] = questions[sec] || []; q = null; }
+                else if ((m = line.match(/^Q\s+(main|detail|infer)\s+(.+)$/))) {
+                    q = { type: m[1], q: m[2].trim(), choices: [], answer: -1 };
+                    (questions[sec] = questions[sec] || []).push(q);
+                } else if ((m = line.match(/^([+-])\s+(.+)$/)) && q) {
+                    if (m[1] === '+') q.answer = q.choices.length;
+                    q.choices.push(m[2].trim());
+                }
+            } else if (part === 'credit') {
+                credit.push(line);
+            }
+        }
+        if (meta.level) meta.level = +meta.level;
+        const sections = body.map(b => b.join('\n').replace(/^\n+|\n+$/g, ''));
+        for (let i = 0; i < sections.length; i++) questions[i] = questions[i] || [];
+        return { meta, sections, questions: questions.slice(0, sections.length), credit: credit.join('\n').trim() };
+    }
+
+    /** 文章ファイルの形がおかしいところを返す（空なら正しい） */
+    function checkTextFile(t) {
+        const bad = [];
+        if (!t.meta.title) bad.push('title が無い');
+        if (!t.sections.length || t.sections.some(s => !s.trim())) bad.push('空の区間がある');
+        if (!['check', 'pace', 'repeat', 'skim', 'long'].includes(t.meta.mode)) bad.push('mode がおかしい');
+        if (t.meta.mode !== 'long') {
+            t.questions.forEach((qs, i) => {
+                if (qs.length < 3) bad.push(`区間${i + 1} の問題が3問より少ない`);
+                if (!qs.some(q => q.type === 'main')) bad.push(`区間${i + 1} に要点の問題が無い`);
+                qs.forEach((q, k) => {
+                    if (q.choices.length !== 4) bad.push(`区間${i + 1} 問${k + 1} の選択肢が4つでない`);
+                    if (q.answer < 0) bad.push(`区間${i + 1} 問${k + 1} に正解（+）が無い`);
+                    if (new Set(q.choices).size !== q.choices.length) bad.push(`区間${i + 1} 問${k + 1} に同じ選択肢`);
+                });
+            });
+        }
+        return bad;
     }
 
     /* ---------- zip（青空文庫の配布ファイル） ---------- */
@@ -345,10 +420,12 @@
     }
 
     /* ---------- 記録のまとめ ---------- */
-    /** ふだんの速さ：「速さチェック」と「くり返し読みの1回め」の新しい方から5回の中央値 */
+    /** ふだんの速さ：「速さチェック」と「くり返し読みの1回め」の新しい方から5回の中央値。
+        読んだことのある文章（reread）と、色づけを使った回（guided）は入れない。それしか無いときだけ入れる */
     function baseline(records) {
-        const xs = records.filter(r => (r.mode === 'check' || r.mode === 'repeat') && r.cpm > 0)
-            .slice(-5).map(r => (r.mode === 'repeat' && r.rounds ? r.rounds[0] : r.cpm));
+        const all = records.filter(r => (r.mode === 'check' || r.mode === 'repeat') && r.cpm > 0);
+        const clean = all.filter(r => !r.reread && !r.guided);
+        const xs = (clean.length ? clean : all).slice(-5).map(r => (r.mode === 'repeat' && r.rounds ? r.rounds[0] : r.cpm));
         if (!xs.length) return null;
         const s = xs.slice().sort((a, b) => a - b);
         const m = s.length >> 1;
@@ -387,7 +464,7 @@
 
     root.SokuLogic = {
         charClass, parseInline, plainText, countChars, chunkLine, layout,
-        cleanAozora, looksAozora, splitSections, unzipFirstText, decodeText,
+        cleanAozora, looksAozora, splitSections, unzipFirstText, decodeText, parseTextFile, checkTextFile, QTYPES,
         cpm, effective, score, selfComp, nextPace, startPace, clampPace, skimLimitMs,
         schedule, indexAt, baseline, shuffle, shuffleQuestion, fmtDate, fmtTime,
         PACE_MIN, PACE_MAX,

@@ -41,8 +41,9 @@
   <div class="wrap">
     <p id="pickNote" class="note"></p>
     <div class="tabs" id="pickTabs">
-      <button data-tab="orig" class="on">オリジナル</button>
-      <button data-tab="user">青空文庫・自分の文章</button>
+      <button data-tab="pool" class="on">この練習の文章</button>
+      <button data-tab="long">長編</button>
+      <button data-tab="user">自分の文章</button>
     </div>
     <div id="pickList" class="list"></div>
   </div>
@@ -185,6 +186,8 @@
         <label class="big-btn sub file-lbl">読みこむ<input type="file" id="dataImport" accept=".json,application/json"></label>
       </div>
       <button id="dataClear" class="txt-btn danger">記録をすべて消す</button>
+      <p class="note small">入っている文章は、はじめて読むときにインターネットから取りこみます。電波の届かない所で使うときは、先に下のボタンで保存しておけます（約3MB）。</p>
+      <button id="dataOffline" class="big-btn sub">すべての文章をこの端末に保存</button>
     </div>
   </div>
 </section>
@@ -203,13 +206,19 @@
       <p>そこでこのアプリでは、いつも<b>速さ（字/分）</b>と<b>理解度（%）</b>を両方記録し、その2つをかけた<b>理解して読めた速さ（実効速度）</b>を目安にします。理解度が下がったら、ペースも自動で少し下げます。</p>
     </div>
     <div class="card">
+      <h2 class="card-h">練習ごとに別の文章、いつも新しい文章</h2>
+      <p>内容を知っている文章では、速さも理解度も正しく測れません。そこで、入っている文章は<b>練習ごとに分けて</b>あり、ある練習で読んだ文章が、ほかの練習で出てくることはありません。「新しい文章で始める」を押すと、その練習の<b>まだ読んでいない文章</b>から順に出てきます。読んだことのある文章をもう一度読んだ回は、「ふだんの速さ」には入れません。</p>
+      <p>文章は、青空文庫の名作（芥川龍之介・太宰治・宮沢賢治・夏目漱石・中島敦・森鴎外・新美南吉・梶井基次郎、翻訳でポー・アンデルセン・グリムなど）と、このアプリのために書いたオリジナル（説明文と、有名な作家の書きぶりをまねた小説）です。『人間失格』『こころ』『坊っちゃん』『銀河鉄道の夜』などの長い作品は「長編」から、区間に分けて読めます。</p>
+    </div>
+    <div class="card">
       <h2 class="card-h">練習の4つのモード</h2>
       <dl class="dl">
-        <dt>速さチェック</dt><dd>ふだんどおりに読んで、今の速さと理解度を測ります。はじめに読んだことのない文章で測るのがおすすめです。</dd>
+        <dt>速さチェック</dt><dd>ふだんどおりに読んで、今の速さと理解度を測ります。</dd>
         <dt>ペース読み</dt><dd>文章は全部見えたまま、読む場所が文節ごとに色づけされて進みます。ふだんより少しだけ速いペースに合わせて読む練習です。前の文に戻りたいときは、その文字をタップすれば戻れます（読み返しは理解を保つための大切な動きです）。子どもの読みの研究では、画面で読む場所を案内しながら黙読する練習で、読解の成績が上がったという報告があります。</dd>
         <dt>くり返し読み</dt><dd>同じ文章を3回読み、回を重ねるごとに速くなるのを確かめます。読みのなめらかさ（流暢さ）を育てる方法として、研究の裏づけがいちばん多い練習です（主に子どもの研究）。</dd>
         <dt>要点読み</dt><dd>ふだんの40%の時間で全体に目を通し、要点だけをつかむ練習です。時間が足りないとき、全体をざっと読むと前半だけ読むより要点をよく覚えていた、という研究があります。細かいところは落ちやすいので、目的に合わせて「じっくり読む」と使い分けます。</dd>
       </dl>
+      <p class="note small">速さチェック・くり返し読み・要点読みでも、スタート前に「読む場所の色づけ」を「あり」にすると、ペース読みと同じように文節ごとの色づけを使えます。</p>
     </div>
     <div class="card">
       <h2 class="card-h">入れていない練習</h2>
@@ -238,7 +247,7 @@
 <div id="toast" class="toast" hidden></div>
 
 <script src="logic.js"></script>
-<script src="texts.js"></script>
+<script src="texts/catalog.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

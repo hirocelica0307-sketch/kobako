@@ -1,7 +1,8 @@
 /* 速読ラボ：一度ひらけば、インターネットにつながっていなくてもひらけるようにする。
+ * 文章（texts/*.txt）は、一度読んだもの・設定の「すべての文章を保存」で取ったものが残る。
  * つながるときはいつも新しいものを取りにいき（3秒まで待つ）、つながらないときだけ前に取っておいたものを出す。 */
-var CACHE = "sokudoku-v1";
-var FILES = ["./", "./index.html", "./style.css", "./logic.js", "./texts.js", "./app.js", "./manifest.webmanifest"];
+var CACHE = "sokudoku-v2";
+var FILES = ["./", "./index.html", "./style.css", "./logic.js", "./texts/catalog.js", "./app.js", "./manifest.webmanifest"];
 
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }));
