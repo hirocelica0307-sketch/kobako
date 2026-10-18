@@ -4,7 +4,7 @@ var CACHE = "mainichi-kyouyou-v1";
 var GENRES = ["seiji", "keizai", "business", "chiri", "nihonshi", "sekaishi", "tetsugaku", "shukyo", "shinri", "bungaku",
   "bijutsu", "ongaku", "geinou", "sports", "kagaku", "seibutsu", "it", "suugaku", "kotoba", "kurashi"];
 var FILES = ["./", "./index.html", "./style.css", "./logic.js", "./app.js", "./manifest.webmanifest", "./assets/icons.js",
-  "./data/_base.js", "./assets/emoji/owl.webp", "./assets/emoji/fire.webp", "./assets/emoji/bulb.webp", "./assets/emoji/trophy.webp",
+  "./data/base.js", "./assets/emoji/owl.webp", "./assets/emoji/fire.webp", "./assets/emoji/bulb.webp", "./assets/emoji/trophy.webp",
   "./assets/icon/app-icon-32.png", "./assets/icon/app-icon-192.png", "./assets/icon/apple-touch-icon.png"]
   .concat(GENRES.map(function (g) { return "./data/" + g + ".js"; }))
   .concat(GENRES.map(function (g) { return "./assets/genre/" + g + ".webp"; }));

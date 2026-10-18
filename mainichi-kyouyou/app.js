@@ -6,6 +6,14 @@
     const L = window.MKLogic;
     const D = window.MKData;
     const I = window.MKIcons;
+    // 読みこみに 失敗した ファイルが あると 画面が 空の まま 動かなく なるので、そのことを 知らせる
+    if (!L || !D || !I || !D.GENRES || !Object.keys(D.rows || {}).length) {
+        const box = document.getElementById('todayCard');
+        const msg = '<p style="margin:0 0 12px">アプリのファイルを読みこめませんでした。電波のよい場所で、ページを読みこみ直してください。</p>' +
+            '<button class="btn main wide" type="button" onclick="location.reload()">読みこみ直す</button>';
+        if (box) box.innerHTML = msg; else document.body.insertAdjacentHTML('afterbegin', msg);
+        return;
+    }
     const KEY = 'mainichi-kyouyou-v1';
     const VERSION = '1.0.0';
 
