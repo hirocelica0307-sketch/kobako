@@ -12,6 +12,7 @@ Microsoft Fluent Emoji（3D）
                 timer/assets/icon/（タイマー・ストップウォッチ の アイコン：Stopwatch）
                 kujibiki/assets/emoji/（くじびき ひろば の メニュー・けっか・導火線の 火・ドカン などの 絵）
                 sokudoku/assets/icon/（速読ラボ の アイコン：Open book）
+                mainichi-kyouyou/assets/genre/・emoji/・icon/（毎日教養 の ジャンルの 絵・ふくろう・アイコン）
   入手もと: https://github.com/microsoft/fluentui-emoji
   ライセンス: MIT License
 ================================================================
@@ -45,6 +46,7 @@ Phosphor Icons（duotone・fill・regular）
                 hyoka-note/assets/icons/（評価ノート の ロゴ・ボタンの アイコン。duotone。index.html に 埋めこみ）
                 kujibiki/assets/icons.js（くじびき ひろば の ボタンの アイコン。fill）
                 sokudoku/assets/icons.js（速読ラボ の ボタン・メニューの アイコン。regular）
+                mainichi-kyouyou/assets/icons.js（毎日教養 の ボタン・タブの アイコン。regular と fill）
   入手もと: Iconify の Phosphor（ph）データ https://github.com/iconify/icon-sets/blob/master/json/ph.json
             もとの プロジェクト https://github.com/phosphor-icons/core
   ライセンス: MIT License
