@@ -195,6 +195,14 @@ async function answerOne(page, opts) {
         await page.tap('#dialogYes');
         await page.waitForSelector('#home:not([hidden])');
         check(true, '×で やめて ホームへ');
+        // 途中で やめた セットは ホームから 続きを 解ける
+        check(await page.isVisible('#resumeOther'), 'ホームに「もう1セット」の 続きの ボタン');
+        await page.tap('#resumeOther');
+        await page.waitForSelector('#play:not([hidden]) #qText');
+        check((await page.textContent('#playCount')).trim().startsWith('2 /'), '続きは 2問目から');
+        await page.tap('#playQuit');
+        await page.tap('#dialogYes');
+        await page.waitForSelector('#home:not([hidden])');
 
         // 読み込み直しても 記録が のこる
         await page.reload();

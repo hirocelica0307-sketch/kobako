@@ -238,17 +238,19 @@
         const nRev = d.ids.length - nNew;
         const gs = [];
         d.ids.forEach(function (id) { const g = Q.byId[id] && Q.byId[id].g; if (g && gs.indexOf(g) < 0) gs.push(g); });
+        // 途中で やめた ほかの セット（ジャンル・復習 など）の 続き
+        const resume = S.other && S.other.date === today && !atEnd(S.other) ?
+            '<button class="btn sub wide" id="resumeOther">' + ic('arrow-right') + '「' + esc(S.other.title) + '」の続き</button>' : '';
         if (doneToday) {
             card.innerHTML = '<div class="done-mark">' + ic('check-circle') + '今日の' + d.ids.length + '問は完了</div>' +
-                '<button class="btn main wide" id="extraBtn">' + ic('play') + 'もう1セット解く</button>' +
-                (S.cur === 'other' && S.other && S.other.date === today ? '<button class="btn sub wide" id="resumeOther">' + ic('arrow-right') + '「' + esc(S.other.title) + '」の続き</button>' : '');
+                '<button class="btn main wide" id="extraBtn">' + ic('play') + 'もう1セット解く</button>' + resume;
         } else {
             const started = d.i > 0 || d.ans.length || d.answered;
             card.innerHTML = '<h2>今日の' + d.ids.length + '問</h2>' +
                 '<p class="meta">' + (started ? 'あと ' + (d.ids.length - d.i) + '問' + (d.phase === 'retry' ? '（間違えた問題をもう一度）' : '') :
                     (nNew ? '新しい問題 ' + nNew : '') + (nNew && nRev ? '・' : '') + (nRev ? '復習 ' + nRev : '') + '／約' + Math.max(1, Math.round(d.ids.length / 2)) + '分') + '</p>' +
                 '<div class="mix">' + gs.map(function (g) { return '<span>' + esc(GM[g].short) + '</span>'; }).join('') + '</div>' +
-                '<button class="btn main wide" id="dailyBtn">' + ic('play') + (started ? '続きから' : 'はじめる') + '</button>';
+                '<button class="btn main wide" id="dailyBtn">' + ic('play') + (started ? '続きから' : 'はじめる') + '</button>' + resume;
         }
         const db = $('#dailyBtn'); if (db) db.onclick = startDaily;
         const eb = $('#extraBtn'); if (eb) eb.onclick = function () { startOther('extra', { seed: (today * 131 + Date.now()) % 2147483647 }, 'もう1セット'); };
