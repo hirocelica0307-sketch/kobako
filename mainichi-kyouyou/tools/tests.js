@@ -9,9 +9,9 @@ const vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const ctx = { console };
 vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(path.join(ROOT, 'data', '_base.js'), 'utf8') + ';this.MKData=MKData;', ctx);
+vm.runInContext(fs.readFileSync(path.join(ROOT, 'data', 'base.js'), 'utf8') + ';this.MKData=MKData;', ctx);
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-const dataFiles = Array.from(html.matchAll(/<script src="(data\/[a-z]+\.js)"/g)).map(m => m[1]).filter(f => !f.endsWith('_base.js'));
+const dataFiles = Array.from(html.matchAll(/<script src="(data\/[a-z]+\.js)"/g)).map(m => m[1]).filter(f => !f.endsWith('/base.js'));
 dataFiles.forEach(f => vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f }));
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'logic.js'), 'utf8'), ctx);
 const L = ctx.MKLogic;
@@ -41,6 +41,25 @@ vm.runInContext(sw + ';this.__G=GENRES;this.__F=FILES;', swCtx);
 eq(Array.from(swCtx.__G), D.GENRES.map(g => g.id), 'sw.js の ジャンルが データと 同じ');
 dataFiles.forEach(f => ok(swCtx.__F.includes('./' + f), 'sw.js の 保存一覧に ' + f + ' が ある'));
 swCtx.__F.filter(f => f !== './').forEach(f => ok(fs.existsSync(path.join(ROOT, f)), f + ' が 実在する'));
+
+/* 公開の しかた（GitHub Pages は Jekyll で ページを つくる）で ファイルが 消えない
+   Jekyll は 名前が「_」や「.」で はじまる ファイル・フォルダーを 公開しない。index.html が 読みこむ ファイルが 1つでも 消えると、
+   画面が 空の まま 何も おせなく なる（data/_base.js で じっさいに おきた）。 */
+const loaded = Array.from(html.matchAll(/(?:src|href)="([^"#:]+)"/g)).map(m => m[1]).filter(f => !f.startsWith('http'));
+ok(loaded.length > 20, 'index.html が 読みこむ ファイルを 見つけた（' + loaded.length + '）');
+loaded.forEach(f => {
+    ok(fs.existsSync(path.join(ROOT, f)), f + ' が 実在する');
+    ok(!f.split('/').some(seg => /^[_.]/.test(seg) && seg !== '.' && seg !== '..'), f + ' の 名前が「_」「.」で はじまらない（Jekyll で 消えない）');
+});
+(function walk(dir) {
+    fs.readdirSync(dir).forEach(name => {
+        const full = path.join(dir, name);
+        const rel = path.relative(ROOT, full);
+        if (rel.startsWith('tools')) return;
+        ok(!/^[_.]/.test(name), rel + ' の 名前が「_」「.」で はじまらない');
+        if (fs.statSync(full).isDirectory()) walk(full);
+    });
+})(ROOT);
 
 /* validate が まちがいを 見つける */
 const bad = { GENRES: [{ id: 'x' }], rows: { x: [

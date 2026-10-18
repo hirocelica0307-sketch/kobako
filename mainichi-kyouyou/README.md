@@ -62,7 +62,7 @@ MKData.add('kagaku', [
 | `style.css` | 見た目（明るい・暗い、文字の大きさ） |
 | `logic.js` | 画面を使わない処理（今日のセット・復習の予定・連続日数・集計・保存データ） |
 | `app.js` | 画面の動き |
-| `data/` | 問題（`_base.js` にジャンルの一覧） |
+| `data/` | 問題（`base.js` にジャンルの一覧） |
 | `assets/` | 絵とアイコン（入手もとは `assets/README.txt`） |
 | `sw.js`・`manifest.webmanifest` | オフラインとホーム画面 |
 | `tools/tests.js` | 問題データと `logic.js` のテスト（`node tools/tests.js`） |
