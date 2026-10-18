@@ -239,6 +239,13 @@
         const tbL = S.buildSheet(tbE, { grade: 'all', kata: 'list' }, 1).page;
         t('チャレンジ カードは 学年ごとに 1まい', (tbL.match(/<section/g) || []).length === 3);
 
+        /* 音読・九九けんてい カード */
+        for (const id of ['kentei', 'kentei-sansu']) {
+            const kt = S.buildSheet(S.CATALOG.find(c => c.id === id), {}, 1).page;
+            t(`けんてい カード（${id}）：おもて・うらの 2まい`, (kt.match(/<section class="page subj-\w+ kentei"/g) || []).length === 2 && kt.includes('音読けんてい') && kt.includes('九九けんてい'));
+            t(`けんてい カード（${id}）：音読 12行・九九 1〜9の だん`, (kt.match(/class="kt-no"/g) || []).length === 12 && (kt.match(/class="kt-dan /g) || []).length === 9 && kt.includes('9<small>のだん</small>'));
+        }
+
 
         /* むかしばなし めいろ（あいた マスを うめる） */
         t(`むかしばなしが 12わ いじょう（${D.STORIES.length}わ）`, D.STORIES.length >= 12);

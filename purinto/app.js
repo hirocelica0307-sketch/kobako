@@ -88,7 +88,9 @@
                 `<option value="${S.esc(k)}"${String(opt[o.key]) === String(k) ? ' selected' : ''}>${S.esc(noEmoji(lb))}</option>`).join('')}</select></label>`;
             if (o.type === 'check') return `<label class="check"><input type="checkbox" data-k="${o.key}"${opt[o.key] ? ' checked' : ''}> ${S.esc(o.label)}</label>`;
             return `<label class="field">${S.esc(o.label)}<input type="text" maxlength="12" data-k="${o.key}" value="${S.esc(opt[o.key] || '')}" placeholder="${S.esc(o.placeholder || '')}"></label>`;
-        }).join('') || '<p class="noopt">せっていは ありません。「べつの もんだい」で なかみが かわります。</p>';
+        }).join('') || `<p class="noopt">せっていは ありません。${sheet.fixed ? '' : '「べつの もんだい」で なかみが かわります。'}</p>`;
+        /* なかみが きまって いる プリントは「べつの もんだい」を かくす */
+        $('btnNew').hidden = !!sheet.fixed;
         form.querySelectorAll('[data-k]').forEach(el => {
             const ev = el.type === 'text' ? 'input' : 'change';
             el.addEventListener(ev, () => {

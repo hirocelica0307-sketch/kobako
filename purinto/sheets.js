@@ -1055,11 +1055,44 @@
         },
     };
 
+    /* ---------- 音読・九九けんてい カード（おもて＝音読・うら＝九九。A4 りょうめん） ---------- */
+
+    const kentei = {
+        id: 'kentei', title: '音読・九九けんてい カード', icon: '🏅',
+        desc: 'おもて＝音読けんてい（12作品）・うら＝九九けんてい（上がり・下がり・ばらばら）。A4 りょうめん（長辺とじ）で いんさつ。',
+        options: [],
+        fixed: true,
+        build() {
+            const head = (title, side) => `<div class="kt-head"><h1 class="kt-title kt-round">${title}</h1><span class="kt-side kt-round">${side}</span></div>`;
+            const name = '<div class="kt-name">2年<span class="kt-blank s"></span>組<span class="kt-blank s"></span>番　名前<span class="kt-blank l"></span></div>';
+            const ondoku = range(12).map(i => `<div class="kt-no">${i + 1}</div><div class="kt-daimei"></div>
+              <div class="kt-date"><span>月</span><span>日</span></div><div><span class="kt-stamp"></span></div>`).join('');
+            const kuku = range(9).map(i => `<div class="kt-dan kt-round">${i + 1}<small>のだん</small></div>`
+              + '<div><span class="kt-stamp"></span></div>'.repeat(3)).join('');
+            const front = `<section class="page subj-kokugo kentei">${head('音読けんてい', 'おもて')}${name}
+  <div class="kt-guide">すらすら読めるようになったら、先生に聞いてもらおう。
+    <div class="kt-points"><span>大きな声で</span><span>はっきり</span><span>まちがえずに</span></div></div>
+  <div class="kt-ondoku"><div class="kt-th"></div><div class="kt-th">題名</div><div class="kt-th">ごうかくした日</div><div class="kt-th">先生</div>${ondoku}</div>
+</section>`;
+            const back = `<section class="page subj-kokugo kentei">${head('九九けんてい', 'うら')}${name}
+  <div class="kt-legend">
+    <div><b class="kt-round">上がり</b>1から9へ<br>（2×1 → 2×9）</div>
+    <div><b class="kt-round">下がり</b>9から1へ<br>（2×9 → 2×1）</div>
+    <div><b class="kt-round">ばらばら</b>先生が言った<br>もんだいに答える</div>
+  </div>
+  <div class="kt-kuku"><div class="kt-th"></div><div class="kt-th">上がり</div><div class="kt-th">下がり</div><div class="kt-th">ばらばら</div>${kuku}</div>
+  <div class="kt-master"><p>ぜんぶ ごうかくしたら<strong class="kt-round">九九マスター</strong></p>
+    <div class="kt-right"><span>月　　日</span><span class="kt-stamp"></span></div></div>
+</section>`;
+            return { page: front + back, answer: null };
+        },
+    };
+
     /* ---------- ならび ---------- */
 
     const SHEETS = { kaidan, storymaze: storyMaze, wordsearch: wordSearch, kanjiadd: kanjiAdd, anagram, headquiz: headQuiz, acrostic, dicestory: diceStory,
         calcmaze: calcMaze, magic, pyramid, sudoku, symbols: symbolSearch, dotcopy: dotCopy, diffs, halfpic: halfPic, doodle, bingo, feelings, sugoroku, anone, odailist: odaiList,
-        'genkou-machigai': genkouMachigai, 'genkou-shisha': genkouShisha, 'genkou-check': genkouCheck, tetsubou };
+        'genkou-machigai': genkouMachigai, 'genkou-shisha': genkouShisha, 'genkou-check': genkouCheck, tetsubou, kentei };
 
     /** メニュー（id は URL に のる ので かえない） */
     const CATALOG = [
@@ -1077,10 +1110,12 @@
         { id: 'genkou-machigai', sheet: 'genkou-machigai', subject: 'kokugo' },
         { id: 'genkou-shisha', sheet: 'genkou-shisha', subject: 'kokugo' },
         { id: 'genkou-check', sheet: 'genkou-check', subject: 'kokugo' },
+        { id: 'kentei', sheet: 'kentei', subject: 'kokugo' },
         { id: 'calcmaze', sheet: 'calcmaze', subject: 'sansu' },
         { id: 'pyramid', sheet: 'pyramid', subject: 'sansu' },
         { id: 'magic', sheet: 'magic', subject: 'sansu' },
         { id: 'sudoku', sheet: 'sudoku', subject: 'sansu' },
+        { id: 'kentei-sansu', sheet: 'kentei', subject: 'sansu' },
         { id: 'bingo-tanken', sheet: 'bingo', subject: 'seikatsu', title: 'たんけん ビンゴ', icon: '🏫', desc: 'がっこう・まち たんけんで みつけた ものに まる。ひとり ずつ ならびが ちがう。', defaults: { theme: 'gakkou' } },
         { id: 'bingo-kisetsu', sheet: 'bingo', subject: 'seikatsu', title: 'きせつ みつけ ビンゴ', icon: '🍁', desc: 'はる・なつ・あき・ふゆの しぜんを さがして ビンゴ。', defaults: { theme: 'aki' } },
         { id: 'bingo-otetsudai', sheet: 'bingo', subject: 'seikatsu', title: 'おてつだい ビンゴ', icon: '🧺', desc: 'おうちの おてつだいで ビンゴ。ながやすみの しゅくだいにも。', defaults: { theme: 'otetsudai', size: '4' } },
