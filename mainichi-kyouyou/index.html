@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f1e8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16181d" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="毎日教養">
+<meta name="format-detection" content="telephone=no">
+<meta name="description" content="1日5分、20ジャンルのクイズを解いて解説を読むだけで、大人の教養が身につく。間をあけた復習で忘れにくくするクイズアプリ。">
+<title>毎日教養</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon/app-icon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="assets/icon/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+<script>
+/* 文字の大きさと画面の色を、絵が出る前にあてる（ちらつき防止） */
+(function () {
+    try {
+        var s = JSON.parse(localStorage.getItem('mainichi-kyouyou-v1') || '{}').settings || {};
+        var r = document.documentElement;
+        if (s.font) r.setAttribute('data-font', s.font);
+        if (s.theme && s.theme !== 'auto') r.setAttribute('data-theme', s.theme);
+    } catch (e) {}
+})();
+</script>
+</head>
+<body>
+<div id="app">
+
+<!-- ========== ホーム ========== -->
+<section id="home" class="screen tabbed" data-tab="home">
+  <header class="top">
+    <h1 class="logo">毎日教養</h1>
+    <div id="homeStreak" class="streak-pill"></div>
+  </header>
+  <main class="wrap">
+    <div class="hello">
+      <img src="assets/emoji/owl.webp" alt="" width="64" height="64" class="owl">
+      <p id="helloText" class="hello-text"></p>
+    </div>
+    <div id="todayCard" class="card today"></div>
+    <h2 class="sec">ほかの解き方</h2>
+    <div id="modeList" class="mode-list"></div>
+    <div id="homeProgress" class="card progress-card"></div>
+  </main>
+</section>
+
+<!-- ========== ジャンルを選ぶ ========== -->
+<section id="genres" class="screen" hidden>
+  <header class="top">
+    <button class="icon-btn back" data-back aria-label="戻る"><span class="ic" data-ic="caret-left"></span></button>
+    <h1>ジャンルを選ぶ</h1>
+    <span class="top-space"></span>
+  </header>
+  <main class="wrap">
+    <p class="note">選んだジャンルから、新しい問題と復習を混ぜて出します。</p>
+    <div id="genreGrid" class="genre-grid"></div>
+  </main>
+</section>
+
+<!-- ========== 問題 ========== -->
+<section id="play" class="screen" hidden>
+  <header class="top play-top">
+    <button class="icon-btn" id="playQuit" aria-label="やめる"><span class="ic" data-ic="x"></span></button>
+    <div class="pbar"><div id="pbarFill" class="pbar-fill"></div></div>
+    <span id="playCount" class="play-count"></span>
+  </header>
+  <main class="wrap play-wrap" id="playMain">
+    <div class="q-head">
+      <span id="qGenre" class="chip"></span>
+      <span id="qTag" class="q-tag"></span>
+    </div>
+    <p id="qText" class="q-text"></p>
+    <div id="recallBox" class="recall" hidden>
+      <p>選択肢を見る前に、答えを頭の中で思い浮かべてみましょう。</p>
+      <button id="recallShow" class="btn sub"><span class="ic" data-ic="eye"></span>選択肢を見る</button>
+    </div>
+    <div id="choices" class="choices"></div>
+    <div id="feedback" class="feedback" hidden></div>
+  </main>
+  <div id="confSheet" class="sheet" hidden>
+    <p class="sheet-title">この答え、自信は？</p>
+    <div class="conf-row">
+      <button class="conf" data-conf="sure"><b>自信あり</b><span>知っている</span></button>
+      <button class="conf" data-conf="maybe"><b>たぶん</b><span>なんとなく</span></button>
+      <button class="conf" data-conf="guess"><b>勘</b><span>わからない</span></button>
+    </div>
+    <button id="confCancel" class="link-btn">選び直す</button>
+  </div>
+  <div id="nextBar" class="bottom-bar" hidden>
+    <button id="nextBtn" class="btn main wide">次へ<span class="ic" data-ic="arrow-right"></span></button>
+  </div>
+</section>
+
+<!-- ========== おわり ========== -->
+<section id="result" class="screen" hidden>
+  <main class="wrap" id="resultMain"></main>
+</section>
+
+<!-- ========== 教養ノート ========== -->
+<section id="note" class="screen tabbed" data-tab="note" hidden>
+  <header class="top">
+    <h1>教養ノート</h1>
+    <span class="top-space"></span>
+  </header>
+  <main class="wrap">
+    <label class="search">
+      <span class="ic" data-ic="magnifying-glass"></span>
+      <input id="noteSearch" type="search" placeholder="ノートを検索" enterkeyhint="search" autocomplete="off">
+    </label>
+    <div class="seg" id="noteFilter">
+      <button data-f="all" class="on">すべて</button>
+      <button data-f="star">★ 印</button>
+      <button data-f="over">思い込み</button>
+      <button data-f="ng">間違えた</button>
+    </div>
+    <div id="noteBody"></div>
+  </main>
+</section>
+
+<!-- ========== ノートの一覧（ジャンル） ========== -->
+<section id="noteList" class="screen" hidden>
+  <header class="top">
+    <button class="icon-btn back" data-back aria-label="戻る"><span class="ic" data-ic="caret-left"></span></button>
+    <h1 id="noteListTitle"></h1>
+    <span class="top-space"></span>
+  </header>
+  <main class="wrap" id="noteListBody"></main>
+</section>
+
+<!-- ========== ノートの 1問 ========== -->
+<section id="noteItem" class="screen" hidden>
+  <header class="top">
+    <button class="icon-btn back" data-back aria-label="戻る"><span class="ic" data-ic="caret-left"></span></button>
+    <h1>ノート</h1>
+    <span class="top-space"></span>
+  </header>
+  <main class="wrap" id="noteItemBody"></main>
+</section>
+
+<!-- ========== 記録 ========== -->
+<section id="record" class="screen tabbed" data-tab="record" hidden>
+  <header class="top">
+    <h1>記録</h1>
+    <span class="top-space"></span>
+  </header>
+  <main class="wrap" id="recordBody"></main>
+</section>
+
+<!-- ========== 設定 ========== -->
+<section id="settings" class="screen tabbed" data-tab="settings" hidden>
+  <header class="top">
+    <h1>設定</h1>
+    <span class="top-space"></span>
+  </header>
+  <main class="wrap" id="settingsBody"></main>
+</section>
+
+<!-- ========== このアプリの考え方 ========== -->
+<section id="about" class="screen" hidden>
+  <header class="top">
+    <button class="icon-btn back" data-back aria-label="戻る"><span class="ic" data-ic="caret-left"></span></button>
+    <h1>このアプリの考え方</h1>
+    <span class="top-space"></span>
+  </header>
+  <main class="wrap prose">
+    <p>毎日教養は、学びの研究で効果が確かめられている方法を組み合わせて作っています。</p>
+    <h3>1. 先に問題、あとで解説</h3>
+    <p>読むだけより、自分で答えを思い出そうとするほうが記憶に残ります（テスト効果）。知らない問題でも、予想してから答えを知るほうが覚えやすいことも分かっています。だから <b>勘でかまいません</b>。</p>
+    <h3>2. 「なぜ」まで書いた解説</h3>
+    <p>正解だけを知るより、理由まで説明されたほうが、はじめて見る問題にも知識を使えるようになります（Butler ほか 2013）。どの問題にも「なぜ？」と「ワンポイント」があります。</p>
+    <h3>3. ほかの選択肢も教養</h3>
+    <p>間違いの選択肢がそれらしいとき、4択は「なぜ違うか」を考えるぶん力になります（Little ほか 2012）。間違いの選択肢もすべて本物の人物・できごと・ことばにして、1つずつ説明を付けています。</p>
+    <h3>4. 自信を尋ねるわけ</h3>
+    <p>自信をもって間違えたことは、正しい答えを知ったときの驚きが大きく、かえって覚えやすいことが知られています（ハイパーコレクション効果）。ただ、時間がたつと元の思い込みに戻りやすいので、「思い込み」は次の日にまた出します。</p>
+    <h3>5. 間をあけて繰り返す</h3>
+    <p>間違えた問題は次の日、正解するたびに 3日後 → 1週間後 → 3週間後 → 2か月後 → 5か月後と、間を延ばしてもう一度出します（分散学習）。3週間後の復習でも正解できたら「覚えた」になります。</p>
+    <h3>6. ジャンルを混ぜる</h3>
+    <p>1つのジャンルを続けるより、混ぜたほうが長く残ります（インターリーブ）。今日のセットはいつもいろいろなジャンルが混ざります。</p>
+    <h3>7. 毎日少しずつ</h3>
+    <p>1日10問、5分ほど。続けた日数が増えると「おやすみ券」がもらえて、1日休んでも記録が切れません。</p>
+    <p class="small">問題と解説は、このアプリのために書いたものです。年や数は書いた時点（2026年）のものです。間違いを見つけたら、問題の解説の下の「あやしい」で印を付けてください。</p>
+  </main>
+</section>
+
+<!-- ========== 下のタブ ========== -->
+<nav id="tabbar" class="tabbar">
+  <button data-tabto="home"><span class="ic" data-ic="house"></span><span class="ic on" data-ic="house-fill"></span><b>ホーム</b></button>
+  <button data-tabto="note"><span class="ic" data-ic="notebook"></span><span class="ic on" data-ic="notebook-fill"></span><b>ノート</b></button>
+  <button data-tabto="record"><span class="ic" data-ic="chart-bar"></span><span class="ic on" data-ic="chart-bar-fill"></span><b>記録</b></button>
+  <button data-tabto="settings"><span class="ic" data-ic="gear-six"></span><span class="ic on" data-ic="gear-six-fill"></span><b>設定</b></button>
+</nav>
+
+<!-- ========== たしかめの小窓・おしらせ ========== -->
+<div id="dialog" class="dialog" hidden>
+  <div class="dialog-box" role="dialog" aria-modal="true">
+    <p id="dialogText"></p>
+    <div class="dialog-btns">
+      <button id="dialogNo" class="btn sub">やめる</button>
+      <button id="dialogYes" class="btn main">はい</button>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+</div>
+
+<script src="assets/icons.js"></script>
+<script src="data/_base.js"></script>
+<script src="data/seiji.js"></script>
+<script src="data/keizai.js"></script>
+<script src="data/business.js"></script>
+<script src="data/chiri.js"></script>
+<script src="data/nihonshi.js"></script>
+<script src="data/sekaishi.js"></script>
+<script src="data/tetsugaku.js"></script>
+<script src="data/shukyo.js"></script>
+<script src="data/shinri.js"></script>
+<script src="data/bungaku.js"></script>
+<script src="data/bijutsu.js"></script>
+<script src="data/ongaku.js"></script>
+<script src="data/geinou.js"></script>
+<script src="data/sports.js"></script>
+<script src="data/kagaku.js"></script>
+<script src="data/seibutsu.js"></script>
+<script src="data/it.js"></script>
+<script src="data/suugaku.js"></script>
+<script src="data/kotoba.js"></script>
+<script src="data/kurashi.js"></script>
+<script src="logic.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
