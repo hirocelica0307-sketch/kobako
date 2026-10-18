@@ -38,8 +38,9 @@ function loadOpts() {
   if (!cur || cur.cat !== S.cat) S.cur = DESIGNS.find(d => d.cat === S.cat).id;
 }
 
-// ばめんの ある デザインを さきに
-const visible = () => DESIGNS.filter(d => d.cat === S.cat && (S.grade === 'all' || d.grade === S.grade)).sort((a, b) => (b.scene ? 1 : 0) - (a.scene ? 1 : 0));
+// 先生の カード → ばめんの ある デザイン の じゅんに さきに
+const rank = d => d.teacher ? 2 : d.scene ? 1 : 0;
+const visible = () => DESIGNS.filter(d => d.cat === S.cat && (S.grade === 'all' || d.grade === S.grade)).sort((a, b) => rank(b) - rank(a));
 
 function renderCats() {
   $('cats').innerHTML = CAT_GROUPS.map(([gname, keys]) => `<h3 class="cgroup">${esc(gname)}</h3>` + keys.map(k => {
@@ -75,9 +76,18 @@ function renderMain() {
 }
 function renderAll() { renderCats(); renderStrip(); renderMain(); }
 
+// 先生の カードの 絵（<image>）を よみこんでから いんさつ
+function imagesReady(el) {
+  const srcs = [...new Set([...el.querySelectorAll('image')].map(im => im.getAttribute('href')))];
+  return Promise.all(srcs.map(src => new Promise(ok => {
+    const im = new Image();
+    im.onload = im.onerror = ok;
+    im.src = src;
+  })));
+}
 function doPrint(list) {
   $('print').innerHTML = list.map(ds => `<div class="sheet">${renderDesign(ds)}</div>`).join('');
-  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => setTimeout(() => window.print(), 60));
+  Promise.all([document.fonts && document.fonts.ready, imagesReady($('print'))]).then(() => setTimeout(() => window.print(), 60));
 }
 window.addEventListener('afterprint', () => { $('print').innerHTML = ''; });
 
