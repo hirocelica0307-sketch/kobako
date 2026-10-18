@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>音読・九九けんていカード</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4 portrait; margin: 0; }
+
+  :root {
+    --ink: #1c1c1c;
+    --line: #4a4a4a;
+    --faint: #9a9a9a;
+    --tint: #eceff4;
+    --accent: #2e4a78;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { color-scheme: light; }
+
+  body {
+    background: #d6dae0;
+    color: var(--ink);
+    font-family: "Klee One", "UD Digi Kyokasho N-R", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .round { font-family: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif; }
+
+  /* 画面用の印刷ボタン */
+  .toolbar {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; justify-content: center; gap: 12px; align-items: center;
+    padding: 10px; background: #fff; border-bottom: 1px solid #c4c8ce;
+    font-size: 14px;
+  }
+  .toolbar button {
+    font: inherit; font-weight: 700; padding: 8px 20px;
+    border: 2px solid var(--accent); border-radius: 8px;
+    background: var(--accent); color: #fff; cursor: pointer;
+  }
+  .toolbar button:focus-visible { outline: 3px solid #f0b400; outline-offset: 2px; }
+
+  .scroller { overflow-x: auto; padding: 8mm 0; }
+
+  .sheet {
+    width: 210mm; height: 297mm;
+    margin: 0 auto 8mm;
+    background: #fff;
+    padding: 13mm 14mm 12mm;
+    display: flex; flex-direction: column;
+    box-shadow: 0 2px 10px rgba(0,0,0,.18);
+    overflow: hidden;
+  }
+
+  @media print {
+    body { background: #fff; }
+    .toolbar { display: none; }
+    .scroller { padding: 0; overflow: visible; }
+    .sheet { margin: 0; box-shadow: none; break-after: page; page-break-after: always; }
+    .sheet:last-child { break-after: auto; page-break-after: auto; }
+  }
+
+  /* 見出し */
+  .head {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    border-bottom: 2.4mm solid var(--accent);
+    padding-bottom: 2.5mm;
+  }
+  .title {
+    font-size: 30pt; font-weight: 700; letter-spacing: .08em; line-height: 1;
+  }
+  .side-mark {
+    font-size: 11pt; font-weight: 700; color: var(--accent);
+    border: 1.2px solid var(--accent); border-radius: 99px;
+    padding: 1mm 4mm;
+  }
+
+  /* 名前欄 */
+  .name-row {
+    display: flex; align-items: flex-end; gap: 2mm;
+    margin-top: 5mm; font-size: 14pt;
+  }
+  .blank { display: inline-block; border-bottom: 1px solid var(--line); height: 9mm; }
+  .blank.s { width: 14mm; }
+  .blank.l { flex: 1; }
+
+  /* 説明 */
+  .guide {
+    margin-top: 5mm;
+    background: var(--tint); border-radius: 3mm;
+    padding: 3.5mm 5mm;
+    font-size: 13pt; line-height: 1.6;
+  }
+  .points { display: flex; gap: 7mm; margin-top: 1.5mm; font-weight: 600; }
+  .points span::before {
+    content: ""; display: inline-block; width: 4.2mm; height: 4.2mm;
+    border: 1.2px solid var(--line); border-radius: 1mm;
+    margin-right: 1.8mm; vertical-align: -.5mm; background: #fff;
+  }
+
+  /* 音読の表 */
+  .ondoku {
+    flex: 1; margin-top: 5mm;
+    display: grid;
+    grid-template-columns: 10mm 1fr 36mm 24mm;
+    grid-template-rows: 9mm repeat(12, 1fr);
+    border: 1.4px solid var(--line); border-radius: 2mm; overflow: hidden;
+  }
+  .ondoku > div {
+    border-bottom: 1px solid #bdbdbd; border-right: 1px solid #bdbdbd;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ondoku > div:nth-child(4n) { border-right: none; }
+  .ondoku > div:nth-last-child(-n+4) { border-bottom: none; }
+  .ondoku .th { background: var(--tint); font-size: 11pt; font-weight: 700; }
+  .ondoku .no { font-size: 13pt; color: var(--accent); font-weight: 700; }
+  .ondoku .daimei { justify-content: flex-start; padding: 0 4mm; }
+  .ondoku .daimei::after {
+    content: ""; display: block; width: 100%; height: 0;
+    border-bottom: 1px dashed var(--faint); margin-top: 6mm;
+  }
+  .ondoku .date { font-size: 12pt; gap: 9mm; padding-left: 9mm; }
+  .stamp {
+    width: 14mm; height: 14mm; border-radius: 50%;
+    border: 1.2px dashed var(--faint);
+  }
+
+  /* 九九の表 */
+  .legend {
+    margin-top: 5mm;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm;
+  }
+  .legend div {
+    background: var(--tint); border-radius: 3mm;
+    padding: 2.5mm 3.5mm; font-size: 11pt; line-height: 1.5;
+  }
+  .legend b { display: block; font-size: 13pt; color: var(--accent); }
+
+  .kuku {
+    flex: 1; margin-top: 4mm;
+    display: grid;
+    grid-template-columns: 30mm repeat(3, 1fr);
+    grid-template-rows: 9mm repeat(9, 1fr);
+    border: 1.4px solid var(--line); border-radius: 2mm; overflow: hidden;
+  }
+  .kuku > div {
+    border-bottom: 1px solid #bdbdbd; border-right: 1px solid #bdbdbd;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .kuku > div:nth-child(4n) { border-right: none; }
+  .kuku > div:nth-last-child(-n+4) { border-bottom: none; }
+  .kuku .th { background: var(--tint); font-size: 12pt; font-weight: 700; }
+  .kuku .dan {
+    font-size: 16pt; font-weight: 700; color: var(--accent); gap: .5mm;
+  }
+  .kuku .dan small { font-size: 11pt; color: var(--ink); }
+
+  .master {
+    margin-top: 4mm;
+    border: 2px solid var(--accent); border-radius: 4mm;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 3mm 6mm;
+  }
+  .master p { font-size: 13pt; line-height: 1.5; }
+  .master strong { display: block; font-size: 22pt; letter-spacing: .06em; color: var(--accent); }
+  .master .right { display: flex; align-items: center; gap: 6mm; font-size: 12pt; }
+  .master .stamp { width: 22mm; height: 22mm; border: 1.4px dashed var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <span>A4・両面印刷（長辺とじ）で印刷してください</span>
+  <button type="button" onclick="window.print()">印刷する</button>
+</div>
+
+<div class="scroller">
+
+  <!-- 表面：音読けんてい -->
+  <section class="sheet">
+    <div class="head">
+      <h1 class="title round">音読けんてい</h1>
+      <span class="side-mark round">おもて</span>
+    </div>
+
+    <div class="name-row">
+      2年<span class="blank s"></span>組<span class="blank s"></span>番　名前<span class="blank l"></span>
+    </div>
+
+    <div class="guide">
+      すらすら読めるようになったら、先生に聞いてもらおう。
+      <div class="points"><span>大きな声で</span><span>はっきり</span><span>まちがえずに</span></div>
+    </div>
+
+    <div class="ondoku" id="ondoku">
+      <div class="th"></div>
+      <div class="th">題名</div>
+      <div class="th">ごうかくした日</div>
+      <div class="th">先生</div>
+    </div>
+  </section>
+
+  <!-- 裏面：九九けんてい -->
+  <section class="sheet">
+    <div class="head">
+      <h1 class="title round">九九けんてい</h1>
+      <span class="side-mark round">うら</span>
+    </div>
+
+    <div class="name-row">
+      2年<span class="blank s"></span>組<span class="blank s"></span>番　名前<span class="blank l"></span>
+    </div>
+
+    <div class="legend">
+      <div><b class="round">上がり</b>1から9へ<br>（2×1 → 2×9）</div>
+      <div><b class="round">下がり</b>9から1へ<br>（2×9 → 2×1）</div>
+      <div><b class="round">ばらばら</b>先生が言った<br>もんだいに答える</div>
+    </div>
+
+    <div class="kuku" id="kuku">
+      <div class="th"></div>
+      <div class="th">上がり</div>
+      <div class="th">下がり</div>
+      <div class="th">ばらばら</div>
+    </div>
+
+    <div class="master">
+      <p>ぜんぶ ごうかくしたら<strong class="round">九九マスター</strong></p>
+      <div class="right"><span>月　　日</span><span class="stamp"></span></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  // 音読：12行
+  const ondoku = document.getElementById('ondoku');
+  for (let i = 1; i <= 12; i++) {
+    ondoku.insertAdjacentHTML('beforeend',
+      `<div class="no">${i}</div>
+       <div class="daimei"></div>
+       <div class="date"><span>月</span><span>日</span></div>
+       <div><span class="stamp"></span></div>`);
+  }
+
+  // 九九：1〜9の段
+  const kuku = document.getElementById('kuku');
+  for (let d = 1; d <= 9; d++) {
+    kuku.insertAdjacentHTML('beforeend',
+      `<div class="dan round">${d}<small>のだん</small></div>
+       <div><span class="stamp"></span></div>
+       <div><span class="stamp"></span></div>
+       <div><span class="stamp"></span></div>`);
+  }
+</script>
+</body>
+</html>
