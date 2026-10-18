@@ -527,6 +527,47 @@ table.tl { width: 100%; border-collapse: collapse; }
 .per4 .gk-box i { width: 5.5mm; height: 5.5mm; }
 .per4 .gk-foot { font-size: 3.2mm; }
 
+/* 音読・九九けんてい カード（もとの ondoku-kuku-kentei-card.html と おなじ みため） */
+.page.kentei {
+  --kt-ink: #1c1c1c; --kt-line: #4a4a4a; --kt-faint: #9a9a9a; --kt-tint: #eceff4; --kt-accent: #2e4a78;
+  padding: 13mm 14mm 12mm; gap: 0; color: var(--kt-ink); font-weight: 400; word-break: normal;
+}
+.page.kentei::before { display: none; }
+.kentei .kt-round { font-family: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif; }
+.kentei .kt-head { display: flex; align-items: flex-end; justify-content: space-between; border-bottom: 2.4mm solid var(--kt-accent); padding-bottom: 2.5mm; }
+.kentei .kt-title { margin: 0; font-size: 30pt; font-weight: 700; letter-spacing: .08em; line-height: 1; }
+.kentei .kt-side { font-size: 11pt; font-weight: 700; color: var(--kt-accent); border: 1.2px solid var(--kt-accent); border-radius: 99px; padding: 1mm 4mm; }
+.kentei .kt-name { display: flex; align-items: flex-end; gap: 2mm; margin-top: 5mm; font-size: 14pt; }
+.kentei .kt-blank { display: inline-block; border-bottom: 1px solid var(--kt-line); height: 9mm; }
+.kentei .kt-blank.s { width: 14mm; }
+.kentei .kt-blank.l { flex: 1; }
+.kentei .kt-guide { margin-top: 5mm; background: var(--kt-tint); border-radius: 3mm; padding: 3.5mm 5mm; font-size: 13pt; line-height: 1.6; }
+.kentei .kt-points { display: flex; gap: 7mm; margin-top: 1.5mm; font-weight: 600; }
+.kentei .kt-points span::before { content: ""; display: inline-block; width: 4.2mm; height: 4.2mm; border: 1.2px solid var(--kt-line); border-radius: 1mm; margin-right: 1.8mm; vertical-align: -.5mm; background: #fff; }
+.kentei .kt-ondoku, .kentei .kt-kuku { flex: 1; display: grid; border: 1.4px solid var(--kt-line); border-radius: 2mm; overflow: hidden; }
+.kentei .kt-ondoku { margin-top: 5mm; grid-template-columns: 10mm 1fr 36mm 24mm; grid-template-rows: 9mm repeat(12, 1fr); }
+.kentei .kt-kuku { margin-top: 4mm; grid-template-columns: 30mm repeat(3, 1fr); grid-template-rows: 9mm repeat(9, 1fr); }
+.kentei .kt-ondoku > div, .kentei .kt-kuku > div { border-bottom: 1px solid #bdbdbd; border-right: 1px solid #bdbdbd; display: flex; align-items: center; justify-content: center; }
+.kentei .kt-ondoku > div:nth-child(4n), .kentei .kt-kuku > div:nth-child(4n) { border-right: none; }
+.kentei .kt-ondoku > div:nth-last-child(-n+4), .kentei .kt-kuku > div:nth-last-child(-n+4) { border-bottom: none; }
+.kentei .kt-th { background: var(--kt-tint); font-size: 11pt; font-weight: 700; }
+.kentei .kt-kuku .kt-th { font-size: 12pt; }
+.kentei .kt-no { font-size: 13pt; color: var(--kt-accent); font-weight: 700; }
+.kentei .kt-ondoku .kt-daimei { justify-content: flex-start; padding: 0 4mm; }
+.kentei .kt-daimei::after { content: ""; display: block; width: 100%; height: 0; border-bottom: 1px dashed var(--kt-faint); margin-top: 6mm; }
+.kentei .kt-ondoku .kt-date { font-size: 12pt; gap: 9mm; padding-left: 9mm; }
+.kentei .kt-stamp { width: 14mm; height: 14mm; border-radius: 50%; border: 1.2px dashed var(--kt-faint); }
+.kentei .kt-legend { margin-top: 5mm; display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; }
+.kentei .kt-legend div { background: var(--kt-tint); border-radius: 3mm; padding: 2.5mm 3.5mm; font-size: 11pt; line-height: 1.5; }
+.kentei .kt-legend b { display: block; font-size: 13pt; color: var(--kt-accent); }
+.kentei .kt-kuku .kt-dan { font-size: 16pt; font-weight: 700; color: var(--kt-accent); gap: .5mm; }
+.kentei .kt-dan small { font-size: 11pt; color: var(--kt-ink); }
+.kentei .kt-master { margin-top: 4mm; border: 2px solid var(--kt-accent); border-radius: 4mm; display: flex; align-items: center; justify-content: space-between; padding: 3mm 6mm; }
+.kentei .kt-master p { margin: 0; font-size: 13pt; line-height: 1.5; }
+.kentei .kt-master strong { display: block; font-size: 22pt; letter-spacing: .06em; color: var(--kt-accent); }
+.kentei .kt-right { display: flex; align-items: center; gap: 6mm; font-size: 12pt; }
+.kentei .kt-master .kt-stamp { width: 22mm; height: 22mm; border: 1.4px dashed var(--kt-accent); }
+
 @page { size: A4 portrait; margin: 0; }
 @page land { size: A4 landscape; margin: 0; }
 @media print {
