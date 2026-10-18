@@ -228,9 +228,9 @@ img { -webkit-user-drag: none; user-select: none; }
 .ex.point { background: var(--warn-soft); box-shadow: none; }
 .ex.point h4 { color: var(--warn); }
 .ex.point img { width: 26px; height: 26px; }
-.ex-actions { display: flex; gap: 8px; }
+.ex-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .ex-actions button {
-    flex: 1; min-height: 46px; border-radius: 12px; border: 1px solid var(--line); background: var(--card);
+    flex: 1 1 130px; white-space: nowrap; padding: 0 10px; min-height: 46px; border-radius: 12px; border: 1px solid var(--line); background: var(--card);
     display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: .88em;
 }
 .ex-actions button.on { color: var(--warn); border-color: var(--warn); }

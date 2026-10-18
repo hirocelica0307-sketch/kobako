@@ -92,6 +92,7 @@ async function answerOne(page, opts) {
             if (i === 0) {
                 check(await page.isVisible('.verdict-note'), '自信ありで まちがえると「思い込みを発見」が 出る');
                 await noHScroll(page, '解説');
+                await page.waitForTimeout(400); // 出てくる 動きが おわってから 撮る
                 await page.screenshot({ path: path.join(OUT, ph.name + '-02-feedback.png'), fullPage: true });
                 // ★印
                 await page.tap('#starBtn');
@@ -188,6 +189,7 @@ async function answerOne(page, opts) {
         await page.screenshot({ path: path.join(OUT, ph.name + '-09-recall-dark.png'), fullPage: true });
         await answerOne(page, { conf: 'sure' });
         await noHScroll(page, '解説（暗い・特大）');
+        await page.waitForTimeout(400);
         await page.screenshot({ path: path.join(OUT, ph.name + '-10-feedback-dark-xl.png'), fullPage: true });
         await page.tap('#playQuit');
         await page.tap('#dialogYes');
