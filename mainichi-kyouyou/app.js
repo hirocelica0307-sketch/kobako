@@ -359,6 +359,8 @@
         $('#confSheet').hidden = true;
         $('#feedback').hidden = true;
         $('#nextBar').hidden = true;
+        // 前の 問題の「正解！」「残念…」を 消す
+        const oldVerdict = $('#verdictSlot'); if (oldVerdict) oldVerdict.remove();
         pendingK = null;
         if (answered) renderFeedback(q, answered, false);
         window.scrollTo(0, 0);

@@ -44,6 +44,7 @@ async function smallTargets(page, label) {
 async function answerOne(page, opts) {
     const o = opts || {};
     await page.waitForSelector('#play:not([hidden]) #qText');
+    check(!(await page.$('#verdictSlot')), '答える 前は 前の 問題の「正解！」「残念…」が 残って いない');
     const q = await page.textContent('#qText');
     if (await page.isVisible('#recallShow')) await page.tap('#recallShow');
     const choices = await page.$$('#choices .choice');
@@ -115,6 +116,7 @@ async function answerOne(page, opts) {
         for (let i = 0; i < retry; i++) {
             check(await page.isVisible('.q-tag.retry'), 'もう一度の 印');
             check(!(await page.isVisible('#confSheet')), 'もう一度の ときは 自信を 聞かない');
+            check(!(await page.$('#verdictSlot')), 'もう一度の 問題でも 前の 結果が 残って いない');
             await page.tap('#choices .choice[data-k="0"]');
             await page.waitForSelector('#feedback:not([hidden])');
             await page.tap('#nextBtn');
