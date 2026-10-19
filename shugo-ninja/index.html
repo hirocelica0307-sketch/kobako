@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f1f5ea">
+<meta name="description" content="小学2年生 こくご「主語とじゅつ語」。文の 中から 主語と じゅつ語を えらぶ 忍者の しゅぎょう。先生用の 児童ごとの 記録つき。">
+<title>ことばにんじゃ道場</title>
+<link rel="icon" href="assets/app-icon.png" type="image/png">
+<link rel="apple-touch-icon" href="assets/app-icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Yusei+Magic&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<style>
+/* Layout: one-screen views — a ninja-village map of scroll cards, then a play board with a big textbook-style sentence split into tappable 文節. Single bright look for classroom tablets and projectors. */
+:root{
+  --paper:#F1F5EA;
+  --dot:#DCE6D2;
+  --surface:#FFFFFF;
+  --surface-2:#FAFBF6;
+  --ink:#2C2A4A;
+  --ink-soft:#5F5C7E;
+  --line:#D6DDCB;
+  --shugo:#DD4038;
+  --shugo-dark:#A92F29;
+  --shugo-bg:#FDE8E6;
+  --jutsu:#2C69D3;
+  --jutsu-dark:#1D4C9E;
+  --jutsu-bg:#E3ECFD;
+  --matcha:#5A9A47;
+  --matcha-dark:#3F7431;
+  --sakura:#F28DB6;
+  --sakura-bg:#FDEBF3;
+  --gold:#F0B12C;
+  --oops:#E3832A;
+  --night:#3B3770;
+  --night-dark:#262352;
+  --f-display:"Yusei Magic","Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif;
+  --f-ui:"Zen Maru Gothic","Hiragino Maru Gothic ProN","BIZ UDPGothic","Meiryo",sans-serif;
+  --f-text:"Klee One","UD Digi Kyokasho NK-R","YuKyokasho","Zen Maru Gothic",serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background-color:var(--paper);
+  background-image:radial-gradient(var(--dot) 1.4px,transparent 1.6px);
+  background-size:24px 24px;
+  color:var(--ink);
+  font-family:var(--f-ui);
+  font-weight:500;
+  font-size:18px;
+  line-height:1.6;
+  -webkit-tap-highlight-color:transparent;
+}
+#app{
+  max-width:1080px;
+  margin:0 auto;
+  min-height:100%;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-top:calc(16px + env(safe-area-inset-top,0px));
+  padding-bottom:calc(40px + env(safe-area-inset-bottom,0px));
+}
+.ic{display:inline-flex;width:1.15em;height:1.15em;flex:none}
+.ic svg{width:100%;height:100%}
+
+/* キャラクター（Fluent Emoji 3D）。主語は 赤、じゅつ語は 青の わくで 見わける */
+.ch{
+  position:relative;display:inline-grid;place-items:center;flex:none;
+  width:var(--sz,84px);height:var(--sz,84px);border-radius:50%;
+  background:#ECEBF7;box-shadow:inset 0 0 0 5px var(--night);
+}
+.ch img{width:78%;height:78%;object-fit:contain;transition:transform .2s}
+.ch-s{background:var(--shugo-bg);box-shadow:inset 0 0 0 5px var(--shugo)}
+.ch-p{background:var(--jutsu-bg);box-shadow:inset 0 0 0 5px var(--jutsu)}
+.ch-cat{background:#FFF1D6;box-shadow:inset 0 0 0 5px var(--gold)}
+.ch.mood-happy img{animation:hop .6s ease-out}
+.ch.mood-oops img{transform:rotate(-14deg) translateY(4px)}
+.badge-no{
+  display:inline-grid;place-items:center;flex:none;width:56px;height:56px;border-radius:50%;
+  background:var(--night);color:#fff;font-weight:900;font-size:24px;line-height:1;
+}
+.badge-no small{display:block;font-size:11px;margin-top:-10px}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+button:disabled{cursor:default}
+button:focus-visible,input:focus-visible{outline:4px solid var(--gold);outline-offset:3px}
+ruby rt{font-family:var(--f-ui);font-weight:700;font-size:.45em;letter-spacing:0}
+h1,h2,h3{text-wrap:balance;margin:0}
+p{margin:0}
+
+/* ---------- shared pieces ---------- */
+.btn{
+  border:none;border-radius:999px;padding:14px 28px;
+  font-weight:900;font-size:20px;line-height:1.3;
+  background:var(--night);color:#fff;
+  box-shadow:0 5px 0 var(--night-dark);
+  transition:transform .08s,box-shadow .08s;
+}
+.btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--night-dark)}
+.btn.go{background:var(--matcha);box-shadow:0 5px 0 var(--matcha-dark)}
+.btn.go:active{box-shadow:0 2px 0 var(--matcha-dark)}
+.btn.sub{background:var(--surface);color:var(--ink);border:3px solid var(--line);box-shadow:0 5px 0 var(--line)}
+.btn.sub:active{box-shadow:0 2px 0 var(--line)}
+.btn.small{font-size:16px;padding:9px 18px}
+.btn.danger{background:var(--shugo);box-shadow:0 5px 0 var(--shugo-dark)}
+.iconbtn{
+  display:inline-flex;align-items:center;gap:6px;
+  border:3px solid var(--line);background:var(--surface);border-radius:999px;
+  padding:6px 14px;font-weight:700;font-size:16px;
+}
+.iconbtn svg{width:20px;height:20px}
+.actions{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+.toast{
+  position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+  background:var(--ink);color:#fff;border-radius:999px;padding:10px 22px;font-weight:700;z-index:50;
+}
+
+/* ---------- title / login ---------- */
+.title-screen{display:grid;gap:24px;justify-items:center;padding-top:8px}
+.trio{display:flex;align-items:flex-end;justify-content:center;gap:4px}
+.trio .bob{animation:bob 2.4s ease-in-out infinite}
+.trio .bob:nth-child(2){animation-delay:.4s}
+.trio .bob:nth-child(3){animation-delay:.8s}
+.logo{
+  font-family:var(--f-display);font-weight:400;
+  font-size:clamp(38px,8.5vw,68px);line-height:1.15;color:var(--night);text-align:center;
+}
+.logo span{display:inline-block;background:var(--sakura-bg);border-radius:14px;padding:0 .2em;color:var(--shugo-dark)}
+.lead{font-size:clamp(18px,3vw,22px);font-weight:700;color:var(--ink-soft);text-align:center}
+.panel{
+  width:100%;background:var(--surface);border:3px solid var(--line);border-radius:26px;
+  padding:20px clamp(14px,3vw,28px);display:grid;gap:16px;
+}
+.panel h2{font-size:22px;font-weight:900;text-align:center}
+.numgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:10px}
+.num{
+  display:grid;place-items:center;gap:0;min-height:72px;padding:6px 4px;
+  border:3px solid var(--line);border-radius:18px;background:var(--surface-2);
+  font-size:26px;font-weight:900;line-height:1.1;
+}
+.num small{font-size:12px;font-weight:700;color:var(--ink-soft);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.num.sel{border-color:var(--night);background:var(--night);color:#fff}
+.num.sel small{color:#fff}
+.namebox{display:grid;gap:12px;justify-items:center;text-align:center}
+.namebox input{
+  font:inherit;font-size:24px;font-weight:700;text-align:center;
+  width:min(100%,360px);padding:10px 14px;border:3px solid var(--line);border-radius:16px;background:var(--surface-2);color:var(--ink);
+}
+.teacher-link{border:none;background:none;color:var(--ink-soft);font-weight:700;font-size:15px;text-decoration:underline;text-underline-offset:4px;padding:8px}
+
+/* ---------- map ---------- */
+.mapbar{
+  display:flex;flex-wrap:wrap;align-items:center;gap:12px;
+  background:var(--surface);border:3px solid var(--line);border-radius:24px;padding:10px 16px;margin-bottom:18px;
+}
+.me{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.me-text{min-width:0}
+.me-name{font-weight:900;font-size:20px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank{display:inline-block;background:var(--night);color:#fff;border-radius:999px;padding:1px 12px;font-size:14px;font-weight:700}
+.scrolls{font-weight:700;font-size:15px;color:var(--ink-soft)}
+.mapbar .tools{display:flex;gap:8px;flex-wrap:wrap}
+.map-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.map-head h1{font-family:var(--f-display);font-weight:400;font-size:clamp(28px,5vw,40px);color:var(--night)}
+.stages{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px 26px;padding:0 10px}
+.scroll{
+  position:relative;text-align:left;display:grid;grid-template-columns:auto 1fr;gap:4px 14px;align-items:center;
+  background:var(--surface);border:3px solid var(--ink);border-radius:10px;padding:16px 18px 14px;
+  box-shadow:0 6px 0 rgba(44,42,74,.18);
+  transition:transform .12s;
+}
+.scroll:hover{transform:translateY(-2px)}
+.scroll:active{transform:translateY(2px)}
+.scroll .got{position:absolute;right:10px;top:-14px;width:44px;height:44px}
+.scroll .seal{
+  grid-row:span 3;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;
+  font-family:var(--f-display);font-size:30px;color:#fff;border:3px solid var(--ink);
+}
+.scroll .seal small{display:block;font-family:var(--f-ui);font-size:11px;font-weight:900;line-height:1;margin-top:-6px}
+.scroll .sn{font-size:22px;font-weight:900;line-height:1.25}
+.scroll .ss{font-size:14px;color:var(--ink-soft);font-weight:700;line-height:1.4}
+.scroll .st{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.starrow{display:inline-flex;gap:2px}
+.starrow img{width:24px;height:24px}
+.starrow img.off,.bigstars img.off{filter:grayscale(1) opacity(.35)}
+.chip-state{font-size:13px;font-weight:900;border-radius:999px;padding:1px 10px;background:var(--surface-2);border:2px solid var(--line);color:var(--ink-soft)}
+.chip-state.clear{background:var(--matcha);border-color:var(--matcha);color:#fff}
+.chip-state.next{background:var(--gold);border-color:var(--gold);color:var(--ink)}
+
+/* ---------- play ---------- */
+.playbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.ptitle{font-weight:900;font-size:20px;flex:1 1 10em;min-width:0}
+.ptitle small{display:block;font-size:13px;color:var(--ink-soft);font-weight:700}
+.pips{display:flex;gap:4px;flex-wrap:wrap}
+.pips .ic{width:24px;height:24px;color:#B9C2AC}
+.pips .done .ic{color:var(--night)}
+.pips .now .ic{color:var(--gold);animation:spin 2.4s linear infinite}
+.quitask{
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;
+  background:var(--sakura-bg);border:3px solid var(--sakura);border-radius:18px;padding:10px 14px;margin-bottom:14px;font-weight:700;
+}
+.board{
+  background:var(--surface);border:3px solid var(--line);border-radius:30px;
+  padding:clamp(16px,3vw,28px);display:grid;gap:18px;
+}
+.stepbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.step{
+  display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 14px;
+  font-weight:900;font-size:16px;border:3px solid var(--line);color:var(--ink-soft);background:var(--surface-2);
+}
+.step.on.p{border-color:var(--jutsu);color:var(--jutsu-dark);background:var(--jutsu-bg)}
+.step.on.s{border-color:var(--shugo);color:var(--shugo-dark);background:var(--shugo-bg)}
+.step.on.k{border-color:var(--night);color:var(--night);background:#ECEBF7}
+.step.ok{border-color:var(--matcha);color:var(--matcha-dark);background:#EAF4E5}
+.step .ck{font-size:14px}
+.passtitle{font-weight:900;text-align:center;font-size:18px;color:var(--ink-soft)}
+.sentence{display:flex;flex-wrap:wrap;gap:22px 10px;justify-content:center;align-items:flex-end;padding:10px 0 14px}
+.chip{
+  position:relative;font-family:var(--f-text);font-weight:600;
+  font-size:clamp(28px,5.4vw,46px);line-height:1.25;
+  background:var(--surface-2);border:3px dashed #C3CAB8;border-radius:16px;
+  padding:.28em .36em .42em;min-height:64px;
+  transition:transform .12s,border-color .12s,opacity .2s;
+}
+.pass .chip{font-size:clamp(22px,3.9vw,32px);min-height:52px}
+.chip:not(:disabled):hover{border-color:var(--ink-soft)}
+.chip:not(:disabled):active{transform:scale(.95)}
+.chip:disabled{color:var(--ink)}
+.chip .w{display:inline-block}
+.chip.is-s{border:3px solid var(--shugo);background:var(--shugo-bg)}
+.chip.is-s .w{text-decoration:underline solid var(--shugo);text-decoration-thickness:4px;text-underline-offset:9px}
+.chip.is-p{border:3px solid var(--jutsu);background:var(--jutsu-bg)}
+.chip.is-p .w{text-decoration:underline double var(--jutsu);text-decoration-thickness:3px;text-underline-offset:9px}
+.chip.miss{opacity:.42}
+.chip.shake{animation:shake .42s}
+.chip.pop{animation:pop .35s}
+.chip.glow{border:3px solid var(--gold);animation:glow .9s ease-in-out infinite alternate}
+.tag{
+  position:absolute;left:50%;bottom:-15px;transform:translateX(-50%);
+  font-family:var(--f-ui);font-size:13px;font-weight:900;line-height:1.5;color:#fff;
+  padding:0 10px;border-radius:999px;white-space:nowrap;
+}
+.tag-s{background:var(--shugo)}
+.tag-p{background:var(--jutsu)}
+.tag-k{background:var(--night)}
+.pline{display:grid;gap:4px;border-radius:18px;padding:6px 8px}
+.pline.now{background:#FFF8E4;outline:3px solid var(--gold)}
+.pline.later{opacity:.55}
+.pline .sentence{padding:6px 0 14px}
+.guide{display:flex;gap:10px;align-items:flex-end}
+.guide .who{flex:none;display:grid;justify-items:center}
+.guide .who b{font-size:12px;font-weight:900;color:var(--ink-soft);line-height:1}
+.bubble{
+  position:relative;flex:1;min-width:0;background:var(--surface);
+  border:3px solid var(--ink);border-radius:22px;padding:12px 18px;
+  font-size:clamp(17px,2.6vw,22px);font-weight:700;line-height:1.75;
+}
+.bubble::before{
+  content:"";position:absolute;left:-14px;bottom:18px;width:18px;height:18px;
+  background:inherit;border-left:3px solid;border-bottom:3px solid;border-color:inherit;transform:rotate(45deg);
+}
+.bubble.ok{border-color:var(--matcha);background:#F2F9EE}
+.bubble.ng{border-color:var(--oops);background:#FFF4E8}
+.tools-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.kinds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.kind{
+  display:grid;gap:2px;justify-items:center;border:3px solid var(--line);border-radius:20px;background:var(--surface-2);
+  padding:12px 8px;box-shadow:0 5px 0 var(--line);
+}
+.kind b{font-size:clamp(20px,3.4vw,26px);font-weight:900}
+.kind small{font-size:14px;font-weight:900;color:var(--ink-soft)}
+.kind .ex{font-family:var(--f-text);font-size:15px;color:var(--ink-soft)}
+.kind:active{transform:translateY(3px);box-shadow:0 2px 0 var(--line)}
+.kind.miss{opacity:.42}
+.kind.right{border-color:var(--matcha);background:#EAF4E5}
+.kind.glow{border-color:var(--gold);animation:glow .9s ease-in-out infinite alternate}
+.build{display:grid;gap:20px;justify-items:center}
+.build-row{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:center}
+.wcard{
+  font-family:var(--f-text);font-weight:600;font-size:clamp(28px,5.4vw,44px);line-height:1.25;
+  border-radius:16px;padding:.25em .5em .42em;min-width:3.6em;text-align:center;border:3px solid;
+}
+.wcard.s{border-color:var(--shugo);background:var(--shugo-bg)}
+.wcard.s .w{text-decoration:underline solid var(--shugo);text-decoration-thickness:4px;text-underline-offset:9px}
+.wcard.p{border-color:var(--jutsu);background:var(--jutsu-bg)}
+.wcard.p .w{text-decoration:underline double var(--jutsu);text-decoration-thickness:3px;text-underline-offset:9px}
+.wcard.slot{border-style:dashed;border-color:#C3CAB8;background:var(--surface-2);color:var(--ink-soft)}
+.wcard.silly{border-color:var(--oops);background:#FFF4E8;animation:shake .42s}
+.opts{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+.opt{
+  font-family:var(--f-text);font-weight:600;font-size:clamp(24px,4.4vw,34px);line-height:1.3;
+  border:3px solid var(--line);background:var(--surface);border-radius:16px;padding:.25em .6em .4em;
+  box-shadow:0 5px 0 var(--line);
+}
+.opt:active{transform:translateY(3px);box-shadow:0 2px 0 var(--line)}
+.opt.miss{opacity:.42}
+.opt.glow{border-color:var(--gold);animation:glow .9s ease-in-out infinite alternate}
+.legend{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;font-size:15px;font-weight:700;color:var(--ink-soft)}
+.legend > span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:34px;height:0;border-bottom:4px solid var(--shugo)}
+.legend i.dbl{border-bottom:6px double var(--jutsu)}
+
+/* ---------- tutorial ---------- */
+.demo{display:grid;gap:10px;justify-items:center}
+.demo .sentence{padding:6px 0 18px}
+.demo-list{display:grid;gap:8px;width:100%;max-width:560px}
+.demo-list div{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;border:2px solid var(--line);border-radius:14px;padding:6px 14px;background:var(--surface-2)}
+.demo-list .tx{font-family:var(--f-text);font-weight:600;font-size:24px}
+.demo-list .tp{font-weight:900;color:var(--jutsu-dark);font-size:16px}
+.secret{display:grid;gap:8px;max-width:620px;width:100%;margin:0 auto;padding:0;list-style:none}
+.secret li{display:flex;gap:12px;align-items:flex-start;background:var(--surface-2);border:2px solid var(--line);border-radius:14px;padding:10px 14px;font-weight:700}
+.secret li b{flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:17px}
+
+/* ---------- result ---------- */
+.result{display:grid;gap:18px;justify-items:center;text-align:center;padding-top:10px;position:relative}
+.result h1{font-family:var(--f-display);font-weight:400;font-size:clamp(34px,7vw,56px);color:var(--night)}
+.bigstars{display:flex;gap:10px}
+.bigstars img{width:clamp(60px,13vw,92px);height:clamp(60px,13vw,92px)}
+.bigstars img.on{animation:pop .5s backwards}
+.bigstars img:nth-child(2){animation-delay:.15s}
+.bigstars img:nth-child(3){animation-delay:.3s}
+.reward img{width:56px;height:56px;flex:none}
+.score{font-size:22px;font-weight:700}
+.score b{font-size:34px;color:var(--night)}
+.reward{display:flex;align-items:center;gap:12px;background:var(--surface);border:3px solid var(--line);border-radius:20px;padding:10px 18px;font-weight:900;font-size:19px;text-align:left}
+.rankup{background:var(--gold);border-radius:999px;padding:6px 20px;font-weight:900;font-size:19px}
+.petals{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:5}
+.petals img{position:absolute;top:-40px;width:30px;height:30px;opacity:.9;animation:fall linear forwards}
+
+/* ---------- teacher ---------- */
+.gate{display:grid;gap:18px;justify-items:center;padding-top:20px;text-align:center}
+.pinshow{display:flex;gap:12px}
+.pinshow i{width:22px;height:22px;border-radius:50%;border:3px solid var(--night)}
+.pinshow i.f{background:var(--night)}
+.pinshow.bad{animation:shake .42s}
+.keypad{display:grid;grid-template-columns:repeat(3,76px);gap:10px}
+.keypad button{height:66px;border-radius:18px;border:3px solid var(--line);background:var(--surface);font-size:28px;font-weight:900;box-shadow:0 4px 0 var(--line)}
+.keypad button:active{transform:translateY(3px);box-shadow:0 1px 0 var(--line)}
+.tch{display:grid;gap:18px;font-size:16px}
+.tch-head{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.tch-head h1{font-size:26px;font-weight:900}
+.note{font-size:14px;color:var(--ink-soft);font-weight:700}
+.tbox{background:var(--surface);border:3px solid var(--line);border-radius:20px;padding:16px clamp(12px,2.4vw,22px);display:grid;gap:12px;min-width:0}
+.tbox h2{font-size:18px;font-weight:900}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.summary div{background:var(--surface-2);border:2px solid var(--line);border-radius:14px;padding:10px 14px}
+.summary b{display:block;font-size:28px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--night);line-height:1.2}
+.summary span{font-size:13px;font-weight:700;color:var(--ink-soft)}
+.bars{display:grid;gap:8px}
+.bar{display:grid;grid-template-columns:minmax(0,15em) 1fr 3em;gap:10px;align-items:center;font-size:14px;font-weight:700}
+.bar .track{height:14px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden}
+.bar .fill{height:100%;background:var(--oops);border-radius:999px}
+.bar .n{text-align:right;font-variant-numeric:tabular-nums}
+.tip{background:#FFF8E4;border:2px solid var(--gold);border-radius:14px;padding:10px 14px;font-weight:700;font-size:15px}
+.tablewrap{overflow-x:auto;border-radius:12px;border:2px solid var(--line)}
+table{border-collapse:collapse;width:100%;min-width:900px;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
+th{background:var(--surface-2);font-weight:900;font-size:13px;position:sticky;top:0}
+td.l,th.l{text-align:left}
+td input{font:inherit;width:8.5em;padding:3px 6px;border:2px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--ink)}
+tr.sel td{background:#FFF8E4}
+.mini-st{color:var(--gold);letter-spacing:-1px}
+.mini-st .off{color:var(--line)}
+.pct{display:block;font-size:11px;color:var(--ink-soft)}
+.errtxt{max-width:22em;white-space:normal;text-align:left;font-size:13px}
+.tset{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+.tset label{display:grid;gap:4px;font-weight:700;font-size:14px}
+.tset input{font:inherit;width:7em;padding:6px 10px;border:2px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--ink)}
+.confirm{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--shugo-bg);border:2px solid var(--shugo);border-radius:14px;padding:10px 14px;font-weight:700}
+.copyarea{width:100%;min-height:120px;font-family:ui-monospace,monospace;font-size:12px;border:2px solid var(--line);border-radius:10px;padding:8px;background:var(--surface-2);color:var(--ink)}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.hist{display:grid;gap:4px;max-height:280px;overflow:auto;font-size:14px}
+.hist div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--line);padding:3px 0}
+
+/* ---------- motion ---------- */
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+@keyframes pop{0%{transform:scale(.6)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+@keyframes glow{from{box-shadow:0 0 0 0 rgba(240,177,44,.0)}to{box-shadow:0 0 0 8px rgba(240,177,44,.45)}}
+@keyframes fall{to{transform:translateY(110vh) rotate(540deg)}}
+@keyframes hop{0%{transform:translateY(0)}40%{transform:translateY(-12px)}100%{transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .petals{display:none}
+}
+@media (max-width:560px){
+  .kinds{grid-template-columns:1fr}
+  .kind{grid-template-columns:auto auto 1fr;justify-items:start;align-items:center;gap:10px;padding:10px 14px}
+  .guide .who .ch{--sz:64px!important}
+  .pips{flex:1 1 100%;justify-content:center}
+  .bar{grid-template-columns:minmax(0,1fr) 3em}
+  .bar .track{grid-column:1/-1;grid-row:2}
+}
+</style>
+</head>
+<body>
+<div id="app" aria-live="polite"></div>
+<script src="assets/icons.js"></script>
+<script>
+// ==LOGIC==
+/* 問題の データと、はんていの きまり（tests.js で しらべる ぶぶん） */
+(function(G){
+'use strict';
+const RB=/\{([^|}]+)\|([^}]+)\}/g;
+const R=s=>s.replace(RB,'<ruby>$1<rt>$2</rt></ruby>');   // ruby markup
+const P=s=>s.replace(RB,'$1');                           // kanji text
+const Y=s=>s.replace(RB,'$2');                           // reading (for speech)
+const bare=s=>s.replace(/[。、]/g,'');
+const SHUGO='{主語|しゅご}', JUTSU='じゅつ{語|ご}';
+
+/* ---------- 問題 ---------- */
+const seg=str=>{const i=str.indexOf(':');return {r:str.slice(0,i),t:str.slice(i+1)}};
+const S=(w,k)=>({w:w.map(seg),k});
+const KN={dou:'どうする',donna:'どんなだ',nanda:'なんだ'};
+const KD={dou:'うごきを あらわして いる',donna:'ようすを あらわして いる',nanda:'「なにか」を あらわして いる'};
+
+const STAGES=[
+  {id:0,name:'しってる？',sub:SHUGO+'と '+JUTSU+'って なあに？',kind:'tut',color:'#F28DB6'},
+  {id:1,name:'ふたつの ことば',sub:'みじかい 文で れんしゅう',kind:'sent',steps:['p','s'],color:'#E7A21C',items:[
+    S(['s:とりが','p:とぶ。']),
+    S(['s:{犬|いぬ}が','p:ほえる。']),
+    S(['s:{花|はな}が','p:さく。']),
+    S(['s:{雨|あめ}が','p:ふる。']),
+    S(['s:ぼくが','p:はしる。']),
+    S(['s:{赤|あか}ちゃんが','p:ねむる。'])
+  ]},
+  {id:2,name:'ことばが ふえたよ',sub:'「どんな」「どこで」が 入った 文',kind:'sent',steps:['p','s'],color:'#5A9A47',items:[
+    S(['a:{小|ちい}さな','s:とりが','d:{空|そら}を','p:とぶ。']),
+    S(['a:{白|しろ}い','s:ねこが','d:にわで','p:ねる。']),
+    S(['s:{弟|おとうと}が','o:ボールを','p:なげる。']),
+    S(['s:かえるが','d:いけに','p:とびこむ。']),
+    S(['s:{妹|いもうと}が','a:{大|おお}きな','h:{声|こえ}で','p:{歌|うた}う。']),
+    S(['a:{黄色|きいろ}い','s:ちょうが','h:ひらひらと','p:とぶ。']),
+    S(['s:{兄|あに}が','o:{本|ほん}を','p:{読|よ}む。']),
+    S(['s:{子|こ}どもたちが','d:{公園|こうえん}で','p:あそぶ。'])
+  ]},
+  {id:3,name:'「は」と「も」',sub:'「〜は」「〜も」の '+SHUGO,kind:'sent',steps:['p','s'],color:'#2C9E98',items:[
+    S(['s:わたしは','d:としょかんへ','p:{行|い}く。']),
+    S(['s:ぼくも','h:いっしょに','p:はしる。']),
+    S(['s:{妹|いもうと}は','o:にんじんを','p:{食|た}べる。']),
+    S(['s:{母|はは}も','o:{朝|あさ}ごはんを','p:{作|つく}る。']),
+    S(['s:かめは','h:ゆっくり','p:{歩|ある}く。']),
+    S(['s:{先生|せんせい}も','h:にこにこ','p:わらう。']),
+    S(['s:{弟|おとうと}は','w:ぼくと','d:プールで','p:およぐ。']),
+    S(['s:くまも','d:{森|もり}で','p:ねむる。'])
+  ]},
+  {id:4,name:SHUGO+'は どこ？',sub:SHUGO+'が 文の はじめに ない 文',kind:'sent',steps:['p','s'],color:'#2C69D3',items:[
+    S(['t:きのう、','s:ぼくは','d:{公園|こうえん}で','p:あそんだ。']),
+    S(['t:{朝|あさ}に','s:にわとりが','p:{鳴|な}いた。']),
+    S(['d:にわで','s:{弟|おとうと}が','o:なわとびを','p:した。']),
+    S(['t:{夏休|なつやす}みに','s:わたしは','d:{海|うみ}へ','p:{行|い}った。']),
+    S(['a:{大|おお}きな','h:{声|こえ}で','s:{兄|あに}が','o:{名前|なまえ}を','p:よんだ。']),
+    S(['o:ケーキを','s:{姉|あね}が','p:{切|き}った。']),
+    S(['t:{毎日|まいにち}、','s:{父|ちち}は','d:{会社|かいしゃ}へ','p:{行|い}く。']),
+    S(['a:{雨|あめ}の','t:{日|ひ}に','s:かたつむりが','a:はっぱの','d:{上|うえ}を','p:すすんだ。'])
+  ]},
+  {id:5,name:JUTSU+'の なかま{分|わ}け',sub:'どうする・どんなだ・なんだ',kind:'sent',steps:['p','k'],color:'#7D76B5',items:[
+    S(['s:{魚|さかな}が','d:{川|かわ}を','p:およぐ。'],'dou'),
+    S(['s:{風|かぜ}が','h:びゅうびゅう','p:ふく。'],'dou'),
+    S(['s:ぼくは','o:{絵|え}を','p:かいた。'],'dou'),
+    S(['s:{空|そら}が','p:{青|あお}い。'],'donna'),
+    S(['a:この','s:りんごは','p:{赤|あか}い。'],'donna'),
+    S(['a:ぞうの','s:{体|からだ}は','p:{大|おお}きい。'],'donna'),
+    S(['s:{教室|きょうしつ}は','p:しずかだ。'],'donna'),
+    S(['s:これは','a:わたしの','p:{本|ほん}だ。'],'nanda'),
+    S(['s:くじらは','a:{海|うみ}の','p:{生|い}きものだ。'],'nanda'),
+    S(['s:{兄|あに}は','p:{三年生|さんねんせい}だ。'],'nanda')
+  ]},
+  {id:6,name:'文しょうに チャレンジ',sub:'いくつかの 文が つづく 文しょう',kind:'pass',steps:['p','s'],color:'#E9739F',items:[
+    {title:'にわの あさ',sents:[
+      S(['t:{朝|あさ}、','d:にわで','s:すずめが','p:{鳴|な}いた。']),
+      S(['s:わたしは','o:まどを','p:あけた。']),
+      S(['a:{外|そと}の','s:{空気|くうき}は','p:つめたかった。'])
+    ]},
+    {title:'あさがおの たね',sents:[
+      S(['s:わたしは','a:あさがおの','o:たねを','p:まいた。']),
+      S(['t:しばらくして、','a:{小|ちい}さな','s:めが','p:{出|で}た。']),
+      S(['s:はっぱは','h:みどりいろで','p:きれいだ。'])
+    ]},
+    {title:'どうぶつえん',sents:[
+      S(['t:{日曜日|にちようび}に、','s:ぼくは','d:どうぶつえんへ','p:{行|い}った。']),
+      S(['a:キリンの','s:{首|くび}は','h:とても','p:{長|なが}かった。']),
+      S(['s:ライオンが','a:{大|おお}きな','o:{口|くち}を','p:あけた。'])
+    ]},
+    {title:'うんどうかい',sents:[
+      S(['a:{秋|あき}の','s:{空|そら}が','h:{青|あお}く','p:{晴|は}れた。']),
+      S(['s:ぼくは','x:かけっこで','x:いっとうに','p:なった。']),
+      S(['s:{友|とも}だちも','a:{大|おお}きな','h:{声|こえ}で','p:おうえんした。'])
+    ]}
+  ]},
+  {id:7,name:'文を つくろう',sub:SHUGO+'と '+JUTSU+'を くみあわせよう',kind:'build',color:'#DD4038',items:[
+    {fix:'s',text:'{魚|さかな}が',opts:['およぐ。','ほえる。','さく。'],ans:0},
+    {fix:'s',text:'{花|はな}が',opts:['さく。','{歩|ある}く。','{歌|うた}う。'],ans:0},
+    {fix:'s',text:'{雪|ゆき}が',opts:['ふる。','{食|た}べる。','わらう。'],ans:0},
+    {fix:'p',text:'{鳴|な}く。',opts:['せみが','いすが','{石|いし}が'],ans:0},
+    {fix:'p',text:'{光|ひか}る。',opts:['{星|ほし}が','パンが','くつしたが'],ans:0},
+    {fix:'p',text:'つめたい。',opts:['こおりは','ストーブは','たき{火|び}は'],ans:0},
+    {fix:'p',text:'どうぶつだ。',opts:['うさぎは','つくえは','バナナは'],ans:0},
+    {fix:'s',text:'せんぷうきが',opts:['まわる。','およぐ。','ねむる。'],ans:0}
+  ]}
+];
+
+const ERR={
+  p_s:'主語を述語とまちがえた',
+  p_x:'述語ではない言葉を述語にえらんだ',
+  s_o:'「〜を」を主語にえらんだ',
+  s_t:'「いつ」の言葉を主語にえらんだ',
+  s_d:'「どこ」の言葉を主語にえらんだ',
+  s_a:'修飾する言葉（どんな・どの）を主語にえらんだ',
+  s_h:'「どのように」の言葉を主語にえらんだ',
+  s_w:'「だれと」を主語にえらんだ',
+  s_x:'その他の言葉を主語にえらんだ',
+  k_dou:'「どうする」の述語を別の型とまちがえた',
+  k_donna:'「どんなだ」の述語を別の型とまちがえた',
+  k_nanda:'「なんだ」の述語を別の型とまちがえた',
+  c_p:'主語に合う述語をえらべなかった',
+  c_s:'述語に合う主語をえらべなかった'
+};
+const TIPS={
+  p_s:'主語と述語の役割を確認しましょう。述語は文の終わりにくることが多い点を押さえると見分けやすくなります。',
+  p_x:'「。」の前の言葉に注目させ、「どうする・どんなだ・なんだ」に当たるかを声に出して確かめさせましょう。',
+  s_o:'「〜を」は動作の相手を表し、主語ではありません。「〜のは だれ？ なに？」と述語から問い直すと効果的です。',
+  s_t:'文の初めにある「いつ」の言葉を主語と思いこんでいます。先に述語を見つけてから主語を探す手順を確認しましょう。',
+  s_d:'「どこ」の言葉を主語と思いこんでいます。「〜が・〜は・〜も」が付く言葉を探すよう声をかけましょう。',
+  s_a:'主語をくわしくする言葉（どんな・どの）と主語を区別できていません。「白い ねこが」のように、くわしくする言葉と主語を分けて示しましょう。',
+  s_h:'「どのように」の言葉と主語を混同しています。述語から「だれが？」と問う手順を確認しましょう。',
+  s_w:'「〜と」の言葉を主語と考えています。「〜と」は一緒にする相手であることを確認しましょう。',
+  s_x:'述語から「〜のは だれ？ なに？」と問い、主語を確かめる手順を練習しましょう。',
+  k_dou:'述語の型（動き・様子・何か）を例文で比べさせると整理しやすくなります。',
+  k_donna:'「〜い」「〜だ」で様子を表す述語は「どんなだ」です。「どんなだ」と「なんだ」を比べる例文が有効です。',
+  k_nanda:'「〜だ」で「何か」を表す述語は「なんだ」です。「どんなだ」と比べる例文が有効です。',
+  c_p:'主語と述語をつなげて声に出して読み、意味が通るかを確かめる活動が有効です。',
+  c_s:'主語と述語をつなげて声に出して読み、意味が通るかを確かめる活動が有効です。'
+};
+const PRAISE=['おみごと！','その ちょうし！','にんにん！ せいかい！','すごい！ さすが にんじゃ！','ばっちり！','かんぺき！'];
+const RANKS=[[0,'みならい にんじゃ'],[4,'げにん'],[9,'ちゅうにん'],[15,'じょうにん'],[21,'ことばにんじゃ マスター']];
+const MAXSTARS=21;
+
+function starsOf(rate){return rate>=.9?3:rate>=.7?2:1}
+function totalStars(s){let t=0;for(let i=1;i<=7;i++){const r=s.stages[i];if(r)t+=r.bestStars||0}return t}
+function rankOf(stars){let r=RANKS[0][1];for(const [n,name] of RANKS) if(stars>=n) r=name;return r}
+function clearedCount(s){let c=0;for(let i=0;i<=7;i++){const r=s.stages[i];if(r&&(r.plays>0))c++}return c}
+
+function wrongMsg(step,g){
+  const w='「'+bare(g.t)+'」';
+  if(step==='p'){
+    if(g.r==='s') return `${w}は「だれが・なにが」だから ${SHUGO}だよ。${JUTSU}は「どうする・どんなだ・なんだ」。文の おわりの ほうを 見てみよう。`;
+    return `${w}は ${JUTSU}じゃ ないよ。文の おわりの ほうを 見てみよう。`;
+  }
+  const M={o:'「なにを」の ことば',t:'「いつ」の ことば',d:'「どこ」の ことば',a:'ほかの ことばを くわしく する ことば',h:'「どのように・どのくらい」の ことば',w:'「だれと」の ことば'};
+  if(M[g.r]) return `${w}は ${M[g.r]}だよ。「だれが・なにが」に あたる ことばを さがそう。`;
+  return `${w}は ${SHUGO}じゃ ないよ。「〜が」「〜は」「〜も」の ことばを さがそう。`;
+}
+function errKey(step,g){
+  if(step==='p') return g.r==='s'?'p_s':'p_x';
+  return 's_'+(['o','t','d','a','h','w'].includes(g.r)?g.r:'x');
+}
+G.NinjaLogic={RB,R,P,Y,bare,SHUGO,JUTSU,seg,S,KN,KD,STAGES,ERR,TIPS,PRAISE,RANKS,MAXSTARS,starsOf,totalStars,rankOf,clearedCount,wrongMsg,errKey};
+})(typeof window!=='undefined'?window:globalThis);
+// ==/LOGIC==
+</script>
+<script>
+(function(){
+'use strict';
+
+/* ================= helpers ================= */
+const app=document.getElementById('app');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const {R,P,Y,bare,SHUGO,JUTSU,KN,KD,STAGES,ERR,TIPS,PRAISE,RANKS,MAXSTARS,starsOf,totalStars,rankOf,wrongMsg,errKey}=window.NinjaLogic;
+const pad=n=>String(n).padStart(2,'0');
+const fmtDate=t=>{if(!t)return '—';const d=new Date(t);return (d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+pad(d.getMinutes())};
+
+/* ================= storage (this tablet only) ================= */
+const KEY='kotoba-ninja-dojo-v1';
+let mem=null;
+function db(){
+  if(mem) return mem;
+  let d=null;
+  try{d=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){d=null}
+  mem=(d&&typeof d==='object')?d:{};
+  if(typeof mem.pin!=='string') mem.pin='1234';
+  if(!mem.classSize) mem.classSize=35;
+  if(!mem.students||typeof mem.students!=='object') mem.students={};
+  if(typeof mem.sound!=='boolean') mem.sound=true;
+  return mem;
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(mem))}catch(e){}}
+function stu(no){
+  const d=db();
+  if(!d.students[no]) d.students[no]={name:'',stages:{},errors:{},history:[],parts:0,first:0};
+  return d.students[no];
+}
+
+/* ================= sound & speech ================= */
+let actx=null;
+function ac(){if(!actx){try{actx=new (window.AudioContext||window.webkitAudioContext)()}catch(e){actx=null}}return actx}
+function tone(f,t0,dur,type,vol){
+  const c=ac(); if(!c) return;
+  try{
+    const o=c.createOscillator(),g=c.createGain(),t=c.currentTime+t0;
+    o.type=type||'sine';o.frequency.setValueAtTime(f,t);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol||.18,t+.02);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(g).connect(c.destination);o.start(t);o.stop(t+dur+.05);
+  }catch(e){}
+}
+const SFX={
+  ok(){if(!db().sound)return;tone(880,0,.14,'triangle');tone(1318,.1,.22,'triangle')},
+  ng(){if(!db().sound)return;tone(330,0,.16,'sine',.14);tone(247,.13,.26,'sine',.14)},
+  done(){if(!db().sound)return;tone(784,0,.12,'triangle');tone(988,.09,.12,'triangle');tone(1175,.18,.26,'triangle')},
+  clear(){if(!db().sound)return;[523,659,784,1047,1319].forEach((f,i)=>tone(f,i*.11,.3,'triangle',.16))}
+};
+const canSpeak=('speechSynthesis' in window)&&('SpeechSynthesisUtterance' in window);
+function speak(text){
+  if(!canSpeak) return;
+  try{
+    const u=new SpeechSynthesisUtterance(text);u.lang='ja-JP';u.rate=.82;u.pitch=1.1;
+    const v=(speechSynthesis.getVoices()||[]).find(v=>v.lang&&v.lang.toLowerCase().startsWith('ja'));
+    if(v) u.voice=v;
+    speechSynthesis.cancel();speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+/* ================= え・アイコン（assets/ の 素材） ================= */
+const IMG=n=>'assets/emoji/'+n+'.webp';
+const CHARS={
+  s:{name:'しゅごまる',img:'ninja'},
+  p:{name:'じゅつまる',img:'ninja'},
+  cat:{name:'にゃんじゃ先生',img:'cat-face'}
+};
+const charIMG=(who,mood,size)=>`<span class="ch ch-${who} mood-${mood||'normal'}" style="--sz:${size}px"><img src="${IMG(CHARS[who].img)}" alt="" draggable="false"></span>`;
+const ICON=n=>`<span class="ic" data-ic="${n}"></span>`;
+const starIMG=on=>`<img src="${IMG('star')}" class="${on?'on':'off'}" alt="" draggable="false">`;
+const badge=no=>`<span class="badge-no">${no}<small>ばん</small></span>`;
+
+/* ================= app state ================= */
+let view='login', cur=null, loginSel=null, play=null, tut=null, result=null;
+let pinBuf='', pinBad=false, tSel=null, tAsk=null, tCopyText=null, toastTimer=null, timer=null;
+
+function toast(msg){
+  let t=document.querySelector('.toast');
+  if(!t){t=document.createElement('div');t.className='toast';t.setAttribute('role','status');document.body.appendChild(t)}
+  t.textContent=msg;t.hidden=false;
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true},1800);
+}
+
+/* ================= render ================= */
+function render(){
+  const fn={login:vLogin,map:vMap,play:vPlay,tut:vTut,result:vResult,gate:vGate,teacher:vTeacher}[view];
+  app.innerHTML=fn();
+  if(window.NinjaIcons) window.NinjaIcons.fill(app);
+  if(view==='result') petals();
+}
+
+/* ---------- login ---------- */
+function vLogin(){
+  const d=db();
+  let nums='';
+  for(let i=1;i<=d.classSize;i++){
+    const s=d.students[i];
+    nums+=`<button class="num ${loginSel===i?'sel':''}" data-act="num" data-n="${i}" aria-label="${i}ばん">${i}<small>${s&&s.name?esc(s.name):'&nbsp;'}</small></button>`;
+  }
+  let box='';
+  if(loginSel){
+    const s=d.students[loginSel];
+    if(s&&s.name){
+      box=`<div class="namebox"><p style="font-size:22px;font-weight:900">${loginSel}ばん ${esc(s.name)}さん</p><div class="actions"><button class="btn go" data-act="start">はじめる</button><button class="btn sub" data-act="unsel">ちがう</button></div></div>`;
+    }else{
+      box=`<div class="namebox"><p style="font-size:20px;font-weight:900">${loginSel}ばん の きみ、なまえを いれてね</p><label for="loginName" class="note">ひらがなで いいよ（いれなくても はじめられるよ）</label><input id="loginName" maxlength="12" autocomplete="off" placeholder="なまえ"><div class="actions"><button class="btn go" data-act="start">はじめる</button><button class="btn sub" data-act="unsel">もどる</button></div></div>`;
+    }
+  }
+  return `<main class="title-screen">
+    <div class="trio"><span class="bob">${charIMG('s','normal',96)}</span><span class="bob">${charIMG('cat','happy',124)}</span><span class="bob">${charIMG('p','normal',96)}</span></div>
+    <h1 class="logo">ことば にんじゃ<br><span>どうじょう</span></h1>
+    <p class="lead">${R(SHUGO)}と ${R(JUTSU)}を 見つける しゅぎょうを しよう！</p>
+    <section class="panel">
+      <h2>きみの ばんごうを タップしてね</h2>
+      ${box}
+      <div class="numgrid">${nums}</div>
+    </section>
+    <button class="teacher-link" data-act="gate">先生用の きろく</button>
+  </main>`;
+}
+
+/* ---------- map ---------- */
+function vMap(){
+  const s=stu(cur);
+  const ts=totalStars(s);
+  let next=STAGES.find(st=>!(s.stages[st.id]&&s.stages[st.id].plays>0));
+  const cards=STAGES.map(st=>{
+    const r=s.stages[st.id];
+    const played=r&&r.plays>0;
+    let state='';
+    if(st.id===0) state=played?'<span class="chip-state clear">よんだ！</span>':'<span class="chip-state">まだ</span>';
+    else state=played?`<span class="starrow" aria-label="ほし ${r.bestStars}こ">${[1,2,3].map(n=>starIMG(n<=r.bestStars)).join('')}</span>`:'<span class="chip-state">まだ</span>';
+    if(next&&next.id===st.id) state+='<span class="chip-state next">つぎは ここ！</span>';
+    return `<button class="scroll" data-act="stage" data-id="${st.id}">${played?`<img class="got" src="${IMG('scroll')}" alt="">`:''}
+      <span class="seal" style="background:${st.color}">${st.id}<small>その</small></span>
+      <span class="sn">${R(st.name)}</span>
+      <span class="ss">${R(st.sub)}</span>
+      <span class="st">${state}</span>
+    </button>`;
+  }).join('');
+  return `<header class="mapbar">
+      <div class="me">${badge(cur)}<div class="me-text"><div class="me-name">${cur}ばん ${s.name?esc(s.name):''}</div><span class="rank">${rankOf(ts)}</span> <span class="scrolls">ほし ${ts} / ${MAXSTARS}</span></div></div>
+      <div class="tools"><button class="iconbtn" data-act="sound" aria-pressed="${db().sound}">${ICON(db().sound?'speaker-high':'speaker-slash')}${db().sound?'おと あり':'おと なし'}</button><button class="iconbtn" data-act="logout">${ICON('sign-out')}おわる</button></div>
+    </header>
+    <div class="map-head">${charIMG('cat','normal',64)}<h1>しゅぎょうの ちず</h1></div>
+    <div class="stages">${cards}</div>`;
+}
+
+/* ---------- play ---------- */
+function curItem(){return play.items[play.ii]}
+function curSentence(){const it=curItem();return play.st.kind==='pass'?it.sents[play.si]:it}
+function curStep(){return play.st.steps?play.st.steps[play.step]:'b'}
+function predOf(sent){return sent.w.find(g=>g.r==='p')}
+function instr(){
+  const st=play.st;
+  if(st.kind==='build'){
+    const it=curItem();
+    return it.fix==='s'
+      ?{who:'p',mood:'normal',text:`${SHUGO}「${bare(it.text)}」に あう ${JUTSU}を えらんで、文を つくろう！`}
+      :{who:'s',mood:'normal',text:`${JUTSU}「${bare(it.text)}」に あう ${SHUGO}を えらんで、文を つくろう！`};
+  }
+  const step=curStep();
+  if(step==='p') return {who:'p',mood:'normal',text:`まず ${JUTSU}を さがそう。「どうする・どんなだ・なんだ」に あたる ことばは どれかな？`};
+  if(step==='k') return {who:'p',mood:'normal',text:`${JUTSU}「${bare(predOf(curSentence()).t)}」は、どの なかまかな？`};
+  return {who:'s',mood:'normal',text:`つぎは ${SHUGO}。「${bare(predOf(curSentence()).t)}」のは だれ？ なに？`};
+}
+function hint(){
+  const st=play.st;
+  if(st.kind==='build'){
+    const it=curItem();
+    return it.fix==='s'
+      ?`「${bare(it.text)}」が する ことや ようすに ぴったりの ことばは どれかな？ つなげて こえに 出して よんでみよう。`
+      :`「${bare(it.text)}」のは だれ？ なに？ ほんとうに そう なるかな？ つなげて よんでみよう。`;
+  }
+  const step=curStep();
+  if(step==='p') return `${JUTSU}は、文の いちばん おわりに あることが おおいよ。「。」の まえを 見てみよう！`;
+  if(step==='k') return 'うごきなら「どうする」、ようすなら「どんなだ」、「〜だ」で なにかを あらわすなら「なんだ」だよ。';
+  return `「${bare(predOf(curSentence()).t)}」のは だれ？ なに？ と きいてみよう。「〜が」「〜は」「〜も」が ついた ことばが ヒントだよ。`;
+}
+
+function startStage(id){
+  const st=STAGES[id];
+  clearTimeout(timer);
+  if(st.kind==='tut'){tut={i:0,pick:null,solved:false,miss:[]};view='tut';render();window.scrollTo(0,0);return}
+  let items;
+  if(st.kind==='build'){
+    items=shuffle(st.items).map(it=>{const order=shuffle(it.opts.map((o,i)=>i));return {...it,opts:order.map(i=>it.opts[i]),ans:order.indexOf(it.ans)}});
+  }else items=shuffle(st.items);
+  play={st,items,ii:0,si:0,parts:0,first:0,errors:{},quitAsk:false,pdone:[]};
+  newSentence();
+  view='play';render();window.scrollTo(0,0);
+}
+function newSentence(){
+  play.step=0;play.marks={};play.done=false;play.fill=null;play.locked=false;
+  resetPart();
+  play.msg=instr();
+}
+function resetPart(){play.misses=0;play.miss=[];play.reveal=false;play.fx=null}
+function recordPart(){play.parts++;if(play.misses===0)play.first++}
+function addErr(k){play.errors[k]=(play.errors[k]||0)+1}
+
+function partsTotal(){
+  const st=play.st;
+  if(st.kind==='pass') return play.items.reduce((n,it)=>n+it.sents.length,0);
+  return play.items.length;
+}
+function partsDoneIndex(){
+  const st=play.st;
+  if(st.kind==='pass'){let n=0;for(let i=0;i<play.ii;i++)n+=play.items[i].sents.length;return n+play.si}
+  return play.ii;
+}
+
+function vPlay(){
+  const st=play.st;
+  const total=partsTotal(),idx=partsDoneIndex();
+  let pips='';
+  for(let i=0;i<total;i++) pips+=`<span class="${i<idx||(i===idx&&play.done)?'done':i===idx?'now':''}">${ICON('star-four')}</span>`;
+  const quit=play.quitAsk?`<div class="quitask"><span>しゅぎょうを やめる？（きろくは のこらないよ）</span><button class="btn small danger" data-act="quityes">やめる</button><button class="btn small sub" data-act="quitno">つづける</button></div>`:'';
+  const m=play.msg;
+  const bub=`<div class="guide"><div class="who">${charIMG(m.who,m.mood,84)}<b>${CHARS[m.who].name}</b></div><div class="bubble ${m.mood==='happy'?'ok':m.mood==='oops'?'ng':''}">${R(m.text)}</div></div>`;
+  let body='';
+  if(st.kind==='build') body=buildBody();
+  else body=sentBody();
+  const nextLabel=play.done?(st.kind==='pass'&&play.si<curItem().sents.length-1?'つぎの 文へ':(play.ii>=play.items.length-1&&(st.kind!=='pass'||play.si>=curItem().sents.length-1)?'けっかを 見る':'つぎへ')):'';
+  const readBtn=canSpeak?`<button class="iconbtn" data-act="read">${ICON('speaker-high')}よむ</button>`:'';
+  return `<header class="playbar">
+      <button class="iconbtn" data-act="quit">${ICON('x-circle')}やめる</button>
+      <div class="ptitle"><small>その${st.id}</small>${R(st.name)}</div>
+      <div class="pips" aria-label="${idx+1} / ${total}">${pips}</div>
+    </header>
+    ${quit}
+    <section class="board">
+      ${body}
+      ${bub}
+      <div class="tools-row">
+        ${readBtn}
+        ${play.done?'':`<button class="iconbtn" data-act="hint">${ICON('lightbulb')}ヒント</button>`}
+        ${play.done?`<button class="btn go" data-act="next">${nextLabel}</button>`:''}
+      </div>
+      <div class="legend"><span><i></i><span>${R(SHUGO)}（だれが・なにが）</span></span><span><i class="dbl"></i><span>${R(JUTSU)}（どうする・どんなだ・なんだ）</span></span></div>
+    </section>`;
+}
+function stepBar(){
+  const steps=play.st.steps;
+  const lab={p:'じゅつ語',s:'主語',k:'なかま分け'};
+  const labR={p:R(JUTSU),s:R(SHUGO),k:'なかま'+R('{分|わ}')+'け'};
+  return `<div class="stepbar">${steps.map((s,i)=>{
+    const ok=i<play.step||play.done;
+    const on=i===play.step&&!play.done;
+    return `<span class="step ${s} ${on?'on':''} ${ok?'ok':''}" aria-label="${lab[s]}">${ok?'<span class="ck">✓</span>':'<span>'+(i+1)+'.</span>'}<span>${labR[s]}</span></span>`;
+  }).join('<span aria-hidden="true">→</span>')}</div>`;
+}
+function chips(sent,marks,live,kindLabel){
+  const step=curStep();
+  const ans=live&&play.reveal&&step!=='k'?sent.w.findIndex(g=>g.r===step):-1;
+  return `<div class="sentence">${sent.w.map((g,i)=>{
+    let cls='chip',tag='';
+    if(marks.s===i){cls+=' is-s';tag='<span class="tag tag-s">しゅご</span>'}
+    if(marks.p===i){cls+=' is-p';tag=`<span class="tag tag-p">じゅつご${kindLabel?'・'+kindLabel:''}</span>`}
+    if(live&&play.miss.includes(i))cls+=' miss';
+    if(live&&play.fx&&play.fx.i===i)cls+=' '+play.fx.c;
+    if(i===ans)cls+=' glow';
+    const dis=!live||play.done||step==='k';
+    return `<button class="${cls}" data-act="seg" data-i="${i}" ${dis?'disabled':''}><span class="w">${R(g.t)}</span>${tag}</button>`;
+  }).join('')}</div>`;
+}
+function sentBody(){
+  const st=play.st;
+  let html=stepBar();
+  if(st.kind==='pass'){
+    const it=curItem();
+    html+=`<p class="passtitle">文しょう「${R(it.title)}」</p><div class="pass">`;
+    it.sents.forEach((s,i)=>{
+      if(i<play.si) html+=`<div class="pline">${chips(s,play.pdone[i]||{},false)}</div>`;
+      else if(i===play.si) html+=`<div class="pline now">${chips(s,play.marks,true)}</div>`;
+      else html+=`<div class="pline later">${chips(s,{},false)}</div>`;
+    });
+    html+='</div>';
+  }else{
+    const sent=curSentence();
+    const kl=play.marks.k?KN[play.marks.k]:'';
+    html+=chips(sent,play.marks,true,kl);
+    if(curStep()==='k'||play.marks.k){
+      html+=`<div class="kinds">${['dou','donna','nanda'].map(k=>{
+        const ex={dou:'はしる・ねる',donna:'あまい・げんきだ',nanda:'ねこだ・くつだ'}[k];
+        const sm={dou:'うごき',donna:'ようす',nanda:'なにか'}[k];
+        let cls='kind';
+        if(play.marks.k===k)cls+=' right';
+        else if(!play.done&&play.miss.includes(k))cls+=' miss';
+        if(!play.done&&play.reveal&&k===sent.k)cls+=' glow';
+        return `<button class="${cls}" data-act="kind" data-k="${k}" ${play.done?'disabled':''}><b>${k==='dou'?'どうする':k==='donna'?'どんなだ':'なんだ'}</b><small>${sm}</small><span class="ex">れい：${R(ex)}</span></button>`;
+      }).join('')}</div>`;
+    }
+  }
+  return html;
+}
+function buildBody(){
+  const it=curItem();
+  const fixed=`<span class="wcard ${it.fix}"><span class="w">${R(it.text)}</span></span>`;
+  let slot;
+  if(play.fill===null) slot=`<span class="wcard slot">？</span>`;
+  else{
+    const ok=play.fill===it.ans;
+    const cls=ok?(it.fix==='s'?'p':'s'):'slot silly';
+    slot=`<span class="wcard ${cls}"><span class="w">${R(it.opts[play.fill])}</span></span>`;
+  }
+  const row=it.fix==='s'?fixed+slot:slot+fixed;
+  const opts=it.opts.map((o,j)=>{
+    let cls='opt';
+    if(play.miss.includes(j))cls+=' miss';
+    if(play.reveal&&!play.done&&j===it.ans)cls+=' glow';
+    return `<button class="${cls}" data-act="opt" data-j="${j}" ${play.done||play.locked?'disabled':''}>${R(o)}</button>`;
+  }).join('');
+  return `<div class="build"><div class="build-row">${row}</div>${play.done?'':`<div class="opts">${opts}</div>`}</div>`;
+}
+
+function tapSeg(i){
+  if(!play||play.done||play.locked) return;
+  const sent=curSentence(),step=curStep(),g=sent.w[i];
+  if(step==='k') return;
+  if(step==='s'&&play.marks.p===i){play.msg={who:'s',mood:'normal',text:`そこは ${JUTSU}だったね。こんどは ${SHUGO}を さがそう！`};render();return}
+  if(g.r===step){
+    play.marks[step]=i;recordPart();
+    play.fx={i,c:'pop'};
+    const pw=bare(predOf(sent).t);
+    play.step++;
+    if(play.step>=play.st.steps.length){finishSentence();return}
+    SFX.ok();
+    resetPart();play.fx={i,c:'pop'};
+    const nxt=curStep();
+    if(nxt==='s') play.msg={who:'s',mood:'happy',text:`せいかい！ ${JUTSU}は「${pw}」だね。つぎは ${SHUGO}。「${pw}」のは だれ？ なに？`};
+    else play.msg={who:'p',mood:'happy',text:`せいかい！ ${JUTSU}は「${pw}」だね。では、「${pw}」は どの なかまかな？`};
+    render();return;
+  }
+  if(play.miss.includes(i)){play.msg={who:step,mood:'oops',text:wrongMsg(step,g)};play.fx={i,c:'shake'};render();return}
+  play.misses++;play.miss.push(i);
+  addErr(errKey(step,g));
+  SFX.ng();
+  let text=wrongMsg(step,g);
+  if(play.misses>=2){play.reveal=true;text+=' ひかって いる ところを 見てね。'}
+  play.msg={who:step,mood:'oops',text:'おしい！ '+text};
+  play.fx={i,c:'shake'};
+  render();
+}
+function tapKind(k){
+  if(!play||play.done) return;
+  const sent=curSentence();
+  const pw=bare(predOf(sent).t);
+  if(k===sent.k){
+    play.marks.k=k;recordPart();play.step++;finishSentence(`「${pw}」は ${KD[k]}から「${KN[k]}」だね。`);return;
+  }
+  if(play.miss.includes(k)) return;
+  play.misses++;play.miss.push(k);addErr('k_'+sent.k);SFX.ng();
+  if(play.misses>=2){
+    play.reveal=true;
+    play.msg={who:'p',mood:'oops',text:`「${pw}」は ${KD[sent.k]}から「${KN[sent.k]}」だよ。ひかって いる ボタンを おしてね。`};
+  }else{
+    play.msg={who:'p',mood:'oops',text:`おしい！「${pw}」は うごき？ ようす？ なにか？ もういちど かんがえよう。`};
+  }
+  render();
+}
+function finishSentence(extra){
+  play.done=true;
+  SFX.done();
+  play.msg={who:Math.random()<.5?'s':'p',mood:'happy',text:pick(PRAISE)+(extra?' '+extra:'')};
+  render();
+}
+function tapOpt(j){
+  if(!play||play.done||play.locked) return;
+  const it=curItem();
+  if(play.miss.includes(j)) return;
+  play.fill=j;
+  if(j===it.ans){
+    recordPart();
+    const sentence=it.fix==='s'?it.text+' '+it.opts[j]:it.opts[j]+' '+it.text;
+    finishSentence(`「${sentence}」 できた！`);
+    return;
+  }
+  play.misses++;play.miss.push(j);addErr(it.fix==='s'?'c_p':'c_s');SFX.ng();
+  const silly=it.fix==='s'?it.text+' '+bare(it.opts[j]):bare(it.opts[j])+' '+bare(it.text);
+  let text=`「${silly}」？ あれれ、へんな 文に なっちゃった！ もういちど えらんでね。`;
+  if(play.misses>=2){play.reveal=true;text+=' ひかって いる カードを 見てね。'}
+  play.msg={who:it.fix==='s'?'p':'s',mood:'oops',text};
+  play.locked=true;
+  render();
+  clearTimeout(timer);
+  timer=setTimeout(()=>{if(view==='play'&&play&&!play.done){play.fill=null;play.locked=false;render()}},1300);
+}
+function nextQ(){
+  const st=play.st;
+  if(st.kind==='pass'){
+    const it=curItem();
+    play.pdone[play.si]={...play.marks};
+    if(play.si<it.sents.length-1){play.si++;newSentence();render();return}
+    play.pdone=[];
+  }
+  if(play.ii>=play.items.length-1){finishStage();return}
+  play.ii++;play.si=0;newSentence();render();window.scrollTo(0,0);
+}
+function readCurrent(){
+  if(!play) return;
+  if(play.st.kind==='build'){
+    const it=curItem();
+    if(play.done){speak(Y(it.fix==='s'?it.text+it.opts[it.ans]:it.opts[it.ans]+it.text));}
+    else speak(Y(it.text));
+    return;
+  }
+  speak(curSentence().w.map(g=>Y(g.t)).join(' '));
+}
+
+function finishStage(){
+  const s=stu(cur),st=play.st;
+  const before=totalStars(s);
+  const rate=play.parts?play.first/play.parts:1;
+  const stars=starsOf(rate);
+  const rec=s.stages[st.id]||(s.stages[st.id]={plays:0,best:0,bestStars:0,last:0,lastAt:0});
+  rec.plays++;rec.last=Math.round(rate*100);rec.best=Math.max(rec.best||0,rec.last);rec.bestStars=Math.max(rec.bestStars||0,stars);rec.lastAt=Date.now();
+  for(const k in play.errors) s.errors[k]=(s.errors[k]||0)+play.errors[k];
+  s.parts=(s.parts||0)+play.parts;s.first=(s.first||0)+play.first;
+  s.history.unshift({st:st.id,ok:play.first,n:play.parts,at:Date.now()});
+  s.history=s.history.slice(0,60);
+  save();
+  const after=totalStars(s);
+  result={st,stars,ok:play.first,n:play.parts,rankUp:rankOf(after)!==rankOf(before)?rankOf(after):null};
+  play=null;view='result';SFX.clear();render();window.scrollTo(0,0);
+}
+
+/* ---------- tutorial ---------- */
+const TUT=[
+  {who:'cat',text:'ようこそ、ことば にんじゃ どうじょうへ！ わしは にゃんじゃ{先生|せんせい}じゃ。'},
+  {who:'cat',text:'文には、だいじな ことばが ふたつ あるのじゃ。それが '+SHUGO+'と '+JUTSU+'じゃ。まずは この 文を 見て ごらん。',quiz:true},
+  {who:'s',text:'ぼくは しゅごまる！「だれが」「なにが」に あたる ことばを '+SHUGO+'と いうよ。'+SHUGO+'には {赤|あか}い {線|せん}を 1{本|ぽん} ひくよ。',demo:'s'},
+  {who:'p',text:'ぼくは じゅつまる！「どうする」「どんなだ」「なんだ」に あたる ことばを '+JUTSU+'と いうよ。'+JUTSU+'には {青|あお}い {線|せん}を 2{本|ほん} ひくよ。',demo:'p'},
+  {who:'cat',text:'にんじゃの ひみつの わざを おしえよう。',demo:'secret'},
+  {who:'cat',text:'じゅんびは できたかな？ さあ、しゅぎょうの はじまりじゃ！ にんにん！',last:true}
+];
+function vTut(){
+  const p=TUT[tut.i];
+  let demo='';
+  if(p.quiz){
+    const opts=['ねこが','いすが','くつが'];
+    const filled=tut.pick===null?`<span class="wcard slot">？</span>`:tut.solved?`<span class="wcard s"><span class="w">ねこが</span></span>`:`<span class="wcard slot silly">${opts[tut.pick]}</span>`;
+    demo=`<div class="build"><div class="build-row">${filled}<span class="wcard p"><span class="w">なく。</span></span></div>
+      <p style="font-weight:900;font-size:20px;text-align:center">「なく。」だけだと、だれが なくのか わからないね。だれが なくのかな？</p>
+      ${tut.solved?'':`<div class="opts">${opts.map((o,j)=>`<button class="opt ${tut.miss.includes(j)?'miss':''}" data-act="tutopt" data-j="${j}">${o}</button>`).join('')}</div>`}</div>`;
+  }else if(p.demo==='s'){
+    demo=`<div class="demo"><div class="sentence"><span class="chip is-s"><span class="w">ねこが</span><span class="tag tag-s">しゅご</span></span><span class="chip"><span class="w">なく。</span></span></div><p style="font-weight:700">れい：ぼくが、とりが、{花|はな}が、わたしは、かめも</p></div>`;
+  }else if(p.demo==='p'){
+    demo=`<div class="demo"><div class="demo-list">
+      <div><span class="tx">ねこが <u style="text-decoration:underline double var(--jutsu);text-underline-offset:8px">なく。</u></span><span class="tp">どうする（うごき）</span></div>
+      <div><span class="tx">${R('{空|そら}が')} <u style="text-decoration:underline double var(--jutsu);text-underline-offset:8px">${R('{青|あお}い。')}</u></span><span class="tp">どんなだ（ようす）</span></div>
+      <div><span class="tx">これは <u style="text-decoration:underline double var(--jutsu);text-underline-offset:8px">${R('{本|ほん}だ。')}</u></span><span class="tp">なんだ（なにか）</span></div>
+    </div></div>`;
+  }else if(p.demo==='secret'){
+    demo=`<div class="demo"><div class="sentence"><span class="chip"><span class="w">${R('{白|しろ}い')}</span></span><span class="chip is-s"><span class="w">ねこが</span><span class="tag tag-s">しゅご</span></span><span class="chip"><span class="w">にわで</span></span><span class="chip is-p"><span class="w">ねる。</span><span class="tag tag-p">じゅつご</span></span></div>
+      <ol class="secret">
+        <li><b style="background:var(--jutsu)">1</b><span>さきに 文の おわりの ほうを 見て、${R(JUTSU)}（どうする・どんなだ・なんだ）を 見つける。</span></li>
+        <li><b style="background:var(--shugo)">2</b><span>「ねる」のは だれ？ なに？ と きいて、${R(SHUGO)}を 見つける。「〜が」「〜は」「〜も」が ヒント！</span></li>
+      </ol></div>`;
+  }
+  const canNext=!p.quiz||tut.solved;
+  const mood=p.quiz&&tut.pick!==null&&!tut.solved?'oops':(p.quiz&&tut.solved)||p.last?'happy':'normal';
+  let text=p.text;
+  if(p.quiz&&tut.solved) text='そのとおり！「ねこが なく。」なら よく わかるね。「ねこが」のように「だれが・なにが」を あらわす ことばが '+SHUGO+'じゃ。';
+  else if(p.quiz&&tut.pick!==null) text='「'+['ねこが','いすが','くつが'][tut.pick]+' なく」？ へんだね。もういちど えらんでごらん。';
+  return `<header class="playbar">
+      <button class="iconbtn" data-act="tolist">${ICON('map-trifold')}ちずへ</button>
+      <div class="ptitle"><small>その0</small>しってる？</div>
+      <div class="pips">${TUT.map((_,i)=>`<span class="${i<tut.i?'done':i===tut.i?'now':''}">${ICON('star-four')}</span>`).join('')}</div>
+    </header>
+    <section class="board">
+      <div class="guide"><div class="who">${charIMG(p.who,mood,96)}<b>${CHARS[p.who].name}</b></div><div class="bubble ${mood==='happy'?'ok':mood==='oops'?'ng':''}">${R(text)}</div></div>
+      ${demo}
+      <div class="actions">
+        ${tut.i>0?'<button class="btn sub" data-act="tutback">もどる</button>':''}
+        ${canNext?(p.last?'<button class="btn go" data-act="tutdone">しゅぎょうへ！</button>':'<button class="btn" data-act="tutnext">つぎへ</button>'):''}
+      </div>
+    </section>`;
+}
+function tutDone(){
+  const s=stu(cur);
+  const rec=s.stages[0]||(s.stages[0]={plays:0,best:0,bestStars:0,last:0,lastAt:0});
+  rec.plays++;rec.lastAt=Date.now();
+  s.history.unshift({st:0,ok:0,n:0,at:Date.now()});s.history=s.history.slice(0,60);
+  save();SFX.clear();view='map';tut=null;render();window.scrollTo(0,0);
+}
+
+/* ---------- result ---------- */
+function vResult(){
+  const r=result;
+  const msg=r.stars===3?'すばらしい！ りっぱな にんじゃだ！':r.stars===2?'よく できました！ つぎは ほし 3つを めざそう！':'がんばったね！ もういちど ちょうせん してみよう！';
+  return `<main class="result">
+    <div class="trio"><span class="bob">${charIMG('s','happy',90)}</span><span class="bob"><img src="${IMG('party-popper')}" alt="" width="110" height="110"></span><span class="bob">${charIMG('p','happy',90)}</span></div>
+    <h1>しゅぎょう クリア！</h1>
+    <div class="bigstars" aria-label="ほし ${r.stars}こ">${[1,2,3].map(n=>starIMG(n<=r.stars)).join('')}</div>
+    <p class="score">いっかいで せいかい <b>${r.ok}</b> / ${r.n}</p>
+    <p style="font-weight:700;font-size:19px">${msg}</p>
+    <div class="reward"><img src="${IMG('scroll')}" alt=""><span>「その${r.st.id} ${R(r.st.name)}」の まきものを 手に 入れた！</span></div>
+    ${r.rankUp?`<p class="rankup">ランクアップ！ きみは「${r.rankUp}」に なった！</p>`:''}
+    <div class="actions"><button class="btn sub" data-act="again">もういちど</button><button class="btn go" data-act="tomap">ちずに もどる</button></div>
+  </main>`;
+}
+function petals(){
+  if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const box=document.createElement('div');box.className='petals';box.setAttribute('aria-hidden','true');
+  for(let i=0;i<22;i++){
+    const p=document.createElement('img');p.src=IMG('cherry-blossom');p.alt='';
+    p.style.left=(Math.random()*100)+'%';
+    p.style.animationDuration=(3+Math.random()*3)+'s';
+    p.style.animationDelay=(Math.random()*1.5)+'s';
+    box.appendChild(p);
+  }
+  app.appendChild(box);
+}
+
+/* ---------- teacher gate ---------- */
+function vGate(){
+  const dots=[0,1,2,3].map(i=>`<i class="${i<pinBuf.length?'f':''}"></i>`).join('');
+  const keys=[1,2,3,4,5,6,7,8,9].map(n=>`<button data-act="pin" data-d="${n}">${n}</button>`).join('')+`<button data-act="pinclear" aria-label="けす">×</button><button data-act="pin" data-d="0">0</button><button data-act="pinback" aria-label="もどる">←</button>`;
+  return `<main class="gate">
+    ${charIMG('cat','normal',90)}
+    <h1 style="font-size:24px;font-weight:900">先生用の画面</h1>
+    <p class="note">4けたの暗証番号を入力してください。</p>
+    <div class="pinshow ${pinBad?'bad':''}">${dots}</div>
+    <div class="keypad">${keys}</div>
+    <button class="btn sub small" data-act="tolog">もどる</button>
+  </main>`;
+}
+
+/* ---------- teacher dashboard ---------- */
+function stuRows(){
+  const d=db();
+  const nos=new Set();
+  for(let i=1;i<=d.classSize;i++) nos.add(i);
+  Object.keys(d.students).forEach(k=>nos.add(+k));
+  return [...nos].sort((a,b)=>a-b).map(no=>({no,s:d.students[no]||null}));
+}
+function topErrors(errs,n){return Object.entries(errs||{}).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,n)}
+function vTeacher(){
+  const d=db();
+  const rows=stuRows();
+  const active=rows.filter(r=>r.s&&r.s.history&&r.s.history.length);
+  let parts=0,first=0;const agg={};
+  active.forEach(r=>{parts+=r.s.parts||0;first+=r.s.first||0;for(const k in r.s.errors)agg[k]=(agg[k]||0)+r.s.errors[k]});
+  const aggTop=topErrors(agg,8);
+  const maxE=aggTop.length?aggTop[0][1]:1;
+  const clearedAll=active.filter(r=>{for(let i=0;i<=7;i++){if(!(r.s.stages[i]&&r.s.stages[i].plays))return false}return true}).length;
+
+  const head=`<tr><th>番号</th><th class="l">名前</th>${STAGES.map(st=>`<th title="${esc(P(st.name))}">その${st.id}</th>`).join('')}<th>正答率</th><th>学習回数</th><th class="l">よくあるまちがい</th><th>最後の学習</th><th></th></tr>`;
+  const body=rows.map(({no,s})=>{
+    const cells=STAGES.map(st=>{
+      const r=s&&s.stages[st.id];
+      if(!r||!r.plays) return '<td>—</td>';
+      if(st.id===0) return '<td>✓</td>';
+      return `<td><span class="mini-st">${'★'.repeat(r.bestStars)}<span class="off">${'★'.repeat(3-r.bestStars)}</span></span><span class="pct">最高${r.best}%</span></td>`;
+    }).join('');
+    const pr=s&&s.parts?Math.round(s.first/s.parts*100)+'%':'—';
+    const plays=s?s.history.length:0;
+    const te=s?topErrors(s.errors,2).map(([k,v])=>`${ERR[k]}（${v}）`).join('<br>'):'';
+    const last=s&&s.history.length?fmtDate(s.history[0].at):'—';
+    return `<tr class="${tSel===no?'sel':''}"><td>${no}</td><td class="l"><input id="nm-${no}" data-no="${no}" class="nm" value="${s?esc(s.name):''}" maxlength="12" aria-label="${no}番の名前"></td>${cells}<td>${pr}</td><td>${plays}</td><td class="errtxt">${te||'—'}</td><td>${last}</td><td><button class="iconbtn" data-act="tdetail" data-no="${no}" ${plays?'':'disabled'}>くわしく</button></td></tr>`;
+  }).join('');
+
+  let detail='';
+  if(tSel&&d.students[tSel]){
+    const s=d.students[tSel];
+    const st=STAGES.slice(1).map(stg=>{const r=s.stages[stg.id];return `<div><span>その${stg.id} ${esc(P(stg.name))}</span><span>${r&&r.plays?`${r.plays}回・最高${r.best}%・前回${r.last}%`:'未学習'}</span></div>`}).join('');
+    const errs=topErrors(s.errors,20).map(([k,v])=>`<div><span>${ERR[k]}</span><span>${v}回</span></div>`).join('')||'<div><span>まちがいの記録はありません</span></div>';
+    const hist=s.history.map(h=>{const stg=STAGES[h.st];return `<div><span>${fmtDate(h.at)}</span><span>その${h.st} ${esc(P(stg.name))}</span><span>${h.st===0?'読んだ':`${h.ok}/${h.n}`}</span></div>`}).join('');
+    detail=`<section class="tbox" id="detail">
+      <div class="tch-head"><h2>${tSel}番 ${esc(s.name||'')} の記録</h2><button class="iconbtn" data-act="tclose">とじる</button></div>
+      <div class="detail-grid">
+        <div><h3 style="font-size:15px;margin-bottom:6px">修行ごとの結果</h3><div class="hist">${st}</div></div>
+        <div><h3 style="font-size:15px;margin-bottom:6px">まちがいの内訳</h3><div class="hist">${errs}</div></div>
+        <div><h3 style="font-size:15px;margin-bottom:6px">学習の履歴（新しい順）</h3><div class="hist">${hist}</div></div>
+      </div>
+      ${tAsk==='one'?`<div class="confirm"><span>${tSel}番の記録をすべて消しますか？ 元にはもどせません。</span><button class="btn small danger" data-act="tclearoneyes">消す</button><button class="btn small sub" data-act="tasknone">やめる</button></div>`:`<div><button class="btn small sub" data-act="tclearone">この児童の記録を消す</button></div>`}
+    </section>`;
+  }
+
+  return `<main class="tch">
+    <div class="tch-head"><h1>先生用：学習の記録</h1><button class="btn small sub" data-act="tolog">児童の画面にもどる</button></div>
+    <p class="note">記録はこの端末（ブラウザ）の中だけに保存されています。ほかの端末の記録は、それぞれの端末でこの画面を開いて確認してください。「表をコピー」で表計算ソフトに貼り付けてまとめられます。</p>
+    <section class="tbox">
+      <h2>クラスのようす</h2>
+      <div class="summary">
+        <div><b>${active.length}</b><span>学習した児童（人）</span></div>
+        <div><b>${parts?Math.round(first/parts*100)+'%':'—'}</b><span>1回目での正答率</span></div>
+        <div><b>${clearedAll}</b><span>全修行に取り組んだ児童（人）</span></div>
+        <div><b>${active.reduce((n,r)=>n+r.s.history.length,0)}</b><span>学習回数の合計</span></div>
+      </div>
+      ${aggTop.length?`<h2>まちがいのけいこう</h2><div class="bars">${aggTop.map(([k,v])=>`<div class="bar"><span>${ERR[k]}</span><span class="track"><span class="fill" style="width:${Math.max(4,v/maxE*100)}%"></span></span><span class="n">${v}回</span></div>`).join('')}</div><p class="tip">指導のヒント：${TIPS[aggTop[0][0]]}</p>`:'<p class="note">まだ学習の記録がありません。児童が修行をクリアすると、ここに集計されます。</p>'}
+    </section>
+    ${detail}
+    <section class="tbox">
+      <div class="tch-head"><h2>児童ごとの記録</h2><button class="btn small" data-act="tcopy">${ICON('copy')} 表をコピー</button></div>
+      ${tCopyText!==null?`<p class="note">自動コピーできませんでした。下の文字をすべて選んでコピーしてください。</p><textarea id="copyArea" class="copyarea" readonly>${esc(tCopyText)}</textarea>`:''}
+      <div class="tablewrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>
+      <p class="note">★は最高の評価（1回目での正答率 90%以上で★3、70%以上で★2）。名前の欄はここで書きかえられます。</p>
+    </section>
+    <section class="tbox">
+      <h2>設定</h2>
+      <div class="tset">
+        <label for="classSize">クラスの人数<input id="classSize" type="number" min="1" max="45" value="${d.classSize}"></label>
+        <label for="newPin">新しい暗証番号（4けた）<input id="newPin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="例 5678"></label>
+        <button class="btn small" data-act="tpin">暗証番号を変える</button>
+      </div>
+      ${tAsk==='all'?`<div class="confirm"><span>この端末のすべての記録を消しますか？ 元にはもどせません。</span><button class="btn small danger" data-act="tclearallyes">すべて消す</button><button class="btn small sub" data-act="tasknone">やめる</button></div>`:`<div><button class="btn small sub" data-act="tclearall">すべての記録を消す</button></div>`}
+    </section>
+  </main>`;
+}
+function buildTSV(){
+  const rows=stuRows().filter(r=>r.s);
+  const head=['番号','名前',...STAGES.map(st=>'その'+st.id+' '+P(st.name)),'正答率(%)','学習回数','よくあるまちがい','最後の学習'];
+  const lines=[head.join('\t')];
+  rows.forEach(({no,s})=>{
+    const cells=STAGES.map(st=>{const r=s.stages[st.id];if(!r||!r.plays)return '';return st.id===0?'済':`★${r.bestStars} 最高${r.best}%`});
+    lines.push([no,s.name||'',...cells,s.parts?Math.round(s.first/s.parts*100):'',s.history.length,topErrors(s.errors,3).map(([k,v])=>ERR[k]+'('+v+')').join(' / '),s.history.length?fmtDate(s.history[0].at):''].join('\t'));
+  });
+  return lines.join('\n');
+}
+
+/* ================= events ================= */
+const H={
+  num(b){loginSel=+b.dataset.n;render();const i=document.getElementById('loginName');if(i)i.focus()},
+  unsel(){loginSel=null;render()},
+  start(){
+    const s=stu(loginSel);
+    const i=document.getElementById('loginName');
+    if(i&&i.value.trim()) s.name=i.value.trim().slice(0,12);
+    save();cur=loginSel;loginSel=null;ac();view='map';render();window.scrollTo(0,0);
+  },
+  logout(){cur=null;view='login';render();window.scrollTo(0,0)},
+  sound(){const d=db();d.sound=!d.sound;save();render()},
+  stage(b){ac();startStage(+b.dataset.id)},
+  seg(b){tapSeg(+b.dataset.i)},
+  kind(b){tapKind(b.dataset.k)},
+  opt(b){tapOpt(+b.dataset.j)},
+  hint(){if(!play)return;play.msg={who:'cat',mood:'normal',text:'ヒントじゃ。'+hint()};render()},
+  read(){readCurrent()},
+  next(){nextQ()},
+  quit(){play.quitAsk=true;render()},
+  quitno(){play.quitAsk=false;render()},
+  quityes(){clearTimeout(timer);play=null;view='map';render()},
+  again(){startStage(result.st.id)},
+  tomap(){result=null;view='map';render();window.scrollTo(0,0)},
+  tolist(){tut=null;view='map';render()},
+  tutopt(b){
+    const j=+b.dataset.j;tut.pick=j;
+    if(j===0){tut.solved=true;SFX.ok()}else{if(!tut.miss.includes(j))tut.miss.push(j);SFX.ng()}
+    render();
+  },
+  tutnext(){tut.i++;tut.pick=null;render()},
+  tutback(){tut.i--;tut.pick=null;render()},
+  tutdone(){tutDone()},
+  gate(){pinBuf='';pinBad=false;view='gate';render();window.scrollTo(0,0)},
+  tolog(){view='login';tSel=null;tAsk=null;tCopyText=null;render();window.scrollTo(0,0)},
+  pin(b){
+    if(pinBuf.length>=4)return;
+    pinBuf+=b.dataset.d;pinBad=false;
+    if(pinBuf.length===4){
+      if(pinBuf===db().pin){pinBuf='';view='teacher';tSel=null;tAsk=null;tCopyText=null;render();window.scrollTo(0,0);return}
+      pinBad=true;pinBuf='';
+    }
+    render();
+  },
+  pinback(){pinBuf=pinBuf.slice(0,-1);pinBad=false;render()},
+  pinclear(){pinBuf='';pinBad=false;render()},
+  tdetail(b){tSel=+b.dataset.no;tAsk=null;render();const el=document.getElementById('detail');if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},
+  tclose(){tSel=null;tAsk=null;render()},
+  tclearone(){tAsk='one';render()},
+  tclearoneyes(){delete db().students[tSel];save();tSel=null;tAsk=null;render();toast('記録を消しました')},
+  tclearall(){tAsk='all';render()},
+  tclearallyes(){db().students={};save();tSel=null;tAsk=null;render();toast('すべての記録を消しました')},
+  tasknone(){tAsk=null;render()},
+  tpin(){
+    const i=document.getElementById('newPin');const v=i?i.value.trim():'';
+    if(!/^[0-9]{4}$/.test(v)){toast('4けたの数字を入れてください');return}
+    db().pin=v;save();i.value='';toast('暗証番号を変えました');
+  },
+  tcopy(){
+    const text=buildTSV();
+    const fallback=()=>{tCopyText=text;render();const a=document.getElementById('copyArea');if(a){a.focus();a.select()}};
+    try{
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(()=>{tCopyText=null;toast('表をコピーしました。表計算ソフトに貼り付けられます')}).catch(fallback);
+      }else fallback();
+    }catch(e){fallback()}
+  }
+};
+app.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(!b||b.disabled) return;
+  const fn=H[b.dataset.act];
+  if(fn) fn(b);
+});
+app.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.classList&&t.classList.contains('nm')){const s=stu(+t.dataset.no);s.name=t.value.trim().slice(0,12);save();toast('名前を保存しました')}
+  if(t.id==='classSize'){let n=parseInt(t.value,10);if(!(n>=1))n=1;if(n>45)n=45;db().classSize=n;save();render()}
+});
+app.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&e.target.id==='loginName'){e.preventDefault();H.start()}
+});
+if(canSpeak){try{speechSynthesis.getVoices();speechSynthesis.onvoiceschanged=()=>{}}catch(e){}}
+
+db();
+render();
+})();
+</script>
+</body>
+</html>
