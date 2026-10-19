@@ -8,6 +8,7 @@
     const TB = root.PurintoTetsubou || require('./tetsubou.js');
     const K = root.PurintoSakubun || require('./sakubun.js');
     const GK = root.PurintoGenkou || require('./genkou.js');
+    const F = root.PurintoFinder || require('./finder.js');
 
     function runTests() {
         const rows = [];
@@ -300,6 +301,24 @@
         t('メニューの id が かぶらない', new Set(S.CATALOG.map(c => c.id)).size === S.CATALOG.length);
         t('おなじ たね → おなじ プリント', S.buildSheet(S.CATALOG[1], {}, 99).page === S.buildSheet(S.CATALOG[1], {}, 99).page);
         t('じぶんで いれた もじは エスケープ', !S.buildSheet(S.CATALOG.find(c => c.id === 'acrostic'), { custom: '<b>' }, 1).page.includes('<b>」'));
+
+        /* さがす（目的・教科・学年・時期・ことば） */
+        const items = F.build(S.CATALOG);
+        const covered = new Set(items.flatMap(it => [it.id, ...it.also]));
+        t('さがす：ぜんぶの プリントが いちらんに ある', S.CATALOG.every(c => covered.has(c.id)), S.CATALOG.filter(c => !covered.has(c.id)).map(c => c.id).join(' '));
+        t('さがす：id が かぶらない', new Set(items.map(it => it.id)).size === items.length);
+        t('さがす：目的・教科・学年が ただしい', items.every(it => F.purposeOf(it.purpose) && it.subjects.length && it.subjects.every(F.subjLabel) && it.grades.length && it.grades.every(g => F.GRADES.some(x => x.k === g))));
+        t('さがす：月は 1〜12', items.every(it => it.months.every(m => m >= 1 && m <= 12)));
+        t('さがす：めあてカード 19カテゴリ', items.filter(it => it.kind === 'meate').length === 19);
+        const ids = f => F.filter(items, f).map(it => it.id);
+        for (const [q, want] of [['くく', 'kentei'], ['九九', 'kentei'], ['てつぼう', 'tetsubou'], ['鉄棒', 'tetsubou'], ['ナンプレ', 'sudoku'], ['すうどく', 'sudoku'],
+            ['うんどうかい', 'meate:undo'], ['運動会', 'meate:undo'], ['目標', 'meate:g1'], ['2がっき', 'meate:g2'], ['さくぶん', 'anone'], ['かかり', 'meate:kakari'], ['コグトレ', 'diffs'], ['あのね にっき', 'anone']])
+            t(`さがす：「${q}」で ${want} が 見つかる`, ids({ q }).includes(want), ids({ q }).join(' '));
+        t('さがす：みつからない ことば', ids({ q: 'ぷりんとにない' }).length === 0);
+        t('さがす：目的で しぼる', ids({ purpose: 'kaku' }).every(id => items.find(it => it.id === id).purpose === 'kaku') && ids({ purpose: 'kaku' }).length >= 5);
+        t('さがす：学年で しぼる（3・4年に 1・2年だけの ものは 出ない）', !ids({ grade: 'mid' }).includes('anone') && ids({ grade: 'mid' }).includes('anone-mid'));
+        t('さがす：月で しぼる（10月に 運動会、4月に 自己紹介）', ids({ month: '10' }).includes('meate:undo') && ids({ month: '4' }).includes('meate:jiko') && !ids({ month: '4' }).includes('meate:g3'));
+        t('さがす：けんてい（算数の URL）も おなじ ものに', F.itemOfSheet(items, 'kentei-sansu') === F.itemOfSheet(items, 'kentei'));
 
         return rows;
     }

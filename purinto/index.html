@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#ff8a3d">
-<meta name="description" content="小学生が たのしく とりくめる プリントと、節目に 書く めあてカードを えらんで、そのまま A4 で いんさつ できる。ことばかいだん・ものがたりめいろ・けいさんめいろ・ビンゴ・すごろく・めあてカード など。">
-<title>たのしい プリント こうぼう</title>
+<meta name="description" content="小学生が たのしく とりくめる プリント・めあてカード・けんてい カードを、目的・教科・学年・時期・ことばで さがして、そのまま A4 で いんさつ できる。ことばかいだん・ものがたりめいろ・けいさんめいろ・ビンゴ・すごろく・めあてカード など。">
+<title>プリント＆カード こうぼう</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@500;700&display=swap">
@@ -16,17 +16,31 @@
 <body>
 
 <header class="top">
-  <h1 class="logo">🖨️ たのしい プリント こうぼう</h1>
-  <p class="lead">えらんで・きめて・いんさつ。まい回 ちがう もんだいが できます。</p>
-  <nav class="apptabs" aria-label="こうぼう">
-    <a href="index.html" class="on" aria-current="page"><span class="ui-ic" data-ic="printer"></span> プリント</a>
-    <a href="meate.html"><span class="ui-ic" data-ic="pencil"></span> めあてカード</a>
+  <h1 class="logo"><a href="#" id="logoLink">🖨️ プリント＆カード こうぼう</a></h1>
+  <p class="lead">プリント・めあてカード・けんてい カードを えらんで、A4 で いんさつ。</p>
+  <nav class="apptabs" aria-label="メニュー">
+    <a href="#" id="toHome"><span class="ui-ic" data-ic="sparkle"></span> さがす・えらぶ</a>
   </nav>
 </header>
 
-<div class="layout">
+<section class="home" id="home" hidden>
+  <label class="search">
+    <span class="search-ic" aria-hidden="true">🔍</span>
+    <input type="search" id="q" placeholder="ことばで さがす（れい：くく・てつぼう）" autocomplete="off" enterkeyhint="search">
+  </label>
+  <div class="purposes" id="purposes" role="group" aria-label="なにを したい？"></div>
+  <div class="filters">
+    <div class="frow"><span class="flab">教科</span><div class="chips" id="fSubj"></div></div>
+    <div class="frow"><span class="flab">学年</span><div class="chips" id="fGrade"></div></div>
+    <div class="frow"><span class="flab">時期</span><div class="chips" id="fMonth"></div></div>
+  </div>
+  <div class="results" id="results"></div>
+</section>
+
+<div class="layout" id="editor" hidden>
   <aside class="side">
-    <nav class="subjects" id="subjects" aria-label="きょうか"></nav>
+    <a class="back" href="#" id="back">← さがす・えらぶ に もどる</a>
+    <h2 class="side-h" id="sideHead"></h2>
     <div class="cards" id="cards"></div>
   </aside>
 
@@ -72,6 +86,7 @@
 <script src="genkou.js"></script>
 <script src="tetsubou.js"></script>
 <script src="sheets.js"></script>
+<script src="finder.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
