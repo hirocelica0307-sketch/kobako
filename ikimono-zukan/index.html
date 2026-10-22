@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FFFDF7">
+<meta name="description" content="小学2年生 こくご「どうぶつカード」を作ろう（東京書籍 二下）で つかう、30しゅるいの いきものの ひみつを しゃしんと 文で しらべる 図鑑。">
+<title>いきもの ひみつずかん</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<style>
+/* Layout: a picture book on a Chromebook screen — fixed top bar (title・もくじ・さくいん・設定) and bottom bar (page turning),
+   one scrolling "page" in between. Each いきもの page: big photo + data, then 「〇〇の ひみつ」 cards with question headings.
+   Group colors work like the colored index tabs on the edge of a real 図鑑. */
+:root{
+  --paper:#FFFDF7;
+  --paper-2:#F6F1E6;
+  --surface:#FFFFFF;
+  --ink:#2B2925;
+  --ink-soft:#6A655B;
+  --line:#E4DCCB;
+  --accent:#C8702A;
+  --accent-bg:#FBEBDC;
+  --kemono:#C0661F; --kemono-bg:#FBE9D8;
+  --tori:#2B7FC0;   --tori-bg:#E0EEF9;
+  --umi:#13808B;    --umi-bg:#DAF0F1;
+  --mushi:#4F8B22;  --mushi-bg:#E6F2D9;
+  --hachu:#7B55A8;  --hachu-bg:#EFE7F7;
+  --f-ui:"Zen Maru Gothic","Hiragino Maru Gothic ProN","BIZ UDPGothic","Meiryo",sans-serif;
+  --f-text:"Klee One","UD Digi Kyokasho NK-R","YuKyokasho","Zen Maru Gothic",serif;
+  --fs:19px;
+  --bar:58px;
+  color-scheme:light;
+}
+body.fs-1{--fs:22px}
+body.fs-2{--fs:25px}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--paper-2);color:var(--ink);
+  font-family:var(--f-ui);font-weight:500;font-size:var(--fs);line-height:1.7;
+  -webkit-tap-highlight-color:transparent;
+}
+button{font:inherit;color:inherit}
+.ic{display:inline-flex;width:1.25em;height:1.25em;flex:none}
+.ic svg{width:100%;height:100%}
+ruby rt{font-family:var(--f-ui);font-weight:700;font-size:.5em;letter-spacing:0;color:var(--ink-soft)}
+body.no-rt ruby rt{visibility:hidden}
+:focus-visible{outline:3px solid #2B7FC0;outline-offset:2px}
+
+/* ---------- bars ---------- */
+.topbar,.botbar{
+  position:fixed;left:0;right:0;z-index:10;height:var(--bar);
+  display:flex;align-items:center;gap:8px;padding:0 14px;
+  background:var(--surface);
+}
+.topbar{top:0;border-bottom:2px solid var(--line)}
+.botbar{bottom:0;border-top:2px solid var(--line);justify-content:space-between}
+.brand{
+  display:flex;align-items:center;gap:8px;border:0;background:none;cursor:pointer;padding:4px 8px;border-radius:10px;
+  font-weight:900;font-size:20px;letter-spacing:.04em;white-space:nowrap;
+}
+.brand .ic{color:var(--accent);width:28px;height:28px}
+.spacer{flex:1}
+.tbtn{
+  display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;cursor:pointer;
+  border:2px solid var(--line);border-radius:12px;background:var(--surface);font-size:17px;font-weight:700;white-space:nowrap;
+}
+.tbtn:hover{background:var(--paper)}
+.tbtn[aria-pressed="true"],.tbtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tbtn .ic{width:22px;height:22px}
+.navbtn{
+  display:inline-flex;align-items:center;gap:6px;min-height:44px;min-width:170px;padding:0 16px;cursor:pointer;
+  border:2px solid var(--line);border-radius:12px;background:var(--surface);font-size:17px;font-weight:700;
+}
+.navbtn.next{justify-content:flex-end}
+.navbtn:disabled{visibility:hidden}
+.navbtn small{display:block;font-size:13px;color:var(--ink-soft);font-weight:700;line-height:1.2}
+.navbtn .lbl{display:flex;flex-direction:column;line-height:1.3}
+.navbtn.next .lbl{align-items:flex-end}
+.pageno{font-weight:900;font-size:18px;color:var(--ink-soft);white-space:nowrap}
+.pageno b{font-size:26px;color:var(--ink)}
+
+/* ---------- page ---------- */
+main{
+  padding:calc(var(--bar) + 18px) 18px calc(var(--bar) + 26px);
+  min-height:100%;
+}
+.sheet{
+  max-width:1180px;margin:0 auto;background:var(--paper);border-radius:18px;
+  box-shadow:0 1px 0 var(--line),0 8px 24px rgba(80,60,20,.08);
+  padding:26px 34px 34px;position:relative;
+}
+.sheet .corner{
+  position:absolute;right:22px;bottom:12px;font-weight:900;font-size:15px;color:var(--ink-soft);
+}
+
+/* cover */
+.cover{text-align:center;padding:22px 20px 10px}
+.cover h1{
+  margin:0;font-family:var(--f-ui);font-weight:900;font-size:clamp(38px,5vw,56px);letter-spacing:.08em;line-height:1.25;
+}
+.cover .sub{margin:6px 0 22px;font-size:20px;color:var(--ink-soft);font-weight:700}
+.collage{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;max-width:820px;margin:0 auto 24px}
+.collage button{border:0;padding:0;border-radius:12px;overflow:hidden;cursor:pointer;aspect-ratio:4/3;background:var(--paper-2)}
+.collage img{width:100%;height:100%;object-fit:cover;display:block}
+.bigbtn{
+  display:inline-flex;align-items:center;gap:10px;min-height:60px;padding:0 34px;cursor:pointer;
+  border:0;border-radius:16px;background:var(--accent);color:#fff;font-size:24px;font-weight:900;
+  box-shadow:0 4px 0 #8E4A13;
+}
+.bigbtn:active{transform:translateY(3px);box-shadow:0 1px 0 #8E4A13}
+.bigbtn.ghost{background:var(--surface);color:var(--ink);border:2px solid var(--line);box-shadow:0 4px 0 var(--line)}
+.btnrow{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.howto{max-width:900px;margin:30px auto 0;text-align:left;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.howto div{background:var(--surface);border:2px solid var(--line);border-radius:14px;padding:14px 16px}
+.howto b{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:900;margin-bottom:4px}
+.howto b span.n{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;font-size:17px}
+.howto p{margin:0;font-family:var(--f-text);font-weight:600;font-size:17px}
+
+/* section title */
+.ptitle{display:flex;align-items:baseline;gap:14px;margin:0 0 18px;border-bottom:3px solid var(--ink);padding-bottom:6px}
+.ptitle h1{margin:0;font-size:34px;font-weight:900;letter-spacing:.06em}
+.ptitle span{color:var(--ink-soft);font-weight:700}
+
+/* もくじ */
+.grp{margin:0 0 26px}
+.grp h2{
+  display:flex;align-items:center;gap:10px;margin:0 0 12px;font-size:22px;font-weight:900;
+  padding:4px 14px;border-radius:10px;background:var(--gbg);color:var(--gc);
+}
+.grp h2 small{font-size:15px;font-weight:700;color:var(--ink-soft)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.acard{
+  display:flex;flex-direction:column;border:2px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;
+  background:var(--surface);padding:0;text-align:left;
+}
+.acard:hover{border-color:var(--gc)}
+.acard img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--paper-2)}
+.acard span{display:flex;flex-direction:column;padding:6px 10px 8px;line-height:1.4}
+.acard b{font-size:19px;font-weight:900;white-space:nowrap}
+.acard i{font-style:normal;font-size:15px;font-weight:700;color:var(--gc);white-space:nowrap}
+
+/* いきものの ページ */
+.band{
+  display:inline-flex;align-items:center;gap:6px;margin:0 0 10px;padding:2px 14px;border-radius:999px;
+  background:var(--gbg);color:var(--gc);font-weight:900;font-size:16px;
+}
+.hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:28px;align-items:start}
+.photo{margin:0}
+.photo button{display:block;width:100%;border:0;padding:0;cursor:zoom-in;border-radius:16px;overflow:hidden;background:var(--paper-2);position:relative}
+.photo img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
+.photo .zoom{
+  position:absolute;right:10px;bottom:10px;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
+  background:rgba(255,255,255,.9);color:var(--ink);
+}
+.photo .zoom .ic{width:22px;height:22px}
+.photo figcaption{margin-top:6px;font-family:var(--f-text);font-weight:600;font-size:.82em;color:var(--ink-soft);line-height:1.7}
+.aname{margin:0;font-size:clamp(40px,5vw,56px);font-weight:900;letter-spacing:.06em;line-height:1.2;color:var(--gc)}
+.lead{margin:8px 0 16px;font-family:var(--f-text);font-weight:600;font-size:1.05em;line-height:1.95}
+.data{margin:0;border:2px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden}
+.data div{display:grid;grid-template-columns:8.2em 1fr;border-top:2px solid var(--line)}
+.data div:first-child{border-top:0}
+.data dt{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--gbg);color:var(--gc);font-weight:900;font-size:.9em}
+.data dt .ic{width:22px;height:22px}
+.data dd{margin:0;padding:8px 14px;font-family:var(--f-text);font-weight:600;line-height:1.9}
+.memo{
+  margin-top:14px;padding:10px 14px;border:2px dashed var(--gc);border-radius:14px;background:var(--surface);
+  font-size:16px;font-weight:700;line-height:1.7;
+}
+.memo b{font-weight:900}
+.memo q{quotes:"『" "』";font-weight:900;color:var(--gc)}
+
+.hhead{display:flex;align-items:center;gap:12px;margin:30px 0 14px}
+.hhead h2{margin:0;font-size:30px;font-weight:900;letter-spacing:.06em}
+.hhead::after{content:"";flex:1;height:3px;background:var(--gc);border-radius:2px;opacity:.5}
+.secrets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.secret{
+  display:flex;flex-direction:column;gap:8px;background:var(--surface);border:2px solid var(--line);border-radius:16px;
+  padding:14px 18px 16px;
+}
+.secret .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.secret .no{
+  display:inline-flex;align-items:center;justify-content:center;padding:0 12px;height:30px;border-radius:999px;
+  background:var(--gc);color:#fff;font-weight:900;font-size:16px;
+}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:14px;font-weight:900;color:var(--ink-soft)}
+.chip .ic{width:18px;height:18px}
+.say{
+  margin-left:auto;display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:0 12px;cursor:pointer;
+  border:2px solid var(--line);border-radius:999px;background:var(--surface);font-size:15px;font-weight:700;
+}
+.say.on{background:var(--gc);color:#fff;border-color:var(--gc)}
+.say .ic{width:20px;height:20px}
+.secret h3{margin:2px 0 0;font-size:1.15em;font-weight:900;line-height:1.75;color:var(--ink)}
+.secret p{margin:0;font-family:var(--f-text);font-weight:600;line-height:2}
+.secret .photo img{aspect-ratio:3/2}
+.secret .photo figcaption{font-size:.8em}
+
+/* さくいん */
+.tabs{display:flex;gap:10px;margin:0 0 18px;flex-wrap:wrap}
+.kana{columns:4 230px;column-gap:28px}
+.krow{margin-bottom:12px}
+.krow .irow{break-inside:avoid}
+.krow h3{break-after:avoid;margin:0 0 4px;font-size:18px;font-weight:900;color:var(--accent)}
+.irow{
+  display:flex;align-items:baseline;gap:8px;width:100%;border:0;background:none;cursor:pointer;padding:6px 6px;border-radius:8px;
+  font-size:19px;font-weight:700;text-align:left;
+}
+.irow:hover{background:var(--surface)}
+.irow .dots{flex:1;border-bottom:2px dotted var(--line);transform:translateY(-6px)}
+.irow .pg{font-weight:900;white-space:nowrap}
+.catlist{display:grid;gap:22px}
+.tabs.jump .tbtn{font-size:16px}
+.tabs.jump .ic{color:var(--accent)}
+.cat h3{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:22px;font-weight:900}
+.cat h3 .ic{width:28px;height:28px;color:var(--accent)}
+.cat .irow{font-size:17px}
+.cat .irow .who{font-weight:900;white-space:nowrap;min-width:6.5em}
+.cat .irow .q{font-family:var(--f-text);font-weight:600}
+.cols{columns:2;column-gap:32px}
+.cols .irow{break-inside:avoid}
+
+/* 先生へ */
+details.teacher{max-width:900px;margin:28px auto 0;text-align:left;background:var(--surface);border:2px solid var(--line);border-radius:14px;padding:10px 16px}
+details.teacher summary{cursor:pointer;font-weight:900}
+details.teacher p,details.teacher li{font-size:16px;font-weight:500;line-height:1.8}
+
+/* ズーム */
+.lb{
+  position:fixed;inset:0;z-index:50;background:rgba(20,18,14,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:20px 20px 16px;gap:10px;
+}
+.lb[hidden]{display:none}
+.lb img{max-width:100%;max-height:calc(100% - 90px);object-fit:contain;border-radius:10px;background:#000}
+.lb p{margin:0;color:#fff;font-family:var(--f-text);font-weight:600;font-size:20px;text-align:center;line-height:1.9}
+.lb p rt{color:#ddd}
+.lb .close{position:absolute;top:14px;right:14px;width:52px;height:52px;border-radius:50%;border:0;background:#fff;cursor:pointer;display:grid;place-items:center}
+.lb .close .ic{width:28px;height:28px}
+
+/* 設定 */
+.menu{
+  position:fixed;top:calc(var(--bar) + 6px);right:12px;z-index:20;background:var(--surface);border:2px solid var(--line);border-radius:14px;
+  padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.14);display:grid;gap:10px;min-width:260px;
+}
+.menu[hidden]{display:none}
+.menu b{font-size:15px;color:var(--ink-soft)}
+.seg{display:flex;gap:6px}
+.seg .tbtn{flex:1;justify-content:center}
+
+@media (max-width:900px){
+  .hero{grid-template-columns:1fr}
+  .secrets{grid-template-columns:1fr}
+  .howto{grid-template-columns:1fr}
+  .collage{grid-template-columns:repeat(3,1fr)}
+  .cols{columns:1}
+  .navbtn{min-width:0}
+  .navbtn small{display:none}
+  .brand .t{display:none}
+  .tbtn .t{display:none}
+}
+@media print{.topbar,.botbar{display:none}main{padding:0}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <button class="brand" id="toCover" type="button" aria-label="ひょうしへ"><span class="ic" data-ic="book-open"></span><span class="t">いきもの ひみつずかん</span></button>
+  <span class="spacer"></span>
+  <button class="tbtn" id="toMokuji" type="button"><span class="ic" data-ic="list-bullets"></span><span>もくじ</span></button>
+  <button class="tbtn" id="toSakuin" type="button"><span class="ic" data-ic="magnifying-glass"></span><span>さくいん</span></button>
+  <button class="tbtn" id="setBtn" type="button" aria-haspopup="true" aria-expanded="false"><span class="ic" data-ic="text-aa"></span><span class="t">もじ</span></button>
+</header>
+<div class="menu" id="menu" hidden>
+  <b>ふりがな</b>
+  <div class="seg"><button class="tbtn" type="button" data-rt="1">あり</button><button class="tbtn" type="button" data-rt="0">なし</button></div>
+  <b>もじの 大きさ</b>
+  <div class="seg"><button class="tbtn" type="button" data-fs="0">ふつう</button><button class="tbtn" type="button" data-fs="1">大</button><button class="tbtn" type="button" data-fs="2">もっと 大</button></div>
+</div>
+<main id="main" tabindex="-1"></main>
+<footer class="botbar">
+  <button class="navbtn" id="prev" type="button"><span class="ic" data-ic="caret-left"></span><span class="lbl"><small>まえの ページ</small><span id="prevName"></span></span></button>
+  <span class="pageno" id="pageno"></span>
+  <button class="navbtn next" id="next" type="button"><span class="lbl"><small>つぎの ページ</small><span id="nextName"></span></span><span class="ic" data-ic="caret-right"></span></button>
+</footer>
+<div class="lb" id="lb" hidden>
+  <button class="close" id="lbClose" type="button" aria-label="とじる"><span class="ic" data-ic="x"></span></button>
+  <img id="lbImg" alt="">
+  <p id="lbCap"></p>
+</div>
+<script src="assets/icons.js"></script>
+<script>
+// ==LOGIC==
+(function (root) {
+'use strict';
+const BOOK = 'いきもの ひみつずかん';
+const RB = /\{([^|{}]+)\|([^}]*)\}/g;              // {漢字|よみ}
+const R = s => s.replace(RB, '<ruby>$1<rt>$2</rt></ruby>');
+const P = s => s.replace(RB, '$1');
+const Y = s => s.replace(RB, '$2');
+
+const GROUPS = [
+  { id: 'kemono', name: 'けもの',                         sub: 'おちちで {子|こ}どもを そだてる なかま' },
+  { id: 'tori',   name: '{鳥|とり}',                       sub: '{羽|はね}と くちばしの ある なかま' },
+  { id: 'umi',    name: '{海|うみ}の いきもの',            sub: '{海|うみ}で くらす なかま' },
+  { id: 'mushi',  name: '{虫|むし}・{小|ちい}さな いきもの', sub: '{虫|むし}や、クモ・カタツムリ' },
+  { id: 'hachu',  name: 'ヘビ・カエルの なかま',           sub: 'うろこや しめった ひふの なかま' },
+];
+const CATS = [
+  { id: 'karada',   name: 'からだの ひみつ',                 ic: 'paw-print' },
+  { id: 'taberu',   name: 'たべものの ひみつ',               ic: 'fork-knife' },
+  { id: 'kurashi',  name: 'くらしの ひみつ',                 ic: 'house-line' },
+  { id: 'kosodate', name: '{赤|あか}ちゃん・そだちかたの ひみつ', ic: 'baby' },
+  { id: 'mamoru',   name: 'みを まもる ひみつ',              ic: 'shield' },
+];
+const DATA_LABELS = [
+  { name: '{大|おお}きさ',  ic: 'ruler' },
+  { name: 'すむ ところ',    ic: 'map-pin' },
+  { name: 'たべもの',       ic: 'fork-knife' },
+];
+
+const ANIMALS = [
+/* ======================= けもの ======================= */
+{k:'otter', n:'ラッコ', g:'kemono',
+ lead:'{北|きた}の つめたい {海|うみ}に うかんで くらす、イタチの なかまです。',
+ d:['{体|からだ}の {長|なが}さ 1m〜1m50cmくらい','{北|きた}の つめたい {海|うみ}の、きしに {近|ちか}い ところ','ウニ・{貝|かい}・カニ など'],
+ cap:'{海|うみ}に うかんで、{顔|かお}を {手|て}で こする ラッコ。',
+ s:[
+  ['taberu','どうやって {貝|かい}を わるの？','まず、{海|うみ}の そこに もぐって、{貝|かい}と {石|いし}を とって きます。つぎに、あおむけに うかんで、おなかの {上|うえ}に {石|いし}を のせます。それから、{貝|かい}を りょう{手|て}で もって、{石|いし}に なんども ぶつけて わります。','',''],
+  ['kurashi','どうやって ねるの？','{海|うみ}に うかんだまま ねむります。ながされない ように、{大|おお}きな {海|かい}そうを {体|からだ}に まきつけて ねる ことも あります。なかまと {手|て}を つなぐ ように して、ならんで ねむる ことも あります。','',''],
+  ['karada','つめたい {海|うみ}でも さむく ないの？','ラッコの {毛|け}は、とても こく {生|は}えて います。{毛|け}の あいだに {空気|くうき}を ためて、つめたい {水|みず}が ひふまで とどかない ように して います。だから、{毎日|まいにち} ていねいに {毛|け}の {手入|てい}れを します。','otter-s2','{毛|け}の {手入|てい}れを する ラッコ。'],
+  ['taberu','どれくらい {食|た}べるの？','{体|からだ}を あたためる ために、たくさん {食|た}べます。1{日|にち}に、{自分|じぶん}の {体|からだ}の おもさの 4ぶんの1くらいも {食|た}べます。','',''],
+  ['kosodate','{赤|あか}ちゃんは どこに いるの？','{赤|あか}ちゃんは、お{母|かあ}さんの おなかの {上|うえ}に のって そだちます。お{母|かあ}さんが もぐって {食|た}べものを さがす あいだ、{赤|あか}ちゃんは {海|うみ}に ぷかぷか うかんで まって います。','otter-s1','お{母|かあ}さんの おなかの {上|うえ}の {赤|あか}ちゃん。'],
+ ]},
+{k:'kangaroo', n:'カンガルー', g:'kemono',
+ lead:'{大|おお}きな {後|うし}ろ{足|あし}で ぴょんぴょん はねる、オーストラリアの どうぶつです。',
+ d:['{大|おお}きな オスは、{立|た}つと {大人|おとな}の {人|ひと}くらい','オーストラリアの {草原|そうげん}や {林|はやし}','{草|くさ}や {木|き}の はっぱ'],
+ cap:'こちらを {見|み}る カンガルー。{耳|みみ}が {大|おお}きい。',
+ s:[
+  ['kosodate','{赤|あか}ちゃんは どこで そだつの？','{生|う}まれた ときの {赤|あか}ちゃんは、2cmくらいしか ありません。{生|う}まれると、{自分|じぶん}で お{母|かあ}さんの おなかを はいのぼって、ふくろの {中|なか}に {入|はい}ります。ふくろの {中|なか}で おちちを のんで そだち、6か{月|げつ}くらいで ふくろから {顔|かお}を {出|だ}す ように なります。','',''],
+  ['karada','どれくらい とべるの？','{太|ふと}くて {長|なが}い {後|うし}ろ{足|あし}で、ばねの ように はねて すすみます。1{回|かい}で 8mくらい とぶ ことも あります。','',''],
+  ['karada','しっぽは {何|なに}に つかうの？','{太|ふと}くて {強|つよ}い しっぽは、{体|からだ}を ささえる 3{本|ぼん}{目|め}の {足|あし}の ような ものです。ゆっくり すすむ ときは、しっぽと {前足|まえあし}で {体|からだ}を ささえて、{後|うし}ろ{足|あし}を {前|まえ}に {出|だ}します。はねる ときは、しっぽで {体|からだ}の バランスを とります。','kangaroo-s1','しっぽで {体|からだ}を ささえて {立|た}つ。'],
+  ['kurashi','オスどうしは どうやって {強|つよ}さを くらべるの？','オスどうしは、{後|うし}ろ{足|あし}と しっぽで {立|た}ち{上|あ}がり、{前足|まえあし}で おしあったり、{後|うし}ろ{足|あし}で けったり します。ボクシングを して いる ように {見|み}えます。','',''],
+ ]},
+{k:'koala', n:'コアラ', g:'kemono',
+ lead:'ユーカリの {木|き}の {上|うえ}で くらす、オーストラリアの どうぶつです。',
+ d:['{体|からだ}の {長|なが}さ 60cm〜80cmくらい','オーストラリアの ユーカリの {林|はやし}','ユーカリの はっぱ'],
+ cap:'{木|き}の えだに つかまる コアラ。',
+ s:[
+  ['taberu','{何|なに}を {食|た}べるの？','ユーカリの はっぱだけを {食|た}べます。ユーカリの はっぱには どくが あるので、ほかの どうぶつは あまり {食|た}べません。コアラの {体|からだ}には、どくに まけない しくみが あります。のむ {水|みず}も、ほとんどを はっぱから とって います。','koala-s1','ユーカリの はっぱを {食|た}べる コアラ。'],
+  ['kurashi','どうして よく ねるの？','1{日|にち}に 18{時間|じかん}〜20{時間|じかん}も ねむります。ユーカリの はっぱは えいようが {少|すく}なく、おなかで こなすのに {時間|じかん}が かかります。だから、なるべく うごかないで、{力|ちから}を つかわない ように して いるのです。','koala-s3','{木|き}の えだの あいだで ねむる コアラ。'],
+  ['kosodate','{赤|あか}ちゃんは どう そだつの？','{生|う}まれた ときの {赤|あか}ちゃんは 2cmくらいです。お{母|かあ}さんの おなかの ふくろの {中|なか}で 6か{月|げつ}くらい そだち、それから ふくろを {出|で}て、お{母|かあ}さんの せなかに のって くらします。','koala-s2','お{母|かあ}さんの せなかに つかまる {子|こ}ども。'],
+  ['kosodate','{赤|あか}ちゃんが {食|た}べる とくべつな ものって？','ふくろから {出|で}て くる ころ、{赤|あか}ちゃんは お{母|かあ}さんの とくべつな うんちを {食|た}べます。この うんちには、ユーカリを こなす ための とても {小|ちい}さな {生|い}きものが {入|はい}って います。こうして、ユーカリを {食|た}べられる {体|からだ}に なって いきます。','',''],
+ ]},
+{k:'elephant', n:'ゾウ', g:'kemono',
+ lead:'りくに すむ どうぶつの {中|なか}で、いちばん {大|おお}きい なかまです。この ページは アフリカゾウです。',
+ d:['せの {高|たか}さ 3m〜4m。おもさは 2{年生|ねんせい} 200{人|にん}{分|ぶん}くらい','アフリカの {草原|そうげん}や {森|もり}','{草|くさ}・{木|き}の はっぱ・{木|き}の かわ・くだもの'],
+ cap:'{長|なが}い はなを まるめた アフリカゾウ。',
+ s:[
+  ['karada','{長|なが}い はなは {何|なに}に つかうの？','ゾウの {長|なが}い はなは、はなと {上|うわ}くちびるが のびた ものです。たくさんの きん{肉|にく}で できて いて、{草|くさ}を つかんで {口|くち}に はこんだり、{水|みず}を すいこんで {口|くち}に {入|い}れたり、なかまに さわって あいさつを したり します。','',''],
+  ['karada','{大|おお}きな {耳|みみ}の ひみつは？','アフリカは とても あつい ところです。ゾウは {大|おお}きな {耳|みみ}を ぱたぱた うごかして {風|かぜ}を おこし、{体|からだ}の ねつを にがして {体|からだ}を ひやします。','',''],
+  ['karada','きばは {何|なに}で できて いるの？','きばは、{前|まえ}の はが {長|なが}く のびた ものです。{土|つち}を ほって {水|みず}を さがしたり、{木|き}の かわを はがしたり する ときに つかいます。','elephant-s2','{大|おお}きな {耳|みみ}と きば。'],
+  ['taberu','どれくらい {食|た}べるの？','{体|からだ}が {大|おお}きいので、1{日|にち}の {半分|はんぶん}より {長|なが}い {時間|じかん}、{食|た}べつづけます。1{日|にち}に {食|た}べる {草|くさ}などの おもさは、2{年生|ねんせい} 4{人|にん}{分|ぶん}くらいにも なります。','',''],
+  ['kosodate','かぞくで くらすの？','お{母|かあ}さんゾウと {子|こ}どもたちが むれを つくって くらします。むれの リーダーは、いちばん {年|とし}{上|うえ}の メスです。{赤|あか}ちゃんは、{生|う}まれた ときから 2{年生|ねんせい} 4{人|にん}{分|ぶん}くらいの おもさが あります。','elephant-s1','お{母|かあ}さんと {子|こ}どもの ゾウ。'],
+ ]},
+{k:'giraffe', n:'キリン', g:'kemono',
+ lead:'{首|くび}と {足|あし}が {長|なが}い、せの いちばん {高|たか}い どうぶつです。',
+ d:['{頭|あたま}までの {高|たか}さ 4m〜5mくらい','アフリカの {草原|そうげん}','{高|たか}い {木|き}の はっぱ'],
+ cap:'{草原|そうげん}に {立|た}つ キリン。',
+ s:[
+  ['karada','{長|なが}い {首|くび}の ほねは いくつ？','キリンの {首|くび}の ほねは、{人|ひと}と {同|おな}じ 7こです。でも、1こ1この ほねが とても {大|おお}きく、{長|なが}いのです。','',''],
+  ['taberu','どうやって {高|たか}い ところの はっぱを {食|た}べるの？','{長|なが}い {首|くび}を のばして、ほかの どうぶつが とどかない {高|たか}い ところの はっぱを {食|た}べます。したは 50cmくらいも あり、とげの ある えだから はっぱを まきとって {食|た}べます。','giraffe-s1','{首|くび}を のばして はっぱを {食|た}べる。'],
+  ['kurashi','どうやって ねるの？','キリンは、{立|た}ったまま、または すわって ねむります。ぐっすり ねむるのは、1{回|かい}に {数分|すうふん}ほどです。みじかい ねむりを なんども とります。','',''],
+  ['kosodate','{赤|あか}ちゃんは どう {生|う}まれるの？','お{母|かあ}さんは {立|た}ったまま {赤|あか}ちゃんを うむので、{赤|あか}ちゃんは 2mくらいの {高|たか}さから {地|じ}めんに おちて {生|う}まれます。{生|う}まれて 1{時間|じかん}くらいで、{自分|じぶん}の {足|あし}で {立|た}ち{上|あ}がります。','',''],
+  ['karada','もようは みんな {同|おな}じ？','キリンの もようは、1{頭|とう}1{頭|とう} ぜんぶ ちがいます。{人|ひと}の しもんと {同|おな}じ ように、もようで 1{頭|とう}ずつ {見|み}わける ことが できます。','giraffe-s2','3{頭|とう}の キリン。もようを くらべて みよう。'],
+ ]},
+{k:'sloth', n:'ナマケモノ', g:'kemono',
+ lead:'{木|き}に ぶら{下|さ}がって、ゆっくり くらす どうぶつです。',
+ d:['{体|からだ}の {長|なが}さ 50cm〜60cmくらい','{南|みなみ}アメリカなどの あたたかい {森|もり}','{木|き}の はっぱ'],
+ cap:'{木|き}に つかまる ナマケモノ。',
+ s:[
+  ['karada','どうして ゆっくり うごくの？','ナマケモノが {食|た}べる はっぱは、えいようが {少|すく}ない {食|た}べものです。だから、なるべく {力|ちから}を つかわない ように、ゆっくり うごきます。1{分|ぷん}に すすむのは、{数|すう}mくらいです。','',''],
+  ['kurashi','{木|き}の {上|うえ}で {何|なに}を して いるの？','{長|なが}く まがった つめを えだに ひっかけて、1{日|にち}の ほとんどを {木|き}に ぶら{下|さ}がって すごします。ぶら{下|さ}がったまま、はっぱを {食|た}べたり ねむったり します。','sloth-s2','{森|もり}の {木|き}の {上|うえ}で くらす。'],
+  ['kurashi','{木|き}から おりるのは いつ？','1{週間|しゅうかん}に 1{回|かい}くらい、うんちを する ために {木|き}から おりて きます。{地|じ}めんでは うまく {歩|ある}けないので、はう ように して すすみます。','sloth-s1','{地|じ}めんを はって すすむ。'],
+  ['mamoru','{毛|け}の {中|なか}に {何|なに}が いるの？','ナマケモノの {毛|け}には、「も」と いう {小|ちい}さな しょくぶつが {生|は}えて、みどり{色|いろ}に {見|み}える ことが あります。{森|もり}の {中|なか}で {目立|めだ}たなく なり、てきに {見|み}つかりにくく なります。','',''],
+ ]},
+{k:'bat', n:'コウモリ', g:'kemono',
+ lead:'{空|そら}を とぶ ことが できる、ただ 1つの けものの なかまです。この ページの しゃしんは、{大|おお}きな なかまの オオコウモリです。',
+ d:['オオコウモリは、はねを {広|ひろ}げると 1m50cmくらい','あたたかい {国|くに}の {森|もり}。{日本|にっぽん}にも いる','オオコウモリは くだものや {花|はな}の みつ。{小|ちい}さな なかまは {虫|むし}'],
+ cap:'{空|そら}を とぶ オオコウモリ。',
+ s:[
+  ['karada','{鳥|とり}の なかまでは ないの？','コウモリは {鳥|とり}では なく、おちちで {子|こ}どもを そだてる けものの なかまです。はねは、とても {長|なが}い ゆびの あいだに はった、うすい ひふで できて います。','',''],
+  ['karada','どうして さかさまに ぶら{下|さ}がるの？','コウモリの {足|あし}は、ぶら{下|さ}がって いる ときに {力|ちから}を {入|い}れなくても えだを つかんで いられる しくみに なって います。とびたつ ときは、{足|あし}を はなすだけで すぐに とべます。','bat-s1','さかさまに ぶら{下|さ}がる オオコウモリ。'],
+  ['taberu','くらい {夜|よる}に どうやって {虫|むし}を {見|み}つけるの？','{虫|むし}を {食|た}べる {小|ちい}さな コウモリは、{口|くち}や はなから {高|たか}い {音|おと}を {出|だ}します。{音|おと}が {虫|むし}に あたって はねかえって くるのを {聞|き}いて、{虫|むし}の いる ばしょを {知|し}ります。この {音|おと}は、{人|ひと}には {聞|き}こえません。','',''],
+  ['kurashi','{森|もり}を そだてる って ほんとう？','オオコウモリは、{夕方|ゆうがた}に なると いっせいに とびたち、くだものや {花|はな}の みつを さがします。{花|はな}から {花|はな}へ {花|か}ふんを はこんだり、くだものの たねを {遠|とお}くへ はこんだり して、{森|もり}を そだてる やくにも {立|た}って います。','bat-s2','いっせいに とびたつ オオコウモリ。'],
+ ]},
+{k:'hedgehog', n:'ハリネズミ', g:'kemono',
+ lead:'せなかが はりで おおわれた、{小|ちい}さな どうぶつです。',
+ d:['{体|からだ}の {長|なが}さ 20cm〜30cmくらい','ヨーロッパや アジアの {林|はやし}・{草|くさ}むら・にわ','{虫|むし}・ミミズ・カタツムリ など'],
+ cap:'おちばの {上|うえ}を {歩|ある}く ハリネズミ。',
+ s:[
+  ['karada','はりは {何|なん}{本|ぼん} あるの？','せなかの はりは、5000{本|ぼん}〜7000{本|ぼん}くらい あります。はりは、{毛|け}が かたく なった ものです。','hedgehog-s1','かたい はりが びっしり。'],
+  ['mamoru','てきに おそわれたら どうするの？','てきに おそわれると、{体|からだ}を くるりと まるめて、はりの ボールに なります。はりが じゃまで、てきは かみつく ことが できません。','',''],
+  ['kurashi','{冬|ふゆ}は どう して いるの？','さむい ところに すむ ハリネズミは、{冬|ふゆ}に なると すの {中|なか}で ねむって すごします。これを {冬|とう}みんと いいます。{春|はる}に なると {目|め}を さまします。','',''],
+  ['taberu','どうやって {食|た}べものを {見|み}つけるの？','{目|め}は あまり よく ありませんが、はなが とても よく ききます。{夜|よる}に なると、においを たよりに {地|じ}めんの {虫|むし}や ミミズを さがして {食|た}べます。','',''],
+ ]},
+{k:'panda', n:'パンダ', g:'kemono',
+ lead:'{白|しろ}と {黒|くろ}の もようの、クマの なかまです。{正|ただ}しくは ジャイアントパンダと いいます。',
+ d:['{体|からだ}の {長|なが}さ 1m20cm〜1m50cmくらい','{中国|ちゅうごく}の {山|やま}の {竹林|たけばやし}','ほとんどが {竹|たけ}や ササ'],
+ cap:'{竹|たけ}の はっぱを {食|た}べる パンダ。',
+ s:[
+  ['taberu','1{日|にち}に どれくらい {食|た}べるの？','{竹|たけ}は えいようが {少|すく}ないので、たくさん {食|た}べなければ なりません。1{日|にち}の {半分|はんぶん}くらいの {時間|じかん}、{竹|たけ}を {食|た}べて すごします。','',''],
+  ['karada','{竹|たけ}を どうやって もつの？','パンダの {手|て}には、ゆびの ほかに、ほねが ふくらんだ でっぱりが あります。この でっぱりと ゆびで はさんで、{竹|たけ}を しっかり にぎる ことが できます。','panda-s1','{竹|たけ}を もって {食|た}べる。'],
+  ['karada','{白|しろ}と {黒|くろ}の もようの わけは？','くわしい わけは、まだ よく わかって いません。{雪|ゆき}の {上|うえ}や {木|き}の かげで {目立|めだ}たなく なる ため、なかまに {自分|じぶん}の ことを しらせる ため、などと {考|かんが}えられて います。','',''],
+  ['kosodate','{赤|あか}ちゃんは どれくらい {小|ちい}さいの？','{生|う}まれた ばかりの {赤|あか}ちゃんは、ピンク{色|いろ}で {毛|け}が {少|すく}なく、おもさは たまご 2こ{分|ぶん}くらいしか ありません。{大|おお}きな お{母|かあ}さんに くらべて、とても {小|ちい}さく {生|う}まれます。','',''],
+ ]},
+/* ======================= とり ======================= */
+{k:'penguin', n:'ペンギン', g:'tori',
+ lead:'{空|そら}は とべないけれど、{海|うみ}の {中|なか}を とぶ ように およぐ {鳥|とり}です。この ページは、いちばん {大|おお}きい コウテイペンギンです。',
+ d:['せの {高|たか}さ 1m20cmくらい','{南|みなみ}きょくの {海|うみ}と こおりの {上|うえ}','{魚|さかな}・イカ・オキアミ（{小|ちい}さな エビの なかま）'],
+ cap:'コウテイペンギンの {親|おや}と ひな（まん{中|なか}の はい{色|いろ}の {子|こ}）。',
+ s:[
+  ['karada','とべない かわりに どんな ことが できるの？','つばさが ひれの ように かたく なって いて、{海|うみ}の {中|なか}を すいすい およぎます。コウテイペンギンは、500mより ふかく もぐる ことも あります。','',''],
+  ['kosodate','たまごは どうやって あたためるの？','まず、{冬|ふゆ}の はじめに、メスが たまごを 1こ うみます。つぎに、オスが たまごを {足|あし}の {上|うえ}に のせ、おなかの ひふで つつんで あたためます。オスは、{何|なに}も {食|た}べずに 2か{月|げつ}くらい あたためつづけます。そのあいだ、メスは {海|うみ}へ {食|た}べものを とりに {行|い}きます。','',''],
+  ['kurashi','さむい {日|ひ}は どう して いるの？','とても さむい {日|ひ}は、{何千|なんぜん}わも あつまって、ぎゅっと かたまります。{外|そと}がわと {内|うち}がわを じゅんばんに {入|い}れかわりながら、みんなで あたためあいます。','penguin-s1','なかまと ならんで {立|た}つ。'],
+  ['mamoru','{白|しろ}と {黒|くろ}の いろの わけは？','{海|うみ}の {中|なか}で {上|うえ}から {見|み}ると、{黒|くろ}い せなかは くらい {海|うみ}の そこに まぎれます。{下|した}から {見|み}ると、{白|しろ}い おなかは {明|あか}るい {空|そら}に まぎれます。だから、てきに {見|み}つかりにくいのです。','',''],
+ ]},
+{k:'owl', n:'フクロウ', g:'tori',
+ lead:'{夜|よる}に かつどうする、{大|おお}きな {目|め}の {鳥|とり}です。{日本|にっぽん}の {林|はやし}にも すんで います。',
+ d:['{体|からだ}の {長|なが}さ 50cmくらい','{林|はやし}や {森|もり}。{日本|にっぽん}にも いる','ネズミ・{小鳥|ことり}・{虫|むし} など'],
+ cap:'えだに とまる フクロウの なかま。',
+ s:[
+  ['karada','{目|め}の ひみつは？','{大|おお}きな {目|め}で、すこしの {光|ひかり}でも ものを {見|み}る ことが できます。{目|め}は うごかせないので、かわりに {首|くび}を ぐるりと {回|まわ}して、{後|うし}ろまで {見|み}る ことが できます。','owl-s1','{大|おお}きな {目|め}と、おさらの ような {顔|かお}。'],
+  ['karada','{顔|かお}が まるいのは どうして？','おさらの ような まるい {顔|かお}で、{音|おと}を あつめて {耳|みみ}に とどけます。{左右|さゆう}の {耳|みみ}の {高|たか}さが すこし ちがうので、{音|おと}の する ばしょが くわしく わかります。まっくらでも、{音|おと}だけで ネズミを つかまえられます。','',''],
+  ['taberu','どうして {音|おと}を {立|た}てずに とべるの？','{羽|はね}の ふちが くしの ように ぎざぎざに なって いて、とても やわらかいので、とんでも ほとんど {音|おと}が しません。えものに {気|き}づかれずに {近|ちか}づく ことが できます。','',''],
+  ['taberu','{食|た}べられない ところは どうするの？','えものを まるのみに する ことが {多|おお}く、{毛|け}や ほねなど こなせない ものは、おだんごの ように まるめて {口|くち}から はき{出|だ}します。','',''],
+ ]},
+{k:'flamingo', n:'フラミンゴ', g:'tori',
+ lead:'ピンク{色|いろ}の {羽|はね}と、ほそくて {長|なが}い {足|あし}が とくちょうの {鳥|とり}です。',
+ d:['せの {高|たか}さ 1m20cm〜1m50cmくらい','しおからい {水|みず}の みずうみや ひがた','{小|ちい}さな エビ・{貝|かい}・「も」など'],
+ cap:'{水|みず}の {中|なか}に くちばしを {入|い}れる フラミンゴ。',
+ s:[
+  ['karada','どうして ピンク{色|いろ}なの？','{生|う}まれた ばかりの ひなは、{白|しろ}っぽい はい{色|いろ}です。{食|た}べものの {小|ちい}さな エビや 「も」に ふくまれる {赤|あか}い {色|いろ}の もとが {体|からだ}に たまって、{羽|はね}が だんだん ピンク{色|いろ}に なって いきます。','flamingo-s1','まだ ピンク{色|いろ}に なって いない わかい フラミンゴ。'],
+  ['taberu','どうやって {食|た}べるの？','{頭|あたま}を さかさまに して、くちばしを {水|みず}の {中|なか}に {入|い}れます。{水|みず}を すいこんだら、くちばしの ふちに ある くしの ような ところで こして、{小|ちい}さな {食|た}べものだけを のこして {食|た}べます。','',''],
+  ['karada','どうして 1{本|ぽん}{足|あし}で {立|た}つの？','フラミンゴの {体|からだ}は、1{本|ぽん}{足|あし}で {立|た}って いても、あまり {力|ちから}を つかわずに いられる しくみに なって いる と {考|かんが}えられて います。','flamingo-s2','ほそくて {長|なが}い {足|あし}で {立|た}つ。'],
+  ['kosodate','ひなには {何|なに}を あげるの？','{親|おや}は、のどの おくから 「フラミンゴミルク」と いう {赤|あか}い しるを {出|だ}して、ひなに {口|くち}うつしで のませます。お{父|とう}さんも お{母|かあ}さんも あげます。','',''],
+ ]},
+/* ======================= 海の いきもの ======================= */
+{k:'dolphin', n:'イルカ', g:'umi',
+ lead:'{海|うみ}に すんで いますが、{魚|さかな}では なく、けものの なかまです。この ページは ハンドウイルカです。',
+ d:['{体|からだ}の {長|なが}さ 2m〜4mくらい','せかいの あたたかい {海|うみ}や すずしい {海|うみ}','{魚|さかな}・イカ'],
+ cap:'{海|うみ}から {顔|かお}を {出|だ}す ハンドウイルカ。',
+ s:[
+  ['karada','{魚|さかな}と どこが ちがうの？','イルカは {魚|さかな}の ように えらで いきを する ことが できません。{頭|あたま}の {上|うえ}に ある はなの あなを {海|うみ}の {上|うえ}に {出|だ}して、いきを します。{赤|あか}ちゃんは おちちを のんで そだちます。','',''],
+  ['kurashi','{海|うみ}の {中|なか}で どうやって ねるの？','イルカは、のうの {半分|はんぶん}ずつを じゅんばんに やすませて ねむります。かた{目|め}を あけたまま、およぎながら ねむる ことも あります。','',''],
+  ['taberu','どうやって {魚|さかな}を {見|み}つけるの？','「カチカチ」と いう {音|おと}を {出|だ}し、{音|おと}が {魚|さかな}に あたって はねかえって くるのを {聞|き}いて、{魚|さかな}の いる ばしょや {大|おお}きさを {知|し}ります。{小|ちい}さな コウモリと {同|おな}じ ひみつです。','',''],
+  ['kurashi','なかまと {話|はな}を するの？','「ピューイ」と いう {口|くち}ぶえの ような {声|こえ}で、なかまと やりとりを します。1{頭|とう}ずつ {自分|じぶん}だけの {音|おと}を もって いて、{名前|なまえ}の ように つかって いると {考|かんが}えられて います。','dolphin-s2','なかまと いっしょに およぐ。'],
+  ['karada','どれくらい {高|たか}く とべるの？','{強|つよ}い おびれで {水|みず}を けって、{海|うみ}の {上|うえ}へ {高|たか}く ジャンプします。','dolphin-s1','{海|うみ}の {上|うえ}へ ジャンプ！'],
+ ]},
+{k:'whale', n:'クジラ', g:'umi',
+ lead:'{海|うみ}で くらす、とても {大|おお}きな けものの なかまです。この ページは ザトウクジラです。',
+ d:['{体|からだ}の {長|なが}さ 13m〜16mくらい（バスより {長|なが}い）','せかいの {海|うみ}。{夏|なつ}は {北|きた}の {海|うみ}、{冬|ふゆ}は あたたかい {海|うみ}','オキアミ（{小|ちい}さな エビの なかま）・{小|ちい}さな {魚|さかな}'],
+ cap:'{長|なが}い むなびれを ひろげて およぐ ザトウクジラ。',
+ s:[
+  ['karada','むなびれは どれくらい {長|なが}いの？','ザトウクジラの むなびれは、5mくらいも あります。{体|からだ}の {長|なが}さの 3ぶんの1くらいです。この むなびれで、{大|おお}きな {体|からだ}の むきを かえます。','whale-s1','{海|うみ}から とび{出|だ}す ザトウクジラ。{白|しろ}くて {長|なが}い むなびれが {見|み}える。'],
+  ['taberu','あわの あみって {何|なに}？','なかまで {魚|さかな}を つかまえる ための ひみつの わざです。まず、{魚|さかな}の むれの {下|した}に もぐります。つぎに、ぐるぐる {回|まわ}りながら あわを {出|だ}して、あわの かべで {魚|さかな}を とじこめます。さいごに、{下|した}から {大|おお}きな {口|くち}を あけて、{一気|いっき}に {食|た}べます。','',''],
+  ['kurashi','{歌|うた}を うたうって ほんとう？','オスは、{長|なが}い {歌|うた}の ような {声|こえ}を {出|だ}します。{歌|うた}は {何時間|なんじかん}も つづく ことが あり、{遠|とお}くの {海|うみ}まで とどきます。','',''],
+  ['karada','おびれの もようは みんな {同|おな}じ？','おびれの {下|した}がわの もようは、1{頭|とう}1{頭|とう} ちがいます。しらべる {人|ひと}は、おびれの しゃしんを とって、どの クジラかを {見|み}わけて います。','whale-s2','{海|うみ}の {上|うえ}に {出|で}た おびれ。'],
+  ['kurashi','{夏|なつ}と {冬|ふゆ}で すむ ところが かわるの？','{夏|なつ}は {食|た}べものの {多|おお}い {北|きた}の つめたい {海|うみ}で たくさん {食|た}べ、{冬|ふゆ}は あたたかい {南|みなみ}の {海|うみ}へ {行|い}って {赤|あか}ちゃんを うみ、そだてます。{日本|にっぽん}の おきなわや おがさわらの {海|うみ}にも やって {来|き}ます。','',''],
+ ]},
+{k:'octopus', n:'タコ', g:'umi',
+ lead:'8{本|ぽん}の {足|あし}で {海|うみ}の そこを {歩|ある}く、かしこい いきものです。この ページは マダコです。',
+ d:['{足|あし}を ふくめて 60cmくらい','{岩|いわ}の {多|おお}い {海|うみ}の そこ','カニ・エビ・{貝|かい} など'],
+ cap:'きゅうばんが ならんだ {足|あし}で {岩|いわ}に つかまる マダコ。',
+ s:[
+  ['karada','{足|あし}の きゅうばんは {何|なに}に つかうの？','8{本|ぽん}の {足|あし}には、きゅうばんが たくさん ならんで います。きゅうばんで {岩|いわ}に すいついたり、えものを つかんだり します。きゅうばんで あじを {知|し}る ことも できます。','',''],
+  ['mamoru','{色|いろ}や {形|かたち}を かえられるの？','ひふの {色|いろ}や もようを、あっと いう まに かえる ことが できます。ひふを でこぼこに して、{岩|いわ}や {海|かい}そうに そっくりに ばけて、てきから かくれます。','octopus-s1','まわりに にた {色|いろ}に なった タコ。'],
+  ['mamoru','すみを はくのは どうして？','てきに おそわれると、くろい すみを はきます。すみで てきの {目|め}を くらませて いる すきに、すばやく にげます。','',''],
+  ['karada','{心|しん}ぞうは いくつ あるの？','タコの {心|しん}ぞうは、なんと 3つ あります。ちの {色|いろ}は、{青|あお}っぽい {色|いろ}です。','',''],
+  ['kurashi','どれくらい かしこいの？','タコは とても かしこい いきものです。びんの ふたを まわして あけ、{中|なか}の えさを とり{出|だ}す ことも できます。','',''],
+ ]},
+{k:'jellyfish', n:'クラゲ', g:'umi',
+ lead:'すきとおった {体|からだ}で、{海|うみ}を ふわふわ ただよう いきものです。この ページは {日本|にっぽん}の {海|うみ}で よく {見|み}られる ミズクラゲです。',
+ d:['かさの {大|おお}きさ 10cm〜30cmくらい','{日本|にっぽん}の まわりの {海|うみ}・みなと','とても {小|ちい}さな {生|い}きもの（プランクトン）'],
+ cap:'すきとおった かさの ミズクラゲ。',
+ s:[
+  ['karada','{体|からだ}は {何|なに}で できて いるの？','{体|からだ}の ほとんどが {水|みず}で できて います。のうも {心|しん}ぞうも ほねも ありません。','',''],
+  ['karada','かさに ある 4つの わは {何|なに}？','かさを {上|うえ}から {見|み}ると、4つの わの もようが {見|み}えます。これは、たまごなどを つくる ところです。','',''],
+  ['kurashi','どうやって およぐの？','かさを ひらいたり とじたり して、ゆっくり すすみます。でも、およぐ {力|ちから}は {弱|よわ}く、ほとんどは {海|うみ}の ながれに のって ただよって います。','jellyfish-s1','{海|うみ}の {中|なか}を ただよう ミズクラゲ。'],
+  ['kosodate','どうやって そだつの？','クラゲは、すがたを かえながら そだちます。まず、たまごから {生|う}まれた {赤|あか}ちゃんが {岩|いわ}などに くっつきます。つぎに、イソギンチャクの ような {形|かたち}に なります。それから、おさらを かさねた ような {形|かたち}に なり、1まいずつ はなれて およぎ{出|だ}します。さいごに、{大|おお}きく そだって クラゲに なります。','',''],
+  ['mamoru','さされる ことは あるの？','クラゲの なかまは、しょくしゅに どくの はりを もって います。ミズクラゲの どくは {弱|よわ}いですが、{海|うみ}で クラゲを {見|み}つけても、さわらない ように しましょう。','',''],
+ ]},
+{k:'shark', n:'サメ', g:'umi',
+ lead:'するどい はを もつ、{大|おお}きな {魚|さかな}の なかまです。この ページは ホホジロザメです。',
+ d:['{体|からだ}の {長|なが}さ 4m〜6mくらい','せかいの あたたかい {海|うみ}や すずしい {海|うみ}','{魚|さかな}・アザラシ など'],
+ cap:'およぐ ホホジロザメ。せびれの {近|ちか}くに、しらべる ための きかいが ついて いる。',
+ s:[
+  ['karada','はが ぬけたら どう なるの？','サメの はの {後|うし}ろには、{新|あたら}しい はが {何|なん}れつも ならんで います。はが ぬけると、{後|うし}ろの はが {前|まえ}に {出|で}て きます。だから、サメは {何回|なんかい}でも はが {生|は}えかわります。','shark-s1','はくぶつかんに ある ホホジロザメの あご。はが ならんで いる。'],
+  ['taberu','はなは いいの？','はなが とても よく、{水|みず}の {中|なか}の ほんの すこしの においも、{遠|とお}くから かぎつけます。','',''],
+  ['taberu','{見|み}えない えものも わかるの？','はなの まわりに ある {小|ちい}さな あなで、えものの {体|からだ}から {出|で}る とても {弱|よわ}い {電気|でんき}を かんじとります。すなに かくれた えものも {見|み}つける ことが できます。','',''],
+  ['karada','ほねの ひみつは？','サメの ほねは、{人|ひと}の {耳|みみ}や はなの {先|さき}と {同|おな}じ、やわらかい なんこつで できて います。{体|からだ}が かるく、しなやかに うごく ことが できます。','',''],
+ ]},
+{k:'crab', n:'カニ', g:'umi',
+ lead:'かたい こうらと {大|おお}きな はさみを もつ いきものです。{海|うみ}にも {川|かわ}にも すんで います。',
+ d:['しゅるいで ちがう。{足|あし}を {広|ひろ}げると 3mの タカアシガニも いる','{海|うみ}の {岩|いわ}べや すなはま。{川|かわ}に すむ なかまも いる','{小|ちい}さな {生|い}きもの・{海|かい}そう・しんだ {魚|さかな} など'],
+ cap:'{岩|いわ}の {上|うえ}の カニ。',
+ s:[
+  ['karada','どうして よこに {歩|ある}くの？','カニの {足|あし}は、よこに まがる つくりに なって いるので、よこに {歩|ある}く ほうが はやく すすめます。でも、{前|まえ}に {歩|ある}く カニも います。','',''],
+  ['karada','はさみは {何|なに}で できて いるの？','はさみは、{足|あし}が かわった ものです。{足|あし}は、はさみの 2{本|ほん}と {歩|ある}く ための 8{本|ぽん}で、ぜんぶで 10{本|ぽん}です。はさみで {食|た}べものを つまんだり、てきから みを まもったり します。','crab-s2','{大|おお}きな はさみ。'],
+  ['karada','およげる カニも いるの？','ガザミや ワタリガニの なかまは、いちばん {後|うし}ろの {足|あし}が ボートの オールの ような {形|かたち}を して います。この {足|あし}を うごかして、{海|うみ}の {中|なか}を およぐ ことが できます。','crab-s1','{上|うえ}から {見|み}た およぐ カニの なかま。'],
+  ['kosodate','どうやって {大|おお}きく なるの？','カニは、かたい こうらを ぬいで {大|おお}きく なります。ぬいだ すぐ あとは {体|からだ}が やわらかく、すこし {大|おお}きく なってから また かたく なります。','',''],
+ ]},
+{k:'pufferfish', n:'フグ', g:'umi',
+ lead:'おなかを ふくらませる ことが できる、ふしぎな {魚|さかな}です。',
+ d:['しゅるいで ちがう。10cm〜60cmくらい','あたたかい {海|うみ}の {岩|いわ}べや サンゴしょう。{日本|にっぽん}の {海|うみ}にも いる','{貝|かい}・カニ・エビ・ウニ など'],
+ cap:'{白|しろ}い てんてんの もようの フグの なかま。',
+ s:[
+  ['mamoru','どうして ふくらむの？','てきに おそわれると、{水|みず}を おなかに どんどん すいこんで、ボールの ように まるく ふくらみます。{体|からだ}が {大|おお}きく なると、てきは のみこむ ことが できません。','',''],
+  ['mamoru','どくが あるって ほんとう？','{多|おお}くの フグは、{体|からだ}の {中|なか}に とても {強|つよ}い どくを もって います。どくは、{食|た}べた {小|ちい}さな {生|い}きものから {体|からだ}に たまると {考|かんが}えられて います。フグを りょうり できるのは、とくべつな しかくを もつ {人|ひと}だけです。','',''],
+  ['taberu','はの ひみつは？','{上|うえ}と {下|した}に、くっついた かたい はが 2まいずつ あります。この はで、{貝|かい}や カニの かたい からも かみくだいて {食|た}べます。','',''],
+  ['karada','どんな ふうに およぐの？','むなびれを こまかく うごかして、{前|まえ}にも {後|うし}ろにも すすむ ことが できます。その {場|ば}で とまって いる ことも とくいです。','',''],
+ ]},
+{k:'seaturtle', n:'ウミガメ', g:'umi',
+ lead:'ひれの ような {前足|まえあし}で {海|うみ}を およぐ カメです。この ページは アオウミガメです。',
+ d:['こうらの {長|なが}さ 80cm〜1mくらい','あたたかい {海|うみ}。{日本|にっぽん}の おきなわや おがさわらにも たまごを うみに {来|く}る','おもに {海|かい}そう'],
+ cap:'{海|うみ}の {中|なか}を およぐ アオウミガメ。',
+ s:[
+  ['karada','{海|うみ}の {中|なか}で いきは できるの？','ウミガメは、{人|ひと}と {同|おな}じ ように {空気|くうき}を すって いきを します。ときどき {海|うみ}の {上|うえ}に {顔|かお}を {出|だ}して、いきつぎを します。やすんで いる ときは、{何時間|なんじかん}も もぐったまま でいる ことも あります。','seaturtle-s1','{顔|かお}を {出|だ}して いきつぎ。'],
+  ['kosodate','たまごは どこに うむの？','{夏|なつ}の {夜|よる}、メスが すなはまに {上|あ}がって きます。まず、{前足|まえあし}で {体|からだ}が {入|はい}る あなを ほります。つぎに、{後|うし}ろ{足|あし}で たまごを {入|い}れる あなを ほります。それから、100こくらいの たまごを うみます。さいごに、すなを かけて {海|うみ}へ もどります。','',''],
+  ['kosodate','{子|こ}どもが オスか メスかは どう きまるの？','たまごの まわりの すなの あたたかさで きまります。すなが あたたかいと メスが {多|おお}く、すずしいと オスが {多|おお}く {生|う}まれます。','',''],
+  ['karada','なみだを ながすのは どうして？','たまごを うむ ときなどに、{目|め}から なみだの ような ものを ながします。これは、{海|うみ}の {水|みず}と いっしょに {体|からだ}に {入|はい}った、よぶんな しおを {外|そと}に {出|だ}して いるのです。','',''],
+  ['kurashi','りくに {上|あ}がって {何|なに}を して いるの？','ハワイの アオウミガメは、きしの {岩|いわ}の {上|うえ}に {上|あ}がって、ひなたぼっこを する ことが あります。','seaturtle-s2','{岩|いわ}の {上|うえ}で やすむ アオウミガメ。'],
+ ]},
+/* ======================= 虫・小さな いきもの ======================= */
+{k:'honeybee', n:'ミツバチ', g:'mushi',
+ lead:'{花|はな}の みつを あつめて、はちみつを つくる ハチです。たくさんの なかまで くらします。',
+ d:['はたらきバチは 1cm2mmくらい','{木|き}の あなや すばこ。1つの すに {何万|なんまん}びきも いる','{花|はな}の みつと {花|か}ふん'],
+ cap:'{花|はな}の みつを すう ミツバチ。',
+ s:[
+  ['kurashi','すの {中|なか}には だれが いるの？','すには、たまごを うむ {女王|じょおう}バチが 1ぴきと、たくさんの はたらきバチ、そして オスバチが います。はたらきバチは みんな メスです。{女王|じょおう}バチは、1{日|にち}に 1000こより {多|おお}くの たまごを うむ ことも あります。','',''],
+  ['kurashi','ダンスで {話|はな}を するって ほんとう？','{花|はな}を {見|み}つけた はたらきバチは、すに {帰|かえ}ると、おしりを ふりながら 8の {字|じ}を かく ように おどります。ダンスの むきで {花|はな}の ある {方|ほう}こうを、ダンスの {長|なが}さで {花|はな}までの {遠|とお}さを なかまに つたえます。','',''],
+  ['taberu','はちみつは どうやって つくるの？','まず、はたらきバチが {花|はな}の みつを すって、すに もち{帰|かえ}ります。つぎに、みつを {口|くち}うつしで なかまに わたしながら、こく して いきます。それから、はねで {風|かぜ}を おくって、さらに {水|みず}を とばします。さいごに、ろうで へやに ふたを して、はちみつの できあがりです。','honeybee-s1','{花|はな}から {花|はな}へ みつを あつめる。'],
+  ['karada','{目|め}は いくつ あるの？','{顔|かお}の よこに {大|おお}きな {目|め}が 2つ、{頭|あたま}の {上|うえ}に {小|ちい}さな {目|め}が 3つ、ぜんぶで 5つ あります。{頭|あたま}の 2{本|ほん}の しょっかくで、においを かぎます。','honeybee-s2','ミツバチの {顔|かお}。'],
+  ['kurashi','すの へやは どんな {形|かたち}？','すの へやは、6つの かどが ある {形|かたち}（{六|ろっ}かくけい）を して います。すきまなく ならべられて、じょうぶです。この へやで {子|こ}どもを そだてたり、はちみつを ためたり します。','',''],
+ ]},
+{k:'ant', n:'アリ', g:'mushi',
+ lead:'{地|じ}めんの {中|なか}の すで、たくさんの なかまと くらす {虫|むし}です。',
+ d:['しゅるいで ちがう。2mm〜1cmくらい','{地|じ}めんの {中|なか}や {木|き}の {中|なか}の す','{虫|むし}・{花|はな}の みつ・あまい もの など'],
+ cap:'{花|はな}の {上|うえ}の アリ（オオアリの なかま）。',
+ s:[
+  ['kurashi','どうして {一|いち}れつに ならんで {歩|ある}くの？','えさを {見|み}つけた アリは、おなかから においの ある ものを {出|だ}しながら すへ {帰|かえ}ります。なかまの アリは、その においの {道|みち}を たどって えさの ところへ {行|い}きます。だから、{一|いち}れつに ならんで {見|み}えるのです。','',''],
+  ['karada','どれくらい {力|ちから}もちなの？','アリは、{自分|じぶん}の {体|からだ}より ずっと おもい ものを、あごで くわえて はこぶ ことが できます。','',''],
+  ['kurashi','すの {中|なか}は どう なって いるの？','すの {中|なか}には、ほそい {道|みち}と たくさんの へやが あります。{女王|じょおう}アリの へや、たまごや {子|こ}どもを そだてる へや、{食|た}べものを しまう へや などに わかれて います。','ant-s1','{地|じ}めんに ある すの {入|い}り{口|ぐち}。'],
+  ['kurashi','はたらきアリは だれ？','すの {中|なか}で たまごを うむのは {女王|じょおう}アリです。えさを あつめたり、{子|こ}どもの せわを したり する はたらきアリは、みんな メスです。','',''],
+  ['karada','しょっかくは {何|なに}に つかうの？','{頭|あたま}の 2{本|ほん}の しょっかくで、においを かいだり、さわったり します。しょっかくで なかまに ふれて、なかまか どうかを たしかめます。','',''],
+ ]},
+{k:'beetle', n:'カブトムシ', g:'mushi',
+ lead:'{大|おお}きな {角|つの}を もつ、{日本|にっぽん}の {夏|なつ}の {人気|にんき}ものの {虫|むし}です。',
+ d:['オスは {角|つの}を ふくめて 3cm〜8cmくらい','{日本|にっぽん}の {林|はやし}（クヌギや コナラの {木|き}が ある ところ）','おとなは {木|き}の しる、ようちゅうは くさった おちば'],
+ cap:'カブトムシの ようちゅう。おとなに なると、{角|つの}の ある すがたに かわる。',
+ s:[
+  ['karada','おとなの カブトムシは どんな すがた？','{体|からだ}は こい {茶色|ちゃいろ}や {黒|くろ}で、かたい はねで おおわれて います。オスには {頭|あたま}に {長|なが}い {角|つの}が 1{本|ぽん}、むねに みじかい {角|つの}が 1{本|ぽん} あります。メスには {角|つの}が ありません。','',''],
+  ['kurashi','{角|つの}は {何|なに}に つかうの？','オスどうしが、{木|き}の しるが {出|で}る ばしょを とりあう ときに つかいます。{角|つの}を あいての {体|からだ}の {下|した}に さしこんで、なげとばします。','',''],
+  ['kosodate','どうやって おとなに なるの？','まず、{夏|なつ}に メスが {土|つち}の {中|なか}に たまごを うみます。つぎに、たまごから ようちゅうが {生|う}まれ、{土|つち}の {中|なか}で おちばを {食|た}べて {大|おお}きく なり、{冬|ふゆ}を こします。それから、つぎの {年|とし}の {夏|なつ}の はじめに さなぎに なります。さいごに、さなぎから おとなに なって、{土|つち}の {外|そと}に {出|で}て きます。','',''],
+  ['karada','どれくらい {力|ちから}もちなの？','カブトムシは とても {力|ちから}もちで、{自分|じぶん}の {体|からだ}より ずっと おもい ものを ひっぱる ことが できます。','',''],
+  ['kurashi','いつ かつどう するの？','おもに {夜|よる}に かつどう します。{夜|よる}に {木|き}の しるを なめに あつまり、{明|あか}るい {光|ひかり}に とんで くる ことも あります。','',''],
+ ]},
+{k:'ladybug', n:'テントウムシ', g:'mushi',
+ lead:'まるい {体|からだ}に {点|てん}の もようが ある、{小|ちい}さな {虫|むし}です。この ページは ナナホシテントウです。',
+ d:['{体|からだ}の {長|なが}さ 7mm〜8mmくらい','{野原|のはら}・{草|くさ}むら・はたけ','アブラムシ（{草|くさ}の しるを すう {小|ちい}さな {虫|むし}）'],
+ cap:'{赤|あか}い はねに {黒|くろ}い {点|てん}の ナナホシテントウ。',
+ s:[
+  ['karada','{点|てん}は いくつ あるの？','ナナホシテントウの はねには、{黒|くろ}い {点|てん}が 7つ あります。だから「ナナホシ（7つの ほし）」と いう {名前|なまえ}です。テントウムシの しゅるいに よって、{点|てん}の {数|かず}や {色|いろ}は ちがいます。','',''],
+  ['karada','どうやって とぶの？','はっぱや えだの {先|さき}まで {上|うえ}へ {上|うえ}へ のぼってから とびたちます。かたい {前|まえ}の はねを ひらくと、{中|なか}に たたんで あった うすい {後|うし}ろの はねが のびて、それで とびます。','ladybug-s1','はねを ひらいて とびたつ ところ。'],
+  ['mamoru','てきに おそわれたら どうするの？','つかまえられると、{足|あし}の ふしから {黄色|きいろ}い にがい しるを {出|だ}します。{目立|めだ}つ {赤|あか}と {黒|くろ}の {色|いろ}は、「わたしは まずいよ」と いう しるしだと {考|かんが}えられて います。','',''],
+  ['taberu','はたけの みかたって ほんとう？','ナナホシテントウは、やさいや {花|はな}の しるを すって からして しまう アブラムシを、たくさん {食|た}べます。だから、はたけの みかたと よばれます。','ladybug-s2','{花|はな}の {上|うえ}を {歩|ある}く。'],
+ ]},
+{k:'butterfly', n:'チョウ', g:'mushi',
+ lead:'きれいな はねを もつ {虫|むし}です。この ページは、{町|まち}でも よく {見|み}られる ナミアゲハです。',
+ d:['はねを {広|ひろ}げて 7cm〜9cmくらい','{日本|にっぽん}の {町|まち}・{公園|こうえん}・{野原|のはら}','おとなは {花|はな}の みつ、ようちゅうは ミカンなどの はっぱ'],
+ cap:'ナミアゲハ。{黄色|きいろ}と {黒|くろ}の もよう。',
+ s:[
+  ['kosodate','どうやって すがたを かえるの？','まず、ミカンなどの はっぱに たまごが うみつけられます。つぎに、たまごから ようちゅうが {生|う}まれます。はじめは {鳥|とり}の ふんに にた もようですが、なんども かわを ぬいで、みどり{色|いろ}に なります。それから、さなぎに なります。さいごに、さなぎから はねの ある おとなの チョウが {出|で}て きます。','butterfly-s1','みどり{色|いろ}に なった ようちゅう。'],
+  ['mamoru','ようちゅうの ひみつの ツノって？','ようちゅうは、さわられると {頭|あたま}から オレンジ{色|いろ}の ツノを {出|だ}します。ツノから くさい においを {出|だ}して、てきを おどろかせます。','',''],
+  ['karada','{足|あし}で あじが わかるって ほんとう？','チョウの {前|まえ}の {足|あし}には、あじを かんじる ところが あります。メスは、{足|あし}で はっぱに さわって あじを たしかめ、ようちゅうが {食|た}べられる はっぱを えらんで たまごを うみます。','',''],
+  ['taberu','どうやって みつを すうの？','チョウの {口|くち}は、ストローの ような ほそい くだです。ふだんは くるくる まいて いて、みつを すう ときに のばして {花|はな}の おくまで さしこみます。','',''],
+  ['karada','はねに さわると こなが つくのは どうして？','はねには、とても {小|ちい}さな うろこの ような こなが びっしり ならんで います。この こなが、はねの {色|いろ}や もようを つくって います。','',''],
+ ]},
+{k:'spider', n:'クモ', g:'mushi',
+ lead:'{糸|いと}で あみを はって くらす いきものです。{虫|むし}に にて いますが、{虫|むし}とは ちがう なかまです。この ページは コガネグモの なかまです。',
+ d:['メスは {体|からだ}の {長|なが}さ 2cm〜2cm5mmくらい。オスは {小|ちい}さい','{日本|にっぽん}の {野原|のはら}・{田|た}んぼ・{林|はやし}','あみに かかった {虫|むし}'],
+ cap:'つゆの ついた あみの まん{中|なか}に いる クモ。',
+ s:[
+  ['karada','{虫|むし}と どこが ちがうの？','{虫|むし}の {足|あし}は 6{本|ぽん}ですが、クモの {足|あし}は 8{本|ぽん}です。{体|からだ}も、{虫|むし}は 3つに わかれて いますが、クモは 2つに わかれて います。','',''],
+  ['kurashi','あみは どうやって つくるの？','まず、{風|かぜ}に のせて {糸|いと}を とばし、むこうの えだに くっつけて はしを かけます。つぎに、まわりの わくと、まん{中|なか}から のびる たての {糸|いと}を はります。それから、まん{中|なか}から ぐるぐると うずまきの ように よこの {糸|いと}を はって いきます。','',''],
+  ['karada','{自分|じぶん}の あみに くっつかないの？','よこの {糸|いと}は ねばねば して いて、{虫|むし}を くっつけます。たての {糸|いと}は ねばねば しないので、クモは たての {糸|いと}の {上|うえ}を {歩|ある}きます。コガネグモの なかまは、あみに ジグザグの {白|しろ}い もようを つける ことも あります。','spider-s2','あみの ジグザグの もよう。'],
+  ['taberu','かかった えものは どうするの？','あみに {虫|むし}が かかると、すばやく {近|ちか}づいて、{糸|いと}で ぐるぐる まいて うごけなく します。','spider-s1','あみに かかった チョウを つかまえた クモ。'],
+  ['karada','クモの {糸|いと}は どれくらい {強|つよ}いの？','クモの {糸|いと}は、とても ほそいのに じょうぶです。{同|おな}じ {太|ふと}さなら、はりがねよりも {強|つよ}いと いわれて います。','',''],
+ ]},
+{k:'snail', n:'カタツムリ', g:'mushi',
+ lead:'からを せおって ゆっくり すすむ、{貝|かい}の なかまです。この ページの しゃしんは、ヨーロッパから {来|き}た なかまです。',
+ d:['からの {大|おお}きさ 2cm〜4cmくらい','しめった {林|はやし}・{草|くさ}むら・にわ','はっぱ・{草|くさ}・きのこ など'],
+ cap:'しょっかくを のばして すすむ カタツムリ。',
+ s:[
+  ['karada','{目|め}は どこに あるの？','{長|なが}い 2{本|ほん}の しょっかくの {先|さき}に、{目|め}が あります。{明|あか}るいか くらいかが わかります。みじかい 2{本|ほん}の しょっかくでは、においや あじを かんじます。','',''],
+  ['taberu','コンクリートを なめるって ほんとう？','からを つくる ための {石|せっ}かいと いう ものを とる ために、コンクリートや ブロックを なめる ことが あります。','',''],
+  ['karada','はは {何本|なんぼん} あるの？','カタツムリの {口|くち}の {中|なか}には、やすりの ような したが あり、とても {小|ちい}さな はが 1{万|まん}こより {多|おお}く ならんで います。この はで、はっぱを けずる ように して {食|た}べます。','',''],
+  ['mamoru','からは {何|なん}の ため？','からは、カタツムリの {体|からだ}の {一|いち}ぶです。{生|う}まれた ときから からが あって、からを とって {生|い}きる ことは できません。かわいた {日|ひ}は、からの {中|なか}に はいって {入|い}り{口|ぐち}に まくを はり、{雨|あめ}が ふるのを まちます。','',''],
+ ]},
+/* ======================= ヘビ・カエルの なかま ======================= */
+{k:'chameleon', n:'カメレオン', g:'hachu',
+ lead:'{体|からだ}の {色|いろ}を かえる ことで {知|し}られる、トカゲの なかまです。この ページは、{大|おお}きな なかまの オウスタレットカメレオンです。',
+ d:['しゅるいで ちがう。この カメレオンは 60cmくらい','アフリカの マダガスカルの {森|もり}','バッタなどの {虫|むし}'],
+ cap:'えだを {歩|ある}く オウスタレットカメレオン。',
+ s:[
+  ['taberu','どうやって {虫|むし}を つかまえるの？','{長|なが}い したを、あっと いう まに のばして、{先|さき}の ねばねばで {虫|むし}を くっつけて つかまえます。したは、{体|からだ}と {同|おな}じくらいの {長|なが}さまで のびます。','',''],
+  ['karada','{目|め}の ひみつは？','{右|みぎ}の {目|め}と {左|ひだり}の {目|め}を べつべつに うごかして、ちがう ところを {見|み}る ことが できます。{虫|むし}を {見|み}つけると、りょう{目|め}で ねらいを さだめます。','chameleon-s2','ぐるりと うごく {目|め}。'],
+  ['karada','どうして {色|いろ}が かわるの？','{体|からだ}の {色|いろ}は、きもちや あたたかさ などで かわります。かくれる ためだけでは なく、なかまに {自分|じぶん}の きもちを つたえる ためにも {色|いろ}を かえて いると {考|かんが}えられて います。','',''],
+  ['karada','しっぽと {足|あし}の ひみつは？','{長|なが}い しっぽを えだに くるりと まきつけて、{体|からだ}を ささえます。{足|あし}の ゆびは 2{本|ほん}と 3{本|ぼん}に わかれて いて、えだを はさむ ように して しっかり つかみます。','chameleon-s1','しっぽを くるりと まいた カメレオン。'],
+ ]},
+{k:'snake', n:'ヘビ', g:'hachu',
+ lead:'{足|あし}の ない {長|なが}い {体|からだ}で すすむ いきものです。この ページの しゃしんは、ネズミを {食|た}べる ヘビの なかまです。',
+ d:['しゅるいで ちがう。{日本|にっぽん}の アオダイショウは 1m〜2mくらい','{林|はやし}・{田|た}んぼ・{家|いえ}の まわり など','ネズミ・{鳥|とり}の たまご・カエル など'],
+ cap:'{体|からだ}を まいて あたりを うかがう ヘビの なかま。',
+ s:[
+  ['taberu','{大|おお}きな えものを どうやって {食|た}べるの？','ヘビの {下|した}あごは、{左|ひだり}と {右|みぎ}が くっついて いません。だから、{口|くち}を とても {大|おお}きく ひらく ことが できます。えものを かまずに、まるごと のみこみます。','',''],
+  ['karada','したを ちろちろ {出|だ}すのは どうして？','{先|さき}が 2つに わかれた したを {出|だ}し{入|い}れして、まわりの においを あつめて います。したに ついた においを {口|くち}の {中|なか}の {上|うえ}の ほうで かいで、えものの いる ばしょを さがします。','',''],
+  ['karada','{足|あし}が ないのに どうやって すすむの？','おなかの うろこを {地|じ}めんに ひっかけながら、{体|からだ}を くねくね まげて すすみます。{木|き}に のぼる ことが できる ヘビも います。','snake-s1','{体|からだ}を くねらせて すすむ アオダイショウ。'],
+  ['kosodate','かわを ぬぐって ほんとう？','ヘビは {大|おお}きく なると、{古|ふる}い かわを {頭|あたま}から しっぽまで まるごと ぬぎます。{目|め}の {上|うえ}の すきとおった うろこまで、いっしょに ぬげます。','',''],
+  ['karada','まばたきを しないの？','ヘビには まぶたが ありません。{目|め}は すきとおった うろこで おおわれて いるので、まばたきを しません。','',''],
+ ]},
+{k:'frog', n:'カエル', g:'hachu',
+ lead:'おたまじゃくしから すがたを かえて そだつ いきものです。{日本|にっぽん}の {田|た}んぼでは、ニホンアマガエルが よく {見|み}られます。',
+ d:['ニホンアマガエルは 2cm〜4cmくらい','{田|た}んぼ・{草|くさ}むら・{林|はやし}','おとなは {虫|むし}や クモ。おたまじゃくしは 「も」など'],
+ cap:'はっぱの {上|うえ}の アマガエルの なかま。',
+ s:[
+  ['kosodate','おたまじゃくしは どう かわるの？','まず、{春|はる}に {田|た}んぼの {水|みず}の {中|なか}に たまごが うまれます。つぎに、たまごから おたまじゃくしが {生|う}まれ、えらで いきを しながら {水|みず}の {中|なか}で くらします。それから、{後|うし}ろ{足|あし}、{前足|まえあし}の じゅんに {生|は}えて きて、しっぽが みじかく なります。さいごに、{水|みず}から {上|あ}がって カエルに なります。','',''],
+  ['karada','ガラスに はりつけるのは どうして？','アマガエルの {足|あし}の ゆびの {先|さき}には、まるい きゅうばんの ような ところが あります。だから、つるつるの はっぱや ガラスにも はりつく ことが できます。','frog-s1','はっぱに はりつく ニホンアマガエル。'],
+  ['mamoru','{色|いろ}が かわるって ほんとう？','ニホンアマガエルは、まわりの {色|いろ}に あわせて、みどり{色|いろ}から {茶色|ちゃいろ}や はい{色|いろ}に {体|からだ}の {色|いろ}を かえる ことが できます。','',''],
+  ['kurashi','{鳴|な}くのは だれ？','{鳴|な}くのは オスです。のどの ふくろを {大|おお}きく ふくらませて、{大|おお}きな {声|こえ}で {鳴|な}きます。{雨|あめ}の ふる {前|まえ}に よく {鳴|な}くので、「{雨|あま}ガエル」と いう {名前|なまえ}が ついたと いわれて います。','',''],
+  ['kurashi','{冬|ふゆ}は どこに いるの？','{冬|ふゆ}に なると、{土|つち}の {中|なか}や おちばの {下|した}に もぐって、{春|はる}まで じっと して すごします。','frog-s2','{土|つち}の {中|なか}に もぐる カエル。'],
+ ]},
+];
+
+const FIRST_PAGE = 4;          // もくじが 2〜3ページ、いきものは 4ページから
+ANIMALS.forEach((a, i) => { a.page = FIRST_PAGE + i; });
+const SAKUIN_PAGE = FIRST_PAGE + ANIMALS.length;
+const MOKUJI_PAGE = 2;
+
+const photo = (a, slot) => 'assets/photos/' + a.k + '-' + slot + '.jpg';
+const secretsOf = a => a.s.map(([cat, q, t, p, c], i) => ({ no: i + 1, cat, q, t, p, c }));
+
+/* 50音の 行 */
+const KANA_ROWS = [
+  ['あ', 'あいうえお'], ['か', 'かきくけこがぎぐげご'], ['さ', 'さしすせそざじずぜぞ'], ['た', 'たちつてとだぢづでど'],
+  ['な', 'なにぬねの'], ['は', 'はひふへほばびぶべぼぱぴぷぺぽ'], ['ま', 'まみむめも'], ['や', 'やゆよ'],
+  ['ら', 'らりるれろ'], ['わ', 'わをん'],
+];
+const toHira = s => s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+const rowOf = name => { const c = toHira(name)[0]; const r = KANA_ROWS.find(([, cs]) => cs.includes(c)); return r ? r[0] : 'わ'; };
+const collator = new Intl.Collator('ja');
+function kanaIndex() {
+  const sorted = ANIMALS.slice().sort((a, b) => collator.compare(toHira(a.n), toHira(b.n)));
+  return KANA_ROWS.map(([row]) => ({ row, items: sorted.filter(a => rowOf(a.n) === row) })).filter(r => r.items.length);
+}
+function catIndex() {
+  return CATS.map(c => ({ cat: c, items: ANIMALS.flatMap(a => secretsOf(a).filter(s => s.cat === c.id).map(s => ({ a, s }))) }));
+}
+
+/* ページの ならび：ひょうし → もくじ → いきもの 30 → さくいん */
+const ROUTES = ['cover', 'mokuji', ...ANIMALS.map(a => 'p' + a.page), 'sakuin'];
+const animalByRoute = r => { const m = /^p(\d+)$/.exec(r); return m ? ANIMALS.find(a => a.page === +m[1]) || null : null; };
+const pageOfRoute = r => r === 'mokuji' ? MOKUJI_PAGE : r === 'sakuin' ? SAKUIN_PAGE : (animalByRoute(r) || {}).page || 0;
+const normalize = h => { h = String(h || '').replace(/^#/, ''); return ROUTES.includes(h) ? h : 'cover'; };
+const step = (r, d) => { const i = ROUTES.indexOf(normalize(r)) + d; return i >= 0 && i < ROUTES.length ? ROUTES[i] : null; };
+
+/* よみあげ用：よみがなに して、分かち書きの すきまを とる */
+const speechText = s => Y(s).replace(/[ 　]+/g, '').replace(/〜/g, 'から');
+
+root.ZukanLogic = {
+  BOOK, RB, R, P, Y, GROUPS, CATS, DATA_LABELS, ANIMALS, FIRST_PAGE, SAKUIN_PAGE, MOKUJI_PAGE,
+  photo, secretsOf, KANA_ROWS, toHira, rowOf, kanaIndex, catIndex, ROUTES, animalByRoute, pageOfRoute, normalize, step, speechText,
+};
+})(typeof window !== 'undefined' ? window : globalThis);
+// ==/LOGIC==
+</script>
+<script>
+(function () {
+'use strict';
+const L = window.ZukanLogic;
+const { R, ANIMALS, GROUPS, CATS, DATA_LABELS } = L;
+const $ = s => document.querySelector(s);
+const main = $('#main');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const IC = n => '<span class="ic" data-ic="' + n + '"></span>';
+const gvars = g => '--gc:var(--' + g + ');--gbg:var(--' + g + '-bg)';
+const groupOf = id => GROUPS.find(g => g.id === id);
+const catOf = id => CATS.find(c => c.id === id);
+
+/* ---------- せってい（この 端末だけに おぼえる） ---------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('ikimono-zukan:' + k); return v === null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('ikimono-zukan:' + k, v); } catch (e) {} },
+};
+function applySettings() {
+  const rt = store.get('rt', '1'), fs = store.get('fs', '0');
+  document.body.classList.toggle('no-rt', rt === '0');
+  document.body.classList.remove('fs-1', 'fs-2');
+  if (fs !== '0') document.body.classList.add('fs-' + fs);
+  document.querySelectorAll('[data-rt]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.rt === rt)));
+  document.querySelectorAll('[data-fs]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.fs === fs)));
+}
+
+/* ---------- よみあげ ---------- */
+const canSpeak = ('speechSynthesis' in window) && ('SpeechSynthesisUtterance' in window);
+let speakingBtn = null;
+function stopSpeak() {
+  if (canSpeak) { try { speechSynthesis.cancel(); } catch (e) {} }
+  if (speakingBtn) { speakingBtn.classList.remove('on'); speakingBtn.querySelector('.t').textContent = 'よむ'; speakingBtn = null; }
+}
+function speak(text, btn) {
+  if (!canSpeak) return;
+  const again = speakingBtn === btn;
+  stopSpeak();
+  if (again) return;
+  try {
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'ja-JP'; u.rate = .85;
+    const v = (speechSynthesis.getVoices() || []).find(v => v.lang && v.lang.toLowerCase().startsWith('ja'));
+    if (v) u.voice = v;
+    u.onend = u.onerror = () => { if (speakingBtn === btn) stopSpeak(); };
+    speakingBtn = btn; btn.classList.add('on'); btn.querySelector('.t').textContent = 'とめる';
+    speechSynthesis.speak(u);
+  } catch (e) { stopSpeak(); }
+}
+
+/* ---------- がめん ---------- */
+function photoFig(src, cap, big) {
+  return '<figure class="photo"><button type="button" data-zoom="' + esc(src) + '" data-cap="' + esc(cap) + '" aria-label="しゃしんを 大きく 見る">' +
+    '<img src="' + esc(src) + '" alt="' + esc(L.P(cap)) + '"' + (big ? '' : ' loading="lazy"') + ' decoding="async">' +
+    '<span class="zoom">' + IC('arrows-out') + '</span></button>' +
+    '<figcaption>' + R(cap) + '</figcaption></figure>';
+}
+
+function viewCover() {
+  const pick = ['otter', 'koala', 'penguin', 'octopus', 'chameleon', 'giraffe', 'flamingo', 'ladybug', 'seaturtle', 'frog'];
+  return '<div class="sheet cover">' +
+    '<h1>いきもの<br>ひみつずかん</h1>' +
+    '<p class="sub">30しゅるいの いきものの ひみつが 入って います</p>' +
+    '<div class="collage">' + pick.map(k => { const a = ANIMALS.find(x => x.k === k);
+      return '<button type="button" data-go="p' + a.page + '" aria-label="' + esc(a.n) + '"><img src="' + L.photo(a, 'thumb') + '" alt="' + esc(a.n) + '"></button>'; }).join('') + '</div>' +
+    '<div class="btnrow"><button class="bigbtn" type="button" data-go="mokuji">' + IC('list-bullets') + 'もくじを 見る</button>' +
+    '<button class="bigbtn ghost" type="button" data-go="sakuin">' + IC('magnifying-glass') + 'さくいんで さがす</button></div>' +
+    '<div class="howto">' +
+      '<div><b><span class="n">1</span>さがす</b><p>' + R('「もくじ」や「さくいん」で、しらべたい いきものの ページを さがそう。') + '</p></div>' +
+      '<div><b><span class="n">2</span>よむ</b><p>' + R('{知|し}りたい ことの こたえを さがしながら 「ひみつ」を {読|よ}もう。') + '</p></div>' +
+      '<div><b><span class="n">3</span>{書|か}く</b><p>' + R('カードに {書|か}く ときは、{本|ほん}の だい{名|めい}「いきもの ひみつずかん」と ページも {書|か}こう。') + '</p></div>' +
+    '</div>' +
+    '<details class="teacher"><summary>先生へ</summary>' +
+      '<p>東京書籍『新編 新しい国語 二下』の「ビーバーのひみつをつたえよう」「本でしらべる」「『どうぶつカード』を作ろう」で、図鑑の かわりに つかう ことを 考えて つくりました。</p>' +
+      '<ul><li>いきものは 30しゅるい。どの ページも「大きさ・すむ ところ・たべもの」と、問いの 形の 見出しの「ひみつ」が 4〜5こ あります。</li>' +
+      '<li>本と おなじ ように ページ番号が あるので、ワークシートの「本の だい名・ページ」を 書く れんしゅうに なります。さくいんは「なまえ（あいうえお じゅん）」と「知りたい こと（からだ・たべもの など）」の 2しゅるいです。</li>' +
+      '<li>文は この 図鑑の ための オリジナルです。漢字は 2年生までに ならう 字だけで、ぜんぶ ふりがなつき。ふりがなと 文字の 大きさは 右上の「もじ」で かえられます。</li>' +
+      '<li>しゃしんは Wikimedia Commons の パブリックドメイン（CC0 など）の ものです。数字などの 内容は、授業の まえに 一度 お目通しください。</li>' +
+      '<li>ページの URL（例：…/ikimono-zukan/#p4）を くばると、その ページが ひらきます。</li></ul>' +
+    '</details>' +
+    '</div>';
+}
+
+function viewMokuji() {
+  return '<div class="sheet"><div class="ptitle"><h1>もくじ</h1><span>いきものの なまえと ページ</span></div>' +
+    GROUPS.map(g => '<section class="grp" style="' + gvars(g.id) + '"><h2>' + R(g.name) + ' <small>' + R(g.sub) + '</small></h2><div class="cards">' +
+      ANIMALS.filter(a => a.g === g.id).map(a =>
+        '<button class="acard" type="button" data-go="p' + a.page + '"><img src="' + L.photo(a, 'thumb') + '" alt="" loading="lazy"><span><b>' + esc(a.n) + '</b><i>' + a.page + 'ページ</i></span></button>'
+      ).join('') + '</div></section>').join('') +
+    '<span class="corner">' + L.MOKUJI_PAGE + '</span></div>';
+}
+
+let sakuinTab = 'kana';
+function viewSakuin() {
+  const tabs = '<div class="tabs" role="tablist">' +
+    '<button class="tbtn' + (sakuinTab === 'kana' ? ' on' : '') + '" type="button" role="tab" aria-selected="' + (sakuinTab === 'kana') + '" data-tab="kana">なまえで さがす（あいうえお じゅん）</button>' +
+    '<button class="tbtn' + (sakuinTab === 'cat' ? ' on' : '') + '" type="button" role="tab" aria-selected="' + (sakuinTab === 'cat') + '" data-tab="cat">' + R('{知|し}りたい ことで さがす') + '</button></div>';
+  let body;
+  if (sakuinTab === 'kana') {
+    body = '<div class="kana">' + L.kanaIndex().map(r => '<div class="krow"><h3>' + r.row + '</h3>' +
+      r.items.map(a => '<button class="irow" type="button" data-go="p' + a.page + '"><span>' + esc(a.n) + '</span><span class="dots"></span><span class="pg">' + a.page + 'ページ</span></button>').join('') +
+      '</div>').join('') + '</div>';
+  } else {
+    const idx = L.catIndex();
+    body = '<div class="tabs jump">' + idx.map(({ cat, items }) => '<button class="tbtn" type="button" data-jump="cat-' + cat.id + '">' + IC(cat.ic) + R(cat.name) + '（' + items.length + '）</button>').join('') + '</div>' +
+      '<div class="catlist">' + idx.map(({ cat, items }) => '<section class="cat" id="cat-' + cat.id + '"><h3>' + IC(cat.ic) + R(cat.name) + '</h3><div class="cols">' +
+      items.map(({ a, s }) => '<button class="irow" type="button" data-go="p' + a.page + '" data-secret="' + s.no + '"><span class="who">' + esc(a.n) + '</span><span class="q">' + R(s.q) + '</span><span class="dots"></span><span class="pg">' + a.page + 'ページ</span></button>').join('') +
+      '</div></section>').join('') + '</div>';
+  }
+  return '<div class="sheet"><div class="ptitle"><h1>さくいん</h1><span>' + R('しらべたい ことが {何|なん}ページに あるか さがそう') + '</span></div>' + tabs + body +
+    '<span class="corner">' + L.SAKUIN_PAGE + '</span></div>';
+}
+
+function viewAnimal(a) {
+  const g = groupOf(a.g);
+  const data = '<dl class="data">' + DATA_LABELS.map((l, i) => '<div><dt>' + IC(l.ic) + R(l.name) + '</dt><dd>' + R(a.d[i]) + '</dd></div>').join('') + '</dl>';
+  const secrets = L.secretsOf(a).map(s => { const c = catOf(s.cat);
+    return '<article class="secret" id="h' + s.no + '"><div class="top"><span class="no">ひみつ ' + s.no + '</span>' +
+      '<span class="chip">' + IC(c.ic) + R(c.name) + '</span>' +
+      '<button class="say" type="button" data-say="' + s.no + '">' + IC('speaker-high') + '<span class="t">よむ</span></button></div>' +
+      '<h3>' + R(s.q) + '</h3><p>' + R(s.t) + '</p>' + (s.p ? photoFig('assets/photos/' + s.p + '.jpg', s.c, false) : '') + '</article>'; }).join('');
+  return '<div class="sheet" style="' + gvars(a.g) + '">' +
+    '<span class="band">' + R(g.name) + '</span>' +
+    '<div class="hero">' + photoFig(L.photo(a, 'main'), a.cap, true) +
+      '<div><h1 class="aname">' + esc(a.n) + '</h1><p class="lead">' + R(a.lead) + '</p>' + data +
+      '<p class="memo">' + R('カードに {書|か}く とき　{本|ほん}の だい{名|めい}：') + '<q>' + L.BOOK + '</q>　ページ：<b>' + a.page + 'ページ</b></p></div></div>' +
+    '<div class="hhead"><h2>' + esc(a.n) + 'の ひみつ</h2></div>' +
+    '<div class="secrets">' + secrets + '</div>' +
+    '<span class="corner">' + a.page + '</span></div>';
+}
+
+let route = 'cover';
+function render(focusSecret) {
+  stopSpeak();
+  route = L.normalize(location.hash);
+  const a = L.animalByRoute(route);
+  main.innerHTML = route === 'mokuji' ? viewMokuji() : route === 'sakuin' ? viewSakuin() : a ? viewAnimal(a) : viewCover();
+  window.ZukanIcons.fill(main);
+  const pg = L.pageOfRoute(route);
+  $('#pageno').innerHTML = pg ? '<b>' + pg + '</b> ページ' : 'ひょうし';
+  const pv = L.step(route, -1), nx = L.step(route, 1);
+  $('#prev').disabled = !pv; $('#next').disabled = !nx;
+  $('#prevName').textContent = pv ? routeName(pv) : '';
+  $('#nextName').textContent = nx ? routeName(nx) : '';
+  $('#toMokuji').classList.toggle('on', route === 'mokuji');
+  $('#toSakuin').classList.toggle('on', route === 'sakuin');
+  document.title = (a ? a.n + '（' + a.page + 'ページ）｜' : route === 'mokuji' ? 'もくじ｜' : route === 'sakuin' ? 'さくいん｜' : '') + L.BOOK;
+  const target = focusSecret && document.getElementById('h' + focusSecret);
+  if (target) scrollToEl(target);
+  else window.scrollTo(0, 0);
+}
+function scrollToEl(el) {
+  const bar = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--bar'), 10) || 58;
+  window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - bar - 14);
+}
+function routeName(r) {
+  if (r === 'cover') return 'ひょうし';
+  if (r === 'mokuji') return 'もくじ';
+  if (r === 'sakuin') return 'さくいん';
+  const a = L.animalByRoute(r); return a ? a.n : '';
+}
+let pendingSecret = null;
+function go(r, secret) {
+  pendingSecret = secret || null;
+  if (location.hash.replace(/^#/, '') === r) render(pendingSecret);
+  else location.hash = r;
+}
+window.addEventListener('hashchange', () => { render(pendingSecret); pendingSecret = null; });
+
+/* ---------- そうさ ---------- */
+document.addEventListener('click', e => {
+  const t = e.target.closest('button');
+  if (!t) { if (!e.target.closest('#menu')) closeMenu(); return; }
+  if (t.id !== 'setBtn' && !t.closest('#menu')) closeMenu();
+  if (t.dataset.go) return go(t.dataset.go, t.dataset.secret);
+  if (t.dataset.tab) { sakuinTab = t.dataset.tab; return render(); }
+  if (t.dataset.jump) { const el = document.getElementById(t.dataset.jump); if (el) scrollToEl(el); return; }
+  if (t.dataset.zoom) return openLb(t.dataset.zoom, t.dataset.cap);
+  if (t.dataset.say) {
+    const a = L.animalByRoute(route); const s = a && L.secretsOf(a)[+t.dataset.say - 1];
+    if (s) speak(L.speechText(s.q + '。' + s.t), t);
+    return;
+  }
+  if (t.dataset.rt) { store.set('rt', t.dataset.rt); return applySettings(); }
+  if (t.dataset.fs) { store.set('fs', t.dataset.fs); return applySettings(); }
+});
+$('#toCover').onclick = () => go('cover');
+$('#toMokuji').onclick = () => go('mokuji');
+$('#toSakuin').onclick = () => go('sakuin');
+$('#prev').onclick = () => { const r = L.step(route, -1); if (r) go(r); };
+$('#next').onclick = () => { const r = L.step(route, 1); if (r) go(r); };
+const menu = $('#menu');
+function closeMenu() { menu.hidden = true; $('#setBtn').setAttribute('aria-expanded', 'false'); }
+$('#setBtn').onclick = () => { menu.hidden = !menu.hidden; $('#setBtn').setAttribute('aria-expanded', String(!menu.hidden)); };
+
+const lb = $('#lb');
+function openLb(src, cap) { $('#lbImg').src = src; $('#lbImg').alt = L.P(cap); $('#lbCap').innerHTML = R(cap); lb.hidden = false; $('#lbClose').focus(); }
+function closeLb() { lb.hidden = true; $('#lbImg').removeAttribute('src'); }
+$('#lbClose').onclick = closeLb;
+lb.addEventListener('click', e => { if (e.target === lb) closeLb(); });
+
+document.addEventListener('keydown', e => {
+  if (!lb.hidden) { if (e.key === 'Escape') closeLb(); return; }
+  if (e.key === 'Escape') return closeMenu();
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.key === 'ArrowLeft') { const r = L.step(route, -1); if (r) go(r); }
+  if (e.key === 'ArrowRight') { const r = L.step(route, 1); if (r) go(r); }
+});
+
+/* よこに スワイプで ページを めくる（たての スクロールとは まちがえない） */
+let sx = null, sy = 0, st = 0;
+main.addEventListener('touchstart', e => { if (e.touches.length !== 1) { sx = null; return; } sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now(); }, { passive: true });
+main.addEventListener('touchend', e => {
+  if (sx === null) return;
+  const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy; sx = null;
+  if (Date.now() - st > 700 || Math.abs(dx) < 90 || Math.abs(dy) > Math.abs(dx) * .5) return;
+  const r = L.step(route, dx < 0 ? 1 : -1); if (r) go(r);
+}, { passive: true });
+
+if (canSpeak) { try { speechSynthesis.getVoices(); } catch (e) {} }
+window.ZukanIcons.fill(document);
+applySettings();
+render();
+})();
+</script>
+</body>
+</html>

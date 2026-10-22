@@ -49,6 +49,7 @@ Phosphor Icons（duotone・fill・regular）
                 sokudoku/assets/icons.js（速読ラボ の ボタン・メニューの アイコン。regular）
                 mainichi-kyouyou/assets/icons.js（毎日教養 の ボタン・タブの アイコン。regular と fill）
                 shugo-ninja/assets/icons.js（ことばにんじゃ道場 の ボタンの アイコン。duotone）
+                ikimono-zukan/assets/icons.js（いきもの ひみつずかん の ボタンの アイコン。duotone）
   入手もと: Iconify の Phosphor（ph）データ https://github.com/iconify/icon-sets/blob/master/json/ph.json
             もとの プロジェクト https://github.com/phosphor-icons/core
   ライセンス: MIT License
