@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f08a24">
+<meta name="description" content="小学2年生 こくご。九・十月の かん字を 指で 書くと、画数・書きじゅん・ばしょ・はね などを 自動で しらべて おしえる れんしゅう アプリ（試作）。">
+<title>かんじ たしかめ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One:wght@600&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<style>
+/* ===== かんじ たしかめ / style =====
+   1人1台の タブレット・Chromebook を 想定。よこ長でも たて長でも 使えます。 */
+:root{
+  --bg:#fbf6ec;
+  --panel:#ffffff;
+  --ink:#2a3550;
+  --sub:#6c7489;
+  --line:#ebe2d0;
+  --orange:#f08a24;
+  --orange-d:#c86a0f;
+  --blue:#3478e5;
+  --blue-d:#2459ad;
+  --green:#2f9a63;
+  --green-d:#1f7349;
+  --red:#e0393e;
+  --amber:#f2a516;
+  --guide:#f0b9a4;
+  --ui:"Zen Maru Gothic","Hiragino Maru Gothic ProN",'Yu Gothic UI',system-ui,sans-serif;
+  --kaku:"Klee One","UD デジタル 教科書体 N","UD Digi Kyokasho N","Hiragino Mincho ProN","Yu Mincho",serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{min-height:100%;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--ui);font-weight:700;letter-spacing:.02em;
+  overscroll-behavior:none;-webkit-user-select:none;user-select:none;overflow-x:hidden;}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-action:manipulation;}
+button:focus-visible{outline:3px solid var(--blue);outline-offset:2px;}
+[hidden]{display:none !important;}
+.wrap{max-width:1200px;margin:0 auto;padding:max(10px,env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));}
+
+/* ---------- ボタン ---------- */
+.btn{min-height:52px;padding:10px 18px;border-radius:16px;background:var(--panel);font-size:18px;box-shadow:0 5px 0 rgba(0,0,0,.12);
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 rgba(0,0,0,.12);}
+.btn.primary{background:var(--orange);color:#fff;box-shadow:0 5px 0 var(--orange-d);}
+.btn.blue{background:var(--blue);color:#fff;box-shadow:0 5px 0 var(--blue-d);}
+.btn.green{background:var(--green);color:#fff;box-shadow:0 5px 0 var(--green-d);}
+.btn.ghost{background:#efe8da;color:var(--sub);box-shadow:0 4px 0 rgba(0,0,0,.08);}
+.btn:disabled{opacity:.4;transform:none;}
+.back{min-height:46px;padding:6px 14px;font-size:16px;}
+
+/* ---------- ホーム ---------- */
+.home h1{font-size:clamp(30px,6vw,46px);margin:18px 0 2px;letter-spacing:.08em;}
+.home h1 .k{font-family:var(--kaku);color:var(--orange);}
+.home .lead{color:var(--sub);margin:0 0 18px;font-size:16px;}
+.menu{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;}
+.card{background:var(--panel);border-radius:22px;padding:18px 20px;box-shadow:0 6px 0 rgba(0,0,0,.08);text-align:left;display:flex;flex-direction:column;gap:6px;}
+.card:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.08);}
+.card b{font-size:22px;}
+.card span{color:var(--sub);font-size:15px;font-weight:500;line-height:1.6;}
+.card.test{border-top:8px solid var(--orange);}
+.card.one{border-top:8px solid var(--blue);}
+.card.weak{border-top:8px solid var(--red);}
+.card .count{font-size:15px;color:var(--red);}
+.levels{margin:22px 0 6px;background:var(--panel);border-radius:22px;padding:16px 18px;box-shadow:0 6px 0 rgba(0,0,0,.06);}
+.levels h2{font-size:18px;margin:0 0 10px;}
+.seg{display:flex;gap:8px;flex-wrap:wrap;}
+.seg button{flex:1 1 120px;min-height:52px;border-radius:14px;background:#f3ecdf;font-size:18px;}
+.seg button[aria-pressed="true"]{background:var(--ink);color:#fff;}
+.levels p{margin:10px 0 0;color:var(--sub);font-size:15px;font-weight:500;line-height:1.7;}
+.foot{margin-top:18px;display:flex;justify-content:flex-end;}
+.link{color:var(--sub);font-size:15px;text-decoration:underline;padding:8px;}
+
+/* ---------- 書く 画面 ---------- */
+.bar{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.bar .prog{font-size:18px;white-space:nowrap;}
+.bar .grow{flex:1;}
+.chip{background:#efe8da;color:var(--sub);border-radius:999px;padding:6px 12px;font-size:14px;}
+.qcard{background:var(--panel);border-radius:20px;padding:12px 18px;box-shadow:0 5px 0 rgba(0,0,0,.07);margin-bottom:12px;}
+.qtext{font-size:clamp(22px,3.4vw,30px);line-height:2.4;font-weight:500;}
+.qtext .tg{display:inline-flex;gap:4px;vertical-align:middle;margin:0 2px;}
+.qtext .bx{position:relative;display:inline-grid;place-items:center;width:1.6em;height:1.6em;border:3px solid #c9d3e6;border-radius:6px;
+  font-family:var(--kaku);font-size:1.05em;line-height:1;background:#fff;}
+.qtext .bx .yomi{position:absolute;top:-1.25em;left:50%;transform:translateX(-50%);font-size:.5em;white-space:nowrap;color:var(--sub);font-family:var(--ui);}
+.qtext .bx.now{border-color:var(--orange);background:#fff5ea;box-shadow:0 0 0 4px #ffe1c2;}
+.qtext .bx.ok{color:var(--ink);} .qtext .bx.ng{color:var(--red);}
+.qtext .bx .mk{position:absolute;right:-.45em;top:-.45em;font-size:.6em;color:var(--red);font-family:var(--ui);}
+.qtext .ul{border-bottom:3px solid var(--ink);padding-bottom:2px;}
+.qhint{color:var(--sub);font-size:16px;font-weight:500;margin-top:-4px;}
+.stage{display:flex;gap:18px;align-items:flex-start;}
+.padcol{flex:none;display:flex;flex-direction:column;gap:12px;align-items:center;}
+.pad{position:relative;background:#fff;border-radius:14px;box-shadow:0 0 0 3px var(--guide),0 6px 0 rgba(0,0,0,.08);touch-action:none;}
+.pad canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:14px;}
+.pad #ink{touch-action:none;cursor:crosshair;}
+.pad .mark{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;font-size:min(68vw,330px);line-height:1;color:rgba(224,57,62,.6);font-family:var(--ui);font-weight:500;
+  opacity:0;transform:scale(.6);transition:opacity .25s,transform .25s;}
+.pad .mark.show{opacity:1;transform:scale(1);}
+.tools{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+.side{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;}
+.panel{background:var(--panel);border-radius:20px;padding:14px 16px;box-shadow:0 5px 0 rgba(0,0,0,.07);}
+.fb h3{margin:0 0 8px;font-size:24px;}
+.fb h3.good{color:var(--red);}
+.fb h3.oops{color:var(--blue-d);}
+.fb ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+.fb li{display:flex;gap:8px;align-items:flex-start;font-size:18px;line-height:1.5;background:#faf6ee;border-radius:12px;padding:8px 10px;}
+.fb li i{flex:none;font-style:normal;color:#fff;border-radius:8px;padding:0 7px;font-size:14px;margin-top:3px;}
+.fb li.x i{background:var(--red);} .fb li.tip i{background:var(--amber);}
+.fb li.focus{box-shadow:0 0 0 3px var(--orange);}
+.note{color:var(--sub);font-size:14px;font-weight:500;}
+.fb .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+.model{display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
+.model canvas{width:150px;height:150px;background:#fff;border-radius:12px;box-shadow:0 0 0 2px var(--line);}
+.model .glyph{font-family:var(--kaku);font-size:120px;line-height:1;width:150px;height:150px;display:grid;place-items:center;background:#fff;border-radius:12px;box-shadow:0 0 0 2px var(--line);}
+.model .mbtns{display:flex;flex-direction:column;gap:8px;}
+.model .note{color:var(--sub);font-size:14px;font-weight:500;}
+.toggle{display:flex;align-items:center;gap:8px;font-size:16px;color:var(--sub);}
+.toggle input{width:24px;height:24px;}
+.dbg{overflow:auto;}
+.dbg table{border-collapse:collapse;font-size:13px;font-weight:500;}
+.dbg td,.dbg th{border:1px solid var(--line);padding:2px 6px;text-align:right;}
+.oku{display:flex;flex-direction:column;gap:12px;align-items:flex-start;}
+.oku .tiles{display:flex;align-items:center;gap:0;flex-wrap:wrap;}
+.oku .ch{font-size:44px;width:64px;height:76px;display:grid;place-items:center;background:#fff;border-radius:12px;box-shadow:0 0 0 3px #c9d3e6;}
+.oku .ch.kan{background:#fff5ea;box-shadow:0 0 0 3px var(--orange);}
+.oku .gap{width:40px;height:76px;display:grid;place-items:center;}
+.oku .gap::before{content:"";width:6px;height:60px;border-radius:3px;background:#d6dcea;}
+.oku .gap:hover::before,.oku .gap.sel::before{background:var(--orange);}
+.oku .say{font-size:18px;line-height:1.6;}
+
+/* ---------- けっか ---------- */
+.score{text-align:center;}
+.score .big{font-size:clamp(56px,12vw,96px);color:var(--red);font-family:var(--kaku);margin:8px 0;}
+.qlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:12px 0;text-align:left;}
+.qlist div{background:var(--panel);border-radius:12px;padding:8px 10px;font-size:16px;}
+.qlist .m{color:var(--red);margin-right:6px;}
+.qlist .ngm{color:var(--blue-d);margin-right:6px;}
+
+/* ---------- 1字 えらぶ ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:10px;}
+.grid button{background:var(--panel);border-radius:16px;box-shadow:0 5px 0 rgba(0,0,0,.08);height:96px;font-family:var(--kaku);font-size:52px;position:relative;}
+.grid button small{position:absolute;right:6px;top:4px;font-family:var(--ui);font-size:15px;}
+.grid button .s-ok{color:var(--red);} .grid button .s-ng{color:var(--blue-d);}
+
+/* ---------- せんせいへ ---------- */
+.doc{background:var(--panel);border-radius:20px;padding:16px 20px;box-shadow:0 5px 0 rgba(0,0,0,.06);margin-bottom:14px;font-weight:500;line-height:1.8;}
+.doc h2{font-size:20px;margin:4px 0 8px;font-weight:900;}
+.doc table{border-collapse:collapse;width:100%;font-size:15px;}
+.doc th,.doc td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top;}
+.doc th{background:#faf6ee;}
+.refs{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;}
+.refs canvas{width:100%;aspect-ratio:1;background:#fff;border-radius:10px;box-shadow:0 0 0 2px var(--line);}
+
+@media (max-width:480px){
+  .chip{display:none;}
+  .bar .prog{font-size:16px;}
+}
+@media (max-width:820px){
+  .stage{flex-direction:column;align-items:stretch;}
+  .padcol{align-self:center;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ホーム -->
+<section id="home" class="home">
+  <h1><span class="k">かん字</span> たしかめ</h1>
+  <p class="lead">2年 九・十月の かん字（東京書籍 上108〜下28）。ゆびで 書くと、まちがいを 見つけて おしえるよ。</p>
+  <div class="menu">
+    <button class="card test" data-go="test"><b>テストの れんしゅう</b><span>テストと おなじ 25もん。1もん 4てん で 100てん まんてん。</span></button>
+    <button class="card one" data-go="pick"><b>1字ずつ れんしゅう</b><span>字を えらんで、お手本や 書きじゅんを 見ながら れんしゅう。</span></button>
+    <button class="card weak" data-go="weak"><b>にがての 字</b><span>まちがえた 字だけ もういちど。</span><span class="count" id="weakCount"></span></button>
+  </div>
+  <div class="levels">
+    <h2>はんていの きびしさ</h2>
+    <div class="seg" id="levelSeg">
+      <button data-lv="easy">やさしい</button>
+      <button data-lv="normal">ふつう</button>
+      <button data-lv="strict">きびしい</button>
+    </div>
+    <p id="levelNote"></p>
+  </div>
+  <div class="foot"><button class="link" data-go="teacher">せんせいへ（はんていの しくみ・せってい）</button></div>
+</section>
+
+<!-- 1字 えらぶ -->
+<section id="pick" hidden>
+  <div class="bar"><button class="btn ghost back" data-go="home">もどる</button><div class="prog">れんしゅうする 字を えらんでね</div></div>
+  <div class="grid" id="pickGrid"></div>
+</section>
+
+<!-- 書く -->
+<section id="write" hidden>
+  <div class="bar">
+    <button class="btn ghost back" id="quitBtn">やめる</button>
+    <div class="prog" id="prog"></div>
+    <div class="grow"></div>
+    <div class="chip" id="lvChip"></div>
+  </div>
+  <div class="qcard"><div class="qtext" id="qtext"></div><div class="qhint" id="qhint"></div></div>
+  <div class="stage">
+    <div class="padcol" id="padcol">
+      <div class="pad" id="pad"><canvas id="guide"></canvas><canvas id="ink" aria-label="ここに 字を 書く"></canvas><div class="mark" id="mark">〇</div></div>
+      <div class="tools" id="tools">
+        <button class="btn ghost" id="undoBtn">1かく もどす</button>
+        <button class="btn ghost" id="clearBtn">ぜんぶ けす</button>
+        <button class="btn primary" id="doneBtn">できた！</button>
+      </div>
+    </div>
+    <div class="side">
+      <div class="panel oku" id="okuPanel" hidden></div>
+      <div class="panel fb" id="fb" hidden></div>
+      <div class="panel" id="modelPanel" hidden>
+        <div class="model">
+          <canvas id="modelCv" width="300" height="300"></canvas>
+          <div class="mbtns">
+            <button class="btn blue" id="animBtn">書きじゅんを 見る</button>
+            <label class="toggle" id="traceWrap"><input type="checkbox" id="traceChk">うすく お手本を 出す</label>
+            <label class="toggle" id="overWrap" hidden><input type="checkbox" id="overChk">じぶんの 字に かさねる</label>
+            <div class="note" id="modelNote"></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel dbg" id="dbg" hidden></div>
+    </div>
+  </div>
+</section>
+
+<!-- けっか -->
+<section id="result" hidden>
+  <div class="bar"><button class="btn ghost back" data-go="home">ホームへ</button></div>
+  <div class="score panel">
+    <div>テストの れんしゅう けっか</div>
+    <div class="big" id="scoreBig"></div>
+    <div class="qlist" id="qlist"></div>
+    <div class="tools">
+      <button class="btn primary" id="retryWrong">まちがえた 字を れんしゅう</button>
+      <button class="btn blue" data-go="test">もういちど テスト</button>
+    </div>
+  </div>
+</section>
+
+<!-- せんせいへ -->
+<section id="teacher" hidden>
+  <div class="bar"><button class="btn ghost back" data-go="home">もどる</button><div class="prog">せんせいへ</div></div>
+  <div class="doc">
+    <h2>はんていの しくみ</h2>
+    こたえの 字が わかって いるので、「なにの 字か」を 当てるのでは なく、お手本の 字と 1画ずつ くらべます。インターネットには つながず、この 画面の 中だけで しらべます。
+    <ol>
+      <li>書いた 字の 大きさと ばしょを お手本に あわせる（小さく 書いても、はしに 書いても よい）</li>
+      <li>画数を くらべる。1画を とちゅうで はなした・2画を つなげた ときは、わけたり つないだり して しらべる</li>
+      <li>書いた 線と お手本の 画を むすぶ（書きじゅんが ちがっても むすべる）</li>
+      <li>1画ずつ ばしょ・ながさ・むき・はね を しらべる。はらい・とめは、書きおわりの はやさと とまった 時間で 見る</li>
+      <li>交わる・つく・はみ出す、ながさの バランス（未と 末・土と 士 の ように 字が かわる ところ）を しらべる</li>
+    </ol>
+    おしえる ことばは「×（まちがい）」と「ポイント（〇の まま アドバイス）」の 2つです。
+  </div>
+  <div class="doc">
+    <h2>きびしさの ちがい</h2>
+    <table>
+      <tr><th></th><th>やさしい</th><th>ふつう（テストに ちかい）</th><th>きびしい</th></tr>
+      <tr><th>ばしょ・ながさ</th><td>大きな ずれだけ ×</td><td>×</td><td>小さな ずれも ×</td></tr>
+      <tr><th>画数</th><td>形が にて いれば ポイント</td><td>つなげた・はなした は ポイント、たりない・多い は ×</td><td>×</td></tr>
+      <tr><th>書きじゅん・むき</th><td>ポイント</td><td>ポイント（テストの 紙では わからない ため）</td><td>×</td></tr>
+      <tr><th>はね</th><td>ポイント</td><td>はねない ×／よけいな はね ポイント</td><td>×</td></tr>
+      <tr><th>とめ・はらい</th><td>見ない</td><td>見ない</td><td>×（指で 書くと まちがえる ことが あります）</td></tr>
+      <tr><th>交わる・つく・出る</th><td>見ない</td><td>大きく 出る・まじわらない は ×、すきま は ポイント</td><td>×</td></tr>
+      <tr><th>ながさの バランス</th><td>見ない</td><td>×（妹・工・止・走・歩）</td><td>×</td></tr>
+    </table>
+    テストの 許容（どちらでも 〇）は「はねても とめても よい」などの しるしで データに 入れて あります（例：才の 3画目の 上、内・図の 右はらい、妹の さいごの はらい）。
+  </div>
+  <div class="doc">
+    <h2>せってい</h2>
+    <label class="toggle"><input type="checkbox" id="dbgChk">はんていの 数字を 出す（しくみの 調整・たしかめ用）</label>
+    <p><button class="btn ghost" id="resetBtn">きろくを ぜんぶ けす</button></p>
+    <p class="note">きろく（にがての 字）は この 端末の ブラウザに 保存します。</p>
+  </div>
+  <div class="doc">
+    <h2>お手本データの たしかめ（教科書の 筆順と くらべて ください）</h2>
+    タップすると 書きじゅんが うごきます。数字は 何画目か、○は 書きはじめです。
+    <div class="refs" id="refs"></div>
+  </div>
+</section>
+
+</div>
+<script>
+// ==LOGIC==
+/* 字の データと 判定の きまり（画面とは 切りはなして tests.js からも よびだす） */
+(function (G) {
+'use strict';
+
+/* ---------- お手本データ ----------
+   1字 = 100×100 の わく。線（画）は「/」で くぎる。1画 = 線の 通り道の 点 ＋ さいごの おわりかた。
+   おわりかた  t：とめ  p：はらい  h7 など：はね（7 左上・8 上・9 右上。テンキーの むき）  n：見ない
+   「*」つき：どちらでも よい（許容）。
+   筆順は 文部省「筆順指導の手びき」の じゅん。線の ばしょは 教科書体に ちかい Klee One の 字を なぞって つくった。 */
+const RAW = {
+  '合': '49,10 40,28 25,43 8,55 p/51,20 65,35 80,45 91,50 p/33,47 72,45 t/28,62 31,89 t/30,62 69,61 66,82 t/33,82 66,82 t',
+  '雪': '27,15 72,12 t/22,24 16,45 t/24,29 86,26 76,42 n/50,17 50,53 t/29,38 41,42 t/27,47 42,52 t/56,37 69,41 t/55,46 69,51 t/24,59 73,57 70,84 t/25,72 71,71 t/23,87 74,85 t',
+  '顔': '33,12 34,21 t/17,22 48,21 t/26,29 33,38 t/43,29 37,40 p/22,40 52,39 t/20,40 19,60 14,78 8,89 p/44,46 33,55 23,61 p/47,57 36,66 24,73 p/49,67 38,77 20,88 p/55,19 92,17 t/63,23 56,32 p/58,31 59,72 t/59,32 85,31 84,68 t/61,44 83,43 t/61,55 83,54 t/61,67 86,67 t/63,76 57,85 51,90 p/73,75 87,88 t',
+  '弟': '33,13 45,25 t/67,13 55,25 50,29 p/25,29 75,27 74,42 t/25,43 74,41 t/24,42 23,58 82,55 76,77 h7/50,29 51,90 t/49,60 30,77 9,89 p',
+  '妹': '25,16 18,55 39,74 t/36,32 33,52 22,72 10,86 p/9,40 46,37 n/46,27 80,26 t/42,45 86,44 t/62,15 63,90 t/60,48 50,65 36,82 p/64,48 76,64 90,76 p*',
+  '台': '47,12 34,30 23,45 72,39 t/63,27 76,40 85,50 t/26,57 30,90 t/28,57 74,56 71,82 t/32,82 72,82 t',
+  '絵': '29,14 14,33 29,43 t/37,27 13,56 44,51 t/35,45 43,57 t/28,55 29,90 t/18,63 15,73 10,84 p/36,63 42,78 t/63,12 55,30 43,49 p/64,23 76,36 91,48 p/52,45 78,44 t/46,59 88,57 t/58,62 47,82 81,79 t/72,68 82,80 87,88 t',
+  '工': '22,25 76,23 t/49,27 49,73 t/10,75 90,73 t',
+  '北': '16,46 37,45 t/37,16 38,75 t/13,85 52,71 p/81,32 70,40 56,50 p/56,14 56,80 62,85 86,84 h8',
+  '引': '19,16 47,15 44,35 t/23,34 46,33 t/19,33 16,55 48,52 46,70 41,86 h7/73,11 73,90 t',
+  '形': '15,20 54,18 t/11,47 57,45 t/25,22 25,55 20,72 11,88 p/41,21 42,88 t/81,12 70,25 55,36 p/82,32 70,46 54,58 p/84,51 70,70 47,89 p',
+  '内': '19,28 20,90 t/21,32 81,30 80,87 h7/47,11 46,35 38,55 27,70 p/49,44 60,55 72,67 t*',
+  '海': '16,17 28,27 t/10,37 25,47 t/13,83 21,68 28,53 p/48,11 40,28 32,40 p/46,25 84,23 t/43,36 38,74 89,71 t/44,37 81,36 78,70 72,89 h7/59,37 55,73 t/31,53 92,51 t',
+  '大': '15,41 84,38 t/46,12 46,40 40,58 27,75 9,89 p/48,46 60,64 74,77 89,88 p',
+  '切': '9,40 47,36 t/21,14 22,62 27,67 46,66 t*/34,23 80,21 80,40 77,75 74,86 h7/57,24 54,50 44,70 28,86 p',
+  '天': '18,19 83,16 t/22,42 80,40 t/48,21 47,42 40,60 26,75 10,85 p/50,47 62,63 76,75 92,84 p',
+  '才': '16,32 86,29 t/56,11 57,86 h7/69,38 55,52 35,67 11,77 p',
+  '国': '18,15 19,88 t/20,18 79,15 79,78 t/30,31 66,30 t/46,32 46,63 t/34,46 64,45 t/27,65 70,63 t/56,52 64,60 t/22,80 82,78 t',
+  '語': '20,13 35,22 t/8,29 42,27 t/15,39 37,38 t/15,51 37,50 t/15,62 17,86 t/17,62 37,62 36,80 t/19,80 36,80 t/46,17 84,15 t/61,18 54,50 t/48,34 79,32 77,51 t/42,51 91,49 t/49,61 51,88 t/51,61 80,60 78,79 t/54,79 78,79 t',
+  '地': '12,40 39,38 t/26,19 26,68 t/10,72 25,68 41,61 p/35,50 82,33 81,55 77,67 h7/62,13 63,72 t/45,30 46,78 52,84 86,83 h8',
+  '図': '18,14 19,88 t/20,17 80,15 79,78 t/33,30 43,40 t/45,25 54,35 t/65,26 60,42 45,59 29,72 p/32,47 50,57 67,69 t*/23,79 83,78 t',
+  '一': '12,37 88,34 t',
+  '万': '13,19 87,16 t/46,38 73,37 70,60 65,83 h7/46,21 43,40 35,59 22,74 13,82 p',
+  '円': '18,15 19,87 t/20,18 80,15 80,85 h7/49,19 49,49 t/22,51 79,48 t',
+  '楽': '48,10 43,21 t*/36,24 38,51 t/37,25 62,23 60,48 t/39,36 60,35 t/39,48 63,47 t/17,21 31,32 t/13,49 35,37 p/81,16 65,30 p/65,38 84,51 t/13,62 87,59 t/49,53 51,90 t/47,64 30,78 10,86 p/53,65 70,75 90,83 p',
+  '食': '50,10 38,25 24,37 9,48 p/52,20 66,31 80,40 93,48 p/48,28 51,36 t/34,40 70,38 68,61 t/36,50 67,49 t/36,61 68,60 t/33,40 33,84 52,79 n/75,62 65,72 58,76 p/44,66 58,77 74,85 92,89 p',
+  '歩': '52,10 52,38 t/53,24 74,23 t/30,21 31,38 t/10,40 89,37 t/52,41 52,67 h7/37,49 29,60 16,68 p/66,50 76,58 84,64 t/70,57 60,70 40,82 17,90 p',
+  '走': '28,28 72,26 t/50,10 50,44 t/16,45 85,42 t/50,45 50,75 t/52,62 75,61 t/34,55 26,72 10,90 p/30,71 50,79 92,88 p',
+  '止': '52,14 52,82 t/54,46 80,44 t/29,39 30,82 t/10,84 90,83 t',
+  '広': '51,10 52,27 t/25,30 84,27 t/25,26 27,55 20,75 9,90 p/53,37 46,58 37,83 76,77 t/66,60 76,74 84,87 t',
+  '近': '75,13 60,19 48,22 p/47,21 47,45 42,60 33,72 p/50,38 87,36 t/69,39 69,77 t/17,17 29,30 t/11,41 31,40 20,55 30,65 19,76 t/15,78 30,77 60,83 91,85 p',
+};
+
+/* 字ごとの きまり
+   len：[みじかい画, ながい画]（ながさの ちがいで 字が かわる・テストで 見られる ところ）
+   free：[画, 画]（交わっても 交わらなくても よい ＝ 許容）
+   out：[画, 画]（はじめの 画が あとの 画から 出ては いけない。出ると べつの 字に なる ところ） */
+const RULES = {
+  '妹': { len: [[4, 5]] },            // 未：上の 横画が みじかい（末に しない）
+  '工': { len: [[1, 3]], out: [[2, 1], [2, 3]] },   // 土・士の ように 出さない
+  '止': { len: [[2, 4]] },
+  '走': { len: [[1, 3]] },
+  '歩': { len: [[2, 4]] },
+  '才': { free: [[2, 3]] },           // 3画目の 上が 2画目から 出て いなくても よい
+  '天': { out: [[3, 1]] },            // ノが 上に 出ると「夫」に なる
+};
+
+/* きびしさ。数は 100×100 の わくでの ずれ。 */
+const LEVELS = {
+  easy:   { name: 'やさしい', mean: 16, max: 34, fmin: 0.85, order: 'tip', dir: 'tip', fixCount: 'tip', hane: 'tip', extraHane: 'off', tomeHarai: 'off', rel: 'off', len: 'off', protrude: 0, key: 0, gap: 0, gapX: 0, similar: 8 },
+  normal: { name: 'ふつう',   mean: 12, max: 26, fmin: 0.6, order: 'tip', dir: 'tip', fixCount: 'tip', hane: 'x',   extraHane: 'tip', tomeHarai: 'off', rel: 'x',   len: 'x',   protrude: 10, key: 5, gap: 14, gapX: 20, lenRatio: 0.95 },
+  strict: { name: 'きびしい', mean: 9,  max: 19, fmin: 0.6, order: 'x',   dir: 'x',   fixCount: 'x',   hane: 'x',   extraHane: 'x',   tomeHarai: 'x',   rel: 'x',   len: 'x',   protrude: 5, key: 2.5, gap: 8, gapX: 8, lenRatio: 1.08 },
+};
+
+const DIRS = { '1': [-1, 1], '4': [-1, 0], '7': [-1, -1], '8': [0, -1], '9': [1, -1], '6': [1, 0] };
+const N = 16;   // くらべる ときの 点の 数
+
+/* ---------- 形の 計算 ---------- */
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+const unit = v => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
+const angDeg = (u, v) => Math.acos(Math.max(-1, Math.min(1, u[0] * v[0] + u[1] * v[1]))) * 180 / Math.PI;
+function plen(p) { let s = 0; for (let i = 1; i < p.length; i++) s += dist(p[i - 1], p[i]); return s; }
+function cumlen(p) { const c = [0]; for (let i = 1; i < p.length; i++) c.push(c[i - 1] + dist(p[i - 1], p[i])); return c; }
+function resample(p, n) {
+  if (p.length < 2) return Array.from({ length: n }, () => [p[0][0], p[0][1]]);
+  const cum = cumlen(p), L = cum[cum.length - 1], out = [];
+  let j = 1;
+  for (let k = 0; k < n; k++) {
+    const s = L * k / (n - 1);
+    while (j < p.length - 1 && cum[j] < s) j++;
+    const seg = cum[j] - cum[j - 1], t = seg > 0 ? Math.min(1, Math.max(0, (s - cum[j - 1]) / seg)) : 0;
+    out.push([p[j - 1][0] + (p[j][0] - p[j - 1][0]) * t, p[j - 1][1] + (p[j][1] - p[j - 1][1]) * t]);
+  }
+  return out;
+}
+function resampleStep(p, step) { return resample(p, Math.max(2, Math.round(plen(p) / step) + 1)); }
+function pointSeg(p, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+  const t = l2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)) : 0;
+  return { d: Math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dy * t), t };
+}
+/* 点から 線（おれ線）までの きょりと、いちばん ちかい ところの 線の 上の ながさ */
+function pointPoly(p, poly) {
+  const cum = cumlen(poly); let best = { d: Infinity, s: 0 };
+  if (poly.length === 1) return { d: dist(p, poly[0]), s: 0 };
+  for (let i = 1; i < poly.length; i++) {
+    const r = pointSeg(p, poly[i - 1], poly[i]);
+    if (r.d < best.d) best = { d: r.d, s: cum[i - 1] + r.t * (cum[i] - cum[i - 1]) };
+  }
+  return best;
+}
+function segInter(a, b, c, d) {
+  const r = [b[0] - a[0], b[1] - a[1]], s = [d[0] - c[0], d[1] - c[1]];
+  const den = r[0] * s[1] - r[1] * s[0];
+  if (Math.abs(den) < 1e-9) return null;
+  const t = ((c[0] - a[0]) * s[1] - (c[1] - a[1]) * s[0]) / den;
+  const u = ((c[0] - a[0]) * r[1] - (c[1] - a[1]) * r[0]) / den;
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? { t, u } : null;
+}
+/* 2本の 線が 交わる ところ（それぞれの 線の 上の ながさ）の 一覧 */
+function crossings(A, B) {
+  const ca = cumlen(A), cb = cumlen(B), out = [];
+  for (let i = 1; i < A.length; i++) for (let j = 1; j < B.length; j++) {
+    const r = segInter(A[i - 1], A[i], B[j - 1], B[j]);
+    if (r) out.push({ sa: ca[i - 1] + r.t * (ca[i] - ca[i - 1]), sb: cb[j - 1] + r.u * (cb[j] - cb[j - 1]) });
+  }
+  return out;
+}
+function polyDist(A, B) {
+  if (crossings(A, B).length) return 0;
+  let d = Infinity;
+  for (const p of A) d = Math.min(d, pointPoly(p, B).d);
+  for (const p of B) d = Math.min(d, pointPoly(p, A).d);
+  return d;
+}
+function bbox(strokes) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const s of strokes) for (const p of s) { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); }
+  return { x0, y0, x1, y1, w: x1 - x0, h: y1 - y0, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+}
+function centroid(p) { const q = resample(p, N); return [q.reduce((s, v) => s + v[0], 0) / N, q.reduce((s, v) => s + v[1], 0) / N]; }
+
+/* ---------- お手本を 読む ---------- */
+const CACHE = {};
+function getRef(ch) {
+  if (CACHE[ch]) return CACHE[ch];
+  if (!RAW[ch]) return null;
+  const strokes = RAW[ch].split('/').map(s => {
+    const parts = s.trim().split(/\s+/), code = parts.pop();
+    const pts = parts.map(v => v.split(',').map(Number));
+    const free = code.endsWith('*'), c = code.replace('*', '');
+    const end = c[0], dir = end === 'h' ? unit(DIRS[c[1]]) : null;
+    return { pts, end, free, dir, len: plen(pts), rs: resample(pts, N), cen: centroid(pts) };
+  });
+  const ref = { ch, strokes, box: bbox(strokes.map(s => s.pts)), rules: RULES[ch] || {} };
+  ref.rels = relations(ref);
+  return (CACHE[ch] = ref);
+}
+/* お手本から「交わる」「交わらない」「くっつく（はみ出さない）」を 見つけて おく */
+function relations(ref) {
+  const S = ref.strokes, rels = [];
+  const free = (a, b) => (ref.rules.free || []).some(([x, y]) => (x - 1 === a && y - 1 === b) || (x - 1 === b && y - 1 === a));
+  for (let a = 0; a < S.length; a++) for (let b = a + 1; b < S.length; b++) {
+    if (free(a, b)) continue;
+    const A = S[a].pts, B = S[b].pts, cr = crossings(A, B);
+    if (cr.length) {
+      const deep = cr.some(c => Math.min(c.sa, S[a].len - c.sa, c.sb, S[b].len - c.sb) >= 5);
+      if (deep) rels.push({ type: 'cross', a, b });
+      continue;
+    }
+    if (polyDist(A, B) >= 8) rels.push({ type: 'apart', a, b });
+  }
+  /* T字：線の はしが ほかの 線の とちゅうに つく */
+  for (let a = 0; a < S.length; a++) for (const e of ['s', 'e']) {
+    const p = e === 's' ? S[a].pts[0] : S[a].pts[S[a].pts.length - 1];
+    for (let b = 0; b < S.length; b++) {
+      if (b === a || free(a, b)) continue;
+      const r = pointPoly(p, S[b].pts);
+      if (r.d <= 4 && r.s > 6 && r.s < S[b].len - 6 && !crossings(S[a].pts, S[b].pts).some(c => Math.min(c.sa, S[a].len - c.sa) >= 5)) {
+        rels.push({ type: 'touch', a, b, e });
+      } else if (r.d <= 3 && a < b) {
+        rels.push({ type: 'join', a, b, e });   // かどで つながる（はなれすぎて いないかだけ 見る）
+      }
+    }
+  }
+  /* 出ては いけない ところ */
+  for (const [x, y] of ref.rules.out || []) {
+    const a = x - 1, b = y - 1, A = S[a].pts, d0 = pointPoly(A[0], S[b].pts).d, d1 = pointPoly(A[A.length - 1], S[b].pts).d;
+    const e = d0 <= d1 ? 's' : 'e', old = rels.find(r => r.type === 'touch' && r.a === a && r.b === b && r.e === e);
+    if (old) old.key = true; else rels.push({ type: 'touch', a, b, e, key: true });
+  }
+  return rels;
+}
+
+/* ---------- はねを さがす ----------
+   線の おわりの ほうで むきが きゅうに かわった ところを さがす。
+   want：はねる むき（お手本）。maxLen：はねと みなす ながさの 上げん。 */
+function findHook(p, want, maxLen) {
+  const q = resampleStep(p, 1), n = q.length;
+  if (n < 8) return null;
+  let best = null;
+  for (let c = Math.max(4, n - 1 - maxLen); c <= n - 3; c++) {
+    const v1 = unit([q[c][0] - q[Math.max(0, c - 6)][0], q[c][1] - q[Math.max(0, c - 6)][1]]);
+    const v2 = unit([q[n - 1][0] - q[c][0], q[n - 1][1] - q[c][1]]);
+    const ang = angDeg(v1, v2);
+    if (ang < 50) continue;
+    if (want && angDeg(v2, want) > 65) continue;
+    if (!best || ang > best.ang + 3) best = { c, ang, len: n - 1 - c, dir: v2 };
+  }
+  if (!best) return null;
+  best.body = q.slice(0, best.c + 1);
+  return best;
+}
+
+/* ---------- 書いた ときの うごき（はらい・とめ） ---------- */
+function kinetics(raw) {
+  if (!raw || raw.pts.length < 5 || raw.up == null) return null;
+  const P = raw.pts, cum = cumlen(P.map(p => [p.x, p.y])), L = cum[cum.length - 1];
+  if (L < 6) return null;
+  const at = s => { let i = 0; while (i < cum.length - 1 && cum[i] < s) i++; return i; };
+  const i20 = at(L * 0.2), i80 = at(L * 0.8), i85 = at(L * 0.85);
+  const tm = P[i80].t - P[i20].t, te = P[P.length - 1].t - P[i85].t;
+  const vMid = tm > 0 ? (cum[i80] - cum[i20]) / tm : null;
+  const vEnd = te > 0 ? (L - cum[i85]) / te : null;
+  const last = P[P.length - 1]; let k = P.length - 1;
+  while (k > 0 && Math.hypot(P[k].x - last.x, P[k].y - last.y) < 0.6) k--;
+  const dwell = raw.up - P[k + 1 < P.length ? k + 1 : k].t;
+  let pr = null;
+  if (raw.type === 'pen') {
+    const pm = P.slice(i20, i80 + 1).map(p => p.p || 0), pe = P.slice(i85).map(p => p.p || 0);
+    const avg = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+    if (avg(pm) > 0.05) pr = avg(pe) / avg(pm);
+  }
+  return { ratio: vMid && vEnd != null ? vEnd / vMid : null, dwell, pr };
+}
+/* はらって いるか：1 はらい・-1 とめ・0 わからない */
+function endStyle(k) {
+  if (!k) return 0;
+  if (k.pr != null && k.pr < 0.55) return 1;
+  if (k.dwell >= 140 && (k.ratio == null || k.ratio < 0.7)) return -1;
+  if (k.dwell <= 40 && k.ratio != null && k.ratio >= 0.85) return 1;
+  if (k.ratio != null && k.ratio < 0.35) return -1;
+  return 0;
+}
+
+/* ---------- あわせる（大きさ・ばしょ） ---------- */
+function clampAspect(sx, sy) {
+  const g = Math.sqrt(sx * sy), r = Math.max(0.75, Math.min(1.33, sx / sy));
+  return [g * Math.sqrt(r), g / Math.sqrt(r)];
+}
+function fitBox(strokes, refBox) {
+  const d = bbox(strokes);
+  let sx = refBox.w / Math.max(d.w, 1), sy = refBox.h / Math.max(d.h, 1);
+  if (refBox.h < 15 || d.h < 8) sy = sx;
+  if (refBox.w < 15 || d.w < 8) sx = sy;
+  [sx, sy] = clampAspect(sx, sy);
+  return { sx, sy, tx: refBox.cx - sx * d.cx, ty: refBox.cy - sy * d.cy };
+}
+function fitPairs(pairs) {   // pairs: [[drawnPt, refPt]] → 最小二乗で sx, sy, tx, ty
+  const fit1 = k => {
+    const n = pairs.length, mx = pairs.reduce((s, p) => s + p[0][k], 0) / n, my = pairs.reduce((s, p) => s + p[1][k], 0) / n;
+    let num = 0, den = 0;
+    for (const p of pairs) { num += (p[0][k] - mx) * (p[1][k] - my); den += (p[0][k] - mx) ** 2; }
+    return { s: den > 1 ? num / den : null, mx, my };
+  };
+  const X = fit1(0), Y = fit1(1);
+  let sx = X.s, sy = Y.s;
+  if (sx == null || sx <= 0) sx = sy; if (sy == null || sy <= 0) sy = sx;
+  if (sx == null || sx <= 0) return null;
+  [sx, sy] = clampAspect(sx, sy);
+  return { sx, sy, tx: X.my - sx * X.mx, ty: Y.my - sy * Y.mx };
+}
+const apply = (T, p) => [T.sx * p[0] + T.tx, T.sy * p[1] + T.ty];
+
+/* ---------- 線と 線を むすぶ（ハンガリー法） ---------- */
+function hungarian(C) {
+  const n = C.length, INF = 1e18, u = new Array(n + 1).fill(0), v = new Array(n + 1).fill(0), p = new Array(n + 1).fill(0), way = new Array(n + 1).fill(0);
+  for (let i = 1; i <= n; i++) {
+    p[0] = i; let j0 = 0; const minv = new Array(n + 1).fill(INF), used = new Array(n + 1).fill(false);
+    do {
+      used[j0] = true; const i0 = p[j0]; let delta = INF, j1 = 0;
+      for (let j = 1; j <= n; j++) if (!used[j]) {
+        const cur = C[i0 - 1][j - 1] - u[i0] - v[j];
+        if (cur < minv[j]) { minv[j] = cur; way[j] = j0; }
+        if (minv[j] < delta) { delta = minv[j]; j1 = j; }
+      }
+      for (let j = 0; j <= n; j++) if (used[j]) { u[p[j]] += delta; v[j] -= delta; } else minv[j] -= delta;
+      j0 = j1;
+    } while (p[j0] !== 0);
+    do { const j1 = way[j0]; p[j0] = p[j1]; j0 = j1; } while (j0);
+  }
+  const ans = new Array(n);
+  for (let j = 1; j <= n; j++) ans[p[j] - 1] = j - 1;
+  return ans;   // ans[書いた 線] = お手本の 画
+}
+
+/* 書いた 線 1本と お手本 1画の ずれ */
+function compare(body, rs) {
+  const q = resample(body, N);
+  let f = 0, r = 0, fm = 0, rm = 0;
+  for (let k = 0; k < N; k++) {
+    const a = dist(q[k], rs[k]), b = dist(q[N - 1 - k], rs[k]);
+    f += a; r += b; fm = Math.max(fm, a); rm = Math.max(rm, b);
+  }
+  return { fwd: f / N, rev: r / N, fmax: fm, rmax: rm, mean: Math.min(f, r) / N, max: f <= r ? fm : rm, reversed: r < f };
+}
+/* お手本の 画に あわせて、はねの ぶぶんを のぞいた 線 */
+function bodyFor(st, rs) {
+  if (rs.end === 'h') {
+    const h = findHook(st, rs.dir, 25);
+    return h ? h.body : st;
+  }
+  return st;
+}
+function costMatrix(strokes, ref) {
+  return strokes.map(st => ref.strokes.map(rs => compare(bodyFor(st, rs), rs.rs).mean));
+}
+function matchAll(strokes, ref) {
+  const C = costMatrix(strokes, ref), m = hungarian(C);
+  return { m, cost: m.reduce((s, j, i) => s + C[i][j], 0) / m.length };
+}
+
+/* ---------- 画数が ちがう ときに、つないだり わけたり して みる ---------- */
+function* combos(arr, k, start = 0, pre = []) {
+  if (pre.length === k) { yield pre; return; }
+  for (let i = start; i < arr.length; i++) yield* combos(arr, k, i + 1, pre.concat([arr[i]]));
+}
+function tryMerge(work, need, ref) {
+  const m = work.length - need, gaps = [];
+  for (let i = 0; i + 1 < work.length; i++) {
+    const a = work[i].pts, b = work[i + 1].pts;
+    if (dist(a[a.length - 1], b[0]) < 15) gaps.push(i);
+  }
+  if (gaps.length < m || m > 3) return null;
+  let best = null, tries = 0;
+  for (const cut of combos(gaps, m)) {
+    if (++tries > 3000) break;
+    const out = [];
+    for (let i = 0; i < work.length; i++) {
+      if (i > 0 && cut.includes(i - 1)) {
+        const last = out[out.length - 1];
+        out[out.length - 1] = { pts: last.pts.concat(work[i].pts), raw: null, src: last.src.concat(work[i].src) };
+      } else out.push({ pts: work[i].pts, raw: work[i].raw, src: work[i].src.slice() });
+    }
+    const r = matchAll(out.map(s => s.pts), ref);
+    if (!best || r.cost < best.cost) best = { work: out, cost: r.cost };
+  }
+  return best;
+}
+function corners(p) {
+  const q = resampleStep(p, 1), out = [];
+  for (let i = 5; i < q.length - 5; i++) {
+    const v1 = unit([q[i][0] - q[i - 5][0], q[i][1] - q[i - 5][1]]), v2 = unit([q[i + 5][0] - q[i][0], q[i + 5][1] - q[i][1]]);
+    const a = angDeg(v1, v2);
+    if (a >= 60) out.push({ i, a });
+  }
+  /* となりあう ものは いちばん まがった 点だけ */
+  const peaks = [];
+  for (const c of out) {
+    const prev = peaks[peaks.length - 1];
+    if (prev && c.i - prev.i < 5) { if (c.a > prev.a) peaks[peaks.length - 1] = c; } else peaks.push(c);
+  }
+  return peaks.map(c => ({ q, i: c.i }));
+}
+function trySplit(work, need, ref) {
+  const m = need - work.length;
+  if (m > 3) return null;
+  const cand = [];
+  work.forEach((w, si) => corners(w.pts).forEach(c => cand.push({ si, q: c.q, i: c.i })));
+  if (cand.length < m) return null;
+  let best = null, tries = 0;
+  for (const pick of combos(cand, m)) {
+    if (++tries > 3000) break;
+    const out = [];
+    work.forEach((w, si) => {
+      const cuts = pick.filter(c => c.si === si).sort((a, b) => a.i - b.i);
+      if (!cuts.length) { out.push({ pts: w.pts, raw: w.raw, src: w.src.slice() }); return; }
+      const q = cuts[0].q; let from = 0;
+      for (const c of cuts) { out.push({ pts: q.slice(from, c.i + 1), raw: null, src: w.src.slice() }); from = c.i; }
+      out.push({ pts: q.slice(from), raw: null, src: w.src.slice() });
+    });
+    const r = matchAll(out.map(s => s.pts), ref);
+    if (!best || r.cost < best.cost) best = { work: out, cost: r.cost };
+  }
+  return best;
+}
+/* 字ぜんたいの にかよい（画数が あわない ときの やさしい 判定に つかう） */
+function chamfer(A, B) {
+  const a = A.flatMap(s => resampleStep(s, 2)), b = B.flatMap(s => resampleStep(s, 2));
+  const one = (X, Y) => X.reduce((s, p) => s + Math.min(...Y.map(q => dist(p, q))), 0) / X.length;
+  return Math.max(one(a, b), one(b, a));
+}
+
+/* ---------- ことば ---------- */
+const kanum = n => `${n}かくめ`;
+function dirWords(rs) {
+  const a = rs.pts[0], b = rs.pts[rs.pts.length - 1], dx = b[0] - a[0], dy = b[1] - a[1];
+  if (Math.abs(dx) > Math.abs(dy) * 1.5) return dx > 0 ? 'ひだりから みぎへ' : 'みぎから ひだりへ';
+  if (dy < 0) return 'したから うえへ';
+  return 'うえから したへ';
+}
+/* dc：お手本の 中心 − 書いた 線の 中心 */
+function where(dc, ratio, turned) {
+  if (turned) return 'せんの むきが ちがうよ';
+  if (ratio < 0.65) return 'もっと ながく 書こう';
+  if (ratio > 1.5) return 'もっと みじかく 書こう';
+  const w = [];
+  if (dc[1] < -7) w.push('うえ'); else if (dc[1] > 7) w.push('した');
+  if (dc[0] < -7) w.push('ひだり'); else if (dc[0] > 7) w.push('みぎ');
+  if (w.length) return `もうすこし ${w.join('・')}に 書こう`;
+  return 'かたちを お手本と くらべよう';
+}
+
+/* ---------- 判定 ----------
+   drawn：[{ pts:[{x,y,t,p}], up, type }]（わくの 中の 0〜100）
+   かえす もの：{ ok, issues:[{ sev:'x'|'tip', msg, hi:[書いた線], rel:[書いた線] }], map, detail } */
+function judge(ch, drawn, level) {
+  const ref = getRef(ch), L = LEVELS[level] || LEVELS.normal;
+  const issues = [], detail = [];
+  let m = null;
+  const add = (sev, msg, hi = [], rel = []) => { if (sev !== 'off') issues.push({ sev, msg, hi, rel }); };
+  let work = [];
+  drawn.forEach((d, i) => {
+    const pts = d.pts.map(p => [p.x, p.y]).filter((p, k, a) => k === 0 || dist(p, a[k - 1]) > 0.05);
+    if (plen(pts) >= 1.2 || (pts.length >= 1 && d.pts.length >= 3)) work.push({ pts: pts.length > 1 ? pts : [pts[0], [pts[0][0] + 0.1, pts[0][1] + 0.1]], raw: d, src: [i] });
+  });
+  if (!work.length) return { ok: false, empty: true, issues: [{ sev: 'x', msg: 'まだ 書いて いないよ', hi: [], rel: [] }], map: [], detail };
+
+  const size = bbox(work.map(w => w.pts));
+  if (Math.max(size.w, size.h) < 40) add('tip', 'わくいっぱいに 大きく 書こう');
+
+  /* 1. 大きさと ばしょを お手本に あわせる */
+  let T = fitBox(work.map(w => w.pts), ref.box);
+  const tf = T0 => work.map(w => ({ ...w, pts: w.pts.map(p => apply(T0, p)) }));
+  let aw = tf(T);
+  const n = ref.strokes.length;
+
+  /* 2. 画数 */
+  let countNote = null;
+  if (aw.length !== n) {
+    const fixed = aw.length > n ? tryMerge(aw, n, ref) : trySplit(aw, n, ref);
+    if (fixed && fixed.cost <= L.mean) {
+      countNote = aw.length > n ? 'more' : 'less';
+      aw = fixed.work;
+    } else {
+      const msg = `${n}かくで 書くよ（いま ${aw.length}かく）`;
+      if (L.similar && chamfer(aw.map(w => w.pts), ref.strokes.map(s => s.pts)) <= L.similar) {
+        add('tip', msg);
+        return finish(true);
+      }
+      add('x', msg);
+      return finish(false);
+    }
+  }
+
+  /* 3. 線と 画を むすぶ → 大きさを あわせなおして もう一度 */
+  ({ m } = matchAll(aw.map(w => w.pts), ref));
+  const pairs = [];
+  aw.forEach((w, i) => {
+    const rs = ref.strokes[m[i]], q = resample(bodyFor(w.pts, rs), N), c = compare(q, rs.rs);
+    q.forEach((p, k) => pairs.push([p, c.reversed ? rs.rs[N - 1 - k] : rs.rs[k]]));
+  });
+  /* もとの 座標に もどして から あわせなおす。
+     ずれの 大きい 線に ひっぱられない ように、よく あう 線だけで もう一度 あわせる */
+  const inv = p => [(p[0] - T.tx) / T.sx, (p[1] - T.ty) / T.sy];
+  const orig = pairs.map(([d, r]) => [inv(d), r]);
+  let T2 = fitPairs(orig);
+  if (T2) {
+    const err = aw.map((w, i) => compare(bodyFor(w.pts.map(p => apply(T2, inv(p))), ref.strokes[m[i]]), ref.strokes[m[i]].rs).mean);
+    const good = err.map((e, i) => e <= L.mean * 0.8 ? i : -1).filter(i => i >= 0);
+    if (good.length < aw.length && good.length >= Math.max(2, Math.ceil(aw.length / 2))) {
+      const T3 = fitPairs(orig.filter((_, k) => good.includes(Math.floor(k / N))));
+      if (T3) T2 = T3;
+    }
+    const aw2 = aw.map(w => ({ ...w, pts: w.pts.map(p => apply(T2, inv(p))) }));
+    aw = aw2; m = matchAll(aw2.map(w => w.pts), ref).m; T = T2;
+  }
+  if (countNote === 'more') add(L.fixCount, `${n}かくで 書くよ。1本の 線を とちゅうで はなして いないかな`, uniq(aw.filter(w => w.src.length > 1).flatMap(w => w.src)));
+  if (countNote === 'less') add(L.fixCount, `${n}かくで 書くよ。2本の 線を つなげて いないかな`, uniq(aw.filter((w, i) => aw.some((v, j) => j !== i && v.src[0] === w.src[0])).flatMap(w => w.src)));
+
+  /* 4. 1画ずつ しらべる */
+  const byRef = new Array(n);
+  aw.forEach((w, i) => { byRef[m[i]] = i; });
+  const bodies = [];
+  aw.forEach((w, i) => {
+    const r = m[i], rs = ref.strokes[r], num = kanum(r + 1);
+    let body = w.pts, hook = null;
+    if (rs.end === 'h') { hook = findHook(w.pts, rs.dir, 25); if (hook) body = hook.body; }
+    const extra = rs.end === 't' && !rs.free && lastSeg(rs) >= 12 ? findHook(w.pts, null, 10) : null;
+    const extraHook = extra && extra.len >= 3 && extra.ang >= 60 ? extra : null;
+    if (extraHook) body = extraHook.body;
+    const c = compare(body, rs.rs), kin = w.raw ? kinetics(w.raw) : null, es = endStyle(kin);
+    /* みじかい 線ほど きびしく（点が ほかの ばしょに あっても とおらない ように） */
+    const f = Math.max(L.fmin, Math.min(1, rs.len / 40));
+    const turned = chordAngle(body, rs, c.reversed) > 45;
+    bodies[i] = c.reversed ? body.slice().reverse() : body;   // むきを お手本に そろえて おく（つく・出る を 見る ため）
+    detail.push({ ref: r + 1, drawn: i + 1, mean: +c.mean.toFixed(1), max: +c.max.toFixed(1), rev: c.reversed, hook: hook ? +hook.len.toFixed(0) : null, extraHook: extraHook ? +extraHook.len.toFixed(0) : null, ratio: kin && kin.ratio != null ? +kin.ratio.toFixed(2) : null, dwell: kin ? Math.round(kin.dwell) : null, pr: kin && kin.pr != null ? +kin.pr.toFixed(2) : null, end: es });
+    if (c.mean > L.mean * f || c.max > L.max * f || turned) {
+      const dc = centroid(body), ratio = plen(body) / Math.max(rs.len, 1);
+      add('x', `${num}：${where([rs.cen[0] - dc[0], rs.cen[1] - dc[1]], ratio, turned)}`, w.src);
+      return;
+    }
+    if (c.reversed && c.fwd > 6 && c.rev + 3 < c.fwd) add(L.dir, `${num}は ${dirWords(rs)} 書くよ`, w.src);
+    if (rs.end === 'h' && !rs.free && !hook) add(L.hane, `${num}は さいごを はねるよ`, w.src);
+    if (extraHook) add(L.extraHane, `${num}は はねないで とめるよ`, w.src);
+    if (rs.end === 'p' && !rs.free && es === -1) add(L.tomeHarai, `${num}は さいごを はらうよ`, w.src);
+    if (rs.end === 't' && !rs.free && es === 1 && !extraHook) add(L.tomeHarai, `${num}は さいごを とめるよ`, w.src);
+  });
+
+  /* 5. 書きじゅん */
+  if (!countNote) {
+    const k = m.findIndex((r, i) => r !== i);
+    if (k >= 0) add(L.order, `${kanum(k + 1)}に 書いた 線は、${kanum(m[k] + 1)}に 書くよ（書きじゅん）`, aw[k].src);
+  }
+
+  /* 6. 交わる・つく・はみ出す */
+  if (L.rel !== 'off' && !issues.some(i => i.sev === 'x')) {
+    for (const R of ref.rels) {
+      const ia = byRef[R.a], ib = byRef[R.b];
+      if (ia == null || ib == null) continue;
+      const A = bodies[ia], B = bodies[ib], na = kanum(R.a + 1), nb = kanum(R.b + 1);
+      if (R.type === 'cross') {
+        if (!crossings(A, B).length && polyDist(A, B) > 2) add(L.rel, `${na}と ${nb}は まじわるよ`, aw[ia].src, aw[ib].src);
+      } else if (R.type === 'apart') {
+        const cr = crossings(A, B), la = plen(A), lb = plen(B);
+        if (cr.some(c => Math.min(c.sa, la - c.sa, c.sb, lb - c.sb) >= 3)) add(L.rel, `${na}と ${nb}は まじわらないよ`, aw[ia].src, aw[ib].src);
+      } else if (R.type === 'join') {
+        const end = R.e === 's' ? A[0] : A[A.length - 1];
+        const gap = pointPoly(end, B).d;
+        if (L.gap && gap > L.gap + 2) add(gap > L.gapX + 2 ? 'x' : 'tip', `${na}と ${nb}を くっつけよう`, aw[ia].src, aw[ib].src);
+      } else if (R.type === 'touch') {
+        const la = plen(A), end = R.e === 's' ? A[0] : A[A.length - 1];
+        const cr = crossings(A, B).filter(c => (R.e === 's' ? c.sa : la - c.sa) < la * 0.6);
+        if (cr.length) {
+          const over = Math.min(...cr.map(c => (R.e === 's' ? c.sa : la - c.sa)));
+          const lim = R.key ? L.key : L.protrude;
+          if (lim && over > lim) add(L.rel, `${na}が ${nb}から ${R.key ? '出ないように 書こう' : 'はみ出して いるよ'}`, aw[ia].src, aw[ib].src);
+        } else {
+          const gap = pointPoly(end, B).d;
+          if (L.gap && gap > L.gap) add(gap > L.gapX ? 'x' : 'tip', `${na}を ${nb}に くっつけよう`, aw[ia].src, aw[ib].src);
+        }
+      }
+    }
+  }
+
+  /* 7. ながさの バランス（字が かわる ところ） */
+  if (L.len !== 'off' && !issues.some(i => i.sev === 'x')) {
+    for (const [s, l] of ref.rules.len || []) {
+      const is = byRef[s - 1], il = byRef[l - 1];
+      if (is == null || il == null) continue;
+      const ratio = plen(bodies[il]) / Math.max(plen(bodies[is]), 1);
+      if (ratio < L.lenRatio) add(L.len, `${kanum(l)}を ${kanum(s)}より ながく 書こう`, aw[il].src, aw[is].src);
+    }
+  }
+  return finish(!issues.some(i => i.sev === 'x'));
+
+  function finish(ok) {
+    const sorted = issues.filter((x, i, a) => a.findIndex(y => y.msg === x.msg) === i).sort((a, b) => (a.sev === 'x' ? 0 : 1) - (b.sev === 'x' ? 0 : 1));
+    return { ok, issues: sorted, map: aw.map((w, i) => ({ src: w.src, ref: m ? m[i] : null })), detail, transform: T };
+  }
+}
+const uniq = a => [...new Set(a)];
+/* 書いた 線と お手本の「はじめ→おわり」の むきの ちがい（度）。まがった 線は 見ない */
+function chordAngle(body, rs, reversed) {
+  const a = body[0], b = body[body.length - 1], ra = rs.pts[0], rb = rs.pts[rs.pts.length - 1];
+  const dl = Math.hypot(b[0] - a[0], b[1] - a[1]), rl = Math.hypot(rb[0] - ra[0], rb[1] - ra[1]);
+  if (dl < 8 || rl < 8 || rl < rs.len * 0.5 || dl < plen(body) * 0.5) return 0;
+  let v = unit([b[0] - a[0], b[1] - a[1]]); if (reversed) v = [-v[0], -v[1]];
+  return angDeg(v, unit([rb[0] - ra[0], rb[1] - ra[1]]));
+}
+const lastSeg = rs => dist(rs.pts[rs.pts.length - 1], rs.pts[rs.pts.length - 2]);
+
+/* ---------- もんだい（例文は オリジナル。ひらがなの ところが 書く ところ） ----------
+   w：[[漢字, よみ]...]  oku：書かずに 見せる おくりがな  o：[漢字, よみ, おくりがな]（どこまで 漢字か を えらぶ） */
+const QUESTIONS = [
+  { pre: 'こたえが ', w: [['合', 'あ']], oku: 'う', post: '。' },
+  { pre: '', w: [['雪', 'ゆき']], post: 'だるまを つくる。' },
+  { pre: '', w: [['顔', 'かお']], post: 'を あらう。' },
+  { pre: '', w: [['弟', 'おとうと']], post: 'の ぼうし。' },
+  { pre: '', w: [['妹', 'いもうと']], post: 'に えほんを よむ。' },
+  { pre: 'ふみ', w: [['台', 'だい']], post: 'に のる。' },
+  { pre: '', w: [['絵', 'え']], post: 'を かざる。' },
+  { pre: '', w: [['工', 'こう']], post: 'じょうの えんとつ。' },
+  { pre: '', w: [['北', 'きた']], post: 'かぜが ふく。' },
+  { pre: 'つなを ', w: [['引', 'ひ']], oku: 'く', post: '。' },
+  { pre: 'ハートの ', w: [['形', 'かたち']], post: '。' },
+  { pre: 'まどの ', w: [['内', 'うち']], post: 'がわ。' },
+  { pre: '', w: [['海', 'うみ']], post: 'で つりを する。' },
+  { pre: '', w: [['大', 'たい'], ['切', 'せつ']], post: 'な たからもの。' },
+  { pre: 'きみは ', w: [['天', 'てん'], ['才', 'さい']], post: 'だね。' },
+  { pre: '', w: [['国', 'こく'], ['語', 'ご']], post: 'の きょうかしょ。' },
+  { pre: '', w: [['地', 'ち'], ['図', 'ず']], post: 'で みちを しらべる。' },
+  { pre: '', w: [['一', 'いち'], ['万', 'まん'], ['円', 'えん']], post: 'さつ。' },
+  { pre: '', o: ['楽', 'たの', 'しい'], post: ' えんそく。' },
+  { pre: 'ごはんを ', o: ['食', 'た', 'べる'], post: '。' },
+  { pre: 'いぬと ', o: ['歩', 'ある', 'く'], post: '。' },
+  { pre: 'うんどうかいで ', o: ['走', 'はし', 'る'], post: '。' },
+  { pre: 'バスが ', o: ['止', 'と', 'まる'], post: '。' },
+  { pre: 'ノートを ', o: ['広', 'ひろ', 'げる'], post: '。' },
+  { pre: 'がっこうが ', o: ['近', 'ちか', 'い'], post: '。' },
+];
+/* もんだいの 書く 字の ならび */
+const qKanji = q => (q.o ? [[q.o[0], q.o[1]]] : q.w);
+const KANJI = [...new Set(QUESTIONS.flatMap(q => qKanji(q).map(w => w[0])))];
+
+G.KanjiLogic = { RAW, RULES, LEVELS, QUESTIONS, KANJI, qKanji, getRef, judge, findHook, kinetics, endStyle, resample, plen, crossings, hungarian, chamfer };
+})(typeof window !== 'undefined' ? window : globalThis);
+// ==/LOGIC==
+
+/* ===== 画面 ===== */
+(function () {
+'use strict';
+const K = window.KanjiLogic;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const KEY = 'kanjiTashikame.v1';
+const INK = '#2a3550', RED = '#e0393e', AMBER = '#f2a516';
+
+/* ---------- きろく（この 端末の ブラウザに 保存） ---------- */
+let mem = load();
+function load() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { d = null; }
+  return Object.assign({ level: 'normal', debug: false, trace: false, stats: {} }, d || {});
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(mem)); } catch (e) { /* 保存 できなくても つかえる */ } }
+function record(ch, ok) {
+  const s = mem.stats[ch] || (mem.stats[ch] = { n: 0, ok: 0, last: null });
+  s.n++; if (ok) s.ok++; s.last = ok; save();
+}
+function weakList() {
+  return K.KANJI.filter(ch => { const s = mem.stats[ch]; return s && (s.last === false || (s.n >= 2 && s.ok / s.n < 0.5)); });
+}
+
+const LV_NOTE = {
+  easy: 'だいたいの 形が あって いれば 〇。書きじゅんや はねは アドバイスだけ。',
+  normal: 'テストに ちかい 見かた。ばしょ・画数・はね・出る／出ない・ながさの バランスを 見るよ。書きじゅんは アドバイス。',
+  strict: '書きじゅん・むき・とめ・はらい・すきま まで ぜんぶ 見るよ。ていねいに 書く れんしゅうに。',
+};
+
+/* ---------- 画面の きりかえ ---------- */
+const SCREENS = ['home', 'pick', 'write', 'result', 'teacher'];
+function show(id) {
+  SCREENS.forEach(s => { $(s).hidden = s !== id; });
+  window.scrollTo(0, 0);
+  if (id === 'home') renderHome();
+  if (id === 'pick') renderPick();
+  if (id === 'teacher') renderTeacher();
+  if (id === 'write') requestAnimationFrame(layoutPad);
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-go]');
+  if (!b) return;
+  const g = b.dataset.go;
+  if (g === 'test') startTest();
+  else if (g === 'weak') { const w = weakList(); if (w.length) startPractice(w, 'home'); }
+  else show(g);
+});
+
+/* ---------- ホーム ---------- */
+function renderHome() {
+  document.querySelectorAll('#levelSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lv === mem.level)));
+  $('levelNote').textContent = LV_NOTE[mem.level];
+  const w = weakList();
+  $('weakCount').textContent = w.length ? `いま ${w.length}字：${w.join(' ')}` : 'いまは ありません';
+}
+$('levelSeg').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  mem.level = b.dataset.lv; save(); renderHome();
+});
+
+/* ---------- 1字 えらぶ ---------- */
+function renderPick() {
+  $('pickGrid').innerHTML = K.KANJI.map(ch => {
+    const s = mem.stats[ch];
+    const m = !s ? '' : s.last ? '<small class="s-ok">〇</small>' : '<small class="s-ng">●</small>';
+    return `<button data-ch="${ch}">${ch}${m}</button>`;
+  }).join('');
+}
+$('pickGrid').addEventListener('click', e => {
+  const b = e.target.closest('button[data-ch]');
+  if (b) startPractice([b.dataset.ch], 'pick');
+});
+
+/* ---------- れんしゅうの ながれ ---------- */
+let S = null;   // { kind, items, i, ki, phase, first:{}, okuOk:{}, okuMiss, back, last }
+function testItems() {
+  return K.QUESTIONS.map((q, qi) => ({ q, qi, write: K.qKanji(q).map(([ch, y]) => ({ ch, y })), needOku: !!q.o }));
+}
+function itemFor(ch) {
+  const qi = K.QUESTIONS.findIndex(q => K.qKanji(q).some(w => w[0] === ch)), q = K.QUESTIONS[qi];
+  const y = K.qKanji(q).find(w => w[0] === ch)[1];
+  return { q, qi, write: [{ ch, y }], only: ch, needOku: false };
+}
+function startTest() {
+  S = { kind: 'test', items: testItems(), i: 0, ki: 0, first: {}, okuOk: {}, back: 'home' };
+  show('write'); enterItem();
+}
+function startPractice(list, back) {
+  S = { kind: 'practice', items: list.map(itemFor), i: 0, ki: 0, first: {}, okuOk: {}, back };
+  show('write'); enterItem();
+}
+const curItem = () => S.items[S.i];
+const curWrite = () => curItem().write[S.ki];
+const wkey = () => `${S.i}-${S.ki}`;
+
+function enterItem() {
+  S.ki = 0; S.okuMiss = 0;
+  S.phase = curItem().needOku ? 'oku' : 'write';
+  enterStep();
+}
+function enterStep() {
+  S.last = null;
+  pad.strokes = []; pad.cur = null; pad.locked = S.phase !== 'write';
+  $('mark').classList.remove('show');
+  $('fb').hidden = true; $('dbg').hidden = true;
+  $('overWrap').hidden = true; $('overChk').checked = false;
+  $('prog').textContent = `${S.i + 1} / ${S.items.length}` + (S.kind === 'test' ? '　テスト' : '　れんしゅう');
+  $('lvChip').textContent = `きびしさ：${K.LEVELS[mem.level].name}`;
+  $('okuPanel').hidden = S.phase !== 'oku';
+  $('tools').hidden = S.phase !== 'write';
+  $('padcol').hidden = S.phase !== 'write';
+  /* お手本は、れんしゅうでは いつでも、テストでは 書いた あとだけ 見られる */
+  const showModel = S.phase === 'write' && S.kind === 'practice';
+  $('modelPanel').hidden = !showModel;
+  $('traceWrap').hidden = S.kind !== 'practice';
+  $('traceChk').checked = !!mem.trace && S.kind === 'practice';
+  if (showModel) drawModel();
+  renderQ();
+  if (S.phase === 'oku') renderOku();
+  layoutPad();
+}
+
+/* もんだい文 */
+function renderQ() {
+  const it = curItem(), q = it.q, judged = !!S.last;
+  const box = (k, ch, y) => {
+    let cls = 'bx', inner = '', mk = '';
+    const key = `${S.i}-${k}`;
+    if (k < S.ki || (k === S.ki && judged)) {
+      const ok = k < S.ki ? S.first[key] : S.last.ok;
+      cls += ok ? ' ok' : ' ng'; inner = ch; mk = ok ? '<span class="mk">〇</span>' : '';
+    } else if (k === S.ki && S.phase === 'write') cls += ' now';
+    return `<span class="${cls}"><span class="yomi">${esc(y)}</span>${inner}${mk}</span>`;
+  };
+  let html = esc(q.pre);
+  if (q.o) {
+    const [ch, y, oku] = q.o;
+    html += S.phase === 'oku' ? `<span class="ul">${esc(y + oku)}</span>` : `<span class="tg">${box(0, ch, y)}</span>${esc(oku)}`;
+  } else {
+    let k = 0;
+    html += '<span class="tg">' + q.w.map(([ch, y]) => (it.only && ch !== it.only) ? `<span>${ch}</span>` : box(k++, ch, y)).join('') + '</span>';
+    if (q.oku) html += esc(q.oku);
+  }
+  html += esc(q.post);
+  $('qtext').innerHTML = html;
+  const w = curWrite();
+  $('qhint').textContent = S.phase === 'oku'
+    ? '線の ところを、かん字と おくりがなで 書くよ。まず、どこまでが かん字かな？'
+    : `「${w.y}」を かん字で 書こう` + (it.write.length > 1 ? `（${S.ki + 1}字目）` : '');
+}
+
+/* おくりがな：どこまでが かん字か えらぶ */
+function renderOku(sel) {
+  const [, y, oku] = curItem().q.o, all = [...(y + oku)], right = y.length;
+  let tiles = '';
+  all.forEach((c, i) => {
+    if (i > 0) tiles += `<button class="gap${sel === i ? ' sel' : ''}" data-g="${i}" aria-label="${all.slice(0, i).join('')} まで"></button>`;
+    tiles += `<span class="ch${sel != null && i < sel ? ' kan' : ''}">${c}</span>`;
+  });
+  let msg = '', btn = '';
+  if (sel != null && sel === right) msg = `せいかい！「${esc(y)}」を かん字で 書くよ。`;
+  else if (sel != null && S.okuMiss >= 2) {
+    msg = `こたえは「${esc(y)}｜${esc(oku)}」。「${esc(y)}」を かん字で 書くよ。`;
+    btn = '<button class="btn primary" id="okuNext">書く</button>';
+  } else if (sel != null) msg = 'ちがうよ。もういちど かんがえよう。';
+  $('okuPanel').innerHTML = `<div class="say">かん字で 書くのは どこまで？ 線を タップしてね。</div><div class="tiles">${tiles}</div><div class="say">${msg}</div>${btn}`;
+  if (sel === right) setTimeout(() => { if (S && S.phase === 'oku') { S.phase = 'write'; enterStep(); } }, 1100);
+}
+$('okuPanel').addEventListener('click', e => {
+  if (e.target.id === 'okuNext') { S.phase = 'write'; enterStep(); return; }
+  const g = e.target.closest('.gap');
+  if (!g || S.phase !== 'oku') return;
+  const sel = +g.dataset.g, right = curItem().q.o[1].length;
+  if (!(S.i in S.okuOk)) S.okuOk[S.i] = sel === right;
+  if (sel !== right) S.okuMiss++;
+  renderOku(sel);
+});
+
+/* ---------- 書く わく ---------- */
+const pad = { strokes: [], cur: null, size: 300, locked: false, rect: null };
+const ink = $('ink'), guide = $('guide');
+const dpr = () => Math.min(window.devicePixelRatio || 1, 3);
+function layoutPad() {
+  if ($('write').hidden) return;
+  const narrow = window.innerWidth <= 820;
+  const top = $('qtext').getBoundingClientRect().bottom + 30;
+  const availH = window.innerHeight - Math.max(top, 160) - 90;
+  const availW = narrow ? window.innerWidth - 40 : Math.min(window.innerWidth - 32 - 380, 560);
+  const s = Math.round(Math.max(240, Math.min(availW, narrow ? 520 : availH, 560)));
+  pad.size = s;
+  $('pad').style.width = $('pad').style.height = s + 'px';
+  for (const c of [ink, guide]) { c.width = c.height = Math.round(s * dpr()); }
+  drawGuide(); drawInk();
+}
+window.addEventListener('resize', () => requestAnimationFrame(layoutPad));
+function ctxOf(c) { const x = c.getContext('2d'); x.setTransform(dpr(), 0, 0, dpr(), 0, 0); return x; }
+
+function drawGuide() {
+  const c = ctxOf(guide), s = pad.size;
+  c.clearRect(0, 0, s, s);
+  c.save(); c.strokeStyle = '#f3c3b0'; c.lineWidth = 1.5; c.setLineDash([7, 7]);
+  c.beginPath(); c.moveTo(s / 2, 8); c.lineTo(s / 2, s - 8); c.moveTo(8, s / 2); c.lineTo(s - 8, s / 2); c.stroke(); c.restore();
+  if (S && S.phase === 'write' && $('traceChk').checked) drawGlyph(c, curWrite().ch, s, 'rgba(42,53,80,.13)');
+}
+/* Klee One の 字を、お手本データと おなじ おき方（字の 中心を わくの 中心・高さ 90%）で かく */
+function drawGlyph(c, ch, s, color) {
+  c.save(); c.fillStyle = color; c.font = `600 ${s * 0.9}px "Klee One"`; c.textBaseline = 'alphabetic'; c.textAlign = 'left';
+  const m = c.measureText(ch);
+  const x = s / 2 - (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2;
+  const y = s / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
+  c.fillText(ch, x, y); c.restore();
+}
+function strokePath(c, pts) { c.beginPath(); pts.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]))); c.stroke(); }
+function drawInk(colors) {
+  const c = ctxOf(ink), s = pad.size;
+  c.clearRect(0, 0, s, s);
+  c.lineCap = 'round'; c.lineJoin = 'round'; c.lineWidth = s * 0.045;
+  const all = pad.cur ? pad.strokes.concat([pad.cur]) : pad.strokes;
+  all.forEach((st, k) => {
+    c.strokeStyle = (colors && colors[k]) || INK;
+    const pts = st.pts.map(p => [p.x * s / 100, p.y * s / 100]);
+    if (pts.length === 1) pts.push([pts[0][0] + 0.1, pts[0][1]]);
+    strokePath(c, pts);
+  });
+  /* お手本を じぶんの 字の 大きさ・ばしょに あわせて うえに かさねる */
+  if (S && S.last && S.last.transform && $('overChk').checked) {
+    const T = S.last.transform, map = p => [(p[0] - T.tx) / T.sx * s / 100, (p[1] - T.ty) / T.sy * s / 100];
+    drawRef(c, curWrite().ch, s, { map, width: s * 0.018, color: () => 'rgba(52,120,229,.85)', numbers: true, numR: 0.03 });
+  }
+}
+function pt(ev) {
+  const r = pad.rect;
+  return { x: (ev.clientX - r.left) / r.width * 100, y: (ev.clientY - r.top) / r.height * 100, t: ev.timeStamp, p: ev.pressure };
+}
+ink.addEventListener('pointerdown', e => {
+  if (pad.locked || pad.cur) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  e.preventDefault();
+  try { ink.setPointerCapture(e.pointerId); } catch (err) { /* なくても 書ける */ }
+  pad.rect = ink.getBoundingClientRect();
+  pad.cur = { id: e.pointerId, type: e.pointerType, pts: [pt(e)], up: null };
+  drawInk();
+});
+ink.addEventListener('pointermove', e => {
+  if (!pad.cur || e.pointerId !== pad.cur.id) return;
+  e.preventDefault();
+  const evs = (e.getCoalescedEvents && e.getCoalescedEvents()) || [];
+  for (const ev of evs.length ? evs : [e]) pad.cur.pts.push(pt(ev));
+  drawInk();
+});
+function endStroke(e) {
+  if (!pad.cur || e.pointerId !== pad.cur.id) return;
+  pad.cur.up = e.timeStamp;
+  pad.strokes.push(pad.cur); pad.cur = null; drawInk();
+}
+ink.addEventListener('pointerup', endStroke);
+ink.addEventListener('pointercancel', endStroke);
+ink.addEventListener('lostpointercapture', endStroke);
+ink.addEventListener('touchstart', e => e.preventDefault(), { passive: false });   // iPad の スクロール・ズームを とめる
+
+$('undoBtn').addEventListener('click', () => { if (pad.locked) return; pad.strokes.pop(); drawInk(); });
+$('clearBtn').addEventListener('click', () => { if (pad.locked) return; pad.strokes = []; drawInk(); });
+$('doneBtn').addEventListener('click', onDone);
+$('quitBtn').addEventListener('click', () => { const back = S ? S.back : 'home'; S = null; show(back); });
+$('traceChk').addEventListener('change', () => { mem.trace = $('traceChk').checked; save(); drawGuide(); });
+$('overChk').addEventListener('change', () => (S && S.last ? paintIssues(S.last) : drawInk()));
+
+/* ---------- はんてい ---------- */
+function onDone() {
+  if (pad.locked) return;
+  if (!pad.strokes.length) { $('qhint').textContent = 'わくの 中に 字を 書いてから「できた！」を おしてね'; return; }
+  const w = curWrite(), res = K.judge(w.ch, pad.strokes, mem.level);
+  S.last = res; pad.locked = true;
+  const firstTry = !(wkey() in S.first);
+  if (firstTry) S.first[wkey()] = res.ok;
+  if (S.kind === 'practice' || firstTry) record(w.ch, res.ok);
+  $('mark').classList.toggle('show', res.ok);
+  paintIssues(res);
+  renderQ();
+  renderFeedback(res);
+  $('modelPanel').hidden = false; $('overWrap').hidden = false;
+  drawModel();
+  if (mem.debug) renderDebug(res);
+  $('tools').hidden = true;
+  if (window.innerWidth <= 820) $('fb').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function paintIssues(res, only) {
+  const colors = [];
+  const list = only == null ? res.issues : [res.issues[only]];
+  list.forEach(is => {
+    is.hi.forEach(k => { if (colors[k] !== RED) colors[k] = is.sev === 'x' ? RED : AMBER; });
+    is.rel.forEach(k => { if (!colors[k]) colors[k] = AMBER; });
+  });
+  drawInk(colors);
+}
+function renderFeedback(res) {
+  const xs = res.issues.filter(i => i.sev === 'x'), tips = res.issues.filter(i => i.sev === 'tip');
+  const title = res.ok ? (tips.length ? '〇 できた！' : '〇 よく できました！') : 'おしい！';
+  const lead = res.ok ? (tips.length ? 'もっと よく なる ポイント（〇の ままです）' : '') : '赤い 線を なおそう';
+  const items = res.issues.slice(0, 4).map((is, n) => `<li class="${is.sev}" data-n="${n}"><i>${is.sev === 'x' ? 'なおす' : 'ポイント'}</i><span>${esc(is.msg)}</span></li>`).join('');
+  const last = S.i === S.items.length - 1 && S.ki === curItem().write.length - 1;
+  const next = `<button class="btn ${res.ok ? 'primary' : 'ghost'}" id="nextBtn">${last ? 'おわる' : 'つぎへ'}</button>`;
+  const again = `<button class="btn ${res.ok ? 'ghost' : 'primary'}" id="againBtn">もういちど 書く</button>`;
+  $('fb').innerHTML = `<h3 class="${res.ok ? 'good' : 'oops'}">${title}</h3>${lead ? `<div class="note" style="margin-bottom:8px">${lead}</div>` : ''}<ul>${items}</ul><div class="acts">${res.ok ? next + again : again + next}</div>`;
+  $('fb').hidden = false;
+}
+$('fb').addEventListener('click', e => {
+  if (e.target.id === 'againBtn') { const keep = S.phase; S.phase = keep; enterStep(); if (S.kind === 'test') { $('modelPanel').hidden = false; drawModel(); } return; }
+  if (e.target.id === 'nextBtn') { advance(); return; }
+  const li = e.target.closest('li[data-n]');
+  if (li && S.last) {
+    const n = +li.dataset.n, on = li.classList.toggle('focus');
+    $('fb').querySelectorAll('li').forEach(x => { if (x !== li) x.classList.remove('focus'); });
+    paintIssues(S.last, on ? n : null);
+  }
+});
+function advance() {
+  if (S.ki < curItem().write.length - 1) { S.ki++; S.phase = 'write'; enterStep(); return; }
+  if (S.i < S.items.length - 1) { S.i++; enterItem(); return; }
+  finish();
+}
+function renderDebug(res) {
+  const cols = ['ref', 'drawn', 'mean', 'max', 'rev', 'hook', 'extraHook', 'ratio', 'dwell', 'pr', 'end'];
+  const T = res.transform;
+  $('dbg').innerHTML = `<div class="note">画ごとの ずれ（100×100 の わく）・はね（ながさ）・ratio：書きおわりの はやさ ÷ まんなかの はやさ・dwell：とまって いた ミリ秒・end：1 はらい／-1 とめ</div>
+    <table><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr>${res.detail.map(d => `<tr>${cols.map(c => `<td>${d[c] == null ? '' : d[c]}</td>`).join('')}</tr>`).join('')}</table>
+    <div class="note">あわせかた：sx ${T ? T.sx.toFixed(2) : '-'} sy ${T ? T.sy.toFixed(2) : '-'}　きびしさ ${K.LEVELS[mem.level].name}</div>`;
+  $('dbg').hidden = false;
+}
+
+/* ---------- お手本 ---------- */
+function refPath(st) {
+  const pts = st.pts.map(p => p.slice());
+  if (st.end === 'h') { const e = pts[pts.length - 1]; pts.push([e[0] + st.dir[0] * 7, e[1] + st.dir[1] * 7]); }
+  return pts;
+}
+function partial(pts, frac) {
+  const total = K.plen(pts) * frac, out = [pts[0]];
+  let acc = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    if (acc + l >= total) { const t = l ? (total - acc) / l : 0; out.push([pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * t, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * t]); return out; }
+    out.push(pts[i]); acc += l;
+  }
+  return out;
+}
+/* o：{ map, upto, frac, width, color(k), numbers } */
+function drawRef(c, ch, s, o = {}) {
+  const ref = K.getRef(ch), map = o.map || (p => [p[0] * s / 100, p[1] * s / 100]);
+  const upto = o.upto == null ? ref.strokes.length : o.upto;
+  c.save(); c.lineCap = 'round'; c.lineJoin = 'round'; c.lineWidth = o.width || s * 0.06;
+  for (let k = 0; k < upto; k++) {
+    let pts = refPath(ref.strokes[k]);
+    if (k === upto - 1 && o.frac != null && o.frac < 1) pts = partial(pts, o.frac);
+    c.strokeStyle = o.color ? o.color(k) : INK;
+    strokePath(c, pts.map(map));
+  }
+  if (o.numbers) {
+    const r = Math.max(8, s * (o.numR || 0.045));
+    c.font = `900 ${r * 1.25}px "Zen Maru Gothic", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    for (let k = 0; k < upto; k++) {
+      const [x, y] = map(ref.strokes[k].pts[0]);
+      c.fillStyle = k === upto - 1 && o.frac != null && o.frac < 1 ? '#f08a24' : '#e0393e';
+      c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#fff'; c.fillText(String(k + 1), x, y + 1);
+    }
+  }
+  c.restore();
+}
+let animId = 0;
+function animateRef(cv, ch) {
+  const id = ++animId, s = cv.width, c = cv.getContext('2d'), ref = K.getRef(ch);
+  const durs = ref.strokes.map(st => 300 + K.plen(refPath(st)) * 10), gapMs = 250;
+  let k = 0, t0 = performance.now();
+  const frame = now => {
+    if (id !== animId) return;
+    let el = now - t0;
+    while (k < durs.length && el > durs[k] + gapMs) { t0 += durs[k] + gapMs; el -= durs[k] + gapMs; k++; }
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, s, s);
+    drawRef(c, ch, s, { color: () => '#e6e1d6' });
+    if (k < durs.length) {
+      drawRef(c, ch, s, { upto: k + 1, frac: Math.min(1, el / durs[k]), color: j => (j === k ? '#f08a24' : INK), numbers: true, numR: 0.065 });
+      requestAnimationFrame(frame);
+    } else drawRef(c, ch, s, { numbers: true, numR: 0.065 });
+  };
+  requestAnimationFrame(frame);
+}
+function drawModel() {
+  animId++;
+  const cv = $('modelCv'), c = cv.getContext('2d'), ch = curWrite().ch;
+  c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, cv.width, cv.height);
+  drawRef(c, ch, cv.width, { numbers: true, numR: 0.065 });
+  $('modelNote').textContent = `${ch}（${K.getRef(ch).strokes.length}かく）`;
+}
+$('animBtn').addEventListener('click', () => animateRef($('modelCv'), curWrite().ch));
+
+/* ---------- おわり ---------- */
+function finish() {
+  const items = S.items;
+  const rows = items.map((it, i) => {
+    const ok = it.write.every((w, k) => S.first[`${i}-${k}`]) && (!it.needOku || S.okuOk[i]);
+    return { it, i, ok };
+  });
+  const okN = rows.filter(r => r.ok).length;
+  S.wrong = [...new Set(rows.filter(r => !r.ok).flatMap(r => r.it.write.filter((w, k) => !S.first[`${r.i}-${k}`] || (r.it.needOku && !S.okuOk[r.i])).map(w => w.ch)))];
+  $('scoreBig').textContent = S.kind === 'test' ? `${okN * 4}てん` : `${okN} / ${items.length} 〇`;
+  $('qlist').innerHTML = rows.map(r => {
+    const word = r.it.write.map(w => w.ch).join('') + (r.it.q.o ? r.it.q.o[2] : '');
+    return `<div><span class="${r.ok ? 'm' : 'ngm'}">${r.ok ? '〇' : '●'}</span>${S.kind === 'test' ? `${r.i + 1}. ` : ''}${esc(word)}</div>`;
+  }).join('');
+  $('retryWrong').hidden = !S.wrong.length;
+  show('result');
+}
+$('retryWrong').addEventListener('click', () => { if (S && S.wrong && S.wrong.length) startPractice(S.wrong, 'home'); });
+
+/* ---------- せんせいへ ---------- */
+function renderTeacher() {
+  $('dbgChk').checked = !!mem.debug;
+  const box = $('refs');
+  if (!box.children.length) {
+    box.innerHTML = K.KANJI.map(ch => `<canvas width="240" height="240" data-ch="${ch}" aria-label="${ch}の 書きじゅん"></canvas>`).join('');
+    box.querySelectorAll('canvas').forEach(cv => drawRef(cv.getContext('2d'), cv.dataset.ch, 240, { numbers: true, numR: 0.06 }));
+  }
+}
+$('refs').addEventListener('click', e => { const cv = e.target.closest('canvas'); if (cv) animateRef(cv, cv.dataset.ch); });
+$('dbgChk').addEventListener('change', () => { mem.debug = $('dbgChk').checked; save(); });
+$('resetBtn').addEventListener('click', () => { if (window.confirm('この 端末の きろくを ぜんぶ けしますか？')) { mem.stats = {}; save(); } });
+
+/* フォントが よみこまれたら お手本を かきなおす */
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!$('write').hidden) drawGuide(); });
+show('home');
+})();
+</script>
+</body>
+</html>
