@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#f07a4a">
 <meta name="description" content="新学期の じこしょうかい・学期ごとの めあて・運動会・音楽発表会・1年の ふりかえり・しょうじょう・係カード など、節目に 子どもが 書いて 色を ぬって 完成させる 白黒の カード（低学年・高学年 各5しゅるい）を A4 で いんさつ。">
-<title>めあてカード ― たのしい プリント こうぼう</title>
+<title>めあてカード ― プリント＆カード こうぼう</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One:wght@600&family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@500;700&display=swap">
@@ -29,6 +29,9 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui-font); }
 .ui-ic svg { width: 100%; height: 100%; }
 img.e3d { height: 1.15em; width: 1.15em; vertical-align: -.22em; object-fit: contain; }
 .apptabs a.on { background: #fff; color: var(--accent); border-color: #fff; }
+.logo a { color: inherit; text-decoration: none; }
+.back { display: block; text-decoration: none; color: #7a3a07; background: #ffe0c7; font: 700 13px var(--ui-font); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
+.back:hover { filter: brightness(.96); }
 
 .layout { display: grid; grid-template-columns: 210px 1fr; min-height: calc(100vh - 52px); }
 .side { border-right: 1px solid var(--line); background: #fffdf9; padding: 12px; overflow-y: auto; max-height: calc(100vh - 52px); position: sticky; top: 0; }
@@ -106,16 +109,16 @@ img.e3d { height: 1.15em; width: 1.15em; vertical-align: -.22em; object-fit: con
 <body>
 
 <header class="top">
-  <h1 class="logo">🖨️ たのしい プリント こうぼう</h1>
+  <h1 class="logo"><a href="index.html">🖨️ プリント＆カード こうぼう</a></h1>
   <p class="lead">めあてカード：節目に 書く カードを えらんで A4 で いんさつ。白黒なので、さいごに 子どもが 色を ぬって 完成させます。</p>
-  <nav class="apptabs" aria-label="こうぼう">
-    <a href="index.html"><span class="ui-ic" data-ic="printer"></span> プリント</a>
-    <a href="meate.html" class="on" aria-current="page"><span class="ui-ic" data-ic="pencil"></span> めあてカード</a>
+  <nav class="apptabs" aria-label="メニュー">
+    <a href="index.html"><span class="ui-ic" data-ic="sparkle"></span> さがす・えらぶ</a>
   </nav>
 </header>
 
 <div class="layout">
   <aside class="side">
+    <a class="back" href="index.html">← さがす・えらぶ に もどる</a>
     <nav class="cats" id="cats" aria-label="カテゴリ"></nav>
   </aside>
 

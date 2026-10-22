@@ -1,5 +1,6 @@
-/* たのしい プリント ── 画面（えらぶ・せってい・プレビュー・いんさつ）
+/* プリント＆カード こうぼう ── 画面（さがす・えらぶ・せってい・プレビュー・いんさつ）
    ------------------------------------------------------------------
+   # が なければ「さがす」画面、#p=… なら その プリントの 画面。
    じょうたいは URL の # に のせる：
      #p=storymaze&seed=1234&n=1&ans=0&o.story=kuma
    おなじ URL を ひらけば、おなじ プリントが でる。
@@ -9,28 +10,33 @@
     const S = window.PurintoSheets;
     const $ = id => document.getElementById(id);
 
-    /* きょうかの ボタンの アイコン（Phosphor duotone） */
-    const SUBJ_IC = { all: 'sparkle', kokugo: 'book', sansu: 'calculator', seikatsu: 'plant', dotoku: 'heart', taiiku: 'run', zuko: 'palette', cog: 'brain' };
+    const F = window.PurintoFinder;
+    const ITEMS = F.build(S.CATALOG);
     const icons = el => { if (window.PurintoIcons) window.PurintoIcons.fill(el); };
     const emojify = el => { if (window.PurintoEmoji) window.PurintoEmoji.inDom(el); };
     const noEmoji = s => window.PurintoEmoji ? window.PurintoEmoji.strip(s) : s;
 
-    const state = { subject: 'all', entry: S.CATALOG[0], opt: {}, seed: newSeed(), copies: 1, answer: false, showAnswer: true };
+    const state = { entry: S.CATALOG[0], opt: {}, seed: newSeed(), copies: 1, answer: false, showAnswer: true };
+    /* さがす 画面の しぼりこみ（ことば いがいは この たんまつに おぼえる） */
+    const find = { q: '', purpose: '', subject: '', grade: '', month: '' };
+    const NOW_MONTH = new Date().getMonth() + 1;
 
     function newSeed() { return 1 + Math.floor(Math.random() * 999999); }
 
     /* ---------- URL ---------- */
 
+    /** # に プリントが あれば よみこんで true */
     function readHash() {
         const h = new URLSearchParams(location.hash.slice(1));
         const e = S.CATALOG.find(c => c.id === h.get('p'));
-        if (!e) return;
+        if (!e) return false;
         state.entry = e;
         state.seed = Math.max(1, parseInt(h.get('seed'), 10) || newSeed());
         state.copies = Math.min(40, Math.max(1, parseInt(h.get('n'), 10) || 1));
         state.answer = h.get('ans') === '1';
         state.opt = {};
         for (const [k, v] of h) if (k.startsWith('o.')) state.opt[k.slice(2)] = v;
+        return true;
     }
 
     function writeHash() {
@@ -45,26 +51,87 @@
         history.replaceState(null, '', '#' + h.toString());
     }
 
-    /* ---------- メニュー ---------- */
+    /* ---------- さがす 画面 ---------- */
 
-    function renderSubjects() {
-        const nav = $('subjects');
-        const list = [['all', '✨', 'ぜんぶ'], ...Object.entries(S.SUBJECTS).map(([k, v]) => [k, v.icon, v.label])];
-        nav.innerHTML = list.map(([k, ic, lb]) =>
-            `<button type="button" class="subj subj-${k}${state.subject === k ? ' on' : ''}" data-s="${k}"><span class="ui-ic" data-ic="${SUBJ_IC[k] || 'star'}"></span> ${S.esc(lb)}</button>`).join('');
-        /* めあてカード（となりの ページ） */
-        nav.insertAdjacentHTML('beforeend', '<a class="subj subj-meate" href="meate.html" title="めあてカード の ページへ"><span class="ui-ic" data-ic="pencil"></span> めあてカード</a>');
-        icons(nav);
-        nav.querySelectorAll('button').forEach(b => b.onclick = () => { state.subject = b.dataset.s; renderSubjects(); renderCards(); });
+    function loadFind() {
+        try { Object.assign(find, JSON.parse(localStorage.getItem('purinto-find') || '{}'), { q: '' }); } catch (e) { /* なくても うごく */ }
+    }
+    function saveFind() {
+        try { localStorage.setItem('purinto-find', JSON.stringify({ purpose: find.purpose, subject: find.subject, grade: find.grade, month: find.month })); } catch (e) { /* なくても うごく */ }
     }
 
+    const chip = (group, k, label, on) => `<button type="button" class="chip${on ? ' on' : ''}" data-g="${group}" data-k="${S.esc(k)}" aria-pressed="${on}">${label}</button>`;
+
+    function renderFilters() {
+        $('purposes').innerHTML = [{ k: '', icon: '✨', label: 'ぜんぶ', sub: `${ITEMS.length}しゅるい から さがす` }, ...F.PURPOSES].map(p => {
+            const n = p.k ? ITEMS.filter(it => it.purpose === p.k).length : 0;
+            return `<button type="button" class="purpose${find.purpose === p.k ? ' on' : ''}" data-g="purpose" data-k="${p.k}" aria-pressed="${find.purpose === p.k}">
+                <span class="pu-ic">${p.icon}</span><span class="pu-t"><b>${S.esc(p.label)}</b><small>${S.esc(p.sub)}${n ? `（${n}）` : ''}</small></span></button>`;
+        }).join('');
+        $('fSubj').innerHTML = chip('subject', '', 'ぜんぶ', !find.subject) + F.SUBJECTS.map(x => chip('subject', x.k, S.esc(x.label), find.subject === x.k)).join('');
+        $('fGrade').innerHTML = chip('grade', '', 'ぜんぶ', !find.grade) + F.GRADES.map(x => chip('grade', x.k, x.label, find.grade === x.k)).join('');
+        const months = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
+        $('fMonth').innerHTML = chip('month', '', 'いつでも', !find.month) + chip('month', String(NOW_MONTH), `今月（${NOW_MONTH}月）`, find.month === String(NOW_MONTH))
+            + `<select class="chip-sel${find.month && find.month !== String(NOW_MONTH) ? ' on' : ''}" id="fMonthSel" aria-label="月を えらぶ"><option value="">月を えらぶ…</option>${months.map(m => `<option value="${m}"${find.month === String(m) && m !== NOW_MONTH ? ' selected' : ''}>${m}月</option>`).join('')}</select>`;
+        emojify($('purposes'));
+    }
+
+    function tile(it) {
+        const p = F.purposeOf(it.purpose);
+        const gr = it.grades.length === 3 ? '<span class="tg tg-all">1〜6年</span>' : it.grades.map(g => `<span class="tg tg-${g}">${F.GRADES.find(x => x.k === g).label}</span>`).join('');
+        return `<a class="ftile${it.kind === 'meate' ? ' is-card' : ''}" href="${it.href}" data-id="${S.esc(it.id)}">
+            <span class="t-ic">${it.icon}</span>
+            <span class="t-body"><b>${S.esc(noEmoji(it.title))}</b><span class="t-desc">${S.esc(noEmoji(it.desc))}</span>
+            <span class="t-tags">${it.kind === 'meate' ? '<span class="tg tg-card">めあてカード</span>' : ''}${gr}${it.subjects.map(k => `<span class="tg tg-s">${S.esc(F.subjLabel(k))}</span>`).join('')}</span></span></a>`;
+    }
+
+    function renderResults() {
+        const list = F.filter(ITEMS, find);
+        const narrowed = find.q || find.subject || find.grade || find.month;
+        let html = '';
+        if (!narrowed && !find.purpose) {
+            const rec = F.forMonth(ITEMS, NOW_MONTH);
+            if (rec.length) html += `<section class="rsec rec"><h2>🌟 ${NOW_MONTH}月の おすすめ</h2><div class="ftiles">${rec.map(tile).join('')}</div></section>`;
+        }
+        if (narrowed) html += `<p class="rcount">${list.length ? `${list.length}こ みつかりました` : 'みつかりませんでした。ことばを かえるか、しぼりこみを「ぜんぶ」に もどして ください。'}</p>`;
+        for (const p of F.PURPOSES) {
+            const its = list.filter(it => it.purpose === p.k);
+            if (its.length) html += `<section class="rsec"><h2>${p.icon} ${S.esc(p.label)} <small>${S.esc(p.sub)}</small></h2><div class="ftiles">${its.map(tile).join('')}</div></section>`;
+        }
+        $('results').innerHTML = html;
+        emojify($('results'));
+    }
+
+    function initHome() {
+        loadFind();
+        $('q').addEventListener('input', () => { find.q = $('q').value; renderResults(); });
+        $('home').addEventListener('click', e => {
+            const b = e.target.closest('button[data-g]');
+            if (!b) return;
+            const g = b.dataset.g;
+            find[g] = g === 'purpose' && find.purpose === b.dataset.k ? '' : b.dataset.k;
+            saveFind(); renderFilters(); renderResults();
+        });
+        $('home').addEventListener('change', e => {
+            if (e.target.id !== 'fMonthSel') return;
+            find.month = e.target.value;
+            saveFind(); renderFilters(); renderResults();
+        });
+    }
+
+    /* ---------- プリントの 画面の ひだり（おなじ 目的の なかま） ---------- */
+
     function renderCards() {
+        const cur = F.itemOfSheet(ITEMS, state.entry.id);
+        const p = F.purposeOf(cur ? cur.purpose : 'asobu');
+        $('sideHead').innerHTML = `${p.icon} ${S.esc(p.label)}`;
         const box = $('cards');
-        const list = S.CATALOG.filter(c => state.subject === 'all' || c.subject === state.subject);
-        box.innerHTML = list.map(c => `<button type="button" class="card subj-${c.subject}${c.id === state.entry.id ? ' on' : ''}" data-id="${c.id}">
-            <span class="c-icon">${c.icon}</span><span class="c-text"><b>${S.esc(c.title)}</b><small><span class="ui-ic" data-ic="${SUBJ_IC[c.subject]}"></span> ${S.esc(S.SUBJECTS[c.subject].label)}</small><span>${S.esc(noEmoji(c.desc))}</span></span></button>`).join('');
-        emojify(box); icons(box);
-        box.querySelectorAll('.card').forEach(b => b.onclick = () => {
+        box.innerHTML = ITEMS.filter(it => it.purpose === p.k).map(it => it.kind === 'meate'
+            ? `<a class="card card-link" href="${it.href}"><span class="c-icon">${it.icon}</span><span class="c-text"><b>${S.esc(it.title)}</b><small>めあてカード</small></span></a>`
+            : `<button type="button" class="card subj-${S.CATALOG.find(c => c.id === it.id).subject}${it === cur ? ' on' : ''}" data-id="${it.id}">
+            <span class="c-icon">${it.icon}</span><span class="c-text"><b>${S.esc(noEmoji(it.title))}</b><small>${it.subjects.map(F.subjLabel).join('・')}</small></span></button>`).join('');
+        emojify($('sideHead')); emojify(box);
+        box.querySelectorAll('button.card').forEach(b => b.onclick = () => {
             state.entry = S.CATALOG.find(c => c.id === b.dataset.id);
             state.opt = {};
             state.seed = newSeed();
@@ -72,6 +139,24 @@
             if (window.innerWidth < 900) $('panel').scrollIntoView({ behavior: 'smooth' });
         });
     }
+
+    /* ---------- がめんの きりかえ ---------- */
+
+    function route() {
+        const edit = readHash();
+        $('home').hidden = edit;
+        $('editor').hidden = !edit;
+        $('toHome').hidden = !edit;
+        if (edit) {
+            renderCards(); renderPanel(); render();
+        } else {
+            $('q').value = find.q;
+            renderFilters(); renderResults();
+        }
+        window.scrollTo(0, 0);
+    }
+    const goHome = e => { e.preventDefault(); location.hash = ''; };
+    ['back', 'toHome', 'logoLink'].forEach(id => $(id).addEventListener('click', goHome));
 
     /* ---------- せってい ---------- */
 
@@ -134,6 +219,7 @@
 
     /** A4（210mm ≒ 794px）を よこはばに あわせて ちぢめる */
     function fit() {
+        if ($('editor').hidden) return;
         const w = $('previewWrap').clientWidth - 24;
         const base = $('pages').querySelector('.page.land') ? 1140 : 800;
         const z = Math.min(1, w / base);
@@ -168,11 +254,9 @@
 
     emojify(document.querySelector('.top'));
     icons(document);
-    readHash();
-    renderSubjects();
-    renderCards();
-    renderPanel();
-    render();
+    initHome();
+    route();
+    window.addEventListener('hashchange', route);
     /* フォントが よみこまれたら もういちど はかる */
     if (document.fonts) document.fonts.ready.then(fit);
     /* げんこうようしの プリント：句読点・小さい字を フォントに あわせて マスの 右上へ */

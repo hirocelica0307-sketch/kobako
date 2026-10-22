@@ -4,12 +4,12 @@
    ========================================================= */
 const $ = id => document.getElementById(id);
 const GRADE_NAME = { low: '低学年', mid: '中学年', high: '高学年' };
+/* さがす 画面（finder.js）の 目的と おなじ わけかた */
 const CAT_GROUPS = [
-  ['めあて・ふりかえり', ['jiko', 'g1', 'g2', 'g3', 'matome', 'shoujou']],
-  ['ぎょうじ', ['undo', 'ongaku', 'ensoku', 'natsu']],
-  ['がくしゅう・きろく', ['dokusho', 'ganbari', 'nawa']],
-  ['メッセージ・おいわい', ['arigato', 'tanjoubi', 'seicho', 'sotsugyo']],
-  ['かかり', ['kakari', 'ichiran']],
+  ['🌸 めあて・ふりかえり', ['jiko', 'g1', 'g2', 'g3', 'matome', 'seicho']],
+  ['🎈 行事・おいわい', ['undo', 'ongaku', 'ensoku', 'natsu', 'shoujou', 'tanjoubi', 'sotsugyo']],
+  ['🏅 けんてい・チャレンジ', ['dokusho', 'ganbari', 'nawa']],
+  ['🤝 学級づくり・こころ', ['arigato', 'kakari', 'ichiran']],
 ];
 const CAT_ORDER = CAT_GROUPS.flatMap(g => g[1]);
 /* メニューの え（Fluent Emoji 3D。../assets/emoji の がぞうで でる） */
@@ -35,7 +35,7 @@ function loadOpts() {
   else if (h && CATS[h]) S.cat = h;
   if (!CATS[S.cat]) S.cat = 'g1';
   const cur = designById(S.cur);
-  if (!cur || cur.cat !== S.cat) S.cur = DESIGNS.find(d => d.cat === S.cat).id;
+  if (!cur || cur.cat !== S.cat) S.cur = (visible()[0] || DESIGNS.find(d => d.cat === S.cat)).id;
 }
 
 // 先生の カード → ばめんの ある デザイン の じゅんに さきに

@@ -13,6 +13,7 @@
     const K = root.PurintoSakubun || require('./sakubun.js');
     const GK = root.PurintoGenkou || require('./genkou.js');
     const T = root.PurintoTetsubou || require('./tetsubou.js');
+    const KK = root.PurintoKuku || require('./kuku.js');
 
     const SUBJECTS = {
         kokugo: { label: 'こくご', icon: '📖' },
@@ -1092,7 +1093,8 @@
 
     const SHEETS = { kaidan, storymaze: storyMaze, wordsearch: wordSearch, kanjiadd: kanjiAdd, anagram, headquiz: headQuiz, acrostic, dicestory: diceStory,
         calcmaze: calcMaze, magic, pyramid, sudoku, symbols: symbolSearch, dotcopy: dotCopy, diffs, halfpic: halfPic, doodle, bingo, feelings, sugoroku, anone, odailist: odaiList,
-        'genkou-machigai': genkouMachigai, 'genkou-shisha': genkouShisha, 'genkou-check': genkouCheck, tetsubou, kentei };
+        'genkou-machigai': genkouMachigai, 'genkou-shisha': genkouShisha, 'genkou-check': genkouCheck, tetsubou, kentei,
+        ...KK.make({ both, esc, range, pathSvg, G, D }) };
 
     /** メニュー（id は URL に のる ので かえない） */
     const CATALOG = [
@@ -1116,6 +1118,9 @@
         { id: 'magic', sheet: 'magic', subject: 'sansu' },
         { id: 'sudoku', sheet: 'sudoku', subject: 'sansu' },
         { id: 'kentei-sansu', sheet: 'kentei', subject: 'sansu' },
+        /* 九九・かけ算（kuku.js） */
+        ...['kuku-nurie', 'kuku-angou', 'kuku-bingo', 'kake-jintori', 'kuku-hyou', 'kuku-puzzle', 'kuku-meiro', 'kuku-array', 'kuku-cards', 'kuku-sagashi']
+            .map(id => ({ id, sheet: id, subject: 'sansu' })),
         { id: 'bingo-tanken', sheet: 'bingo', subject: 'seikatsu', title: 'たんけん ビンゴ', icon: '🏫', desc: 'がっこう・まち たんけんで みつけた ものに まる。ひとり ずつ ならびが ちがう。', defaults: { theme: 'gakkou' } },
         { id: 'bingo-kisetsu', sheet: 'bingo', subject: 'seikatsu', title: 'きせつ みつけ ビンゴ', icon: '🍁', desc: 'はる・なつ・あき・ふゆの しぜんを さがして ビンゴ。', defaults: { theme: 'aki' } },
         { id: 'bingo-otetsudai', sheet: 'bingo', subject: 'seikatsu', title: 'おてつだい ビンゴ', icon: '🧺', desc: 'おうちの おてつだいで ビンゴ。ながやすみの しゅくだいにも。', defaults: { theme: 'otetsudai', size: '4' } },

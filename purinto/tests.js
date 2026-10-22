@@ -8,6 +8,8 @@
     const TB = root.PurintoTetsubou || require('./tetsubou.js');
     const K = root.PurintoSakubun || require('./sakubun.js');
     const GK = root.PurintoGenkou || require('./genkou.js');
+    const F = root.PurintoFinder || require('./finder.js');
+    const KK = root.PurintoKuku || require('./kuku.js');
 
     function runTests() {
         const rows = [];
@@ -300,6 +302,79 @@
         t('メニューの id が かぶらない', new Set(S.CATALOG.map(c => c.id)).size === S.CATALOG.length);
         t('おなじ たね → おなじ プリント', S.buildSheet(S.CATALOG[1], {}, 99).page === S.buildSheet(S.CATALOG[1], {}, 99).page);
         t('じぶんで いれた もじは エスケープ', !S.buildSheet(S.CATALOG.find(c => c.id === 'acrostic'), { custom: '<b>' }, 1).page.includes('<b>」'));
+
+        /* 九九・かけ算（kuku.js）：どの せっていでも できる ＋ こたえが ただしい */
+        const kukuIds = ['kuku-nurie', 'kuku-angou', 'kuku-bingo', 'kake-jintori', 'kuku-hyou', 'kuku-puzzle', 'kuku-meiro', 'kuku-array', 'kuku-cards', 'kuku-sagashi'];
+        for (const id of kukuIds) {
+            const e = S.CATALOG.find(c => c.id === id), sh = S.SHEETS[e.sheet];
+            let ok = true, err = '';
+            for (const o of sh.options.filter(o => o.type === 'select')) for (const [v] of o.choices) for (let seed = 1; seed <= 4; seed++) {
+                try {
+                    const r = S.buildSheet(e, { [o.key]: v }, seed);
+                    if (!r.page || /undefined|NaN|null/.test(r.page + (r.answer || ''))) { ok = false; err = `${o.key}=${v} seed=${seed}`; }
+                } catch (ex) { ok = false; err = `${o.key}=${v}: ${ex}`; }
+            }
+            t(`九九「${e.title}」：どの せっていでも できる`, ok, err);
+        }
+        const cellsOf = (html, re) => [...html.matchAll(re)];
+        const kk = (id, opt, seed) => S.buildSheet(S.CATALOG.find(c => c.id === id), opt, seed);
+        let kmOk = true;
+        for (let n = 2; n <= 9; n++) for (let seed = 1; seed <= 5; seed++) {
+            const a = kk('kuku-meiro', { dan: String(n) }, seed).answer;
+            for (const [, cls, v] of cellsOf(a, /<div class="cm km([^"]*)">(\d+)/g)) if (cls.includes('cm-ok') !== (+v % n === 0)) kmOk = false;
+        }
+        t('九九：○の だん めいろ ― みちだけが その だんの こたえ', kmOk);
+        let ksOk = true;
+        for (const lv of ['easy', 'mid', 'hard']) for (let seed = 1; seed <= 5; seed++) {
+            for (const [, on, v] of cellsOf(kk('kuku-sagashi', { level: lv }, seed).answer, /<div class="sgc( on)?">(\d+)/g)) if (!!on === KK.KUKU_SET.has(+v)) ksOk = false;
+        }
+        t('九九：でて こない かず ― ○の かずだけ 九九に ない', ksOk);
+        let kaOk = true;
+        for (const dan of ['25', '69', 'all']) for (let seed = 1; seed <= 8; seed++) {
+            const a = kk('kuku-angou', { dan }, seed).answer;
+            const table = new Map(cellsOf(a, /<span class="ag-code"><b>(\d+)<\/b><i>([^<]+)<\/i>/g).map(m => [m[1], m[2]]));
+            if (new Set(table.keys()).size !== table.size) kaOk = false;
+            for (const [, x, y, p, c] of cellsOf(a, /<div class="ag-ex">(\d)×(\d)<\/div><div class="ag-num"><b class="red">(\d+)<\/b><\/div><div class="ag-ch"><b class="red">([^<]+)<\/b>/g)) {
+                if (x * y !== +p || table.get(p) !== c) kaOk = false;
+            }
+            for (const row of a.split('<div class="ag-q">').slice(1)) {
+                const word = cellsOf(row, /<div class="ag-ch"><b class="red">([^<]+)<\/b>/g).map(m => m[1]).join('');
+                if (![...KK.RIDDLES.map(r => r[1]), ...KK.MESSAGES].includes(word)) kaOk = false;
+            }
+        }
+        t('九九：あんごう ― しき・かず・もじ が ひょうと あう', kaOk);
+        let knOk = true;
+        for (let seed = 1; seed <= 6; seed++) {
+            const a = kk('kuku-nurie', { rule: 'list' }, seed).answer;
+            const paint = new Set(cellsOf(a.split('class="kn"')[0], /<span class="kn-chip">(\d+)<\/span>/g).map(m => +m[1]));
+            for (const [, on, x, y, p] of cellsOf(a, /<div class="knc( on)?">(\d)×(\d)<small>(\d+)<\/small>/g)) if (x * y !== +p || !!on !== paint.has(+p)) knOk = false;
+        }
+        t('九九：ぬりえ ― ぬる マスだけ ひょうの かず', knOk);
+        let kpOk = true;
+        for (const level of ['easy', 'mid', 'hard', 'oni']) for (let seed = 1; seed <= 6; seed++) {
+            const q = kk('kuku-puzzle', { level }, seed).page;
+            if ((q.match(/pzc( hd)? hole/g) || []).length < 20) kpOk = false;
+        }
+        t('九九：九九ひょう パズル ― あなが ある', kpOk);
+        t('九九：カードバトル ― 20まい', (kk('kuku-cards', {}, 3).page.match(/class="kcard"/g) || []).length === 20 && (kk('kuku-cards', { dan: '7' }, 3).page.match(/class="kcard"/g) || []).length === 20);
+
+        /* さがす（目的・教科・学年・時期・ことば） */
+        const items = F.build(S.CATALOG);
+        const covered = new Set(items.flatMap(it => [it.id, ...it.also]));
+        t('さがす：ぜんぶの プリントが いちらんに ある', S.CATALOG.every(c => covered.has(c.id)), S.CATALOG.filter(c => !covered.has(c.id)).map(c => c.id).join(' '));
+        t('さがす：id が かぶらない', new Set(items.map(it => it.id)).size === items.length);
+        t('さがす：目的・教科・学年が ただしい', items.every(it => F.purposeOf(it.purpose) && it.subjects.length && it.subjects.every(F.subjLabel) && it.grades.length && it.grades.every(g => F.GRADES.some(x => x.k === g))));
+        t('さがす：月は 1〜12', items.every(it => it.months.every(m => m >= 1 && m <= 12)));
+        t('さがす：めあてカード 19カテゴリ', items.filter(it => it.kind === 'meate').length === 19);
+        const ids = f => F.filter(items, f).map(it => it.id);
+        for (const [q, want] of [['くく', 'kentei'], ['九九', 'kentei'], ['てつぼう', 'tetsubou'], ['鉄棒', 'tetsubou'], ['ナンプレ', 'sudoku'], ['すうどく', 'sudoku'],
+            ['うんどうかい', 'meate:undo'], ['運動会', 'meate:undo'], ['目標', 'meate:g1'], ['2がっき', 'meate:g2'], ['さくぶん', 'anone'], ['かかり', 'meate:kakari'], ['コグトレ', 'diffs'], ['あのね にっき', 'anone']])
+            t(`さがす：「${q}」で ${want} が 見つかる`, ids({ q }).includes(want), ids({ q }).join(' '));
+        t('さがす：みつからない ことば', ids({ q: 'ぷりんとにない' }).length === 0);
+        t('さがす：目的で しぼる', ids({ purpose: 'kaku' }).every(id => items.find(it => it.id === id).purpose === 'kaku') && ids({ purpose: 'kaku' }).length >= 5);
+        t('さがす：学年で しぼる（3・4年に 1・2年だけの ものは 出ない）', !ids({ grade: 'mid' }).includes('anone') && ids({ grade: 'mid' }).includes('anone-mid'));
+        t('さがす：月で しぼる（10月に 運動会、4月に 自己紹介）', ids({ month: '10' }).includes('meate:undo') && ids({ month: '4' }).includes('meate:jiko') && !ids({ month: '4' }).includes('meate:g3'));
+        t('さがす：けんてい（算数の URL）も おなじ ものに', F.itemOfSheet(items, 'kentei-sansu') === F.itemOfSheet(items, 'kentei'));
 
         return rows;
     }
