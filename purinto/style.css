@@ -623,6 +623,95 @@ table.tl { width: 100%; border-collapse: collapse; }
 
 @page { size: A4 portrait; margin: 0; }
 @page land { size: A4 landscape; margin: 0; }
+/* ================= 九九・かけ算（kuku.js） ================= */
+.bx { display: inline-block; width: 10mm; height: 8mm; border: .35mm solid #555; border-radius: 1.2mm; vertical-align: middle; margin: 0 .8mm; text-align: center; line-height: 7.6mm; font-family: var(--ui-font); }
+.bx.w { width: 14mm; }
+.bx.w2 { width: 22mm; }
+.kn-chip { display: inline-block; min-width: 9mm; text-align: center; border: .4mm solid var(--sc); background: var(--sl); border-radius: 99px; padding: .3mm 2mm; margin: .6mm; font: 700 4.4mm var(--ui-font); }
+/* ぬりえ */
+.kn-key { text-align: center; font-size: 4.6mm; }
+.kn-key b { font-size: 6mm; color: var(--sc); }
+.kn { display: grid; border: .8mm solid #333; width: max-content; margin: 0 auto; }
+.knc { border: .25mm solid #888; display: flex; flex-direction: column; align-items: center; justify-content: center; font: 700 4.6mm var(--ui-font); }
+.knc small { font-size: 3mm; color: #d32f2f; }
+.knc.on { background: #9e9e9e; }
+.kn-name { display: flex; align-items: flex-end; gap: 3mm; font-size: 4.6mm; width: 170mm; margin: 0 auto; }
+/* あんごう */
+.ag-table { border: .5mm dashed var(--sc); border-radius: 3mm; padding: 2mm 3mm; }
+.ag-codes { display: flex; flex-wrap: wrap; gap: 1.6mm; }
+.ag-code { display: inline-flex; border: .35mm solid #555; border-radius: 1.5mm; overflow: hidden; font-family: var(--ui-font); }
+.ag-code b { background: var(--sl); padding: .4mm 1.6mm; font-size: 4.2mm; min-width: 8mm; text-align: center; }
+.ag-code i { font-style: normal; padding: .4mm 1.8mm; font-size: 4.6mm; border-left: .35mm solid #555; }
+.ag-q { display: flex; flex-direction: column; gap: 1.5mm; }
+.ag-qt { font-size: 4.6mm; display: flex; gap: 2mm; align-items: center; }
+.ag-row { display: flex; gap: 2mm; flex-wrap: wrap; padding-left: 8mm; }
+.ag-box { width: 21mm; border: .45mm solid #333; border-radius: 2mm; display: flex; flex-direction: column; align-items: stretch; overflow: hidden; }
+.ag-ex { text-align: center; font: 700 4.6mm var(--ui-font); background: var(--sl); padding: .6mm 0; }
+.ag-num { height: 8mm; border-top: .3mm dashed #888; display: flex; align-items: center; justify-content: center; font: 700 4.6mm var(--ui-font); }
+.ag-ch { height: 11mm; border-top: .45mm solid #333; display: flex; align-items: center; justify-content: center; font-size: 7mm; }
+/* ビンゴ */
+.kb { display: grid; border: .8mm solid #333; width: max-content; margin: 0 auto; }
+.kbc { border: .35mm solid #666; display: flex; align-items: center; justify-content: center; font-family: var(--ui-font); font-weight: 700; }
+.kb-pool { text-align: center; }
+.kb-memo { border: .4mm solid #ccc; border-radius: 3mm; padding: 2mm 4mm; }
+.kb-lines { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6mm 4mm; }
+.kb-line { display: flex; align-items: center; font: 700 4.2mm var(--ui-font); }
+.kb-no { width: 6mm; font-size: 3.4mm; color: #888; }
+.kb-calls .sub-h { margin-bottom: 2mm; }
+.kb-call-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1mm 4mm; }
+.kb-call { display: flex; align-items: baseline; gap: 2mm; border-bottom: .25mm dotted #aaa; padding: .6mm 0; font-family: var(--ui-font); }
+.kb-call b { font-size: 5.4mm; width: 14mm; }
+.kb-call span:not(.kb-no) { font-size: 4mm; color: #666; flex: 1; }
+.kb-call i { font-style: normal; font-size: 4.6mm; }
+.kb-note { font-size: 3.6mm; margin: 2mm 0 0; color: #555; }
+/* じんとり */
+.jt { display: grid; border: .8mm solid #333; width: max-content; margin: 0 auto; }
+.jtc { border: .2mm solid #aaa; display: flex; align-items: center; justify-content: center; font-size: 4.5mm; }
+.jtc.rock { background: #bdbdbd; color: #333; }
+.jt-scores { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+.jt-score { display: flex; flex-direction: column; gap: 1mm; font-family: var(--ui-font); }
+.jt-who { display: flex; align-items: flex-end; gap: 2mm; font-size: 4.4mm; font-weight: 700; }
+.jt-score .kb-line { font-size: 3.8mm; }
+.jt-score .bx { height: 6.4mm; line-height: 6mm; }
+.jt-total { font-weight: 700; font-size: 4.4mm; margin-top: 1mm; }
+/* 九九ひょうの ひみつ */
+.hy-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm 6mm; justify-items: center; }
+.hy-h { font-size: 4mm; margin-bottom: 1mm; }
+.hy-grid { display: grid; grid-template-columns: repeat(10, 7.6mm); grid-auto-rows: 7.6mm; border: .6mm solid #333; width: max-content; }
+.hyc { border: .2mm solid #999; display: flex; align-items: center; justify-content: center; font: 700 3.4mm var(--ui-font); }
+.hyc.hd { background: var(--sl); color: var(--sc); font-size: 3.8mm; }
+.hyc.on { background: #9e9e9e; }
+.hy-note { display: flex; align-items: flex-end; gap: 2mm; font-size: 3.6mm; margin-top: 1.5mm; height: 7mm; }
+/* 九九ひょう パズル */
+.pz { display: grid; border: .8mm solid #333; width: max-content; margin: 0 auto; }
+.pzc { border: .25mm solid #999; display: flex; align-items: center; justify-content: center; font: 700 6mm var(--ui-font); }
+.pzc.hd { background: var(--sl); color: var(--sc); font-size: 7mm; }
+.pzc.corner { color: #888; }
+.pzc.hole { background: #fff; box-shadow: inset 0 0 0 .6mm #333; }
+.pzc.hd.hole { background: #fff8d6; }
+/* ○の だん めいろ */
+.cm.km { font-size: 8mm; }
+/* アレイず */
+.arq-list { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+.arq { border: .4mm solid #ccc; border-radius: 3mm; padding: 2mm 3mm; display: flex; flex-direction: column; gap: 2mm; }
+.arq-h { display: flex; align-items: center; gap: 2mm; font-size: 4.2mm; }
+.arq-in { display: flex; flex-direction: column; align-items: center; gap: 2.5mm; }
+.arq-dots { max-height: 40mm; fill: #333; }
+.arq-ls { display: flex; flex-direction: column; gap: 1.6mm; align-self: stretch; }
+.arq-l { font-size: 3.7mm; display: flex; align-items: center; flex-wrap: wrap; }
+/* カードバトル */
+.kcd-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; flex: 1; border-top: .3mm dashed #999; border-left: .3mm dashed #999; }
+.kcard { border-right: .3mm dashed #999; border-bottom: .3mm dashed #999; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+.kcd-corner { position: absolute; top: 2mm; left: 2.5mm; font-size: 3mm; color: var(--sc); font-family: var(--ui-font); }
+.kcd-ex { font: 700 12mm var(--ui-font); letter-spacing: .5mm; }
+.kcd-ex i { font-style: normal; font-size: 8mm; color: var(--sc); margin: 0 1mm; }
+.kcd-ans { position: absolute; bottom: 2mm; right: 3mm; transform: rotate(180deg); font: 700 3.6mm var(--ui-font); color: #999; }
+/* でて こない かず さがし */
+.sg { display: grid; border: .8mm solid #333; width: max-content; margin: 0 auto; }
+.sgc { border: .2mm solid #bbb; display: flex; align-items: center; justify-content: center; font: 700 6.4mm var(--ui-font); }
+.sgc.on { background: #fff59d; box-shadow: inset 0 0 0 .8mm #d32f2f; border-radius: 50%; }
+.sg-found { text-align: center; font-size: 4.6mm; }
+
 @media print {
   html, body { background: #fff; }
   .top, .side, .panel, .toast, .home, .no-print { display: none !important; }
