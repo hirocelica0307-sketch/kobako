@@ -78,14 +78,9 @@ body{
 .ch-cat{background:#FFF1D6;box-shadow:inset 0 0 0 5px var(--gold)}
 .ch.mood-happy img{animation:hop .6s ease-out}
 .ch.mood-oops img{transform:rotate(-14deg) translateY(4px)}
-.badge-no{
-  display:inline-grid;place-items:center;flex:none;width:56px;height:56px;border-radius:50%;
-  background:var(--night);color:#fff;font-weight:900;font-size:24px;line-height:1;
-}
-.badge-no small{display:block;font-size:11px;margin-top:-10px}
 button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
 button:disabled{cursor:default}
-button:focus-visible,input:focus-visible{outline:4px solid var(--gold);outline-offset:3px}
+button:focus-visible{outline:4px solid var(--gold);outline-offset:3px}
 ruby rt{font-family:var(--f-ui);font-weight:700;font-size:.45em;letter-spacing:0}
 h1,h2,h3{text-wrap:balance;margin:0}
 p{margin:0}
@@ -112,13 +107,9 @@ p{margin:0}
 }
 .iconbtn svg{width:20px;height:20px}
 .actions{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
-.toast{
-  position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
-  background:var(--ink);color:#fff;border-radius:999px;padding:10px 22px;font-weight:700;z-index:50;
-}
 
-/* ---------- title / login ---------- */
-.title-screen{display:grid;gap:24px;justify-items:center;padding-top:8px}
+/* ---------- title ---------- */
+.title-screen{display:flex;flex-direction:column;align-items:center;gap:24px;padding-top:8px}
 .trio{display:flex;align-items:flex-end;justify-content:center;gap:4px}
 .trio .bob{animation:bob 2.4s ease-in-out infinite}
 .trio .bob:nth-child(2){animation-delay:.4s}
@@ -134,22 +125,11 @@ p{margin:0}
   padding:20px clamp(14px,3vw,28px);display:grid;gap:16px;
 }
 .panel h2{font-size:22px;font-weight:900;text-align:center}
-.numgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:10px}
-.num{
-  display:grid;place-items:center;gap:0;min-height:72px;padding:6px 4px;
-  border:3px solid var(--line);border-radius:18px;background:var(--surface-2);
-  font-size:26px;font-weight:900;line-height:1.1;
-}
-.num small{font-size:12px;font-weight:700;color:var(--ink-soft);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.num.sel{border-color:var(--night);background:var(--night);color:#fff}
-.num.sel small{color:#fff}
-.namebox{display:grid;gap:12px;justify-items:center;text-align:center}
-.namebox input{
-  font:inherit;font-size:24px;font-weight:700;text-align:center;
-  width:min(100%,360px);padding:10px 14px;border:3px solid var(--line);border-radius:16px;background:var(--surface-2);color:var(--ink);
-}
-.teacher-link{border:none;background:none;color:var(--ink-soft);font-weight:700;font-size:15px;text-decoration:underline;text-underline-offset:4px;padding:8px}
-
+.howto{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.howto li{display:flex;gap:12px;align-items:center;font-weight:700;font-size:18px}
+.howto li .ch{--sz:56px}
+.start-row{display:flex;justify-content:center}
+.btn.big{font-size:26px;padding:16px 48px}
 /* ---------- map ---------- */
 .mapbar{
   display:flex;flex-wrap:wrap;align-items:center;gap:12px;
@@ -157,6 +137,7 @@ p{margin:0}
 }
 .me{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
 .me-text{min-width:0}
+.me-star{flex:none}
 .me-name{font-weight:900;font-size:20px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rank{display:inline-block;background:var(--night);color:#fff;border-radius:999px;padding:1px 12px;font-size:14px;font-weight:700}
 .scrolls{font-weight:700;font-size:15px;color:var(--ink-soft)}
@@ -328,51 +309,6 @@ p{margin:0}
 .petals{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:5}
 .petals img{position:absolute;top:-40px;width:30px;height:30px;opacity:.9;animation:fall linear forwards}
 
-/* ---------- teacher ---------- */
-.gate{display:grid;gap:18px;justify-items:center;padding-top:20px;text-align:center}
-.pinshow{display:flex;gap:12px}
-.pinshow i{width:22px;height:22px;border-radius:50%;border:3px solid var(--night)}
-.pinshow i.f{background:var(--night)}
-.pinshow.bad{animation:shake .42s}
-.keypad{display:grid;grid-template-columns:repeat(3,76px);gap:10px}
-.keypad button{height:66px;border-radius:18px;border:3px solid var(--line);background:var(--surface);font-size:28px;font-weight:900;box-shadow:0 4px 0 var(--line)}
-.keypad button:active{transform:translateY(3px);box-shadow:0 1px 0 var(--line)}
-.tch{display:grid;gap:18px;font-size:16px}
-.tch-head{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
-.tch-head h1{font-size:26px;font-weight:900}
-.note{font-size:14px;color:var(--ink-soft);font-weight:700}
-.tbox{background:var(--surface);border:3px solid var(--line);border-radius:20px;padding:16px clamp(12px,2.4vw,22px);display:grid;gap:12px;min-width:0}
-.tbox h2{font-size:18px;font-weight:900}
-.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-.summary div{background:var(--surface-2);border:2px solid var(--line);border-radius:14px;padding:10px 14px}
-.summary b{display:block;font-size:28px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--night);line-height:1.2}
-.summary span{font-size:13px;font-weight:700;color:var(--ink-soft)}
-.bars{display:grid;gap:8px}
-.bar{display:grid;grid-template-columns:minmax(0,15em) 1fr 3em;gap:10px;align-items:center;font-size:14px;font-weight:700}
-.bar .track{height:14px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden}
-.bar .fill{height:100%;background:var(--oops);border-radius:999px}
-.bar .n{text-align:right;font-variant-numeric:tabular-nums}
-.tip{background:#FFF8E4;border:2px solid var(--gold);border-radius:14px;padding:10px 14px;font-weight:700;font-size:15px}
-.tablewrap{overflow-x:auto;border-radius:12px;border:2px solid var(--line)}
-table{border-collapse:collapse;width:100%;min-width:900px;font-size:14px;font-variant-numeric:tabular-nums}
-th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
-th{background:var(--surface-2);font-weight:900;font-size:13px;position:sticky;top:0}
-td.l,th.l{text-align:left}
-td input{font:inherit;width:8.5em;padding:3px 6px;border:2px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--ink)}
-tr.sel td{background:#FFF8E4}
-.mini-st{color:var(--gold);letter-spacing:-1px}
-.mini-st .off{color:var(--line)}
-.pct{display:block;font-size:11px;color:var(--ink-soft)}
-.errtxt{max-width:22em;white-space:normal;text-align:left;font-size:13px}
-.tset{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
-.tset label{display:grid;gap:4px;font-weight:700;font-size:14px}
-.tset input{font:inherit;width:7em;padding:6px 10px;border:2px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--ink)}
-.confirm{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--shugo-bg);border:2px solid var(--shugo);border-radius:14px;padding:10px 14px;font-weight:700}
-.copyarea{width:100%;min-height:120px;font-family:ui-monospace,monospace;font-size:12px;border:2px solid var(--line);border-radius:10px;padding:8px;background:var(--surface-2);color:var(--ink)}
-.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
-.hist{display:grid;gap:4px;max-height:280px;overflow:auto;font-size:14px}
-.hist div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--line);padding:3px 0}
-
 /* ---------- motion ---------- */
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -502,38 +438,6 @@ const STAGES=[
   ]}
 ];
 
-const ERR={
-  p_s:'主語を述語とまちがえた',
-  p_x:'述語ではない言葉を述語にえらんだ',
-  s_o:'「〜を」を主語にえらんだ',
-  s_t:'「いつ」の言葉を主語にえらんだ',
-  s_d:'「どこ」の言葉を主語にえらんだ',
-  s_a:'修飾する言葉（どんな・どの）を主語にえらんだ',
-  s_h:'「どのように」の言葉を主語にえらんだ',
-  s_w:'「だれと」を主語にえらんだ',
-  s_x:'その他の言葉を主語にえらんだ',
-  k_dou:'「どうする」の述語を別の型とまちがえた',
-  k_donna:'「どんなだ」の述語を別の型とまちがえた',
-  k_nanda:'「なんだ」の述語を別の型とまちがえた',
-  c_p:'主語に合う述語をえらべなかった',
-  c_s:'述語に合う主語をえらべなかった'
-};
-const TIPS={
-  p_s:'主語と述語の役割を確認しましょう。述語は文の終わりにくることが多い点を押さえると見分けやすくなります。',
-  p_x:'「。」の前の言葉に注目させ、「どうする・どんなだ・なんだ」に当たるかを声に出して確かめさせましょう。',
-  s_o:'「〜を」は動作の相手を表し、主語ではありません。「〜のは だれ？ なに？」と述語から問い直すと効果的です。',
-  s_t:'文の初めにある「いつ」の言葉を主語と思いこんでいます。先に述語を見つけてから主語を探す手順を確認しましょう。',
-  s_d:'「どこ」の言葉を主語と思いこんでいます。「〜が・〜は・〜も」が付く言葉を探すよう声をかけましょう。',
-  s_a:'主語をくわしくする言葉（どんな・どの）と主語を区別できていません。「白い ねこが」のように、くわしくする言葉と主語を分けて示しましょう。',
-  s_h:'「どのように」の言葉と主語を混同しています。述語から「だれが？」と問う手順を確認しましょう。',
-  s_w:'「〜と」の言葉を主語と考えています。「〜と」は一緒にする相手であることを確認しましょう。',
-  s_x:'述語から「〜のは だれ？ なに？」と問い、主語を確かめる手順を練習しましょう。',
-  k_dou:'述語の型（動き・様子・何か）を例文で比べさせると整理しやすくなります。',
-  k_donna:'「〜い」「〜だ」で様子を表す述語は「どんなだ」です。「どんなだ」と「なんだ」を比べる例文が有効です。',
-  k_nanda:'「〜だ」で「何か」を表す述語は「なんだ」です。「どんなだ」と比べる例文が有効です。',
-  c_p:'主語と述語をつなげて声に出して読み、意味が通るかを確かめる活動が有効です。',
-  c_s:'主語と述語をつなげて声に出して読み、意味が通るかを確かめる活動が有効です。'
-};
 const PRAISE=['おみごと！','その ちょうし！','にんにん！ せいかい！','すごい！ さすが にんじゃ！','ばっちり！','かんぺき！'];
 const RANKS=[[0,'みならい にんじゃ'],[4,'げにん'],[9,'ちゅうにん'],[15,'じょうにん'],[21,'ことばにんじゃ マスター']];
 const MAXSTARS=21;
@@ -541,7 +445,6 @@ const MAXSTARS=21;
 function starsOf(rate){return rate>=.9?3:rate>=.7?2:1}
 function totalStars(s){let t=0;for(let i=1;i<=7;i++){const r=s.stages[i];if(r)t+=r.bestStars||0}return t}
 function rankOf(stars){let r=RANKS[0][1];for(const [n,name] of RANKS) if(stars>=n) r=name;return r}
-function clearedCount(s){let c=0;for(let i=0;i<=7;i++){const r=s.stages[i];if(r&&(r.plays>0))c++}return c}
 
 function wrongMsg(step,g){
   const w='「'+bare(g.t)+'」';
@@ -553,11 +456,7 @@ function wrongMsg(step,g){
   if(M[g.r]) return `${w}は ${M[g.r]}だよ。「だれが・なにが」に あたる ことばを さがそう。`;
   return `${w}は ${SHUGO}じゃ ないよ。「〜が」「〜は」「〜も」の ことばを さがそう。`;
 }
-function errKey(step,g){
-  if(step==='p') return g.r==='s'?'p_s':'p_x';
-  return 's_'+(['o','t','d','a','h','w'].includes(g.r)?g.r:'x');
-}
-G.NinjaLogic={RB,R,P,Y,bare,SHUGO,JUTSU,seg,S,KN,KD,STAGES,ERR,TIPS,PRAISE,RANKS,MAXSTARS,starsOf,totalStars,rankOf,clearedCount,wrongMsg,errKey};
+G.NinjaLogic={RB,R,P,Y,bare,SHUGO,JUTSU,seg,S,KN,KD,STAGES,PRAISE,RANKS,MAXSTARS,starsOf,totalStars,rankOf,wrongMsg};
 })(typeof window!=='undefined'?window:globalThis);
 // ==/LOGIC==
 </script>
@@ -567,33 +466,13 @@ G.NinjaLogic={RB,R,P,Y,bare,SHUGO,JUTSU,seg,S,KN,KD,STAGES,ERR,TIPS,PRAISE,RANKS
 
 /* ================= helpers ================= */
 const app=document.getElementById('app');
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 const pick=a=>a[Math.floor(Math.random()*a.length)];
-const {R,P,Y,bare,SHUGO,JUTSU,KN,KD,STAGES,ERR,TIPS,PRAISE,RANKS,MAXSTARS,starsOf,totalStars,rankOf,wrongMsg,errKey}=window.NinjaLogic;
-const pad=n=>String(n).padStart(2,'0');
-const fmtDate=t=>{if(!t)return '—';const d=new Date(t);return (d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+pad(d.getMinutes())};
+const {R,P,Y,bare,SHUGO,JUTSU,KN,KD,STAGES,PRAISE,RANKS,MAXSTARS,starsOf,totalStars,rankOf,wrongMsg}=window.NinjaLogic;
 
-/* ================= storage (this tablet only) ================= */
-const KEY='kotoba-ninja-dojo-v1';
-let mem=null;
-function db(){
-  if(mem) return mem;
-  let d=null;
-  try{d=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){d=null}
-  mem=(d&&typeof d==='object')?d:{};
-  if(typeof mem.pin!=='string') mem.pin='1234';
-  if(!mem.classSize) mem.classSize=35;
-  if(!mem.students||typeof mem.students!=='object') mem.students={};
-  if(typeof mem.sound!=='boolean') mem.sound=true;
-  return mem;
-}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(mem))}catch(e){}}
-function stu(no){
-  const d=db();
-  if(!d.students[no]) d.students[no]={name:'',stages:{},errors:{},history:[],parts:0,first:0};
-  return d.students[no];
-}
+/* ================= いまの ようす（ほぞん しない。ページを とじると もどる） ================= */
+let soundOn=true;
+const prog={stages:{}};
 
 /* ================= sound & speech ================= */
 let actx=null;
@@ -608,10 +487,10 @@ function tone(f,t0,dur,type,vol){
   }catch(e){}
 }
 const SFX={
-  ok(){if(!db().sound)return;tone(880,0,.14,'triangle');tone(1318,.1,.22,'triangle')},
-  ng(){if(!db().sound)return;tone(330,0,.16,'sine',.14);tone(247,.13,.26,'sine',.14)},
-  done(){if(!db().sound)return;tone(784,0,.12,'triangle');tone(988,.09,.12,'triangle');tone(1175,.18,.26,'triangle')},
-  clear(){if(!db().sound)return;[523,659,784,1047,1319].forEach((f,i)=>tone(f,i*.11,.3,'triangle',.16))}
+  ok(){if(!soundOn)return;tone(880,0,.14,'triangle');tone(1318,.1,.22,'triangle')},
+  ng(){if(!soundOn)return;tone(330,0,.16,'sine',.14);tone(247,.13,.26,'sine',.14)},
+  done(){if(!soundOn)return;tone(784,0,.12,'triangle');tone(988,.09,.12,'triangle');tone(1175,.18,.26,'triangle')},
+  clear(){if(!soundOn)return;[523,659,784,1047,1319].forEach((f,i)=>tone(f,i*.11,.3,'triangle',.16))}
 };
 const canSpeak=('speechSynthesis' in window)&&('SpeechSynthesisUtterance' in window);
 function speak(text){
@@ -634,60 +513,37 @@ const CHARS={
 const charIMG=(who,mood,size)=>`<span class="ch ch-${who} mood-${mood||'normal'}" style="--sz:${size}px"><img src="${IMG(CHARS[who].img)}" alt="" draggable="false"></span>`;
 const ICON=n=>`<span class="ic" data-ic="${n}"></span>`;
 const starIMG=on=>`<img src="${IMG('star')}" class="${on?'on':'off'}" alt="" draggable="false">`;
-const badge=no=>`<span class="badge-no">${no}<small>ばん</small></span>`;
 
 /* ================= app state ================= */
-let view='login', cur=null, loginSel=null, play=null, tut=null, result=null;
-let pinBuf='', pinBad=false, tSel=null, tAsk=null, tCopyText=null, toastTimer=null, timer=null;
-
-function toast(msg){
-  let t=document.querySelector('.toast');
-  if(!t){t=document.createElement('div');t.className='toast';t.setAttribute('role','status');document.body.appendChild(t)}
-  t.textContent=msg;t.hidden=false;
-  clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true},1800);
-}
+let view='title', play=null, tut=null, result=null, timer=null;
 
 /* ================= render ================= */
 function render(){
-  const fn={login:vLogin,map:vMap,play:vPlay,tut:vTut,result:vResult,gate:vGate,teacher:vTeacher}[view];
+  const fn={title:vTitle,map:vMap,play:vPlay,tut:vTut,result:vResult}[view];
   app.innerHTML=fn();
   if(window.NinjaIcons) window.NinjaIcons.fill(app);
   if(view==='result') petals();
 }
 
-/* ---------- login ---------- */
-function vLogin(){
-  const d=db();
-  let nums='';
-  for(let i=1;i<=d.classSize;i++){
-    const s=d.students[i];
-    nums+=`<button class="num ${loginSel===i?'sel':''}" data-act="num" data-n="${i}" aria-label="${i}ばん">${i}<small>${s&&s.name?esc(s.name):'&nbsp;'}</small></button>`;
-  }
-  let box='';
-  if(loginSel){
-    const s=d.students[loginSel];
-    if(s&&s.name){
-      box=`<div class="namebox"><p style="font-size:22px;font-weight:900">${loginSel}ばん ${esc(s.name)}さん</p><div class="actions"><button class="btn go" data-act="start">はじめる</button><button class="btn sub" data-act="unsel">ちがう</button></div></div>`;
-    }else{
-      box=`<div class="namebox"><p style="font-size:20px;font-weight:900">${loginSel}ばん の きみ、なまえを いれてね</p><label for="loginName" class="note">ひらがなで いいよ（いれなくても はじめられるよ）</label><input id="loginName" maxlength="12" autocomplete="off" placeholder="なまえ"><div class="actions"><button class="btn go" data-act="start">はじめる</button><button class="btn sub" data-act="unsel">もどる</button></div></div>`;
-    }
-  }
-  return `<main class="title-screen">
+/* ---------- title ---------- */
+function vTitle(){
+  return R(`<main class="title-screen">
     <div class="trio"><span class="bob">${charIMG('s','normal',96)}</span><span class="bob">${charIMG('cat','happy',124)}</span><span class="bob">${charIMG('p','normal',96)}</span></div>
     <h1 class="logo">ことば にんじゃ<br><span>どうじょう</span></h1>
     <p class="lead">${R(SHUGO)}と ${R(JUTSU)}を 見つける しゅぎょうを しよう！</p>
     <section class="panel">
-      <h2>きみの ばんごうを タップしてね</h2>
-      ${box}
-      <div class="numgrid">${nums}</div>
+      <ul class="howto">
+        <li>${charIMG('p','normal',56)}<span>${R(JUTSU)}は「どうする・どんなだ・なんだ」。{青|あお}い 2{本|ほん}{線|せん}。</span></li>
+        <li>${charIMG('s','normal',56)}<span>${R(SHUGO)}は「だれが・なにが」。{赤|あか}い 1{本|ぽん}{線|せん}。</span></li>
+      </ul>
+      <div class="start-row"><button class="btn go big" data-act="start">はじめる</button></div>
     </section>
-    <button class="teacher-link" data-act="gate">先生用の きろく</button>
-  </main>`;
+  </main>`);
 }
 
 /* ---------- map ---------- */
 function vMap(){
-  const s=stu(cur);
+  const s=prog;
   const ts=totalStars(s);
   let next=STAGES.find(st=>!(s.stages[st.id]&&s.stages[st.id].plays>0));
   const cards=STAGES.map(st=>{
@@ -705,8 +561,8 @@ function vMap(){
     </button>`;
   }).join('');
   return `<header class="mapbar">
-      <div class="me">${badge(cur)}<div class="me-text"><div class="me-name">${cur}ばん ${s.name?esc(s.name):''}</div><span class="rank">${rankOf(ts)}</span> <span class="scrolls">ほし ${ts} / ${MAXSTARS}</span></div></div>
-      <div class="tools"><button class="iconbtn" data-act="sound" aria-pressed="${db().sound}">${ICON(db().sound?'speaker-high':'speaker-slash')}${db().sound?'おと あり':'おと なし'}</button><button class="iconbtn" data-act="logout">${ICON('sign-out')}おわる</button></div>
+      <div class="me"><img class="me-star" src="${IMG('star')}" alt="" width="52" height="52"><div class="me-text"><div class="me-name">${rankOf(ts)}</div><span class="scrolls">ほし ${ts} / ${MAXSTARS}</span></div></div>
+      <div class="tools"><button class="iconbtn" data-act="sound" aria-pressed="${soundOn}">${ICON(soundOn?'speaker-high':'speaker-slash')}${soundOn?'おと あり':'おと なし'}</button><button class="iconbtn" data-act="totitle">${ICON('house')}はじめの 画面</button></div>
     </header>
     <div class="map-head">${charIMG('cat','normal',64)}<h1>しゅぎょうの ちず</h1></div>
     <div class="stages">${cards}</div>`;
@@ -752,7 +608,7 @@ function startStage(id){
   if(st.kind==='build'){
     items=shuffle(st.items).map(it=>{const order=shuffle(it.opts.map((o,i)=>i));return {...it,opts:order.map(i=>it.opts[i]),ans:order.indexOf(it.ans)}});
   }else items=shuffle(st.items);
-  play={st,items,ii:0,si:0,parts:0,first:0,errors:{},quitAsk:false,pdone:[]};
+  play={st,items,ii:0,si:0,parts:0,first:0,quitAsk:false,pdone:[]};
   newSentence();
   view='play';render();window.scrollTo(0,0);
 }
@@ -763,7 +619,6 @@ function newSentence(){
 }
 function resetPart(){play.misses=0;play.miss=[];play.reveal=false;play.fx=null}
 function recordPart(){play.parts++;if(play.misses===0)play.first++}
-function addErr(k){play.errors[k]=(play.errors[k]||0)+1}
 
 function partsTotal(){
   const st=play.st;
@@ -781,7 +636,7 @@ function vPlay(){
   const total=partsTotal(),idx=partsDoneIndex();
   let pips='';
   for(let i=0;i<total;i++) pips+=`<span class="${i<idx||(i===idx&&play.done)?'done':i===idx?'now':''}">${ICON('star-four')}</span>`;
-  const quit=play.quitAsk?`<div class="quitask"><span>しゅぎょうを やめる？（きろくは のこらないよ）</span><button class="btn small danger" data-act="quityes">やめる</button><button class="btn small sub" data-act="quitno">つづける</button></div>`:'';
+  const quit=play.quitAsk?`<div class="quitask"><span>しゅぎょうを やめて ちずに もどる？</span><button class="btn small danger" data-act="quityes">やめる</button><button class="btn small sub" data-act="quitno">つづける</button></div>`:'';
   const m=play.msg;
   const bub=`<div class="guide"><div class="who">${charIMG(m.who,m.mood,84)}<b>${CHARS[m.who].name}</b></div><div class="bubble ${m.mood==='happy'?'ok':m.mood==='oops'?'ng':''}">${R(m.text)}</div></div>`;
   let body='';
@@ -900,7 +755,6 @@ function tapSeg(i){
   }
   if(play.miss.includes(i)){play.msg={who:step,mood:'oops',text:wrongMsg(step,g)};play.fx={i,c:'shake'};render();return}
   play.misses++;play.miss.push(i);
-  addErr(errKey(step,g));
   SFX.ng();
   let text=wrongMsg(step,g);
   if(play.misses>=2){play.reveal=true;text+=' ひかって いる ところを 見てね。'}
@@ -916,7 +770,7 @@ function tapKind(k){
     play.marks.k=k;recordPart();play.step++;finishSentence(`「${pw}」は ${KD[k]}から「${KN[k]}」だね。`);return;
   }
   if(play.miss.includes(k)) return;
-  play.misses++;play.miss.push(k);addErr('k_'+sent.k);SFX.ng();
+  play.misses++;play.miss.push(k);SFX.ng();
   if(play.misses>=2){
     play.reveal=true;
     play.msg={who:'p',mood:'oops',text:`「${pw}」は ${KD[sent.k]}から「${KN[sent.k]}」だよ。ひかって いる ボタンを おしてね。`};
@@ -942,7 +796,7 @@ function tapOpt(j){
     finishSentence(`「${sentence}」 できた！`);
     return;
   }
-  play.misses++;play.miss.push(j);addErr(it.fix==='s'?'c_p':'c_s');SFX.ng();
+  play.misses++;play.miss.push(j);SFX.ng();
   const silly=it.fix==='s'?it.text+' '+bare(it.opts[j]):bare(it.opts[j])+' '+bare(it.text);
   let text=`「${silly}」？ あれれ、へんな 文に なっちゃった！ もういちど えらんでね。`;
   if(play.misses>=2){play.reveal=true;text+=' ひかって いる カードを 見てね。'}
@@ -975,17 +829,12 @@ function readCurrent(){
 }
 
 function finishStage(){
-  const s=stu(cur),st=play.st;
+  const s=prog,st=play.st;
   const before=totalStars(s);
   const rate=play.parts?play.first/play.parts:1;
   const stars=starsOf(rate);
-  const rec=s.stages[st.id]||(s.stages[st.id]={plays:0,best:0,bestStars:0,last:0,lastAt:0});
-  rec.plays++;rec.last=Math.round(rate*100);rec.best=Math.max(rec.best||0,rec.last);rec.bestStars=Math.max(rec.bestStars||0,stars);rec.lastAt=Date.now();
-  for(const k in play.errors) s.errors[k]=(s.errors[k]||0)+play.errors[k];
-  s.parts=(s.parts||0)+play.parts;s.first=(s.first||0)+play.first;
-  s.history.unshift({st:st.id,ok:play.first,n:play.parts,at:Date.now()});
-  s.history=s.history.slice(0,60);
-  save();
+  const rec=s.stages[st.id]||(s.stages[st.id]={plays:0,bestStars:0});
+  rec.plays++;rec.bestStars=Math.max(rec.bestStars,stars);
   const after=totalStars(s);
   result={st,stars,ok:play.first,n:play.parts,rankUp:rankOf(after)!==rankOf(before)?rankOf(after):null};
   play=null;view='result';SFX.clear();render();window.scrollTo(0,0);
@@ -1044,11 +893,9 @@ function vTut(){
     </section>`;
 }
 function tutDone(){
-  const s=stu(cur);
-  const rec=s.stages[0]||(s.stages[0]={plays:0,best:0,bestStars:0,last:0,lastAt:0});
-  rec.plays++;rec.lastAt=Date.now();
-  s.history.unshift({st:0,ok:0,n:0,at:Date.now()});s.history=s.history.slice(0,60);
-  save();SFX.clear();view='map';tut=null;render();window.scrollTo(0,0);
+  const rec=prog.stages[0]||(prog.stages[0]={plays:0,bestStars:0});
+  rec.plays++;
+  SFX.clear();view='map';tut=null;render();window.scrollTo(0,0);
 }
 
 /* ---------- result ---------- */
@@ -1079,125 +926,11 @@ function petals(){
   app.appendChild(box);
 }
 
-/* ---------- teacher gate ---------- */
-function vGate(){
-  const dots=[0,1,2,3].map(i=>`<i class="${i<pinBuf.length?'f':''}"></i>`).join('');
-  const keys=[1,2,3,4,5,6,7,8,9].map(n=>`<button data-act="pin" data-d="${n}">${n}</button>`).join('')+`<button data-act="pinclear" aria-label="けす">×</button><button data-act="pin" data-d="0">0</button><button data-act="pinback" aria-label="もどる">←</button>`;
-  return `<main class="gate">
-    ${charIMG('cat','normal',90)}
-    <h1 style="font-size:24px;font-weight:900">先生用の画面</h1>
-    <p class="note">4けたの暗証番号を入力してください。</p>
-    <div class="pinshow ${pinBad?'bad':''}">${dots}</div>
-    <div class="keypad">${keys}</div>
-    <button class="btn sub small" data-act="tolog">もどる</button>
-  </main>`;
-}
-
-/* ---------- teacher dashboard ---------- */
-function stuRows(){
-  const d=db();
-  const nos=new Set();
-  for(let i=1;i<=d.classSize;i++) nos.add(i);
-  Object.keys(d.students).forEach(k=>nos.add(+k));
-  return [...nos].sort((a,b)=>a-b).map(no=>({no,s:d.students[no]||null}));
-}
-function topErrors(errs,n){return Object.entries(errs||{}).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,n)}
-function vTeacher(){
-  const d=db();
-  const rows=stuRows();
-  const active=rows.filter(r=>r.s&&r.s.history&&r.s.history.length);
-  let parts=0,first=0;const agg={};
-  active.forEach(r=>{parts+=r.s.parts||0;first+=r.s.first||0;for(const k in r.s.errors)agg[k]=(agg[k]||0)+r.s.errors[k]});
-  const aggTop=topErrors(agg,8);
-  const maxE=aggTop.length?aggTop[0][1]:1;
-  const clearedAll=active.filter(r=>{for(let i=0;i<=7;i++){if(!(r.s.stages[i]&&r.s.stages[i].plays))return false}return true}).length;
-
-  const head=`<tr><th>番号</th><th class="l">名前</th>${STAGES.map(st=>`<th title="${esc(P(st.name))}">その${st.id}</th>`).join('')}<th>正答率</th><th>学習回数</th><th class="l">よくあるまちがい</th><th>最後の学習</th><th></th></tr>`;
-  const body=rows.map(({no,s})=>{
-    const cells=STAGES.map(st=>{
-      const r=s&&s.stages[st.id];
-      if(!r||!r.plays) return '<td>—</td>';
-      if(st.id===0) return '<td>✓</td>';
-      return `<td><span class="mini-st">${'★'.repeat(r.bestStars)}<span class="off">${'★'.repeat(3-r.bestStars)}</span></span><span class="pct">最高${r.best}%</span></td>`;
-    }).join('');
-    const pr=s&&s.parts?Math.round(s.first/s.parts*100)+'%':'—';
-    const plays=s?s.history.length:0;
-    const te=s?topErrors(s.errors,2).map(([k,v])=>`${ERR[k]}（${v}）`).join('<br>'):'';
-    const last=s&&s.history.length?fmtDate(s.history[0].at):'—';
-    return `<tr class="${tSel===no?'sel':''}"><td>${no}</td><td class="l"><input id="nm-${no}" data-no="${no}" class="nm" value="${s?esc(s.name):''}" maxlength="12" aria-label="${no}番の名前"></td>${cells}<td>${pr}</td><td>${plays}</td><td class="errtxt">${te||'—'}</td><td>${last}</td><td><button class="iconbtn" data-act="tdetail" data-no="${no}" ${plays?'':'disabled'}>くわしく</button></td></tr>`;
-  }).join('');
-
-  let detail='';
-  if(tSel&&d.students[tSel]){
-    const s=d.students[tSel];
-    const st=STAGES.slice(1).map(stg=>{const r=s.stages[stg.id];return `<div><span>その${stg.id} ${esc(P(stg.name))}</span><span>${r&&r.plays?`${r.plays}回・最高${r.best}%・前回${r.last}%`:'未学習'}</span></div>`}).join('');
-    const errs=topErrors(s.errors,20).map(([k,v])=>`<div><span>${ERR[k]}</span><span>${v}回</span></div>`).join('')||'<div><span>まちがいの記録はありません</span></div>';
-    const hist=s.history.map(h=>{const stg=STAGES[h.st];return `<div><span>${fmtDate(h.at)}</span><span>その${h.st} ${esc(P(stg.name))}</span><span>${h.st===0?'読んだ':`${h.ok}/${h.n}`}</span></div>`}).join('');
-    detail=`<section class="tbox" id="detail">
-      <div class="tch-head"><h2>${tSel}番 ${esc(s.name||'')} の記録</h2><button class="iconbtn" data-act="tclose">とじる</button></div>
-      <div class="detail-grid">
-        <div><h3 style="font-size:15px;margin-bottom:6px">修行ごとの結果</h3><div class="hist">${st}</div></div>
-        <div><h3 style="font-size:15px;margin-bottom:6px">まちがいの内訳</h3><div class="hist">${errs}</div></div>
-        <div><h3 style="font-size:15px;margin-bottom:6px">学習の履歴（新しい順）</h3><div class="hist">${hist}</div></div>
-      </div>
-      ${tAsk==='one'?`<div class="confirm"><span>${tSel}番の記録をすべて消しますか？ 元にはもどせません。</span><button class="btn small danger" data-act="tclearoneyes">消す</button><button class="btn small sub" data-act="tasknone">やめる</button></div>`:`<div><button class="btn small sub" data-act="tclearone">この児童の記録を消す</button></div>`}
-    </section>`;
-  }
-
-  return `<main class="tch">
-    <div class="tch-head"><h1>先生用：学習の記録</h1><button class="btn small sub" data-act="tolog">児童の画面にもどる</button></div>
-    <p class="note">記録はこの端末（ブラウザ）の中だけに保存されています。ほかの端末の記録は、それぞれの端末でこの画面を開いて確認してください。「表をコピー」で表計算ソフトに貼り付けてまとめられます。</p>
-    <section class="tbox">
-      <h2>クラスのようす</h2>
-      <div class="summary">
-        <div><b>${active.length}</b><span>学習した児童（人）</span></div>
-        <div><b>${parts?Math.round(first/parts*100)+'%':'—'}</b><span>1回目での正答率</span></div>
-        <div><b>${clearedAll}</b><span>全修行に取り組んだ児童（人）</span></div>
-        <div><b>${active.reduce((n,r)=>n+r.s.history.length,0)}</b><span>学習回数の合計</span></div>
-      </div>
-      ${aggTop.length?`<h2>まちがいのけいこう</h2><div class="bars">${aggTop.map(([k,v])=>`<div class="bar"><span>${ERR[k]}</span><span class="track"><span class="fill" style="width:${Math.max(4,v/maxE*100)}%"></span></span><span class="n">${v}回</span></div>`).join('')}</div><p class="tip">指導のヒント：${TIPS[aggTop[0][0]]}</p>`:'<p class="note">まだ学習の記録がありません。児童が修行をクリアすると、ここに集計されます。</p>'}
-    </section>
-    ${detail}
-    <section class="tbox">
-      <div class="tch-head"><h2>児童ごとの記録</h2><button class="btn small" data-act="tcopy">${ICON('copy')} 表をコピー</button></div>
-      ${tCopyText!==null?`<p class="note">自動コピーできませんでした。下の文字をすべて選んでコピーしてください。</p><textarea id="copyArea" class="copyarea" readonly>${esc(tCopyText)}</textarea>`:''}
-      <div class="tablewrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>
-      <p class="note">★は最高の評価（1回目での正答率 90%以上で★3、70%以上で★2）。名前の欄はここで書きかえられます。</p>
-    </section>
-    <section class="tbox">
-      <h2>設定</h2>
-      <div class="tset">
-        <label for="classSize">クラスの人数<input id="classSize" type="number" min="1" max="45" value="${d.classSize}"></label>
-        <label for="newPin">新しい暗証番号（4けた）<input id="newPin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="例 5678"></label>
-        <button class="btn small" data-act="tpin">暗証番号を変える</button>
-      </div>
-      ${tAsk==='all'?`<div class="confirm"><span>この端末のすべての記録を消しますか？ 元にはもどせません。</span><button class="btn small danger" data-act="tclearallyes">すべて消す</button><button class="btn small sub" data-act="tasknone">やめる</button></div>`:`<div><button class="btn small sub" data-act="tclearall">すべての記録を消す</button></div>`}
-    </section>
-  </main>`;
-}
-function buildTSV(){
-  const rows=stuRows().filter(r=>r.s);
-  const head=['番号','名前',...STAGES.map(st=>'その'+st.id+' '+P(st.name)),'正答率(%)','学習回数','よくあるまちがい','最後の学習'];
-  const lines=[head.join('\t')];
-  rows.forEach(({no,s})=>{
-    const cells=STAGES.map(st=>{const r=s.stages[st.id];if(!r||!r.plays)return '';return st.id===0?'済':`★${r.bestStars} 最高${r.best}%`});
-    lines.push([no,s.name||'',...cells,s.parts?Math.round(s.first/s.parts*100):'',s.history.length,topErrors(s.errors,3).map(([k,v])=>ERR[k]+'('+v+')').join(' / '),s.history.length?fmtDate(s.history[0].at):''].join('\t'));
-  });
-  return lines.join('\n');
-}
-
 /* ================= events ================= */
 const H={
-  num(b){loginSel=+b.dataset.n;render();const i=document.getElementById('loginName');if(i)i.focus()},
-  unsel(){loginSel=null;render()},
-  start(){
-    const s=stu(loginSel);
-    const i=document.getElementById('loginName');
-    if(i&&i.value.trim()) s.name=i.value.trim().slice(0,12);
-    save();cur=loginSel;loginSel=null;ac();view='map';render();window.scrollTo(0,0);
-  },
-  logout(){cur=null;view='login';render();window.scrollTo(0,0)},
-  sound(){const d=db();d.sound=!d.sound;save();render()},
+  start(){ac();view='map';render();window.scrollTo(0,0)},
+  totitle(){view='title';render();window.scrollTo(0,0)},
+  sound(){soundOn=!soundOn;render()},
   stage(b){ac();startStage(+b.dataset.id)},
   seg(b){tapSeg(+b.dataset.i)},
   kind(b){tapKind(b.dataset.k)},
@@ -1219,40 +952,6 @@ const H={
   tutnext(){tut.i++;tut.pick=null;render()},
   tutback(){tut.i--;tut.pick=null;render()},
   tutdone(){tutDone()},
-  gate(){pinBuf='';pinBad=false;view='gate';render();window.scrollTo(0,0)},
-  tolog(){view='login';tSel=null;tAsk=null;tCopyText=null;render();window.scrollTo(0,0)},
-  pin(b){
-    if(pinBuf.length>=4)return;
-    pinBuf+=b.dataset.d;pinBad=false;
-    if(pinBuf.length===4){
-      if(pinBuf===db().pin){pinBuf='';view='teacher';tSel=null;tAsk=null;tCopyText=null;render();window.scrollTo(0,0);return}
-      pinBad=true;pinBuf='';
-    }
-    render();
-  },
-  pinback(){pinBuf=pinBuf.slice(0,-1);pinBad=false;render()},
-  pinclear(){pinBuf='';pinBad=false;render()},
-  tdetail(b){tSel=+b.dataset.no;tAsk=null;render();const el=document.getElementById('detail');if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},
-  tclose(){tSel=null;tAsk=null;render()},
-  tclearone(){tAsk='one';render()},
-  tclearoneyes(){delete db().students[tSel];save();tSel=null;tAsk=null;render();toast('記録を消しました')},
-  tclearall(){tAsk='all';render()},
-  tclearallyes(){db().students={};save();tSel=null;tAsk=null;render();toast('すべての記録を消しました')},
-  tasknone(){tAsk=null;render()},
-  tpin(){
-    const i=document.getElementById('newPin');const v=i?i.value.trim():'';
-    if(!/^[0-9]{4}$/.test(v)){toast('4けたの数字を入れてください');return}
-    db().pin=v;save();i.value='';toast('暗証番号を変えました');
-  },
-  tcopy(){
-    const text=buildTSV();
-    const fallback=()=>{tCopyText=text;render();const a=document.getElementById('copyArea');if(a){a.focus();a.select()}};
-    try{
-      if(navigator.clipboard&&navigator.clipboard.writeText){
-        navigator.clipboard.writeText(text).then(()=>{tCopyText=null;toast('表をコピーしました。表計算ソフトに貼り付けられます')}).catch(fallback);
-      }else fallback();
-    }catch(e){fallback()}
-  }
 };
 app.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');
@@ -1260,17 +959,8 @@ app.addEventListener('click',e=>{
   const fn=H[b.dataset.act];
   if(fn) fn(b);
 });
-app.addEventListener('change',e=>{
-  const t=e.target;
-  if(t.classList&&t.classList.contains('nm')){const s=stu(+t.dataset.no);s.name=t.value.trim().slice(0,12);save();toast('名前を保存しました')}
-  if(t.id==='classSize'){let n=parseInt(t.value,10);if(!(n>=1))n=1;if(n>45)n=45;db().classSize=n;save();render()}
-});
-app.addEventListener('keydown',e=>{
-  if(e.key==='Enter'&&e.target.id==='loginName'){e.preventDefault();H.start()}
-});
 if(canSpeak){try{speechSynthesis.getVoices();speechSynthesis.onvoiceschanged=()=>{}}catch(e){}}
 
-db();
 render();
 })();
 </script>
