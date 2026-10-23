@@ -20,9 +20,7 @@
    入手もと: Iconify の アイコンセット データ https://github.com/iconify/icon-sets/blob/master/json/ph.json
              （Iconify の コレクション情報 info.license が MIT で ある ことを 確認）
    もとの プロジェクト: https://github.com/phosphor-icons/core（LICENSE: MIT）
-   つかって いる アイコン: speaker-high / speaker-slash / lightbulb / x-circle / arrow-right / house /
-     sign-out / lock / copy / arrow-counter-clockwise / star-four / check-circle / trash / backspace /
-     map-trifold（すべて -duotone）
+   つかって いる アイコン: speaker-high / speaker-slash / lightbulb / x-circle / house / star-four / map-trifold（すべて -duotone）
 
 4. 自分で かいて いる もの（素材では ありません）
    主語の 赤い 1本線・じゅつ語の 青い 2本線、キャラクターの まわりの 赤・青の まるい わく は、

@@ -52,7 +52,6 @@ for (const [i, it] of L.STAGES[7].items.entries()) {
 const readings = [];
 JSON.stringify(L.STAGES).replace(/\{([^|}]+)\|([^}]+)\}/g, (m, k, y) => { readings.push(y); return m; });
 t('ふりがなは ひらがなだけ', readings.every(y => /^[ぁ-ゖー]+$/.test(y)), readings.filter(y => !/^[ぁ-ゖー]+$/.test(y)).join(','));
-t('まちがいの しゅるいには ぜんぶ 先生への ヒントが ある', Object.keys(L.ERR).every(k => L.TIPS[k]));
 
 /* ---------- きまり ---------- */
 t('ふりがな：ルビに なる', L.R('{空|そら}が') === '<ruby>空<rt>そら</rt></ruby>が');
@@ -67,14 +66,15 @@ t('ランク：ほしが ふえると 上がる', L.RANKS.every((r, i) => i === 
 const stu = { stages: { 0: { plays: 1, bestStars: 0 }, 1: { plays: 2, bestStars: 3 }, 2: { plays: 1, bestStars: 2 } } };
 t('ほしの かず：その0 は かぞえない', L.totalStars(stu) === 5);
 const g = (r, t2) => ({ r, t: t2 });
-t('まちがい：じゅつ語で 主語を えらんだ', L.errKey('p', g('s', 'ねこが')) === 'p_s');
-t('まちがい：じゅつ語で ほかを えらんだ', L.errKey('p', g('d', 'にわで')) === 'p_x');
-t('まちがい：主語で「〜を」を えらんだ', L.errKey('s', g('o', 'ボールを')) === 's_o');
-t('まちがい：主語で その ほか', L.errKey('s', g('x', 'かけっこで')) === 's_x');
-t('まちがい：どの しゅるいも ERR に ある', ['p_s', 'p_x', 's_o', 's_t', 's_d', 's_a', 's_h', 's_w', 's_x'].every(k => L.ERR[k]));
 t('ことばかけ：えらんだ ことばが 入る', L.wrongMsg('s', g('o', 'ボールを')).includes('「ボールを」') && L.wrongMsg('s', g('o', 'ボールを')).includes('なにを'));
 t('ことばかけ：じゅつ語で 主語を えらぶと 主語と おしえる', L.wrongMsg('p', g('s', 'ねこが')).includes(L.SHUGO));
 t('ことばかけ：「。」は 入れない', !L.wrongMsg('p', g('x', 'ねる。')).includes('。」'));
+
+/* ---------- だれでも つかえる（きろくを のこさない） ---------- */
+const appSrc = html.split('// ==/LOGIC==')[1];
+t('きろくを ほぞん しない（localStorage などを つかわない）', !/localStorage|sessionStorage|indexedDB|document\.cookie/.test(html));
+t('出席番号・名前の 入力が ない', !/<input|data-act="num"|loginName/.test(appSrc));
+t('先生用の 画面が ない', !/data-act="gate"|vTeacher|暗証番号/.test(appSrc));
 
 /* ---------- ファイル ---------- */
 const refs = [...html.matchAll(/(?:src|href)="(assets\/[^"]+)"/g)].map(m => m[1]);
