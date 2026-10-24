@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ようりょうナビ｜小学校学習指導要領</title>
+<meta name="description" content="小学校学習指導要領（平成29年告示）を、系統表・学年と教科・キーワード検索で見られる先生向けのツール">
+<link rel="icon" href="assets/app-icon.png">
+<link rel="apple-touch-icon" href="assets/app-icon-180.png">
+<style>
+:root {
+  --bg: #f6f4ee;
+  --card: #ffffff;
+  --ink: #23262b;
+  --sub: #5d636b;
+  --line: #e1ddd2;
+  --soft: #f1eee6;
+  --main: #2f7d4f;
+  --main-soft: #e4f1e8;
+  --mark: #ffe56a;
+  --focus: #fff4c2;
+  --radius: 12px;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "BIZ UDPGothic", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  font-size: 15px; line-height: 1.7;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+a { color: #1f5fa8; }
+img.emo { width: 1.35em; height: 1.35em; vertical-align: -0.3em; }
+
+/* ---------- 上の 帯 ---------- */
+.top { background: var(--main); color: #fff; }
+.top-in { max-width: 1240px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; }
+.brand img { width: 40px; height: 40px; }
+.brand b { font-size: 21px; letter-spacing: .04em; display: block; line-height: 1.2; }
+.brand small { font-size: 12px; opacity: .9; }
+.top-links { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.top-links a { color: #fff; font-size: 13px; background: rgba(255,255,255,.16); padding: 4px 10px; border-radius: 99px; text-decoration: none; }
+.top-links a:hover { background: rgba(255,255,255,.28); }
+
+/* ---------- そうさ パネル ---------- */
+.panel { max-width: 1240px; margin: 14px auto 0; padding: 0 16px; }
+.panel-in { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.prow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.plab { flex: none; width: 3em; font-size: 13px; color: var(--sub); font-weight: 700; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.chip {
+  border: 1px solid var(--line); background: #fff; border-radius: 99px; padding: 3px 12px; font-size: 14px;
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; line-height: 1.6;
+}
+.chip:hover { border-color: #b9b29f; }
+.chip[aria-pressed="true"] { background: var(--main); border-color: var(--main); color: #fff; font-weight: 700; }
+.chip .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.chip img.emo { width: 1.25em; height: 1.25em; }
+.view-btns .chip { padding: 5px 16px; font-size: 15px; }
+.search { display: flex; gap: 8px; align-items: center; }
+.sbox { flex: 1; display: flex; align-items: center; border: 2px solid var(--main); border-radius: 10px; background: #fff; padding: 0 6px 0 10px; min-width: 0; }
+.sbox img { width: 22px; height: 22px; flex: none; }
+.sbox input { flex: 1; border: 0; outline: 0; font: inherit; font-size: 17px; padding: 9px 8px; min-width: 0; background: transparent; }
+.sbox .clear { border: 0; background: none; font-size: 20px; color: var(--sub); padding: 2px 8px; line-height: 1; }
+.sgo { background: var(--main); color: #fff; border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 700; font-size: 16px; flex: none; }
+.themes { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--sub); }
+.themes .chip { font-size: 13px; padding: 1px 10px; }
+.opt { font-size: 13px; color: var(--sub); display: inline-flex; align-items: center; gap: 4px; }
+
+/* ---------- 本体 ---------- */
+main { max-width: 1240px; margin: 14px auto 40px; padding: 0 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; }
+.bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.bar h2 { margin: 0; font-size: 19px; display: flex; align-items: center; gap: 8px; }
+.bar .sp { flex: 1; }
+.btn { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 5px 12px; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: var(--ink); }
+.btn:hover { border-color: #b9b29f; }
+.btn.pdf { background: #b5651d; color: #fff; border-color: #b5651d; font-weight: 700; }
+.btn.pdf:hover { background: #9a5416; }
+.note { font-size: 12.5px; color: var(--sub); }
+.empty { padding: 30px; text-align: center; color: var(--sub); }
+
+/* 系統表（ぜんぶの 教科） */
+.scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.grid { display: grid; grid-template-columns: 132px repeat(6, minmax(112px, 1fr)); gap: 4px; min-width: 820px; }
+.gh { text-align: center; font-weight: 700; color: #fff; border-radius: 8px; padding: 4px 0; font-size: 14px; }
+.gh.dim { opacity: .35; }
+.rh { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 8px; background: var(--soft); font-weight: 700; font-size: 14px; border: 0; text-align: left; border-left: 5px solid var(--c); line-height: 1.35; }
+.rh:hover { background: #e9e5da; }
+.rh small { display: block; font-weight: 400; font-size: 11px; color: var(--sub); }
+.cell { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 13px; line-height: 1.5; background: color-mix(in srgb, var(--c) 7%, #fff); text-align: left; border-top: 3px solid var(--c); }
+button.cell:hover { background: color-mix(in srgb, var(--c) 15%, #fff); }
+.cell.none { background: #faf9f5; border-top-color: var(--line); color: #b0aa9a; text-align: center; display: flex; align-items: center; justify-content: center; }
+.cell.dim, .rh.dim { opacity: .35; }
+.cell .span { display: block; font-size: 11px; color: var(--sub); margin-bottom: 2px; }
+
+/* 教科の 系統表 */
+.sgrid { display: grid; grid-template-columns: 150px repeat(6, minmax(120px, 1fr)); gap: 4px; min-width: 880px; }
+.sgrid .rh { border-left-color: var(--c); }
+.sgrid .rh .grp { display: block; font-size: 11px; font-weight: 400; color: var(--sub); }
+.items { display: flex; flex-direction: column; gap: 4px; }
+.item { text-align: left; border: 1px solid color-mix(in srgb, var(--c) 35%, #fff); background: #fff; border-radius: 6px; padding: 3px 7px; font-size: 13px; line-height: 1.45; }
+.item:hover { background: color-mix(in srgb, var(--c) 12%, #fff); }
+.item.other { border-style: dashed; }
+.item .from { display: block; font-size: 10.5px; color: var(--sub); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--sub); margin-top: 10px; }
+
+/* くわしく */
+.subj-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-bottom: 3px solid var(--c); padding-bottom: 8px; margin-bottom: 10px; }
+.subj-head h2 { margin: 0; font-size: 20px; display: flex; align-items: center; gap: 8px; }
+.subj-head h2 img { width: 34px; height: 34px; }
+.tag { display: inline-block; font-size: 12px; background: var(--soft); border-radius: 99px; padding: 1px 10px; color: var(--sub); }
+.block { border: 1px solid var(--line); border-radius: 10px; margin: 10px 0; overflow: hidden; }
+.block > .bh { background: color-mix(in srgb, var(--c) 10%, #fff); padding: 7px 12px; font-weight: 700; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.block > .bb { padding: 4px 14px 10px; }
+details.sec { border-top: 1px dashed var(--line); padding: 6px 0; }
+details.sec:first-child { border-top: 0; }
+details.sec > summary { cursor: pointer; font-weight: 700; color: var(--c); list-style: none; display: flex; align-items: center; gap: 6px; }
+details.sec > summary::before { content: "▶"; font-size: 10px; transition: transform .15s; }
+details.sec[open] > summary::before { transform: rotate(90deg); }
+details.sec > summary::-webkit-details-marker { display: none; }
+.nd { margin: 3px 0; }
+.nd > .ln { display: flex; gap: .4em; }
+.nd > .ln .mk { flex: none; color: var(--c); font-weight: 700; }
+.nd .kids { margin-left: 1.3em; }
+.nd p.lead { margin: 2px 0 2px 0; text-indent: 1em; }
+.nd.dom > .ln { font-weight: 700; font-size: 16px; margin-top: 8px; border-left: 4px solid var(--c); padding-left: 8px; }
+.nd.grp > .ln { font-weight: 700; color: var(--sub); margin-top: 8px; }
+.nd.unit > .ln { font-weight: 700; }
+.nd.unit { border-radius: 8px; padding: 2px 4px; }
+.nd .tools { margin-left: auto; flex: none; display: flex; gap: 4px; }
+.mini { border: 1px solid var(--line); background: #fff; border-radius: 6px; font-size: 11.5px; padding: 0 7px; color: var(--sub); font-weight: 400; line-height: 1.7; }
+.mini:hover { color: var(--ink); border-color: #b9b29f; }
+.flash { animation: flash 2.4s ease-out; }
+@keyframes flash { 0%, 40% { background: var(--focus); box-shadow: 0 0 0 3px var(--focus); } 100% { background: transparent; box-shadow: none; } }
+mark { background: var(--mark); color: inherit; padding: 0 1px; border-radius: 2px; }
+.jump { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+
+/* 検索の けっか */
+.cross { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 4px 0 6px; }
+.cross .chip b { font-weight: 700; }
+.hitgrp { margin-top: 12px; }
+.hitgrp > h3 { margin: 0 0 6px; font-size: 16px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--c); padding-bottom: 4px; }
+.hit { display: block; width: 100%; text-align: left; border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 8px 12px; margin: 6px 0; }
+.hit:hover { border-color: var(--c); background: color-mix(in srgb, var(--c) 5%, #fff); }
+.hit .where { font-size: 12.5px; color: var(--sub); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.hit .where .gr { background: var(--c); color: #fff; border-radius: 99px; padding: 0 9px; font-weight: 700; font-size: 12px; }
+.hit .tl { font-weight: 700; margin-top: 2px; }
+.hit .tx { margin-top: 2px; display: flex; gap: .4em; }
+.hit .tx .mk { flex: none; color: var(--c); font-weight: 700; }
+.hit .rest { font-size: 12.5px; color: var(--sub); }
+.more { margin: 4px 0 0; }
+.backbar { display: flex; gap: 8px; align-items: center; background: var(--main-soft); border-radius: 10px; padding: 6px 12px; margin-bottom: 12px; font-size: 14px; flex-wrap: wrap; }
+
+footer { max-width: 1240px; margin: 0 auto 30px; padding: 0 16px; font-size: 12.5px; color: var(--sub); }
+footer p { margin: 4px 0; }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); background: #23262b; color: #fff; padding: 8px 18px; border-radius: 99px; font-size: 14px; opacity: 0; transition: .2s; pointer-events: none; z-index: 20; }
+#toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------- いんさつ（A4 よこ 1まい） ---------- */
+#print-sheet { display: none; }
+@page { size: A4 landscape; margin: 8mm; }
+@media print {
+  body { background: #fff; }
+  body > *:not(#print-sheet) { display: none !important; }
+  #print-sheet { display: block; }
+}
+#print-sheet { width: 281mm; color: #000; font-family: inherit; }
+#print-sheet.measure { display: block; position: absolute; left: -10000px; top: 0; }
+.ps-head { display: flex; align-items: flex-end; gap: 8px; border-bottom: 2px solid #333; padding-bottom: 2px; margin-bottom: 4px; }
+.ps-head h1 { font-size: 1.6em; margin: 0; }
+.ps-head .src { margin-left: auto; font-size: .85em; }
+.ps-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.ps-table th, .ps-table td { border: 1px solid #888; padding: .25em .35em; vertical-align: top; line-height: 1.35; }
+.ps-table thead th { background: #eee; text-align: center; }
+.ps-table th.rl { text-align: left; background: #f6f6f6; }
+.ps-table td ul { margin: 0; padding-left: 1.05em; }
+.ps-table td li { margin: 0; }
+.ps-foot { font-size: .8em; margin-top: 3px; }
+.ps-goal { font-size: .9em; margin: 2px 0 4px; }
+* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+@media (max-width: 640px) {
+  .brand b { font-size: 18px; }
+  .top-links { margin-left: 0; }
+  .plab { width: 2.6em; }
+  .prow { align-items: flex-start; }
+  .prow .chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
+  .sgo { padding: 10px 12px; }
+  .card { padding: 12px; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="./">
+      <img src="assets/app-icon.png" alt="">
+      <span><b>ようりょうナビ</b><small>小学校学習指導要領（平成29年告示）を まるごと見る</small></span>
+    </a>
+    <nav class="top-links" id="top-links"></nav>
+  </div>
+</header>
+
+<section class="panel">
+  <div class="panel-in">
+    <div class="prow"><span class="plab">表示</span>
+      <div class="chips view-btns" id="view-btns">
+        <button class="chip" data-view="map">系統表（一枚で見る）</button>
+        <button class="chip" data-view="detail">学年・教科でくわしく</button>
+      </div>
+    </div>
+    <div class="prow"><span class="plab">学年</span><div class="chips" id="grade-chips"></div></div>
+    <div class="prow"><span class="plab">教科</span><div class="chips" id="subj-chips"></div></div>
+    <form class="search" id="search-form" role="search">
+      <label class="sbox">
+        <img src="assets/emoji/magnifying_glass.webp" alt="">
+        <input id="q" type="search" placeholder="キーワード（例：電気　割合　俳句）" autocomplete="off" enterkeyhint="search" aria-label="キーワード">
+        <button type="button" class="clear" id="q-clear" aria-label="けす">×</button>
+      </label>
+      <button class="sgo" type="submit">検索</button>
+    </form>
+    <div class="themes" id="themes">
+      <img class="emo" src="assets/emoji/light_bulb.webp" alt=""> 教科横断のヒント：
+    </div>
+    <label class="opt"><input type="checkbox" id="opt-all"> 「内容の取扱い」「指導計画の作成と内容の取扱い」も検索する</label>
+  </div>
+</section>
+
+<main id="main"></main>
+
+<footer>
+  <p>出典：文部科学省「<a id="src-link" href="#" target="_blank" rel="noopener">小学校学習指導要領（平成29年告示）</a>」。本文は告示から取り出したものです（ふりがな・ページ番号は省き、分数や図の一部は文字にしました）。</p>
+  <p>系統表の短い見出しは、本文をもとにまとめたものです（理科・家庭・体育・特別の教科 道徳・特別活動などは告示にある見出し）。授業づくりでは、必ず本文と文部科学省の解説もあわせて確認してください。</p>
+</footer>
+
+<div id="print-sheet"></div>
+<div id="toast" role="status"></div>
+
+<script src="data.js"></script>
+<script>
+"use strict";
+const D = window.YN_DATA;
+const SUBJ = Object.fromEntries(D.subjects.map(s => [s.id, s]));
+const GRADES = [1, 2, 3, 4, 5, 6];
+const GRADE_COLORS = ["#e86a8a", "#ef8d3a", "#e2b324", "#55a84f", "#3f8fd6", "#8a63d2"];
+const THEMES = ["電気", "災害", "環境", "安全", "健康", "自然", "地域", "情報", "伝統", "家族", "協力", "食", "水", "生命", "外国"];  // 3教科以上に 出てくる ことば
+const PDF_OFFSET = 2; // 告示の ページ番号 → PDF の ページ番号
+
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const norm = s => s.normalize("NFKC").toLowerCase();
+const emo = (name, cls = "emo") => `<img class="${cls}" src="assets/emoji/${name}.webp" alt="">`;
+const gradeText = g => !g || !g.length ? "" : g.length === 6 ? "全学年" : g.length === 1 ? `${g[0]}年` : `${g[0]}〜${g[g.length - 1]}年`;
+const pdfLink = p => `${D.source.url}#page=${p + PDF_OFFSET}`;
+
+// ---------- 状態（URL の # に 入れて、リンクで 共有できるように する） ----------
+const state = { view: "map", grade: 0, subj: "all", q: "", all: false, focus: "", hl: "" };
+function readHash() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  state.view = h.get("v") === "detail" ? "detail" : "map";
+  state.grade = Number(h.get("g")) || 0;
+  state.subj = SUBJ[h.get("s")] ? h.get("s") : "all";
+  state.q = h.get("q") || "";
+  state.all = h.get("all") === "1";
+  state.focus = h.get("f") || "";
+  state.hl = h.get("hl") || "";
+}
+function writeHash() {
+  const h = new URLSearchParams();
+  if (state.view !== "map") h.set("v", state.view);
+  if (state.grade) h.set("g", state.grade);
+  if (state.subj !== "all") h.set("s", state.subj);
+  if (state.q) h.set("q", state.q);
+  if (state.all) h.set("all", "1");
+  if (state.focus) h.set("f", state.focus);
+  if (state.hl) h.set("hl", state.hl);
+  const s = h.toString();
+  history.replaceState(null, "", s ? "#" + s : location.pathname + location.search);
+}
+function go(patch) {
+  Object.assign(state, patch);
+  writeHash();
+  render();
+}
+
+// ---------- 木の 道具 ----------
+const NODE = {};     // id → { node, sid, block, sec, path }
+function indexTree(tree, ctx, path) {
+  for (const c of tree.c || []) {
+    NODE[c.id] = { node: c, ...ctx, path };
+    indexTree(c, ctx, path.concat(c));
+  }
+}
+for (const s of D.subjects) {
+  if (s.goal) indexTree(s.goal, { sid: s.id, block: null, sec: "目標", whole: true }, []);
+  if (s.part2Lead) indexTree(s.part2Lead, { sid: s.id, block: null, sec: s.part2Title, whole: true }, []);
+  if (s.plan) indexTree(s.plan, { sid: s.id, block: null, sec: "指導計画の作成と内容の取扱い", whole: true }, []);
+  for (const b of s.blocks) for (const sec of b.secs) {
+    NODE[sec.tree.id] = { node: sec.tree, sid: s.id, block: b, sec: sec.h, path: [] };
+    indexTree(sec.tree, { sid: s.id, block: b, sec: sec.h }, []);
+  }
+}
+const kindOf = n => {
+  if (!n.m) return n.t ? "item" : "plain";
+  if (/^[Ａ-Ｚ]$/.test(n.m)) return "dom";
+  if (/^[⑴-⒇]$/.test(n.m) || /^[１-９][０-９]?$/.test(n.m)) return "unit";
+  if (n.m.length > 2 && !/^（/.test(n.m)) return "grp";
+  return "sub";
+};
+const secName = h => h === "_lead" ? "内容" : h;
+function nodeLabel(n) {
+  const k = kindOf(n);
+  if (k === "grp") return `〔${n.m}〕`;
+  if (k === "item") return `［${n.t}］`;
+  return (n.m ? n.m + " " : "") + n.t;
+}
+function plainText(n, depth = 0) {
+  const pad = "　".repeat(depth);
+  let out = "";
+  if (n.m || n.t) out += pad + nodeLabel(n).replace(/\s+$/, "") + "\n";
+  for (const l of n.lead || []) out += pad + "　" + l + "\n";
+  for (const c of n.c || []) out += plainText(c, depth + (n.m || n.t ? 1 : 0));
+  return out;
+}
+
+// ---------- 検索の 索引 ----------
+const INDEX = [];
+for (const [id, e] of Object.entries(NODE)) {
+  const n = e.node;
+  const own = [n.m && kindOf(n) === "grp" ? n.m : "", n.t || "", ...(n.lead || [])].join("　");
+  if (!own.trim()) continue;
+  INDEX.push({ id, sid: e.sid, text: own, key: norm(own), e });
+}
+function terms(q) { return norm(q).split(/[\s　]+/).filter(Boolean); }
+function hlText(text, ts) {
+  if (!ts.length) return esc(text);
+  // NFKC で 長さが かわる 文字は ほとんど ないので、1文字ずつ 対応させて 色を つける
+  const src = [...text];
+  const keyChars = src.map(ch => norm(ch));
+  const key = keyChars.join("");
+  const on = new Array(key.length).fill(false);
+  for (const t of ts) {
+    let i = key.indexOf(t);
+    while (i >= 0) { for (let k = i; k < i + t.length; k++) on[k] = true; i = key.indexOf(t, i + 1); }
+  }
+  let out = "", pos = 0, open = false;
+  src.forEach((ch, i) => {
+    const len = keyChars[i].length;
+    const lit = on.slice(pos, pos + len).some(Boolean);
+    pos += len;
+    if (lit && !open) { out += "<mark>"; open = true; }
+    if (!lit && open) { out += "</mark>"; open = false; }
+    out += esc(ch);
+  });
+  return out + (open ? "</mark>" : "");
+}
+
+// ---------- 上の そうさ ----------
+function buildControls() {
+  $("#src-link").href = D.source.url;
+  $("#top-links").innerHTML =
+    `<a href="${D.source.url}" target="_blank" rel="noopener">告示の本文（PDF）</a>` +
+    `<a href="${D.source.kaisetsuPage}" target="_blank" rel="noopener">文部科学省の解説</a>`;
+  $("#grade-chips").innerHTML = [`<button class="chip" data-grade="0">全学年</button>`]
+    .concat(GRADES.map(g => `<button class="chip" data-grade="${g}"><span class="dot" style="background:${GRADE_COLORS[g - 1]}"></span>${g}年</button>`)).join("");
+  $("#subj-chips").innerHTML = [`<button class="chip" data-subj="all">すべて</button>`]
+    .concat(D.subjects.map(s => `<button class="chip" data-subj="${s.id}">${emo(s.icon)}${esc(s.short)}</button>`)).join("");
+  $("#themes").insertAdjacentHTML("beforeend", THEMES.map(t => `<button class="chip" data-theme="${t}">${t}</button>`).join(""));
+
+  $("#view-btns").addEventListener("click", e => {
+    const b = e.target.closest("[data-view]"); if (!b) return;
+    go({ view: b.dataset.view, q: "", focus: "", hl: "" });
+  });
+  $("#grade-chips").addEventListener("click", e => {
+    const b = e.target.closest("[data-grade]"); if (b) go({ grade: Number(b.dataset.grade), focus: "" });
+  });
+  $("#subj-chips").addEventListener("click", e => {
+    const b = e.target.closest("[data-subj]"); if (b) go({ subj: b.dataset.subj, focus: "" });
+  });
+  $("#themes").addEventListener("click", e => {
+    const b = e.target.closest("[data-theme]"); if (!b) return;
+    $("#q").value = b.dataset.theme; go({ q: b.dataset.theme, subj: "all", grade: 0, focus: "", hl: "" });
+  });
+  $("#search-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const q = $("#q").value.trim();
+    go({ q, focus: "", hl: "" });
+    $("#q").blur();
+  });
+  $("#q-clear").addEventListener("click", () => { $("#q").value = ""; go({ q: "", hl: "" }); $("#q").focus(); });
+  $("#opt-all").addEventListener("change", e => go({ all: e.target.checked }));
+}
+function syncControls() {
+  for (const b of document.querySelectorAll("#view-btns [data-view]")) b.setAttribute("aria-pressed", String(!state.q && b.dataset.view === state.view));
+  for (const b of document.querySelectorAll("#grade-chips [data-grade]")) b.setAttribute("aria-pressed", String(Number(b.dataset.grade) === state.grade));
+  for (const b of document.querySelectorAll("#subj-chips [data-subj]")) b.setAttribute("aria-pressed", String(b.dataset.subj === state.subj));
+  for (const b of document.querySelectorAll("#themes [data-theme]")) b.setAttribute("aria-pressed", String(b.dataset.theme === state.q));
+  if (document.activeElement !== $("#q")) $("#q").value = state.q;
+  $("#opt-all").checked = state.all;
+}
+
+// ---------- 画面を かく ----------
+function render() {
+  syncControls();
+  const main = $("#main");
+  if (state.q) main.innerHTML = renderSearch();
+  else if (state.view === "map") main.innerHTML = state.subj === "all" ? renderOverview() : renderSubjectTable(SUBJ[state.subj]);
+  else main.innerHTML = renderDetail();
+  if (state.focus) requestAnimationFrame(showFocus);
+  else if (!state.q) window.scrollTo({ top: Math.min(window.scrollY, $("#main").offsetTop - 10) });
+}
+
+function gradeHeads(first) {
+  return first + GRADES.map(g => `<div class="gh${state.grade && state.grade !== g ? " dim" : ""}" style="background:${GRADE_COLORS[g - 1]}">${g}年</div>`).join("");
+}
+const dimFor = grades => state.grade && !grades.includes(state.grade) ? " dim" : "";
+// 学年の 列に あわせて マスを ならべる（あいた 学年は「—」）
+function placeCells(cells, html) {
+  const out = []; let col = 1;
+  const sorted = cells.slice().sort((a, b) => a.grades[0] - b.grades[0]);
+  for (const c of sorted) {
+    const start = c.grades[0], span = c.grades.length;
+    for (; col < start; col++) out.push(`<div class="cell none" style="grid-column:${col + 1}">—</div>`);
+    out.push(html(c, `grid-column:${start + 1} / span ${span}`));
+    col = start + span;
+  }
+  for (; col <= 6; col++) out.push(`<div class="cell none" style="grid-column:${col + 1}">—</div>`);
+  return out.join("");
+}
+
+function renderOverview() {
+  const rows = D.subjects.map(s => {
+    const head = `<button class="rh" style="--c:${s.color}" data-act="subject" data-sid="${s.id}">${emo(s.icon)}<span>${esc(s.short)}<small>系統表を見る</small></span></button>`;
+    const cells = placeCells(D.overview[s.id].length && s.id === "tokkatsu" ? [{ grades: GRADES, text: D.overview[s.id].map(o => o.text).join("／"), ref: s.blocks[0].id, sid: s.id }] : D.overview[s.id],
+      (c, st) => `<button class="cell${dimFor(c.grades)}" style="--c:${s.color};${st}" data-act="block" data-ref="${c.ref}">${c.grades.length > 1 ? `<span class="span">${gradeText(c.grades)}</span>` : ""}${esc(c.text)}</button>`);
+    return head + cells;
+  }).join("");
+  return `<div class="card">
+    <div class="bar"><h2>${emo("open_book")} 6年間の学びのつながり（全教科）</h2><span class="sp"></span>
+      <button class="btn pdf" data-act="print-overview">${emo("printer")} 一覧をPDFに（A4・1枚）</button></div>
+    <div class="scroll-x"><div class="grid">${gradeHeads("<div></div>")}${rows}</div></div>
+    <p class="note">マスを押すと、その学年の本文（目標・内容）へ進みます。教科名を押すと、その教科の系統表が開きます。マスの言葉は本文をもとにしたまとめです。</p>
+  </div>`;
+}
+
+function subjectLinks(s) {
+  return `<a class="btn" href="${s.kaisetsu}" target="_blank" rel="noopener">解説（${esc(s.short)}編）</a>
+    <a class="btn" href="${pdfLink(s.page)}" target="_blank" rel="noopener">告示 p.${s.page}</a>`;
+}
+
+function renderSubjectTable(s) {
+  const T = D.tables[s.id];
+  const rows = T.map(r => {
+    const allG = [...new Set(r.cells.flatMap(c => c.grades))];
+    const head = `<div class="rh${dimFor(allG)}" style="--c:${s.color}">${r.group ? `<span><span class="grp">${esc(r.group)}</span>${esc(r.label)}</span>` : esc(r.label)}</div>`;
+    return head + placeCells(r.cells, (c, st) => {
+      const other = c.subject !== s.id ? SUBJ[c.subject] : null;
+      return `<div class="cell${dimFor(c.grades)}" style="--c:${(other || s).color};${st}">${c.grades.length > 1 ? `<span class="span">${gradeText(c.grades)}</span>` : ""}<div class="items">${c.items.map(it =>
+        `<button class="item${other ? " other" : ""}" data-act="node" data-ref="${it.ref}">${other ? `<span class="from">${esc(other.short)}</span>` : ""}${esc(it.label)}</button>`).join("")}</div></div>`;
+    });
+  }).join("");
+  const anyAuto = T.some(r => r.cells.some(c => c.items.some(i => i.auto)));
+  return `<div class="card" style="--c:${s.color}">
+    <div class="subj-head"><h2>${emo(s.icon)} ${esc(s.name)}の系統表</h2><span class="sp" style="flex:1"></span>
+      ${subjectLinks(s)}
+      <button class="btn pdf" data-act="print-subject" data-sid="${s.id}">${emo("printer")} この教科のまとめPDF（A4・1枚）</button></div>
+    <div class="scroll-x"><div class="sgrid">${gradeHeads("<div></div>")}${rows}</div></div>
+    <div class="legend">
+      <span>マスの言葉を押すと、その本文へ進みます。</span>
+      <span>${anyAuto ? "見出しは告示にある見出しです（体育の保健など一部は本文の最初の言葉）。" : "見出しは本文をもとにまとめたものです。"}</span>
+      ${T.some(r => r.cells.some(c => c.subject !== s.id)) ? "<span>点線のマスは、つながりのある別の教科です。</span>" : ""}
+    </div>
+  </div>
+  ${s.goal ? `<div class="card" style="--c:${s.color}"><details class="sec"><summary>${esc(s.name)}の目標（第１）</summary>${renderTree(s.goal)}</details></div>` : ""}`;
+}
+
+function blocksFor(s) {
+  return s.blocks.filter(b => !state.grade || b.grades.includes(state.grade) || (!b.grades.length));
+}
+function renderDetail() {
+  const list = (state.subj === "all" ? D.subjects : [SUBJ[state.subj]]).filter(s => blocksFor(s).length);
+  if (!list.length) return `<div class="card empty">${state.grade}年には、この教科の内容はありません。</div>`;
+  const back = state.hl ? `<div class="backbar">「<b>${esc(state.hl)}</b>」を黄色で示しています。<button class="btn" data-act="back-search">検索結果にもどる</button><button class="btn" data-act="clear-hl">色をけす</button></div>` : "";
+  const jump = list.length > 1 ? `<div class="jump">${list.map(s => `<a class="chip" href="#" data-act="jump" data-sid="${s.id}">${emo(s.icon)}${esc(s.short)}</a>`).join("")}</div>` : "";
+  return back + jump + list.map(s => renderSubjectDetail(s)).join("");
+}
+function renderSubjectDetail(s) {
+  const bl = blocksFor(s);
+  const allBlocks = bl.length === s.blocks.length;
+  const graded = s.blocks.filter(x => x.grades.length && x.label !== "その他の外国語");
+  const nav = b => {
+    const i = graded.indexOf(b);
+    if (i < 0 || graded.length < 2) return "";
+    const prev = graded[i - 1], next = graded[i + 1];
+    return `<span style="flex:1"></span>${prev ? `<button class="mini" data-act="grade-to" data-ref="${prev.id}">← 前の学年（${gradeText(prev.grades)}）</button>` : ""}${next ? `<button class="mini" data-act="grade-to" data-ref="${next.id}">次の学年（${gradeText(next.grades)}）→</button>` : ""}`;
+  };
+  const blocks = bl.map(b => `<div class="block" id="${b.id}"><div class="bh">${b.grades.length ? `<span class="tag" style="background:${GRADE_COLORS[b.grades[0] - 1]};color:#fff">${gradeText(b.grades)}</span>` : ""}${esc(b.label || s.part2Title)}
+      <a class="mini" href="${pdfLink(b.page)}" target="_blank" rel="noopener">告示 p.${b.page}</a>${state.grade ? nav(b) : ""}</div>
+    <div class="bb">${b.secs.map(sec => `<details class="sec"${sec.h === "目標" || sec.h === "内容" || sec.h === "_lead" ? " open" : ""}><summary>${esc(secName(sec.h))}</summary>${renderTree(sec.tree)}</details>`).join("")}</div></div>`).join("");
+  const kanji = s.id === "kokugo" ? `<p class="note">別表「学年別漢字配当表」は原文では図として入っているため、このアプリには入っていません（<a href="${pdfLink(42)}" target="_blank" rel="noopener">告示 p.42〜45</a>）。</p>` : "";
+  return `<section class="card" id="subj-${s.id}" style="--c:${s.color}">
+    <div class="subj-head"><h2>${emo(s.icon)} ${esc(s.name)}</h2>
+      <span class="tag">対象：${esc(gradeText([...new Set(s.blocks.flatMap(b => b.grades))].sort()) || "—")}</span>
+      <span style="flex:1"></span>${subjectLinks(s)}
+      <button class="btn" data-act="to-table" data-sid="${s.id}">系統表で見る</button>
+      <button class="btn pdf" data-act="print-subject" data-sid="${s.id}">${emo("printer")} まとめPDF</button></div>
+    ${s.goal ? `<details class="sec"><summary>教科の目標（第１）</summary>${renderTree(s.goal)}</details>` : ""}
+    ${s.part2Lead ? `<details class="sec" open><summary>${esc(s.part2Title)}</summary>${renderTree(s.part2Lead)}</details>` : ""}
+    ${blocks}
+    ${s.plan ? `<details class="sec"><summary>指導計画の作成と内容の取扱い（第３）</summary>${renderTree(s.plan)}${kanji}</details>` : ""}
+    ${!allBlocks ? `<p class="note">ほかの学年の内容は「学年」を「全学年」にすると見られます。</p>` : ""}
+  </section>`;
+}
+
+function renderTree(tree) {
+  const ts = state.hl ? terms(state.hl) : [];
+  const leads = (tree.lead || []).map(l => `<p class="lead">${hlText(l, ts)}</p>`).join("");
+  return leads + (tree.c || []).map(c => renderNode(c, ts)).join("");
+}
+function renderNode(n, ts) {
+  const k = kindOf(n);
+  const copy = (k === "unit" || k === "dom" || k === "item") ? `<span class="tools"><button class="mini" data-act="copy" data-ref="${n.id}">コピー</button></span>` : "";
+  let line;
+  if (k === "grp") line = `<span class="tx">〔${hlText(n.m, ts)}〕${n.t ? " " + hlText(n.t, ts) : ""}</span>`;
+  else if (k === "item") line = `<span class="tx">［${hlText(n.t, ts)}］</span>`;
+  else line = `${n.m ? `<span class="mk">${esc(n.m)}</span>` : ""}<span class="tx">${hlText(n.t || "", ts)}</span>`;
+  const leads = (n.lead || []).map(l => `<p class="lead">${hlText(l, ts)}</p>`).join("");
+  const kids = (n.c || []).map(c => renderNode(c, ts)).join("");
+  return `<div class="nd ${k}" id="${n.id}"><div class="ln">${line}${copy}</div>${leads || kids ? `<div class="kids">${leads}${kids}</div>` : ""}</div>`;
+}
+
+function showFocus() {
+  const el = document.getElementById(state.focus);
+  if (!el) return;
+  for (let p = el.parentElement; p; p = p.parentElement) if (p.tagName === "DETAILS") p.open = true;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+}
+
+// ---------- 検索 ----------
+function searchHits() {
+  const ts = terms(state.q);
+  if (!ts.length) return [];
+  return INDEX.filter(x => {
+    if (state.subj !== "all" && x.sid !== state.subj) return false;
+    const e = x.e;
+    const sec = e.sec;
+    const extra = sec === "内容の取扱い" || sec === "指導計画の作成と内容の取扱い" || sec === "各学校において定める目標及び内容の取扱い";
+    if (extra && !state.all) return false;
+    if (state.grade) {
+      if (e.block ? (e.block.grades.length && !e.block.grades.includes(state.grade)) : !SUBJ[x.sid].blocks.some(b => b.grades.includes(state.grade))) return false;
+    }
+    return ts.every(t => x.key.includes(t));
+  });
+}
+// 見つかった 文を、その文が 入っている 項目（⑴ など）ごとに まとめる
+function anchorOf(e) {
+  const chain = e.path.concat(e.node);
+  const unit = chain.find(n => kindOf(n) === "item" || (n.m && /^[⑴-⒇]$/.test(n.m)));
+  return unit || chain.find(n => kindOf(n) === "unit") || e.node;
+}
+const shortT = t => !t ? "" : t.length > 34 ? t.slice(0, 32) + "…" : t;
+function groupHits(hits) {
+  const map = new Map();
+  for (const x of hits) {
+    const a = anchorOf(x.e);
+    const key = a.id || x.id;
+    if (!map.has(key)) map.set(key, { anchor: a, e: x.e, sid: x.sid, list: [] });
+    map.get(key).list.push(x);
+  }
+  return [...map.values()];
+}
+function whereOf(g) {
+  const e = g.e, parts = [];
+  if (e.block && e.block.label && !/学年/.test(e.block.label)) parts.push(e.block.label);
+  parts.push(e.whole ? (e.sec === "目標" ? "教科の目標" : e.sec) : secName(e.sec));
+  for (const p of e.path) {
+    if (p === g.anchor) break;
+    const k = kindOf(p);
+    if (k === "grp") parts.push(`〔${p.m}〕`);
+    else if (k === "dom") parts.push(`${p.m} ${p.t}`);
+  }
+  return { grades: e.block ? e.block.grades : [], parts };
+}
+function renderSearch() {
+  const ts = terms(state.q);
+  const hits = searchHits();
+  const by = {};
+  for (const g of groupHits(hits)) (by[g.sid] = by[g.sid] || []).push(g);
+  const order = D.subjects.filter(s => by[s.id]);
+  const total = order.reduce((n, s) => n + by[s.id].length, 0);
+  const cond = [state.grade ? `${state.grade}年` : "全学年", state.subj === "all" ? "全教科" : SUBJ[state.subj].short].join("・");
+  if (!hits.length) {
+    let wider = "";
+    if (state.subj !== "all" || state.grade) {
+      const keep = { subj: state.subj, grade: state.grade };
+      Object.assign(state, { subj: "all", grade: 0 });
+      const n = groupHits(searchHits()).length;
+      Object.assign(state, keep);
+      if (n) wider = `<br><button class="btn" data-act="widen" style="margin-top:8px">全学年・全教科で探す（${n}項目あります）</button>`;
+    }
+    return `<div class="card empty">「${esc(state.q)}」は見つかりませんでした（${cond}${state.all ? "" : "・目標と内容"}）。${wider}<br>
+      言葉を短くしたり、ひらがな・漢字を変えたりしてみてください。${state.all ? "" : "<br>「内容の取扱い」も検索するには、上のチェックを入れてください。"}</div>`;
+  }
+  const cross = `<div class="cross"><span class="note">同じ言葉が出てくる教科：</span>${order.map(s =>
+    `<button class="chip" data-act="filter-subj" data-sid="${s.id}" aria-pressed="${state.subj === s.id}">${emo(s.icon)}${esc(s.short)} <b>${by[s.id].length}</b></button>`).join("")}
+    ${state.subj !== "all" ? `<button class="chip" data-act="filter-subj" data-sid="all">すべての教科にもどす</button>` : ""}</div>`;
+  const groups = order.map(s => {
+    const list = by[s.id];
+    const limit = state.subj === "all" ? 5 : 999;
+    const card = g => {
+      const w = whereOf(g), a = g.anchor;
+      const title = kindOf(a) === "item" ? `［${a.t}］` : `${a.m || ""} ${shortT(a.t)}`;
+      const lines = g.list.slice(0, 3).map(x => {
+        const n = x.e.node;
+        if (n === a) {  // 項目の 見出しそのものが 見つかった ときは、見出しの あとの 文だけ
+          const rest = (a.lead || []).join("　") || (shortT(a.t) !== a.t ? a.t : "");
+          return rest ? `<div class="tx"><span>${hlText(rest, ts)}</span></div>` : "";
+        }
+        const chain = x.e.path.slice(x.e.path.indexOf(a) + 1).concat(n).filter(p => p.m && kindOf(p) !== "grp").map(p => p.m).join("");
+        return `<div class="tx">${chain ? `<span class="mk">${esc(chain)}</span>` : ""}<span>${hlText(x.text, ts)}</span></div>`;
+      }).join("");
+      return `<button class="hit" style="--c:${s.color}" data-act="hit" data-ref="${g.list[0].id}">
+        <div class="where"><span class="gr">${w.grades.length ? gradeText(w.grades) : "教科全体"}</span>${esc(w.parts.join(" › "))}</div>
+        <div class="tl">${esc(title)}</div>${lines}${g.list.length > 3 ? `<div class="rest">ほかに${g.list.length - 3}か所</div>` : ""}</button>`;
+    };
+    return `<div class="hitgrp" style="--c:${s.color}"><h3>${emo(s.icon)} ${esc(s.name)} <span class="tag">${list.length}項目</span></h3>
+      ${list.slice(0, limit).map(card).join("")}
+      ${list.length > limit ? `<button class="btn more" data-act="filter-subj" data-sid="${s.id}">${esc(s.short)}をすべて見る（あと${list.length - limit}項目）</button>` : ""}</div>`;
+  }).join("");
+  return `<div class="card"><div class="bar"><h2>${emo("magnifying_glass")}「${esc(state.q)}」の検索結果</h2><span class="tag">${total}項目・${cond}${state.all ? "" : "・目標と内容"}</span></div>
+    ${cross}${groups}</div>`;
+}
+
+// ---------- ボタンの うごき ----------
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]");
+  if (!b) return;
+  const act = b.dataset.act;
+  if (act === "subject" || act === "to-table") go({ view: "map", subj: b.dataset.sid, q: "", focus: "", hl: "" });
+  else if (act === "block") {
+    const sid = b.dataset.ref.split("-")[0];
+    const blk = SUBJ[sid].blocks.find(x => x.id === b.dataset.ref);
+    go({ view: "detail", subj: sid, grade: state.grade && blk.grades.includes(state.grade) ? state.grade : 0, focus: blk.id, hl: "" });
+  }
+  else if (act === "node") {
+    const e2 = NODE[b.dataset.ref];
+    go({ view: "detail", subj: e2.sid, grade: 0, focus: b.dataset.ref, hl: "" });
+  }
+  else if (act === "hit") {
+    const e2 = NODE[b.dataset.ref];
+    go({ view: "detail", subj: e2.sid, grade: 0, focus: b.dataset.ref, hl: state.q, q: "" });
+  }
+  else if (act === "grade-to") {
+    const sid = b.dataset.ref.split("-")[0];
+    const blk = SUBJ[sid].blocks.find(x => x.id === b.dataset.ref);
+    go({ grade: blk.grades[0], focus: blk.id });
+  }
+  else if (act === "back-search") go({ q: state.hl, hl: "", focus: "" });
+  else if (act === "clear-hl") go({ hl: "" });
+  else if (act === "widen") go({ subj: "all", grade: 0 });
+  else if (act === "filter-subj") go({ subj: b.dataset.sid });
+  else if (act === "jump") { e.preventDefault(); document.getElementById("subj-" + b.dataset.sid).scrollIntoView({ behavior: "smooth" }); }
+  else if (act === "copy") copyNode(b.dataset.ref);
+  else if (act === "print-subject") printSubject(SUBJ[b.dataset.sid]);
+  else if (act === "print-overview") printOverview();
+});
+
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(toast.tm); toast.tm = setTimeout(() => t.classList.remove("on"), 1800);
+}
+async function copyNode(id) {
+  const e = NODE[id], s = SUBJ[e.sid];
+  const head = `【${s.name}${e.block && e.block.grades.length ? "・" + gradeText(e.block.grades) : ""}・${secName(e.sec)}】`;
+  const text = head + "\n" + plainText(e.node) + `（出典：文部科学省「小学校学習指導要領（平成29年告示）」）`;
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); } catch {} ta.remove();
+  }
+  toast("テキストをコピーしました");
+}
+
+// ---------- A4・1枚の PDF ----------
+function fitAndPrint(html) {
+  const sheet = $("#print-sheet");
+  sheet.innerHTML = html;
+  sheet.classList.add("measure");
+  const mm = 96 / 25.4, maxH = 192 * mm;   // A4 よこ − 余白
+  let size = 15;
+  sheet.style.fontSize = size + "px";
+  while (sheet.scrollHeight > maxH && size > 5) { size -= 0.25; sheet.style.fontSize = size + "px"; }
+  sheet.classList.remove("measure");
+  toast("印刷の画面で「PDFに保存」を選んでください");
+  setTimeout(() => window.print(), 300);
+}
+function sheetFoot(extra) {
+  return `<div class="ps-foot">出典：文部科学省「小学校学習指導要領（平成29年告示）」。表の言葉は本文をもとにまとめたもの${extra || ""}。ようりょうナビで作成（${new Date().toLocaleDateString("ja-JP")}）</div>`;
+}
+function tableHTML(cellsByRow, rowHead) {
+  const head = `<thead><tr><th style="width:${rowHead}">　</th>${GRADES.map(g => `<th>${g}年</th>`).join("")}</tr></thead>`;
+  return `<table class="ps-table">${head}<tbody>${cellsByRow.map(r => {
+    let col = 1, tds = "";
+    for (const c of r.cells.slice().sort((a, b) => a.grades[0] - b.grades[0])) {
+      for (; col < c.grades[0]; col++) tds += `<td></td>`;
+      tds += `<td colspan="${c.grades.length}">${c.html}</td>`;
+      col = c.grades[0] + c.grades.length;
+    }
+    for (; col <= 6; col++) tds += `<td></td>`;
+    return `<tr><th class="rl">${r.label}</th>${tds}</tr>`;
+  }).join("")}</tbody></table>`;
+}
+function printSubject(s) {
+  const rows = D.tables[s.id].map(r => ({
+    label: (r.group ? `<small>${esc(r.group)}</small><br>` : "") + esc(r.label),
+    cells: r.cells.map(c => ({ grades: c.grades, html: (c.subject !== s.id ? `<small>（${esc(SUBJ[c.subject].short)}）</small>` : "") + `<ul>${c.items.map(i => `<li>${esc(i.label)}</li>`).join("")}</ul>` })),
+  }));
+  const goal = s.goal && s.goal.lead ? `<div class="ps-goal"><b>教科の目標</b>　${esc(s.goal.lead.join(""))}${(s.goal.c || []).map(c => `　${esc(c.m)}${esc(c.t)}`).join("")}</div>` : "";
+  fitAndPrint(`<div class="ps-head"><h1>${esc(s.name)}　学習内容の系統</h1><span>小学校学習指導要領（平成29年告示）</span><span class="src">告示 p.${s.page}〜</span></div>
+    ${goal}${tableHTML(rows, "13%")}${sheetFoot(D.tables[s.id].some(r => r.cells.some(c => c.items.some(i => i.auto))) ? "（告示に見出しがあるものはその見出し）" : "")}`);
+}
+function printOverview() {
+  const rows = D.subjects.map(s => ({
+    label: esc(s.short),
+    cells: (s.id === "tokkatsu" ? [{ grades: GRADES, text: D.overview[s.id].map(o => o.text).join("／") }] : D.overview[s.id]).map(o => ({ grades: o.grades, html: esc(o.text) })),
+  }));
+  fitAndPrint(`<div class="ps-head"><h1>小学校　6年間の学びのつながり</h1><span>小学校学習指導要領（平成29年告示）全教科</span></div>${tableHTML(rows, "9%")}${sheetFoot()}`);
+}
+window.addEventListener("afterprint", () => { $("#print-sheet").innerHTML = ""; });
+
+// ---------- はじめ ----------
+buildControls();
+readHash();
+render();
+window.addEventListener("hashchange", () => { readHash(); render(); });
+</script>
+</body>
+</html>
