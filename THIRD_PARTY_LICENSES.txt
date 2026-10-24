@@ -14,6 +14,7 @@ Microsoft Fluent Emoji（3D）
                 sokudoku/assets/icon/（速読ラボ の アイコン：Open book）
                 mainichi-kyouyou/assets/genre/・emoji/・icon/（毎日教養 の ジャンルの 絵・ふくろう・アイコン）
                 shugo-ninja/assets/emoji/（ことばにんじゃ道場 の 忍者・ねこ・ほし・まきもの などの 絵）
+                youryou-navi/assets/emoji/（ようりょうナビ の 教科の アイコン・検索・印刷 などの 絵）
   入手もと: https://github.com/microsoft/fluentui-emoji
   ライセンス: MIT License
 ================================================================
