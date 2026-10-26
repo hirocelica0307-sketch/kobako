@@ -4,7 +4,7 @@
 import { kindOf, toCounts, doraFromIndicator, tileName, sortTiles, isRedId } from './tiles.js';
 import { shanten, waits, isAgari } from './hand.js';
 import { evaluateWin, basePoints, ceil100 } from './score.js';
-import { Mahjong, DEFAULT_RULES, makeRng } from './engine.js';
+import { Mahjong, DEFAULT_RULES, SANMA_DEFAULTS, makeRng, tsumoPays } from './engine.js';
 import { decide } from './ai.js';
 import { pointsLabel } from './calc.js';
 import { ukeire } from './hand.js';
@@ -527,6 +527,100 @@ export function runTests({ quick = false } = {}) {
             }
         }
         t(`符の いちから：${STEPS.length}ステップ ぜんぶ 問題が つくれて、手の 問題（${hands}問）の こたえが エンジンと 同じ`, !bad4.length, bad4.slice(0, 6).join(' '));
+    }
+
+    /* ── 3人麻雀 ── */
+    {
+        const R3 = { ...DEFAULT_RULES, ...SANMA_DEFAULTS, length: 'tonpu' };
+        // 牌の 数・配牌
+        {
+            const g = new Mahjong(R3, 'san-a'); g.act({ a: 'next' });
+            const all = [...g.h.live, ...g.h.rinshan, ...g.h.doraInd, ...g.h.uraInd];
+            const ok = all.length === 108 && new Set(all).size === 108 && all.every(id => (id >> 2) === 0 || (id >> 2) >= 8)
+                && g.h.hands.length === 3 && g.remaining() === 54 && g.scores.length === 3 && g.scores[0] === 35000;
+            t('3人麻雀：二萬〜八萬を ぬいた 108枚・3人に 配牌・親の 第1ツモの あと のこり 54枚・持ち点 35000', ok, `${all.length}枚 のこり${g.remaining()}`);
+        }
+        t('3人麻雀：ドラ表示が 一萬なら ドラは 九萬（九萬なら 一萬）', doraFromIndicator(0, true) === 8 && doraFromIndicator(8, true) === 0 && doraFromIndicator(0) === 1);
+        // ツモの 支払い
+        {
+            const a = tsumoPays(2000, false, 3, true), b = tsumoPays(2000, false, 3, false), c = tsumoPays(2000, true, 3, true), d = tsumoPays(2000, true, 3, false);
+            const e = tsumoPays(240, false, 3, false);
+            const ok = a.oya === 4000 && a.ko === 2000 && b.oya === 5000 && b.ko === 3000 && c.ko === 4000 && d.ko === 6000 && e.oya === 700 && e.ko === 500;
+            t('3人麻雀：ツモ損（子の 満貫 2000・4000）／折半（3000・5000）、親の 満貫 4000オール／6000オール', ok, JSON.stringify([a, b, c, d, e]));
+        }
+        // 抜きドラの 翻
+        {
+            const base = { closed: P('123p456p789s11s5577z').slice(0, 13), melds: [], tsumo: false, seatWind: 1, roundWind: 0, riichi: true, doubleRiichi: false, ippatsu: false, rinshan: false, chankan: false, haitei: false, houtei: false, tenhou: false, chiihou: false, uraInd: [], rules: R3, sanma: true };
+            const closed = P('123p456p789s555z11s');
+            const w = closed[13];
+            const r0 = evaluateWin({ ...base, closed, winTile: w, doraInd: [], kita: 0 });
+            const r2 = evaluateWin({ ...base, closed, winTile: w, doraInd: [], kita: 2 });
+            const rd = evaluateWin({ ...base, closed, winTile: w, doraInd: [29], kita: 2 });   // 西 → ドラは 北
+            const ok = r0 && r2 && rd && r2.han === r0.han + 2 && r2.kita === 2 && rd.dora === 2 && rd.han === r0.han + 4;
+            t('3人麻雀：抜いた 北は 1枚 1翻（北が ドラなら さらに ドラ）', ok, `${r0 && r0.han} ${r2 && r2.han} ${rd && rd.han}`);
+        }
+        // 北抜き・抜き北ロン（場面を つくる）
+        {
+            const g = new Mahjong(R3, 'san-k'); g.act({ a: 'next' });
+            const h = g.h, s = h.turn, q = (s + 1) % 3;
+            const take = str => P(str);
+            // s：北を 1枚 もつ 14枚。q：北 単騎で テンパイ
+            h.hands[s] = [30 * 4, ...take('19p19s1155z'), 9 * 4 + 1, 17 * 4 + 1, 18 * 4 + 1, 26 * 4 + 1, 31 * 4 + 2, 32 * 4 + 2].slice(0, 14);
+            h.hands[q] = [...P('123p456p789s111s'), 30 * 4 + 1];
+            h.riichi[q] = true;
+            h.drawn = h.hands[s][h.hands[s].length - 1];
+            const before = g.remaining();
+            const opt = g.prompt().options;
+            const hasKita = opt.kita.length === 1 && kindOf(opt.kita[0]) === 30;
+            const ev = g.act({ s, a: 'kita', t: opt.kita[0] });
+            const p2 = g.prompt();
+            const claimOk = p2.type === 'claim' && p2.kind === 'kita' && p2.seats[q] && p2.seats[q].ron;
+            const ev2 = claimOk ? g.act({ s: q, a: 'ron' }) : [];
+            const ag = ev2.find(e => e.type === 'agari');
+            const ok = hasKita && ev.some(e => e.type === 'kita') && g.h.nuki[s].length === 1 && ag && ag.wins[0].seat === q && ag.wins[0].from === s
+                && !ag.wins[0].result.yaku.some(y => y.name === '槍槓');
+            t('3人麻雀：北抜き → ほかの 人が 抜いた 北で ロン（槍槓は つかない）', ok, `kita:${hasKita} claim:${claimOk} agari:${!!ag} 残${before}`);
+        }
+        {
+            const g = new Mahjong(R3, 'san-k2'); g.act({ a: 'next' });
+            const h = g.h, s = h.turn;
+            h.hands[s] = [...P('19p19s1155z'), 9 * 4 + 1, 17 * 4 + 1, 18 * 4 + 1, 26 * 4 + 1, 31 * 4 + 2, 30 * 4];
+            h.drawn = 30 * 4;
+            const before = g.remaining();
+            g.act({ s, a: 'kita', t: 30 * 4 });
+            const p2 = g.prompt();
+            const ok = p2.type === 'turn' && p2.seat === s && g.h.hands[s].length === 14 && g.remaining() === before - 1 && g.h.rinshanDraw && g.h.kitaDraw && !g.h.uninterrupted;
+            t('3人麻雀：北抜きの あとは 王牌から 1枚 ひいて つづける（のこりが 1枚 へる）', ok, `${p2.type} ${g.h.hands[s].length} ${before}→${g.remaining()}`);
+        }
+        // CPU どうしで さいごまで（チー なし・二萬〜八萬 なし・点数の 合計）
+        {
+            const bad = [];
+            let kitaN = 0, hands = 0;
+            for (let gi = 0; gi < (quick ? 4 : 16); gi++) {
+                const rules = { ...R3, length: gi % 2 ? 'tonpu' : 'hanchan', tsumoLoss: gi % 3 !== 0, kita: gi % 4 === 3 ? 'kaze' : 'nuki' };
+                const g = new Mahjong(rules, 'san' + gi); g.noSnap = true;
+                const rng = makeRng('sanai' + gi);
+                let n = 0;
+                try {
+                    while (g.phase !== 'over' && n++ < 20000) {
+                        const p = g.prompt();
+                        if (p.type === 'claim' && Object.values(p.seats).some(o => o.chi.length)) throw new Error('チー');
+                        if (p.type === 'turn' && rules.kita === 'kaze' && p.options.kita.length) throw new Error('北抜き（客風）');
+                        let ev;
+                        if (p.type === 'ready' || p.type === 'handEnd') ev = g.act({ a: 'next' });
+                        else { const st = p.type === 'turn' ? p.seat : p.pending[0]; ev = g.act(decide(g, st, p, 2 + (st % 2), rng)); }
+                        for (const e of ev) { if (e.type === 'kita') kitaN++; if (e.type === 'handStart') hands++; }
+                        const sum = g.scores.reduce((a, b) => a + b, 0) + g.sticks * 1000;
+                        if (sum !== 3 * rules.startPoints) throw new Error('合計 ' + sum);
+                        if (g.h && g.kyoku > 2) throw new Error('局');
+                    }
+                    if (g.phase !== 'over' || g.final.rows.length !== 3) throw new Error('おわらない');
+                    const pts = g.final.rows.reduce((a, r) => a + r.point, 0);
+                    if (Math.abs(pts) > 0.05) throw new Error('ポイント ' + pts);
+                } catch (e) { bad.push(gi + ':' + e.message); }
+            }
+            t(`3人麻雀：コンピューター 3人で ${quick ? 4 : 16}回 さいごまで（チー なし・3局ずつ・点数と ポイントの 合計・北抜き ${kitaN}回）`, !bad.length, bad.join(' '));
+        }
     }
     return rows;
 }

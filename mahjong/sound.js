@@ -364,6 +364,7 @@ export const REASON_READING = {
 export function doraReading(kind, n) {
     if (kind === 'ドラ') return n === 1 ? 'ドラ' : n === 2 ? 'ドラドラ' : 'ドラ' + (NUM_READ[n] || n);
     if (kind === '赤ドラ') return n === 1 ? 'アカ' : 'アカ' + (NUM_READ[n] || n);
+    if (kind === '北') return n === 1 ? 'キタ' : 'キタ' + (NUM_READ[n] || n);
     return n === 1 ? 'ウラ' : 'ウラ' + (NUM_READ[n] || n);
 }
 

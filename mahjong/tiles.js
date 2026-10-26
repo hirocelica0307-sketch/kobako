@@ -35,8 +35,9 @@ export function tileName(k, red = false) {
     return (red ? '赤' : '') + KANJI_NUM[k % 9] + SUIT_NAMES[Math.floor(k / 9)];
 }
 
-/** ドラ表示牌から ドラの 種類 */
-export function doraFromIndicator(k) {
+/** ドラ表示牌から ドラの 種類（sanma：3人麻雀は 一萬の つぎが 九萬） */
+export function doraFromIndicator(k, sanma = false) {
+    if (sanma && k === 0) return 8;
     if (k < 27) return Math.floor(k / 9) * 9 + ((k % 9) + 1) % 9;
     if (k <= 30) return 27 + ((k - 27) + 1) % 4;
     return 31 + ((k - 31) + 1) % 3;

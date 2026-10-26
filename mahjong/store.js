@@ -1,6 +1,6 @@
 /* 設定と きろく（この 端末の localStorage に のこします）
    ------------------------------------------------------------------ */
-import { DEFAULT_RULES } from './engine.js';
+import { DEFAULT_RULES, SANMA_DEFAULTS } from './engine.js';
 
 // ?profile=x は ためす とき 用（同じ ブラウザの タブごとに べつの 人に する）
 const PROFILE = (typeof location !== 'undefined' && (location.search.match(/[?&]profile=([a-z0-9]+)/) || [])[1]) || '';
@@ -41,7 +41,9 @@ delete data.settings.sortHand;
 // 2026-10-12：捨て牌は きっちり そろえるのが はじめの 設定に なった（まえの「手で 置いたように」を 1回だけ もどす）
 if (!data.settings.riverNeatV2) { data.settings.riverStyle = 'neat'; data.settings.riverNeatV2 = true; }
 data.keisan = data.keisan || { done: 0, ok: 0 };   // 点数計算の 練習の きろく
-data.rules = { ...DEFAULT_RULES, ...(data.rules || {}) };
+data.rules = { ...DEFAULT_RULES, ...(data.rules || {}), players: 4 };
+data.rules3 = { ...DEFAULT_RULES, ...SANMA_DEFAULTS, ...(data.rules3 || {}), players: 3 };   // 3人麻雀の ルール
+data.players = data.players === 3 ? 3 : 4;   // コンピューター・友だちと 対戦の 人数
 data.record = data.record || {};       // { 'lv1': { games, ranks:[1位,2位,3位,4位] }, online: {...} }
 data.name = data.name || '';
 data.level = data.level || 2;
@@ -53,6 +55,9 @@ export function save() {
 }
 
 export const store = data;
+
+/** いま えらんで いる 人数の ルール */
+export const curRules = () => (data.players === 3 ? data.rules3 : data.rules);
 
 export function addRecord(key, rank) {
     const r = data.record[key] || (data.record[key] = { games: 0, ranks: [0, 0, 0, 0] });

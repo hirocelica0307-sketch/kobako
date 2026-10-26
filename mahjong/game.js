@@ -34,6 +34,7 @@ const DEBUG = /[?&]debug\b/.test(location.search);
 const REASON_NAMES = {
     exhaust: '流局', nagashi: '流し満貫', kyuushu: '九種九牌', suufon: '四風連打', suucha: '四家立直', suukan: '四槓散了', sancha: '三家和'
 };
+const REL_WORD = ['', '右', '向かい', '左'];   // 画面の 位置（pos）ごとの ことば
 
 export class GameView {
     /**
@@ -54,6 +55,8 @@ export class GameView {
         this.root = root;
         this.cfg = cfg;
         this.g = cfg.engine;
+        this.N = this.g.N;                         // 4人 または 3人
+        this.sm = this.N === 3 ? { N: 3, tsumoLoss: this.g.rules.tsumoLoss } : null;   // 3人の 点数計算
         this.me = cfg.mySeat;
         this.players = cfg.players;
         this.queue = [];
@@ -114,8 +117,19 @@ export class GameView {
         return new Promise(res => this.later(res, ms * speedFactor()));
     }
 
-    pos(seat) { return (seat - this.me + 4) % 4; }
-    seatAt(pos) { return (pos + this.me) % 4; }
+    /** 席 → 画面の 位置（0 下・1 右・2 上・3 左）。3人は 上が あく（右が 下家、左が 上家） */
+    pos(seat) {
+        const rel = (seat - this.me + this.N) % this.N;
+        return this.N === 3 && rel === 2 ? 3 : rel;
+    }
+    seatAt(pos) {
+        if (this.N === 3) return pos === 2 ? null : (this.me + (pos === 3 ? 2 : pos)) % 3;
+        return (pos + this.me) % 4;
+    }
+    /** 画面の 位置の じゅん（自分から 反時計まわり）に ならべた 席 */
+    seatsInOrder() { return (this.N === 3 ? [0, 1, 3] : [0, 1, 2, 3]).map(p => this.seatAt(p)); }
+    /** a から 見た b の 位置（1 下家 2 対面 3 上家） */
+    relPos(b, a) { const r = (b - a + this.N) % this.N; return this.N === 3 && r === 2 ? 3 : r; }
 
     /* ── 画面の わく ───────────────────────── */
 
@@ -167,6 +181,7 @@ export class GameView {
   <div class="plate"><div class="pl-in" style="transform:rotate(${-ANGLES[p]}deg)"></div></div>
 </div>`).join('');
         // dispose() で かならず はずす（はずさないと、つぎの 対局で まえの 対局の 画面が 手牌を 上書きする）
+        if (this.N === 3) this.root.querySelectorAll('.seat.pos2, .cw2').forEach(x => x.classList.add('nobody'));
         this.onRootClick = e => { if (!this.disposed) this.onClick(e); };
         this.root.addEventListener('click', this.onRootClick);
         this.$ = sel => this.root.querySelector(sel);
@@ -366,7 +381,7 @@ export class GameView {
         const s = this.snap;
         this.renderTop();
         this.renderCenter();
-        for (let seat = 0; seat < 4; seat++) {
+        for (let seat = 0; seat < this.N; seat++) {
             this.renderRiver(seat);
             this.renderMelds(seat);
             this.renderBacks(seat);
@@ -391,9 +406,9 @@ export class GameView {
 
     renderCenter() {
         const s = this.snap;
-        for (let seat = 0; seat < 4; seat++) {
+        for (let seat = 0; seat < this.N; seat++) {
             const p = this.pos(seat);
-            const wind = (seat - s.dealer + 4) % 4;
+            const wind = (seat - s.dealer + this.N) % this.N;
             const el = this.$('.cw' + p);
             const active = s.hands && s.turn === seat && this.g.phase === 'play';
             el.className = `cw cw${p}${active ? ' active' : ''}${wind === 0 ? ' dealer' : ''}${s.riichi && s.riichi[seat] ? ' riichi' : ''}${this.showDiff ? ' diffmode' : ''}`;
@@ -446,12 +461,14 @@ export class GameView {
         const s = this.snap;
         const el = this.$(`.seat.pos${this.pos(seat)} .melds`);
         if (!s.melds) { el.innerHTML = ''; return; }
-        el.innerHTML = s.melds[seat].map(m => this.meldHTML(seat, m)).join('');
+        // 3人：抜いた 北を 鳴いた 牌の となりに ならべる
+        const nuki = s.nuki && s.nuki[seat] && s.nuki[seat].length ? `<div class="meld nuki">${s.nuki[seat].map(t => this.tileHTML(t, { cls: 'mt' })).join('')}</div>` : '';
+        el.innerHTML = s.melds[seat].map(m => this.meldHTML(seat, m)).join('') + nuki;
     }
 
     meldHTML(seat, m) {
         // 鳴いた 牌を 横に する 位置：上家から 左、対面から まんなか、下家から 右
-        const rel = (m.from - seat + 4) % 4;   // 1 下家 2 対面 3 上家
+        const rel = this.relPos(m.from, seat);   // 1 下家 2 対面 3 上家
         if (m.type === 'ankan') {
             return `<div class="meld">${m.tiles.map((t, i) => this.tileHTML(t, { back: i === 0 || i === 3, cls: 'mt' })).join('')}</div>`;
         }
@@ -526,7 +543,7 @@ export class GameView {
             list = this.handOrder.slice();
         } else list = sortTiles(rest);
         const canDiscard = p && p.type === 'turn' ? new Set(this.riichiMode ? p.options.riichi : p.options.discard) : null;
-        const doras = new Set((s.doraIds || []).map(id => doraFromIndicator(kindOf(id))));
+        const doras = new Set((s.doraIds || []).map(id => this.g.doraOf(kindOf(id))));
         const rec = this.recommendTile;
         const one = (t, extra = '') => {
             const cls = ['ht'];
@@ -683,6 +700,7 @@ export class GameView {
         case 'tsumo': this.clearMyUI(); this.submit({ s: this.me, a: 'tsumo' }); return;
         case 'ron': this.clearMyUI(); this.submit({ s: this.me, a: 'ron' }); return;
         case 'kyuushu': this.clearMyUI(); this.submit({ s: this.me, a: 'kyuushu' }); return;
+        case 'kita': this.clearMyUI(); this.submit({ s: this.me, a: 'kita', t: p.options.kita[0] }); return;
         case 'riichi':
             this.riichiMode = !this.riichiMode;
             if (this.riichiMode && p && !p.options.riichi.includes(this.selected)) this.selected = null;
@@ -891,14 +909,14 @@ export class GameView {
         // 自動
         if (o.tsumo && this.auto.win) { this.submit({ s: this.me, a: 'tsumo' }); return; }
         const riichiNow = this.snap.riichi[this.me];
-        if (riichiNow && !o.tsumo && !o.ankan.length) {
+        if (riichiNow && !o.tsumo && !o.ankan.length && !(o.kita && o.kita.length)) {
             // リーチ中は ツモ切り
             this.later(() => { if (this.myPrompt === p) this.submit({ s: this.me, a: 'discard', t: o.discard[0] }); }, 550 * speedFactor());
             this.renderHand();
             this.$('.g-status').textContent = 'リーチ中（ツモ切り）';
             return;
         }
-        if (this.auto.tsumogiri && !o.tsumo && this.snap.drawn !== null && o.discard.includes(this.snap.drawn) && !o.riichi.length && !o.ankan.length && !o.kakan.length) {
+        if (this.auto.tsumogiri && !o.tsumo && this.snap.drawn !== null && o.discard.includes(this.snap.drawn) && !o.riichi.length && !o.ankan.length && !o.kakan.length && !(o.kita && o.kita.length)) {
             this.later(() => { if (this.myPrompt === p) this.submit({ s: this.me, a: 'discard', t: this.snap.drawn }); }, 350 * speedFactor());
             return;
         }
@@ -945,8 +963,9 @@ export class GameView {
             if (o.tsumo) html += b('tsumo', 'ツモ', 'win');
             if (o.riichi.length) html += b('riichi', this.riichiMode ? 'やめる' : 'リーチ', 'riichi' + (this.riichiMode ? ' on' : ''));
             if (o.ankan.length || o.kakan.length) html += b('kan', 'カン', 'call');
+            if (o.kita && o.kita.length) html += b('kita', '北抜き', 'call');
             if (o.kyuushu) html += b('kyuushu', '九種九牌', 'call');
-            if ((o.tsumo || o.ankan.length) && this.snap.riichi[this.me]) html += b('pass', 'ツモ切り', 'pass');
+            if ((o.tsumo || o.ankan.length || (o.kita && o.kita.length)) && this.snap.riichi[this.me]) html += b('pass', 'ツモ切り', 'pass');
         } else if (p && p.type === 'claim') {
             const o = p.seats[this.me];
             if (o.ron) html += b('ron', 'ロン', 'win');
@@ -974,17 +993,17 @@ export class GameView {
     }
 
     claimInfoHTML(p, o) {
-        const rel = (p.from - this.me + 4) % 4;
-        const where = ['', '右', '向かい', '左'][rel];
+        const where = REL_WORD[this.pos(p.from)];
+        const what = p.kind === 'kita' ? '抜いた 北' : p.kind === 'kakan' ? 'カンの 牌' : '捨て牌';
         const pl = this.players[p.from];
         const opts = this.claimUsed(p, o).map(x => `<div class="ci-opt"><b>${x.word}</b>${x.used.length ? `<span class="ci-tiles">${x.used.map(t => this.tileHTML(t, { cls: 'ci-t mine' })).join('')}<i>＋</i>${this.tileHTML(p.tile, { cls: 'ci-t ci-target' })}</span>` : `<span class="ci-note">この 牌で あがり！</span>`}</div>`).join('');
-        return `<div class="ci-head"><img src="${pl.avatar}" alt=""><span><b>${esc(pl.name)}</b><small>（${where}）</small>の<br>捨て牌</span>${this.tileHTML(p.tile, { cls: 'ci-t ci-target big' })}</div><div class="ci-opts">${opts}</div>`;
+        return `<div class="ci-head"><img src="${pl.avatar}" alt=""><span><b>${esc(pl.name)}</b><small>（${where}）</small>の<br>${what}</span>${this.tileHTML(p.tile, { cls: 'ci-t ci-target big' })}</div><div class="ci-opts">${opts}</div>`;
     }
 
     /** 卓の 上で 鳴ける 牌だけを 目立たせ、ほかを うすく。手の 中の つかう 牌に しるし */
     markClaim(p) {
         this.root.querySelectorAll('.claim-tag, .claim-info').forEach(x => x.remove());
-        this.root.querySelectorAll('.river .t.claim-target').forEach(x => x.classList.remove('claim-target', 'claimable'));
+        this.root.querySelectorAll('.t.claim-target').forEach(x => x.classList.remove('claim-target', 'claimable'));
         const on = !!p;
         this.root.classList.toggle('claiming', on);
         const prevUse = this.claimUse;
@@ -995,13 +1014,15 @@ export class GameView {
         info.className = 'claim-info';
         info.innerHTML = this.claimInfoHTML(p, p.seats[this.me]);
         this.$('.g-table').appendChild(info);
-        const t = this.root.querySelector(`.seat.pos${this.pos(p.from)} .river .t.last`);
+        const t = p.kind === 'kita'
+            ? [...this.root.querySelectorAll(`.seat.pos${this.pos(p.from)} .melds .nuki .t`)].pop()
+            : this.root.querySelector(`.seat.pos${this.pos(p.from)} .river .t.last`);
         if (!t) return;
         t.classList.add('claim-target');
         const tb = this.$('.g-table').getBoundingClientRect(), r = t.getBoundingClientRect();
         const tag = document.createElement('div');
         tag.className = 'claim-tag';
-        tag.innerHTML = `${esc(this.players[p.from].name)}の 捨て牌`;
+        tag.innerHTML = `${esc(this.players[p.from].name)}の ${p.kind === 'kita' ? '抜いた 北' : '捨て牌'}`;
         tag.style.left = `${r.left - tb.left + r.width / 2}px`;
         tag.style.top = `${r.top - tb.top}px`;
         this.$('.g-table').appendChild(tag);
@@ -1010,7 +1031,7 @@ export class GameView {
     clearMyUI(render = true) {
         this.$('.g-actions').innerHTML = '';
         this.$('.g-actions').classList.remove('show');
-        if (this.root.classList.contains('claiming')) { this.claimUse = null; this.root.classList.remove('claiming'); this.root.querySelectorAll('.claim-tag, .claim-info').forEach(x => x.remove()); this.root.querySelectorAll('.river .t.claim-target').forEach(x => x.classList.remove('claim-target')); }
+        if (this.root.classList.contains('claiming')) { this.claimUse = null; this.root.classList.remove('claiming'); this.root.querySelectorAll('.claim-tag, .claim-info').forEach(x => x.remove()); this.root.querySelectorAll('.t.claim-target').forEach(x => x.classList.remove('claim-target')); }
         this.closeChoice();
         this.stopTimer();
         if (render) { this.renderHand(); }
@@ -1025,7 +1046,7 @@ export class GameView {
             txt = this.riichiMode ? 'リーチ：牌を えらんで もう一度 タップ' : 'あなたの 番：タップで えらび、もう一度 タップで 捨てる';
         } else if (p && p.type === 'claim') {
             const o = p.seats[this.me];
-            txt = o.ron ? `${esc(this.players[p.from].name)}の ${tileName(kindOf(p.tile))} で ロン できます！` : `${esc(this.players[p.from].name)}が 捨てた ${tileName(kindOf(p.tile))} を 鳴けます`;
+            txt = o.ron ? `${esc(this.players[p.from].name)}の ${p.kind === 'kita' ? '抜いた ' : ''}${tileName(kindOf(p.tile))} で ロン できます！` : `${esc(this.players[p.from].name)}が 捨てた ${tileName(kindOf(p.tile))} を 鳴けます`;
         }
         // 待ちの 表示
         if (store.settings.showWaits && s.hands) {
@@ -1082,11 +1103,11 @@ export class GameView {
                 const ctxR = g.winContext(me, [...base, id], id, false, {});
                 ctxR.uraInd = [];
                 const rr = evaluateWin(ctxR);
-                if (rr) row.ron = { r: rr, label: pointsLabel(rr.base, isDealer, false), total: calcTotal(rr.base, isDealer, false) };
+                if (rr) row.ron = { r: rr, label: pointsLabel(rr.base, isDealer, false, this.sm), total: calcTotal(rr.base, isDealer, false, this.sm) };
                 const ctxT = g.winContext(me, [...base, id], id, true, {});
                 ctxT.uraInd = [];
                 const rt = evaluateWin(ctxT);
-                if (rt) row.tsumo = { r: rt, label: pointsLabel(rt.base, isDealer, true), total: calcTotal(rt.base, isDealer, true) };
+                if (rt) row.tsumo = { r: rt, label: pointsLabel(rt.base, isDealer, true, this.sm), total: calcTotal(rt.base, isDealer, true, this.sm) };
             } catch (e) { /* むし */ }
             out.push(row);
         }
@@ -1104,7 +1125,7 @@ export class GameView {
         const blocks = pv.map(row => {
             const head = `<div class="pv-head">${this.tileHTML(row.k * 4 + 1, { cls: 'pv-t' })}<b>${tileName(row.k)} で あがると</b></div>`;
             const part = (x, tsumo) => x
-                ? `<details class="pv-d"><summary>${tsumo ? 'ツモ' : 'ロン'}：<b>${x.label}</b>（${x.r.name || (x.r.fu + '符 ' + x.r.han + '翻')}）</summary>${explainHTML(x.r, { isDealer, tsumo })}</details>`
+                ? `<details class="pv-d"><summary>${tsumo ? 'ツモ' : 'ロン'}：<b>${x.label}</b>（${x.r.name || (x.r.fu + '符 ' + x.r.han + '翻')}）</summary>${explainHTML(x.r, { isDealer, tsumo, sm: this.sm })}</details>`
                 : `<div class="pv-none">${tsumo ? 'ツモ' : 'ロン'}：役なし（あがれない）</div>`;
             return `<div class="pv-row">${head}${part(row.ron, false)}${part(row.tsumo, true)}</div>`;
         }).join('');
@@ -1115,9 +1136,10 @@ export class GameView {
     visibleCounts() {
         const s = this.snap;
         const v = new Array(34).fill(0);
-        for (let q = 0; q < 4; q++) {
+        for (let q = 0; q < this.N; q++) {
             for (const d of s.discards[q]) if (!d.called) v[kindOf(d.tile)]++;
             for (const m of s.melds[q]) for (const t of m.tiles) v[kindOf(t)]++;
+            if (s.nuki) for (const t of s.nuki[q]) v[kindOf(t)]++;
         }
         for (const id of s.doraIds) v[kindOf(id)]++;
         return v;
@@ -1179,7 +1201,7 @@ export class GameView {
         switch (e.type) {
         case 'handStart': {
             bgm.duck(1);
-            this.allLast = e.kyoku === 3 && e.roundWind >= (this.g.rules.length === 'tonpu' ? 0 : 1);
+            this.allLast = e.kyoku === this.N - 1 && e.roundWind >= (this.g.rules.length === 'tonpu' ? 0 : 1);
             bgm.play(this.allLast ? 'oorasu' : 'game');
             this.hideBubble();
             this.lastAdvice = null;
@@ -1267,6 +1289,12 @@ export class GameView {
             if (fast) break;
             await this.callFx(e.seat, 'カン');
             break;
+        case 'kita':
+            this.renderAll();
+            if (fast) break;
+            this.$('.g-status').textContent = `${this.players[e.seat].name}：北抜き`;
+            await this.callFx(e.seat, 'キタ');
+            break;
         case 'dora':
             this.renderTop();
             if (!fast) {
@@ -1299,8 +1327,8 @@ export class GameView {
         }
     }
 
-    renderPlates() { for (let s = 0; s < 4; s++) this.renderPlate(s); }
-    renderBacksAll() { for (let s = 0; s < 4; s++) this.renderBacks(s); }
+    renderPlates() { for (let s = 0; s < this.N; s++) this.renderPlate(s); }
+    renderBacksAll() { for (let s = 0; s < this.N; s++) this.renderBacks(s); }
 
     /* ── 局の はじまり：サイコロ・山の わかれ目・東一局 ── */
 
@@ -1313,7 +1341,7 @@ export class GameView {
         say(roundReading(e.roundWind, e.kyoku, e.honba), null);
         await this.sleep(1300);
         // 親が サイコロを ふって 配牌を とる 山を きめる
-        const owner = (e.wallOwner - e.dealer + 4) % 4;
+        const owner = (e.wallOwner - e.dealer + this.N) % this.N;
         await this.rollDice(e.dice, `親 ${dealerName}`, `出目 ${e.dice[0] + e.dice[1]}：${WIND_NAMES[owner]}家の 山の 右から ${e.dice[0] + e.dice[1]}つ目で わける`);
     }
 
@@ -1355,13 +1383,13 @@ export class GameView {
         const m = this.$('.g-modal');
         m.hidden = false;
         // 参加者ごとの 席（風）
-        const seatsOfPlayers = [0, 1, 2, 3];
-        const tilesHTML = [0, 1, 2, 3].map(seat => {
+        const seatsOfPlayers = [...Array(this.N).keys()];
+        const tilesHTML = seatsOfPlayers.map(seat => {
             const pl = this.players[seat];
             return `<div class="op-card" data-seat="${seat}"><div class="op-flip"><div class="t back op-t"></div><div class="op-face">${this.tileHTML((27 + seat) * 4, { cls: 'op-t' })}</div></div><img src="${pl.avatar}" alt=""><div class="op-name">${esc(pl.name)}</div><div class="op-wind"></div></div>`;
         });
         // 表示は 自分から 反時計まわり
-        const order = [0, 1, 2, 3].map(p => this.seatAt(p));
+        const order = this.seatsInOrder();
         m.innerHTML = `<div class="opening">
 <h2>座席決め</h2>
 <p class="op-msg">風牌を 1枚ずつ ひいて 座る 席を きめます</p>
@@ -1392,7 +1420,7 @@ export class GameView {
         m.querySelectorAll('.op-card').forEach(c => {
             const s = Number(c.dataset.seat);
             c.classList.toggle('oya', s === g.startDealer);
-            const w = (s - g.startDealer + 4) % 4;
+            const w = (s - g.startDealer + this.N) % this.N;
             c.querySelector('.op-wind').textContent = w === 0 ? '東家（親）' : `${WIND_NAMES[w]}家`;
         });
         say(`${this.players[g.startDealer].name}が 親です`, null);
@@ -1626,7 +1654,8 @@ export class GameView {
         this.skippable = true;
         this.skip = this.fast;
         const handTiles = sortTiles(w.hand).map(t => this.tileHTML(t, { cls: 'rt' })).join('');
-        const meldTiles = w.melds.map(mm => `<div class="rmeld">${this.meldHTML(w.seat, mm)}</div>`).join('');
+        const meldTiles = w.melds.map(mm => `<div class="rmeld">${this.meldHTML(w.seat, mm)}</div>`).join('')
+            + (w.nuki && w.nuki.length ? `<div class="rmeld"><div class="meld nuki">${w.nuki.map(t => this.tileHTML(t, { cls: 'mt' })).join('')}</div></div>` : '');
         const doraHTML = [0, 1, 2, 3, 4].map(i => i < w.doraInd.length ? this.tileHTML(w.doraInd[i], { cls: 'rd' }) : this.tileHTML(0, { back: true, cls: 'rd' })).join('');
         const uraHTML = [0, 1, 2, 3, 4].map(i => this.tileHTML(0, { back: true, cls: 'rd ura' + (i < w.uraInd.length ? ' will' : '') })).join('');
         m.innerHTML = `<div class="result win lv${lv}">
@@ -1655,6 +1684,7 @@ export class GameView {
         if (r.dora) lines.push({ name: 'ドラ', han: `${r.dora}翻` });
         if (r.aka) lines.push({ name: '赤ドラ', han: `${r.aka}翻` });
         if (r.ura) lines.push({ name: '裏ドラ', han: `${r.ura}翻` });
+        if (r.kita) lines.push({ name: '抜きドラ（北）', han: `${r.kita}翻` });
         const reads = yakuReadings(lines, r);
         for (let i = 0; i < lines.length; i++) {
             const li = document.createElement('div');
@@ -1699,8 +1729,8 @@ export class GameView {
         if (stickBonus) tot.insertAdjacentHTML('beforeend', `<div class="rs-stick">＋ 供託 ${stickBonus.toLocaleString()}</div>`);
         if (w.pao !== null && w.pao !== undefined) tot.insertAdjacentHTML('beforeend', `<div class="rs-pao">責任払い：${esc(this.players[w.pao].name)}</div>`);
         // 点数の 計算の しかた
-        const label = pointsLabel(r.base, w.isDealer, tsumo);
-        tot.insertAdjacentHTML('beforeend', `<div class="rs-label">${w.isDealer ? '親' : '子'}の ${tsumo ? 'ツモ' : 'ロン'}：${label}</div><button class="btn small calc-btn">${icon('info')} 点数の 計算を 見る</button><div class="calc-box" hidden>${explainHTML(r, { isDealer: w.isDealer, tsumo, honba: w.honba, sticks: w.sticks })}</div>`);
+        const label = pointsLabel(r.base, w.isDealer, tsumo, this.sm);
+        tot.insertAdjacentHTML('beforeend', `<div class="rs-label">${w.isDealer ? '親' : '子'}の ${tsumo ? 'ツモ' : 'ロン'}：${label}</div><button class="btn small calc-btn">${icon('info')} 点数の 計算を 見る</button><div class="calc-box" hidden>${explainHTML(r, { isDealer: w.isDealer, tsumo, honba: w.honba, sticks: w.sticks, sm: this.sm })}</div>`);
         const cb = tot.querySelector('.calc-btn');
         cb.addEventListener('click', ev => {
             ev.stopPropagation();
@@ -1733,7 +1763,7 @@ export class GameView {
             await this.sleep(1450);
         }
         m.hidden = false;
-        const rows = [0, 1, 2, 3].map(p => this.seatAt(p)).map(seat => {
+        const rows = this.seatsInOrder().map(seat => {
             const pl = this.players[seat];
             const tp = e.tenpai[seat];
             const nag = e.nagashi.includes(seat);
@@ -1749,7 +1779,7 @@ export class GameView {
     async showScoreChange(before, deltas, after) {
         const m = this.$('.g-modal');
         m.hidden = false;
-        const rows = [0, 1, 2, 3].map(p => this.seatAt(p)).map(seat => {
+        const rows = this.seatsInOrder().map(seat => {
             const pl = this.players[seat];
             const d = deltas[seat];
             return `<div class="sc-row" data-seat="${seat}"><img src="${pl.avatar}" alt=""><b class="sc-name">${esc(pl.name)}</b><span class="sc-num">${before[seat].toLocaleString()}</span><span class="sc-d ${d > 0 ? 'plus' : d < 0 ? 'minus' : ''}">${d > 0 ? '+' : ''}${d ? d.toLocaleString() : ''}</span></div>`;
@@ -1942,6 +1972,7 @@ function yakuReadings(lines, r) {
         if (l.name === 'ドラ') return doraReading('ドラ', r.dora);
         if (l.name === '赤ドラ') return doraReading('赤ドラ', r.aka);
         if (l.name === '裏ドラ') return doraReading('裏ドラ', r.ura);
+        if (l.name === '抜きドラ（北）') return doraReading('北', r.kita);
         return YAKU_READING[l.name] || l.name;
     });
     const WR = { '東': 'トン', '南': 'ナン', '西': 'シャー', '北': 'ペー' };
@@ -1966,9 +1997,12 @@ function uniqueChi(list) {
 
 export function rulesSummary(r) {
     const yn = v => (v ? 'あり' : 'なし');
+    const three = r.players === 3;
     return `<dl>
+<dt>人数</dt><dd>${three ? '3人麻雀（二萬〜八萬 なし・チー なし）' : '4人麻雀'}</dd>
+${three ? `<dt>北</dt><dd>${r.kita === 'kaze' ? 'ふつうの 字牌（客風牌）' : '北抜き（抜きドラ）'}</dd><dt>ツモ</dt><dd>${r.tsumoLoss ? 'ツモ損' : '北家の ぶんを 折半'}</dd>` : ''}
 <dt>対局</dt><dd>${r.length === 'tonpu' ? '東風戦' : '半荘戦'}・持ち点 ${r.startPoints.toLocaleString()}・返し ${r.returnPoints.toLocaleString()}</dd>
-<dt>ウマ</dt><dd>${r.uma === 'none' ? 'なし' : r.uma}</dd>
+<dt>ウマ</dt><dd>${three ? (r.uma3 === 'none' || !r.uma3 ? 'なし' : `+${r.uma3}/0/-${r.uma3}`) : (r.uma === 'none' ? 'なし' : r.uma)}</dd>
 <dt>赤ドラ</dt><dd>${yn(r.aka)}</dd><dt>喰いタン</dt><dd>${yn(r.kuitan)}</dd>
 <dt>一発・裏ドラ・カンドラ</dt><dd>${yn(r.ippatsu)}・${yn(r.ura)}・${yn(r.kandora)}</dd>
 <dt>飛び</dt><dd>${yn(r.tobi)}</dd><dt>あがりやめ</dt><dd>${yn(r.agariyame)}</dd><dt>延長（西入）</dt><dd>${yn(r.westRound)}</dd>

@@ -888,3 +888,13 @@ img[src*="assets/avatars/"] { padding: 0 !important; }
 .fk-score small { font-size: 20px; color: var(--muted); }
 .fk-res p { font-size: 15px; line-height: 1.7; margin: 8px 0 0; }
 .fk span.t { display: block; flex: none; }
+
+/* ── 3人麻雀 ── */
+.nobody { display: none !important; }
+.meld.nuki { margin-left: calc(var(--u) * .8); }
+.claiming .seat .melds:has(.claim-target) { opacity: 1; filter: none; }
+.claiming .seat .melds:has(.claim-target) .t:not(.claim-target) { opacity: .3; }
+.players-seg { margin-bottom: 4px; }
+.rules-tab { margin-bottom: 8px; }
+.sanma-box ul { margin: 6px 0 2px; padding-left: 1.2em; }
+.sanma-box li { font-size: 13px; line-height: 1.7; }
