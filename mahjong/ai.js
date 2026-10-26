@@ -21,12 +21,15 @@ export const LEVELS = [
 function visibleCounts(g, seat) {
     const h = g.h;
     const v = toCounts(h.hands[seat]);
-    for (let q = 0; q < 4; q++) {
+    for (let q = 0; q < g.N; q++) {
         for (const d of h.discards[q]) if (!d.called) v[kindOf(d.tile)]++;
         for (const m of h.melds[q]) for (const t of m.tiles) v[kindOf(t)]++;
+        for (const t of h.nuki[q]) v[kindOf(t)]++;
     }
     for (const k of g.doraIndicators()) v[k]++;
     for (let k = 0; k < KINDS; k++) if (v[k] > 4) v[k] = 4;
+    // 3人麻雀：二萬〜八萬は ない（ひけない）
+    if (g.N === 3) for (let k = 1; k <= 7; k++) v[k] = 4;
     return v;
 }
 
@@ -35,7 +38,7 @@ function visibleCounts(g, seat) {
 function threatSeats(g, seat) {
     const h = g.h;
     const out = [];
-    for (let q = 0; q < 4; q++) {
+    for (let q = 0; q < g.N; q++) {
         if (q === seat) continue;
         if (h.riichi[q] || h.riichiDeclared[q]) { out.push({ q, w: 1 }); continue; }
         const open = h.melds[q].length;
@@ -53,7 +56,7 @@ function safeAgainst(g, q) {
         const idx = h.discards[q].findIndex(d => d.riichi);
         const riichiTurn = idx;
         // リーチの あとの 他家の 捨て牌（だいたいの じゅんばんで 見る）
-        for (let p = 0; p < 4; p++) {
+        for (let p = 0; p < g.N; p++) {
             if (p === q) continue;
             h.discards[p].forEach((d, i) => { if (i >= riichiTurn) safe.add(kindOf(d.tile)); });
         }
@@ -104,6 +107,7 @@ function valueHint(g, seat, c, melds) {
     let v = 0;
     for (const k of doras) v += c[k];
     for (const m of melds) for (const t of m.tiles) if (doras.includes(kindOf(t))) v++;
+    if (g.h.nuki) v += g.h.nuki[seat].length;   // 抜いた 北
     return v;
 }
 
@@ -274,6 +278,13 @@ function decideRiichi(g, seat, t, level, rng) {
 export function decideTurn(g, seat, opt, level, rng = Math.random) {
     const h = g.h;
     if (opt.tsumo) return { s: seat, a: 'tsumo' };
+    // 3人：北は 抜く（国士無双を ねらう ときの さいごの 1枚 だけは のこす）
+    if (opt.kita && opt.kita.length) {
+        const c = toCounts(h.hands[seat]);
+        const yao = [0, 8, 9, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33].filter(k => c[k]).length;
+        const kokushi = h.melds[seat].length === 0 && yao >= 9 && c[30] === 1 && !h.riichi[seat];
+        if (!kokushi) return { s: seat, a: 'kita', t: opt.kita[0] };
+    }
     if (opt.kyuushu) {
         const c = toCounts(h.hands[seat]);
         const kinds = [0, 8, 9, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33].filter(k => c[k]).length;

@@ -8,10 +8,12 @@
 
    席（seat）0〜3 は 反時計まわりの じゅん（東→南→西→北 の 向き）。
    さいしょに サイコロで 仮親・起家（さいしょの 親）を きめます。
+   3人麻雀（rules.players = 3）：席は 0〜2。萬子の 2〜8 を ぬいた 108枚・チー なし・
+   北は 抜きドラ（または ふつうの 客風牌）・ツモ損（または 北家ぶんを 折半）。
    ------------------------------------------------------------------ */
 import { kindOf, isYaochu, isRedId, toCounts, isWind, YAOCHU, doraFromIndicator } from './tiles.js';
 import { isAgari, waits, shanten } from './hand.js';
-import { evaluateWin, ceil100 } from './score.js';
+import { evaluateWin, ceil100, tsumoPays } from './score.js';
 
 export const DEFAULT_RULES = {
     length: 'hanchan',     // 'tonpu' 東風戦 / 'hanchan' 半荘戦
@@ -34,8 +36,22 @@ export const DEFAULT_RULES = {
     kiriage: false,        // 切り上げ満貫
     doubleYakuman: false,  // ダブル役満（国士十三面・四暗刻単騎・純正九蓮・大四喜）
     pao: true,             // 責任払い（大三元・大四喜）
-    timer: 'none'          // 'none' / 'wait'（5秒＋30秒 → まつ）/ 'auto'（5秒＋30秒 → ツモ切り）
+    timer: 'none',         // 'none' / 'wait'（5秒＋30秒 → まつ）/ 'auto'（5秒＋30秒 → ツモ切り）
+    // 3人麻雀
+    players: 4,            // 4 / 3
+    kita: 'nuki',          // 3人の 北：'nuki'（抜きドラ）/ 'kaze'（ふつうの 客風牌）
+    tsumoLoss: true,       // 3人の ツモ：true ツモ損（いない 北家の ぶんは もらえない）/ false 北家ぶんを 2人で 折半
+    uma3: '20'             // 3人の ウマ：'none' / '10'（+10/0/-10）/ '15' / '20'
 };
+
+/** 3人麻雀の はじめの ルール（4人と ちがう ところ） */
+export const SANMA_DEFAULTS = { players: 3, startPoints: 35000, returnPoints: 40000, kita: 'nuki', tsumoLoss: true, uma3: '20' };
+
+/** 3人麻雀で つかわない 牌（二萬〜八萬） */
+export const isSanmaCut = k => k >= 1 && k <= 7;
+const SANMA_TILES = [...Array(136).keys()].filter(id => !isSanmaCut(id >> 2));
+
+export { tsumoPays };
 
 /* ── 種から つくる ランダム（どの 端末でも 同じ ならび） ── */
 
@@ -88,17 +104,19 @@ export class Mahjong {
         this.seed = String(seed);
         const rng = makeRng(this.seed + ':setup');
         // 場所決め：風牌を 1枚ずつ ひいて 席を きめる（seatOrder[i] = i ばんめの 参加者が すわる 席）
-        this.seatOrder = shuffle([0, 1, 2, 3], rng);
+        this.N = this.rules.players === 3 ? 3 : 4;
+        const N = this.N;
+        this.seatOrder = shuffle([...Array(N).keys()], rng);
         // 仮東（東を ひいた 席 = 0）が サイコロを ふって 仮親を きめる
         this.dice1 = [die(rng), die(rng)];
-        this.kariOya = (this.dice1[0] + this.dice1[1] - 1) % 4;
+        this.kariOya = (this.dice1[0] + this.dice1[1] - 1) % N;
         // 仮親が もういちど ふって 起家（さいしょの 親）を きめる
         this.dice2 = [die(rng), die(rng)];
-        this.startDealer = (this.kariOya + this.dice2[0] + this.dice2[1] - 1) % 4;
+        this.startDealer = (this.kariOya + this.dice2[0] + this.dice2[1] - 1) % N;
 
-        this.scores = [0, 1, 2, 3].map(() => this.rules.startPoints);
+        this.scores = [...Array(N)].map(() => this.rules.startPoints);
         this.roundWind = 0;       // 0東 1南 2西
-        this.kyoku = 0;           // その 場の 何局め（0〜3）
+        this.kyoku = 0;           // その 場の 何局め（0〜3、3人は 0〜2）
         this.honba = 0;
         this.sticks = 0;          // 供託（リーチ棒）
         this.handNo = 0;
@@ -109,48 +127,57 @@ export class Mahjong {
         this.history = [];        // 局ごとの けっか
     }
 
-    get dealer() { return (this.startDealer + this.kyoku) % 4; }
-    seatWind(seat) { return (seat - this.dealer + 4) % 4; }
+    get dealer() { return (this.startDealer + this.kyoku) % this.N; }
+    seatWind(seat) { return (seat - this.dealer + this.N) % this.N; }
+    get sanma() { return this.N === 3; }
+    /** 北を 抜ける ルールか */
+    get kitaNuki() { return this.N === 3 && this.rules.kita !== 'kaze'; }
     isAllLast() {
         const lastRound = this.rules.length === 'tonpu' ? 0 : 1;
-        return this.roundWind >= lastRound && this.kyoku === 3;
+        return this.roundWind >= lastRound && this.kyoku === this.N - 1;
     }
+    /** ドラ表示牌 → ドラ（3人は 一萬の つぎが 九萬） */
+    doraOf(k) { return doraFromIndicator(k, this.sanma); }
 
     /* ── 局の はじまり ── */
 
     startHand() {
         const ev = [];
         const rng = makeRng(this.seed + ':hand:' + this.handNo);
-        const tiles = shuffle([...Array(136).keys()], rng);
+        const N = this.N;
+        const tiles = shuffle(N === 3 ? SANMA_TILES.slice() : [...Array(136).keys()], rng);
         const dice = [die(rng), die(rng)];
         const sum = dice[0] + dice[1];
         const dealer = this.dealer;
-        // 山：4つの 壁（17×2）を 反時計まわりに かぞえて わかれ目を きめる
-        const wallOwner = (dealer + sum - 1) % 4;
-        const ringOf = (w, i) => ((3 - w) * 17 + i) % 68;      // 右から i ばんめの 山（時計まわりの 輪）
-        const g0 = (ringOf(wallOwner, 0) + sum) % 68;           // とりはじめる 山
+        // 山：人数ぶんの 壁（4人 17×2、3人 18×2）を 反時計まわりに かぞえて わかれ目を きめる
+        const ring = tiles.length / 2, per = ring / N;
+        const wallOwner = (dealer + sum - 1) % N;
+        const ringOf = (w, i) => ((N - 1 - w) * per + i) % ring;   // 右から i ばんめの 山（時計まわりの 輪）
+        const g0 = (ringOf(wallOwner, 0) + sum) % ring;             // とりはじめる 山
         const stackTiles = g => [tiles[2 * g], tiles[2 * g + 1]];
         const live = [];
-        for (let i = 0; i < 61; i++) live.push(...stackTiles((g0 + i) % 68));
-        const dg = n => stackTiles(((g0 - n) % 68 + 68) % 68);   // わかれ目から n ばんめの 王牌の 山
+        for (let i = 0; i < ring - 7; i++) live.push(...stackTiles((g0 + i) % ring));
+        const dg = n => stackTiles(((g0 - n) % ring + ring) % ring);   // わかれ目から n ばんめの 王牌の 山
         const rinshan = [...dg(1), ...dg(2)];
         const doraInd = [3, 4, 5, 6, 7].map(n => dg(n)[0]);
         const uraInd = [3, 4, 5, 6, 7].map(n => dg(n)[1]);
 
+        const arr = v => Array.from({ length: N }, () => (typeof v === 'function' ? v() : v));
         const h = {
             dice, wallOwner, breakStack: sum,
-            live, pos: 0, liveEnd: 122, rinshan, rinshanUsed: 0, doraInd, uraInd,
+            live, pos: 0, liveEnd: live.length, rinshan, rinshanUsed: 0, doraInd, uraInd,
             doraShown: 1, pendingDora: 0,
-            hands: [[], [], [], []], melds: [[], [], [], []], discards: [[], [], [], []],
-            riichi: [false, false, false, false], riichiDeclared: [false, false, false, false],
-            doubleRiichi: [false, false, false, false], ippatsu: [false, false, false, false],
-            furitenTemp: [false, false, false, false], furitenRiichi: [false, false, false, false],
-            discardCount: [0, 0, 0, 0],
+            hands: arr(() => []), melds: arr(() => []), discards: arr(() => []),
+            nuki: arr(() => []),       // 3人：抜いた 北
+            riichi: arr(false), riichiDeclared: arr(false),
+            doubleRiichi: arr(false), ippatsu: arr(false),
+            furitenTemp: arr(false), furitenRiichi: arr(false),
+            discardCount: arr(0),
             uninterrupted: true,       // まだ だれも 鳴いていない（第1巡の 判定）
-            turn: dealer, drawn: null, rinshanDraw: false,
+            turn: dealer, drawn: null, rinshanDraw: false, kitaDraw: false,
             state: 'turn', claim: null, kuikae: [],
-            kans: [0, 0, 0, 0], totalKans: 0,
-            pao: [null, null, null, null],   // 大三元・大四喜の 責任払いの 相手
+            kans: arr(0), totalKans: 0,
+            pao: arr(null),            // 大三元・大四喜の 責任払いの 相手
             firstWinds: [],
             lastDiscard: null,
             justKakan: null,
@@ -164,12 +191,12 @@ export class Mahjong {
         });
         // 配牌：4枚ずつ 3回、さいごに 1枚ずつ（親から 反時計まわり）
         for (let r = 0; r < 3; r++) {
-            for (let p = 0; p < 4; p++) {
-                const s = (dealer + p) % 4;
+            for (let p = 0; p < N; p++) {
+                const s = (dealer + p) % N;
                 for (let i = 0; i < 4; i++) h.hands[s].push(live[h.pos++]);
             }
         }
-        for (let p = 0; p < 4; p++) h.hands[(dealer + p) % 4].push(live[h.pos++]);
+        for (let p = 0; p < N; p++) h.hands[(dealer + p) % N].push(live[h.pos++]);
         this.emit(ev, { type: 'deal' });
         this.drawFor(dealer, ev, false);
         return ev;
@@ -186,7 +213,7 @@ export class Mahjong {
         const h = this.h;
         const base = {
             scores: this.scores.slice(), sticks: this.sticks, honba: this.honba, roundWind: this.roundWind, kyoku: this.kyoku,
-            dealer: this.dealer
+            dealer: this.dealer, players: this.N
         };
         if (!h) return base;
         return {
@@ -194,6 +221,7 @@ export class Mahjong {
             hands: h.hands.map(x => x.slice()),
             melds: h.melds.map(ms => ms.map(m => ({ type: m.type, tiles: m.tiles.slice(), from: m.from, called: m.called, added: m.added }))),
             discards: h.discards.map(ds => ds.map(d => ({ ...d }))),
+            nuki: h.nuki.map(x => x.slice()),
             riichi: h.riichi.slice(), riichiDeclared: h.riichiDeclared.slice(),
             doraIds: this.doraIndicatorIds(), remaining: this.remaining(), turn: h.turn, drawn: h.drawn
         };
@@ -205,13 +233,15 @@ export class Mahjong {
     remaining() { return this.h ? this.h.liveEnd - this.h.pos : 0; }
     doraIndicators() { return this.h.doraInd.slice(0, this.h.doraShown).map(kindOf); }
     doraIndicatorIds() { return this.h.doraInd.slice(0, this.h.doraShown); }
-    doraKinds() { return this.doraIndicators().map(doraFromIndicator); }
+    doraKinds() { return this.doraIndicators().map(k => this.doraOf(k)); }
 
-    drawFor(seat, ev, rinshan) {
+    drawFor(seat, ev, rinshan, kita = false) {
         const h = this.h;
         let tile;
         if (rinshan) {
-            tile = h.rinshan[h.rinshanUsed++];
+            // 嶺上牌（4枚を こえたら 3人の 北抜きの ぶん：王牌に 足した 山の さいごの 牌）
+            tile = h.rinshanUsed < h.rinshan.length ? h.rinshan[h.rinshanUsed] : h.live[h.liveEnd - 1];
+            h.rinshanUsed++;
             h.liveEnd--;           // 王牌を 14枚に たもつため 海底が 1つ まえに
         } else {
             if (this.remaining() <= 0) { this.exhaustiveDraw(ev); return; }
@@ -222,10 +252,11 @@ export class Mahjong {
         h.turn = seat;
         h.drawn = tile;
         h.rinshanDraw = rinshan;
+        h.kitaDraw = kita;
         h.state = 'turn';
         h.claim = null;
         h.kuikae = [];
-        this.emit(ev, { type: 'draw', seat, tile, rinshan, remaining: this.remaining() });
+        this.emit(ev, { type: 'draw', seat, tile, rinshan, kita, remaining: this.remaining() });
     }
 
     /* ── いま きめる こと ── */
@@ -259,6 +290,7 @@ export class Mahjong {
             doraInd: this.rules.kandora ? this.doraIndicators() : this.doraIndicators().slice(0, 1),
             uraInd: h.uraInd.slice(0, this.rules.kandora ? h.doraShown : 1).map(kindOf),
             rules: this.rules,
+            sanma: this.sanma, kita: h.nuki[seat].length,
             ...extra
         };
     }
@@ -271,7 +303,7 @@ export class Mahjong {
         const hand = h.hands[seat];
         const c = toCounts(hand);
         const mc = h.melds[seat].length;
-        const opt = { discard: [], riichi: [], tsumo: false, ankan: [], kakan: [], kyuushu: false };
+        const opt = { discard: [], riichi: [], tsumo: false, ankan: [], kakan: [], kyuushu: false, kita: [] };
         const afterCall = h.state === 'afterCall';
 
         // ツモ
@@ -324,6 +356,11 @@ export class Mahjong {
                 }
             }
         }
+        // 北抜き（3人）：ポンの すぐ あとと 海底では できない。リーチ中は ツモった 北だけ（待ちが かわらない）
+        if (!afterCall && this.kitaNuki && this.remaining() > 0) {
+            if (h.riichi[seat]) { if (kindOf(h.drawn) === 30) opt.kita.push(h.drawn); }
+            else { const t = hand.find(x => kindOf(x) === 30); if (t !== undefined) opt.kita.push(t); }
+        }
         // 九種九牌
         if (!afterCall && this.rules.abortive && h.uninterrupted && h.discardCount[seat] === 0) {
             const kinds = YAOCHU.filter(k => c[k] > 0).length;
@@ -336,7 +373,7 @@ export class Mahjong {
         const h = this.h;
         const first = h.uninterrupted && h.discardCount[seat] === 0;
         return {
-            rinshan: h.rinshanDraw,
+            rinshan: h.rinshanDraw && !h.kitaDraw,   // 北抜きの あとの ツモは 嶺上開花に しない
             haitei: !h.rinshanDraw && this.remaining() === 0,
             tenhou: first && seat === this.dealer,
             chiihou: first && seat !== this.dealer
@@ -380,7 +417,7 @@ export class Mahjong {
                 for (const cmb of combos) if (this.hasDiscardAfterCall(seat, cmb, 'pon', tile)) o.pon.push(cmb);
             }
             if (same.length >= 3 && h.totalKans < 4) o.minkan = true;
-            if (seat === (from + 1) % 4 && k < 27) {
+            if (this.N === 4 && seat === (from + 1) % 4 && k < 27) {   // チー（3人は なし）
                 const n = k % 9;
                 const pick = kk => {
                     const ts = hand.filter(t => kindOf(t) === kk);
@@ -429,7 +466,7 @@ export class Mahjong {
      *   { a: 'next' }                         つぎの 局へ（さいしょは 第1局）
      *   { s, a: 'discard', t, r? }            打牌（r: 1 で リーチ）
      *   { s, a: 'tsumo' } / { s, a: 'kyuushu' }
-     *   { s, a: 'ankan', k } / { s, a: 'kakan', t }
+     *   { s, a: 'ankan', k } / { s, a: 'kakan', t } / { s, a: 'kita', t }（3人：北抜き）
      *   { s, a: 'pass' } / { s, a: 'ron' } / { s, a: 'pon', t: [id,id] } / { s, a: 'chi', t: [id,id] } / { s, a: 'minkan' }
      */
     act(action) {
@@ -494,8 +531,8 @@ export class Mahjong {
             this.revealDora(ev);
             // 国士無双の 槍槓（暗槓）
             const claims = {};
-            for (let o = 1; o < 4; o++) {
-                const q = (s + o) % 4;
+            for (let o = 1; o < this.N; o++) {
+                const q = (s + o) % this.N;
                 const hand = [...h.hands[q], tiles[0]];
                 const c = toCounts(hand);
                 if (h.melds[q].length === 0 && isAgari(c, 0) && !this.isFuriten(q)) {
@@ -526,8 +563,8 @@ export class Mahjong {
             this.revealPendingDora(ev);
             // 槍槓
             const claims = {};
-            for (let o = 1; o < 4; o++) {
-                const q = (s + o) % 4;
+            for (let o = 1; o < this.N; o++) {
+                const q = (s + o) % this.N;
                 if (this.canRon(q, t, { chankan: true })) claims[q] = { ron: true, pon: [], minkan: false, chi: [] };
             }
             if (Object.keys(claims).length) {
@@ -539,6 +576,28 @@ export class Mahjong {
             this.afterKan(s, ev);
             return;
         }
+        case 'kita': {
+            // 北抜き：北を よこに 出して ドラに し、嶺上牌を ひく（鳴きと 同じく 一発・第1巡は きえる）
+            if (!opt.kita.includes(action.t)) throw new Error('北を 抜けません');
+            const t = action.t;
+            h.hands[s] = h.hands[s].filter(x => x !== t);
+            h.nuki[s].push(t);
+            this.breakFirstTurn();
+            this.emit(ev, { type: 'kita', seat: s, tile: t });
+            // 抜いた 北で ロン できる（槍槓は つかない）
+            const claims = {};
+            for (let o = 1; o < this.N; o++) {
+                const q = (s + o) % this.N;
+                if (this.canRon(q, t, {})) claims[q] = { ron: true, pon: [], minkan: false, chi: [] };
+            }
+            if (Object.keys(claims).length) {
+                h.state = 'claim';
+                h.claim = { tile: t, from: s, kind: 'kita', options: claims, decisions: {} };
+                return;
+            }
+            this.drawFor(s, ev, true, true);
+            return;
+        }
         default:
             throw new Error('その 手は できません');
         }
@@ -547,7 +606,7 @@ export class Mahjong {
     breakFirstTurn() {
         const h = this.h;
         h.uninterrupted = false;
-        h.ippatsu = [false, false, false, false];
+        h.ippatsu = h.ippatsu.map(() => false);
     }
 
     revealDora(ev) {
@@ -591,8 +650,8 @@ export class Mahjong {
 
         // ほかの 人が 鳴けるか
         const options = {};
-        for (let o = 1; o < 4; o++) {
-            const q = (s + o) % 4;
+        for (let o = 1; o < this.N; o++) {
+            const q = (s + o) % this.N;
             const op = this.claimOptionsFor(q, t, s);
             if (op) options[q] = op;
         }
@@ -612,22 +671,22 @@ export class Mahjong {
         this.establishRiichi(ev);
         // 途中流局
         if (this.rules.abortive) {
-            if (h.uninterrupted && h.firstWinds.length === 4 && h.firstWinds[0] >= 0 && h.firstWinds.every(w => w === h.firstWinds[0])) {
+            if (this.N === 4 && h.uninterrupted && h.firstWinds.length === 4 && h.firstWinds[0] >= 0 && h.firstWinds.every(w => w === h.firstWinds[0])) {
                 return this.abortiveDraw('suufon', ev);
             }
-            if (h.riichi.every(Boolean)) return this.abortiveDraw('suucha', ev);
+            if (this.N === 4 && h.riichi.every(Boolean)) return this.abortiveDraw('suucha', ev);
             if (h.totalKans === 4 && h.kans.filter(n => n > 0).length > 1) return this.abortiveDraw('suukan', ev);
         }
         if (this.remaining() <= 0) return this.exhaustiveDraw(ev);
-        this.drawFor((s + 1) % 4, ev, false);
+        this.drawFor((s + 1) % this.N, ev, false);
     }
 
     /** ロンできたのに しなかった 人を フリテンに する */
     markMissed(from, tile, ronners) {
         const h = this.h;
         const k = kindOf(tile);
-        for (let o = 1; o < 4; o++) {
-            const q = (from + o) % 4;
+        for (let o = 1; o < this.N; o++) {
+            const q = (from + o) % this.N;
             if (ronners && ronners.includes(q)) continue;
             const c = toCounts(h.hands[q]);
             if (waits(c, h.melds[q].length).includes(k)) {
@@ -682,7 +741,7 @@ export class Mahjong {
         if (blocking) return;
 
         const from = cl.from;
-        const order = [1, 2, 3].map(o => (from + o) % 4);
+        const order = [...Array(this.N - 1)].map((_, i) => (from + i + 1) % this.N);
         const rons = order.filter(q => cl.decisions[q] && cl.decisions[q].a === 'ron');
         if (rons.length) {
             if (rons.length === 3 && this.rules.sanchahou) {
@@ -690,7 +749,7 @@ export class Mahjong {
                 return this.abortiveDraw('sancha', ev);
             }
             const winners = this.rules.doubleRon ? rons : [rons[0]];
-            const extra = cl.kind === 'discard' ? { houtei: this.remaining() === 0 } : { chankan: true };
+            const extra = cl.kind === 'discard' ? { houtei: this.remaining() === 0 } : cl.kind === 'kita' ? {} : { chankan: true };
             const wins = winners.map(q => {
                 const hand = [...h.hands[q], cl.tile];
                 return { seat: q, from, tile: cl.tile, result: evaluateWin(this.winContext(q, hand, cl.tile, false, extra)) };
@@ -700,6 +759,13 @@ export class Mahjong {
         }
         // ロンが なかった：見のがした 人は フリテン
         const kind = cl.kind;
+        if (kind === 'kita') {
+            // 抜き北の ロンを 見のがした：嶺上牌を ひく
+            this.markMissed(from, cl.tile, null);
+            h.claim = null;
+            h.state = 'turn';
+            return this.drawFor(from, ev, true, true);
+        }
         if (kind !== 'discard') {
             // 槍槓を 見のがした：カンを つづける
             this.markMissed(from, cl.tile, null);
@@ -760,9 +826,11 @@ export class Mahjong {
 
     finishAgari(wins, ev) {
         const h = this.h;
-        const deltas = [0, 0, 0, 0];
+        const N = this.N;
+        const deltas = new Array(N).fill(0);
         const dealer = this.dealer;
         const honba = this.honba;
+        const hbRon = N === 3 ? 200 : 300;   // 本場 1本（3人は 200点：ツモは 2人から 100点ずつ）
         const details = [];
         // 供託は 放銃者から 見て 近い あがり人へ
         const stickTaker = wins[0].seat;
@@ -770,23 +838,24 @@ export class Mahjong {
             const r = w.result;
             const isDealer = w.seat === dealer;
             const base = r.base;
-            const d = [0, 0, 0, 0];
+            const d = new Array(N).fill(0);
             const hb = i === 0 ? honba : 0;   // 本場と 供託は 放銃者に 近い あがり人だけ（上家取り）
             const pao = h.pao[w.seat] && r.yakuman && r.yaku.some(y => y.name === h.pao[w.seat].yaku) ? h.pao[w.seat].from : null;
             if (w.from === null) {
                 if (pao !== null) {
-                    const total = ceil100(base * (isDealer ? 6 : 4)) + hb * 300;
+                    const total = ceil100(base * (isDealer ? 6 : 4)) + hb * hbRon;
                     d[pao] -= total; d[w.seat] += total;
                 } else {
-                    for (let q = 0; q < 4; q++) {
+                    const tp = tsumoPays(base, isDealer, N, this.rules.tsumoLoss);
+                    for (let q = 0; q < N; q++) {
                         if (q === w.seat) continue;
-                        const pay = isDealer ? ceil100(base * 2) : ceil100(base * (q === dealer ? 2 : 1));
+                        const pay = isDealer ? tp.ko : (q === dealer ? tp.oya : tp.ko);
                         d[q] -= pay + hb * 100;
                         d[w.seat] += pay + hb * 100;
                     }
                 }
             } else {
-                const total = ceil100(base * (isDealer ? 6 : 4)) + hb * 300;
+                const total = ceil100(base * (isDealer ? 6 : 4)) + hb * hbRon;
                 if (pao !== null && pao !== w.from) {
                     const half = ceil100(base * (isDealer ? 6 : 4) / 2);
                     d[w.from] -= total - half; d[pao] -= half;
@@ -796,11 +865,12 @@ export class Mahjong {
                 d[w.seat] += total;
             }
             if (w.seat === stickTaker && this.sticks > 0) d[w.seat] += this.sticks * 1000;
-            for (let q = 0; q < 4; q++) deltas[q] += d[q];
+            for (let q = 0; q < N; q++) deltas[q] += d[q];
             details.push({
                 seat: w.seat, from: w.from, tile: w.tile, result: r, delta: d, pao,
                 hand: w.from === null ? h.hands[w.seat].filter(t => t !== w.tile) : h.hands[w.seat].slice(),
                 melds: h.melds[w.seat].map(m => ({ ...m, tiles: m.tiles.slice() })),
+                nuki: h.nuki[w.seat].slice(),
                 uraInd: h.riichi[w.seat] && this.rules.ura ? h.uraInd.slice(0, this.rules.kandora ? h.doraShown : 1) : [],
                 doraInd: this.doraIndicatorIds(),
                 riichi: h.riichi[w.seat],
@@ -809,7 +879,7 @@ export class Mahjong {
             });
         });
         const before = this.scores.slice();
-        for (let q = 0; q < 4; q++) this.scores[q] += deltas[q];
+        for (let q = 0; q < N; q++) this.scores[q] += deltas[q];
         this.sticks = 0;
         const dealerWon = wins.some(w => w.seat === dealer);
         const res = { type: 'agari', wins: details, deltas, before, scores: this.scores.slice(), tsumo: wins[0].from === null };
@@ -821,38 +891,44 @@ export class Mahjong {
 
     exhaustiveDraw(ev) {
         const h = this.h;
-        const tenpai = [0, 1, 2, 3].map(q => {
+        const N = this.N;
+        const tenpai = [...Array(N).keys()].map(q => {
             const c = toCounts(h.hands[q]);
             const mk = new Array(34).fill(0);
             for (const m of h.melds[q]) for (const t of m.tiles) mk[kindOf(t)]++;
+            for (const t of h.nuki[q]) mk[kindOf(t)]++;
             const w = waits(c, h.melds[q].length);
             return w.some(k => c[k] + mk[k] < 4);
         });
-        const deltas = [0, 0, 0, 0];
+        const deltas = new Array(N).fill(0);
         const nagashi = [];
         if (this.rules.nagashi) {
-            for (let q = 0; q < 4; q++) {
+            for (let q = 0; q < N; q++) {
                 const ds = h.discards[q];
                 if (ds.length && ds.every(d => isYaochu(kindOf(d.tile)) && !d.called)) nagashi.push(q);
             }
         }
         if (nagashi.length) {
+            // 満貫の ツモと 同じ はらいかた
             for (const q of nagashi) {
                 const isDealer = q === this.dealer;
-                for (let o = 0; o < 4; o++) {
+                const tp = tsumoPays(2000, isDealer, N, this.rules.tsumoLoss);
+                for (let o = 0; o < N; o++) {
                     if (o === q) continue;
-                    const pay = isDealer ? 4000 : (o === this.dealer ? 4000 : 2000);
+                    const pay = isDealer ? tp.ko : (o === this.dealer ? tp.oya : tp.ko);
                     deltas[o] -= pay; deltas[q] += pay;
                 }
             }
         } else {
+            // ノーテン罰符：場に 3000点（3人は 2000点）
             const n = tenpai.filter(Boolean).length;
-            if (n > 0 && n < 4) {
-                for (let q = 0; q < 4; q++) deltas[q] = tenpai[q] ? 3000 / n : -3000 / (4 - n);
+            const pot = N === 3 ? 2000 : 3000;
+            if (n > 0 && n < N) {
+                for (let q = 0; q < N; q++) deltas[q] = tenpai[q] ? pot / n : -pot / (N - n);
             }
         }
         const before = this.scores.slice();
-        for (let q = 0; q < 4; q++) this.scores[q] += deltas[q];
+        for (let q = 0; q < N; q++) this.scores[q] += deltas[q];
         const res = {
             type: 'ryuukyoku', reason: nagashi.length ? 'nagashi' : 'exhaust', tenpai, nagashi, deltas, before, scores: this.scores.slice(),
             hands: h.hands.map(x => x.slice())
@@ -866,7 +942,7 @@ export class Mahjong {
         const h = this.h;
         h.pendingRiichi = null;
         const res = {
-            type: 'ryuukyoku', reason, seat, tenpai: [false, false, false, false], nagashi: [], deltas: [0, 0, 0, 0],
+            type: 'ryuukyoku', reason, seat, tenpai: new Array(this.N).fill(false), nagashi: [], deltas: new Array(this.N).fill(0),
             before: this.scores.slice(), scores: this.scores.slice(), hands: h.hands.map(x => x.slice())
         };
         this.emit(ev, res);
@@ -883,7 +959,7 @@ export class Mahjong {
         const top = Math.max(...this.scores);
         const dealerIsTop = this.scores[dealer] === top && this.scores.filter(x => x === top).length === 1;
         const inExtra = this.roundWind > lastRound;
-        const allLast = this.kyoku === 3 && this.roundWind >= lastRound;
+        const allLast = this.kyoku === this.N - 1 && this.roundWind >= lastRound;
         let over = false, reason = '';
         if (r.tobi && this.scores.some(x => x < 0)) { over = true; reason = 'tobi'; }
         if (!over) {
@@ -896,7 +972,7 @@ export class Mahjong {
             } else {
                 this.honba = isDraw ? this.honba + 1 : 0;
                 let k = this.kyoku + 1, rw = this.roundWind;
-                if (k >= 4) { k = 0; rw++; }
+                if (k >= this.N) { k = 0; rw++; }
                 if (rw > lastRound) {
                     if (!r.westRound || rw > lastRound + 1 || top >= r.returnPoints) { over = true; reason = 'end'; }
                 }
@@ -918,11 +994,14 @@ export class Mahjong {
     finishMatch(reason) {
         const r = this.rules;
         // のこった 供託は トップへ
-        const order = [0, 1, 2, 3].map(i => (this.startDealer + i) % 4);
+        const N = this.N;
+        const order = [...Array(N)].map((_, i) => (this.startDealer + i) % N);
         const ranked = order.slice().sort((a, b) => this.scores[b] - this.scores[a] || order.indexOf(a) - order.indexOf(b));
         if (this.sticks > 0) { this.scores[ranked[0]] += this.sticks * 1000; this.sticks = 0; }
-        const uma = { 'none': [0, 0, 0, 0], '5-10': [10, 5, -5, -10], '10-20': [20, 10, -10, -20], '10-30': [30, 10, -10, -30] }[r.uma] || [0, 0, 0, 0];
-        const oka = (r.returnPoints - r.startPoints) * 4 / 1000;
+        let uma;
+        if (N === 3) { const u = { none: 0, '10': 10, '15': 15, '20': 20 }[r.uma3] ?? 0; uma = [u, 0, -u]; }
+        else uma = { 'none': [0, 0, 0, 0], '5-10': [10, 5, -5, -10], '10-20': [20, 10, -10, -20], '10-30': [30, 10, -10, -30] }[r.uma] || [0, 0, 0, 0];
+        const oka = (r.returnPoints - r.startPoints) * N / 1000;
         const rows = ranked.map((seat, i) => {
             const pt = (this.scores[seat] - r.returnPoints) / 1000 + uma[i] + (i === 0 ? oka : 0);
             return { seat, rank: i + 1, score: this.scores[seat], point: Math.round(pt * 10) / 10 };

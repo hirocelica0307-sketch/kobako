@@ -2,9 +2,9 @@
    ------------------------------------------------------------------
    画面：ホーム / コンピューターと 対戦 / 友だちと 対戦（部屋）/ ルール設定 / 役の 一覧 / 設定 / 対局
    ------------------------------------------------------------------ */
-import { Mahjong, DEFAULT_RULES, makeRng, shuffle } from './engine.js';
+import { Mahjong, DEFAULT_RULES, SANMA_DEFAULTS, makeRng, shuffle } from './engine.js';
 import { LEVELS } from './ai.js';
-import { store, save, addRecord } from './store.js';
+import { store, save, addRecord, curRules } from './store.js';
 import { sfx, unlockAudio, say } from './sound.js';
 import { bgm, volumeHTML, bindVolume } from './bgm.js';
 import { GameView, rulesSummary } from './game.js';
@@ -52,6 +52,7 @@ function show(name, push = true) {
     if (current === 'game' && name !== 'game' && view) { view.dispose(); view = null; leaveOnlineGame(); }
     if (name !== 'drill') resetDrillView();
     if (name !== 'yakuref') resetYakuView();
+    if (name !== 'rules') rulesTab = 0;
     current = name;
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + name));
     document.body.classList.toggle('in-game', name === 'game');
@@ -85,17 +86,17 @@ const back = (to = 'home') => `<button class="back" data-go="${to}">${icon('arro
 function renderHome(root) {
     const saved = net.savedRoom();
     const deco = [27 * 4, 31 * 4, 16, 33 * 4, 32 * 4].map((id, i) => `<div class="t deco" style="--i:${i}"><i style="background-image:url(${tileImage(id, true)})"></i></div>`).join('');
-    const rec = Object.entries(store.record).filter(([k]) => k.startsWith('lv'));
-    const recHTML = rec.length ? `<div class="home-rec">${rec.map(([k, r]) => `<div><b>${LEVELS[Number(k.slice(2)) - 1].short}</b> ${r.games}戦 1位${r.ranks[0]} 2位${r.ranks[1]} 3位${r.ranks[2]} 4位${r.ranks[3]}</div>`).join('')}</div>` : '';
+    const rec = Object.entries(store.record).filter(([k]) => k.startsWith('lv') || k.startsWith('s3lv'));
+    const recHTML = rec.length ? `<div class="home-rec">${rec.map(([k, r]) => { const three = k.startsWith('s3'); return `<div><b>${three ? '3人 ' : ''}${LEVELS[Number(k.replace(/\D/g, '')) - 1].short}</b> ${r.games}戦 1位${r.ranks[0]} 2位${r.ranks[1]} 3位${r.ranks[2]}${three ? '' : ` 4位${r.ranks[3]}`}</div>`; }).join('')}</div>` : '';
     root.innerHTML = `<div class="home">
 <div class="title-deco">${deco}</div>
 <h1 class="title"><span class="t1">なみ</span><span class="t2">麻雀</span></h1>
-<p class="subtitle">${icon('lightning')} ロン！ツモ！ 雷が おちる 4人麻雀</p>
+<p class="subtitle">${icon('lightning')} ロン！ツモ！ 雷が おちる 4人・3人麻雀</p>
 ${Object.keys(store.friends || {}).length ? `<div class="fr-wrap">${friendsHTML()}</div>` : ''}
 <div class="home-btns">
   ${saved ? `<button class="btn primary big" data-rejoin>合言葉 ${esc(saved.code)} の 部屋に もどる</button>` : ''}
-  <button class="btn big primary" data-go="cpu">${icon('robot')}<span>コンピューターと 対戦<small>つよさ 3段階</small></span></button>
-  <button class="btn big" data-go="online">${icon('users-three')}<span>友だちと 対戦<small>合言葉で 部屋に 入る（2人＋コンピューター2人）</small></span></button>
+  <button class="btn big primary" data-go="cpu">${icon('robot')}<span>コンピューターと 対戦<small>4人麻雀・3人麻雀／つよさ 3段階</small></span></button>
+  <button class="btn big" data-go="online">${icon('users-three')}<span>友だちと 対戦<small>合言葉で 部屋に 入る（2人＋コンピューター。4人・3人）</small></span></button>
   <button class="btn big" data-go="keisan">${icon('lightbulb')}<span>点数計算を おぼえる<small>符と 役を いちから じゅんばんに・やりかた・練習問題・早見表</small></span></button>
   <button class="btn big" data-go="yakuref">${icon('play')}<span>役を おぼえる<small>ぜんぶの 役を お手本の 動画と 妖精の 説明・クイズで</small></span></button>
   <button class="btn big" data-go="drill">${icon('book-open-text')}<span>麻雀ドリル<small>何切る・何待ち・何符・何点・リーチへの まもり（1900問 いじょう）</small></span></button>
@@ -115,11 +116,33 @@ ${recHTML}
 
 /* ── コンピューターと 対戦 ───────────────────── */
 
+/** 4人／3人の きりかえ（えらぶと その 画面を かきなおす） */
+function playersSeg(small = false) {
+    return `<div class="seg ${small ? 'small' : ''} players-seg">
+  <button data-p="4" class="${store.players === 4 ? 'on' : ''}">4人麻雀${small ? '' : '<small>ふつうの 麻雀</small>'}</button>
+  <button data-p="3" class="${store.players === 3 ? 'on' : ''}">3人麻雀${small ? '' : '<small>萬子の 2〜8 なし・北抜き</small>'}</button>
+</div>`;
+}
+function bindPlayersSeg(root, redraw) {
+    const seg = root.querySelector('.players-seg');
+    if (!seg) return;
+    seg.addEventListener('click', e => {
+        const b = e.target.closest('[data-p]');
+        if (!b) return;
+        sfx.button();
+        store.players = Number(b.dataset.p); save();
+        redraw();
+    });
+}
+
 function renderCpu(root) {
-    const r = store.rules;
+    const r = curRules();
     root.innerHTML = `<div class="page">
 ${back()}
 <h2>コンピューターと 対戦</h2>
+<h3>人数</h3>
+${playersSeg()}
+${store.players === 3 ? `<p class="note">3人麻雀：二萬〜八萬を ぬいた 108枚。チーは できません。北は「北抜き」で ドラに なります。くわしくは <button class="link" data-go="rules">ルール設定</button>。</p>` : ''}
 <h3>コンピューターの つよさ</h3>
 <div class="levels">${LEVELS.map(l => `<button class="lv-card${store.level === l.id ? ' on' : ''}" data-lv="${l.id}"><b>${'★'.repeat(l.id)}<span>${'☆'.repeat(3 - l.id)}</span></b><span class="lv-name">${l.name}</span><small>${l.desc}</small></button>`).join('')}</div>
 <h3>対局の 長さ</h3>
@@ -139,6 +162,7 @@ ${charPicker()}
         root.querySelectorAll('[data-lv]').forEach(x => x.classList.toggle('on', x === b));
     }));
     bindSeg(root);
+    bindPlayersSeg(root, () => renderCpu(root));
     bindCharPicker(root);
     root.querySelector('.name-in').addEventListener('change', e => { store.name = e.target.value.trim().slice(0, 8); save(); });
     root.querySelector('.start').addEventListener('click', () => {
@@ -148,15 +172,15 @@ ${charPicker()}
     });
 }
 
-function bindSeg(root) {
-    root.querySelectorAll('.seg').forEach(seg => {
+function bindSeg(root, target = curRules) {
+    root.querySelectorAll('.seg[data-key]').forEach(seg => {
         seg.addEventListener('click', e => {
             const b = e.target.closest('button');
             if (!b) return;
             sfx.button();
             let v = b.dataset.v;
             if (v === 'true') v = true; else if (v === 'false') v = false; else if (/^\d+$/.test(v)) v = Number(v);
-            store.rules[seg.dataset.key] = v;
+            target()[seg.dataset.key] = v;
             save();
             seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
         });
@@ -175,9 +199,9 @@ function cpuPlayers(seed, n, taken = []) {
 
 function startCpuGame() {
     const seed = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    const g = new Mahjong(store.rules, seed);
+    const g = new Mahjong(curRules(), seed);
     const myChar = charById(store.char).id;
-    const chars = cpuPlayers(seed, 3, [myChar]);
+    const chars = cpuPlayers(seed, g.N - 1, [myChar]);
     const parts = [
         { name: store.name || 'あなた', avatar: charImg(myChar), kind: 'me' },
         ...chars.map(c => ({ ...c, kind: 'cpu', level: store.level }))
@@ -190,7 +214,7 @@ function startCpuGame() {
         onExit: () => show('home'),
         onFinish: final => {
             const row = final.rows.find(r => r.seat === mySeat);
-            if (row) addRecord('lv' + store.level, row.rank);
+            if (row) addRecord((g.N === 3 ? 's3lv' : 'lv') + store.level, row.rank);
         },
         onRematch: () => startCpuGame()
     });
@@ -241,7 +265,7 @@ function renderOnline(root) {
     root.innerHTML = `<div class="page">
 ${back()}
 <h2>友だちと 対戦</h2>
-<p class="note">あなたと ともだち、それに コンピューター 2人の 4人で 打ちます。座席は ランダムです。</p>
+<p class="note">あなたと ともだち、それに コンピューターで 打ちます（4人麻雀は コンピューター 2人、3人麻雀は 1人）。座席は ランダムです。</p>
 <div class="fr-wrap">${friendsHTML()}</div>
 <h3>名まえ</h3>
 <input class="name-in" maxlength="8" placeholder="あなた" value="${esc(store.name)}">
@@ -255,8 +279,11 @@ ${charPicker()}
     <div class="mini">コンピューターの つよさ
       <div class="seg small" data-lv>${LEVELS.map(l => `<button data-v="${l.id}" class="${store.level === l.id ? 'on' : ''}">${l.short}</button>`).join('')}</div>
     </div>
+    <div class="mini">人数
+      ${playersSeg(true)}
+    </div>
     <div class="mini">長さ
-      <div class="seg small" data-key="length"><button data-v="tonpu" class="${store.rules.length === 'tonpu' ? 'on' : ''}">東風戦</button><button data-v="hanchan" class="${store.rules.length === 'hanchan' ? 'on' : ''}">半荘戦</button></div>
+      <div class="seg small" data-key="length"><button data-v="tonpu" class="${curRules().length === 'tonpu' ? 'on' : ''}">東風戦</button><button data-v="hanchan" class="${curRules().length === 'hanchan' ? 'on' : ''}">半荘戦</button></div>
     </div>
     <button class="btn primary create">部屋を つくる</button>
   </div>
@@ -269,6 +296,7 @@ ${charPicker()}
 </div>
 </div>`;
     bindSeg(root);
+    bindPlayersSeg(root, () => renderOnline(root));
     bindCharPicker(root);
     bindFriends(root, e => toast(esc(e.message || 'さそえませんでした')));
     root.querySelector('[data-lv]').addEventListener('click', e => {
@@ -305,7 +333,7 @@ ${charPicker()}
         sfx.button();
         msg.textContent = '部屋を つくっています…';
         try {
-            const c = await net.createRoom(getName(), store.rules, store.level, charById(store.char).id);
+            const c = await net.createRoom(getName(), curRules(), store.level, charById(store.char).id);
             online.code = c; online.role = 'host'; online.meta = null;
             watchRoom();
             renderRoom(root);
@@ -375,8 +403,9 @@ ${host && m && m.inv && !guestIn ? `<p class="inv-wait">${esc(sentName())}さん
 <div class="members">
   <div class="mem"><img src="${charImg(m && m.hostChar ? m.hostChar : store.char)}" alt=""><b>${esc(m ? m.hostName : store.name || 'あなた')}</b><small>ホスト${on.host ? '' : '（つながっていない）'}</small></div>
   <div class="mem ${guestIn ? '' : 'empty'}"><img src="${guestIn ? charImg(m.guestChar || 'rabbit') : charImg('mouse')}" alt=""><b>${guestIn ? esc(m.guestName) : 'まっています…'}</b><small>${guestIn ? (on.guest ? 'ゲスト' : 'ゲスト（つながっていない）') : ''}</small></div>
-  <div class="mem cpu">${icon('robot')}<b>コンピューター ×2</b><small>${m ? LEVELS[(m.level || 2) - 1].name : ''}</small></div>
+  <div class="mem cpu">${icon('robot')}<b>コンピューター ×${m && m.rules && m.rules.players === 3 ? 1 : 2}</b><small>${m ? LEVELS[(m.level || 2) - 1].name : ''}</small></div>
 </div>
+${m && m.rules && m.rules.players === 3 ? '<p class="note">3人麻雀（萬子の 2〜8 なし・チー なし・北抜き）</p>' : ''}
 ${m ? `<details class="rule-sum"><summary>ルール（ホストの 設定）</summary>${rulesSummary({ ...DEFAULT_RULES, ...m.rules })}</details>` : ''}
 ${m && m.status === 'done' ? `<p class="note">${m.game}回めの 対局は おわりました。${host ? '「対局を はじめる」で つぎの 対局です。' : 'ホストが つぎの 対局を はじめるのを まっています…'}</p>` : ''}
 ${host ? `<button class="btn primary big start" ${guestIn && on.guest ? '' : 'disabled'}>${icon('play')}<span>${m && m.game ? 'つぎの 対局を はじめる' : '対局を はじめる'}</span></button>${guestIn && !on.guest ? '<p class="note">ともだちが つながるのを まっています…</p>' : ''}` : (m && m.status === 'done' ? '' : '<p class="note">ホストが はじめるのを まっています…</p>')}
@@ -427,7 +456,7 @@ async function startOnlineGame(meta) {
     const isHost = online.role === 'host';
     const hostChar = charById(meta.hostChar || 'shiba').id;
     const guestChar = charById(meta.guestChar || 'rabbit').id;
-    const chars = cpuPlayers(meta.seed, 2, [hostChar, guestChar]);
+    const chars = cpuPlayers(meta.seed, g.N - 2, [hostChar, guestChar]);
     const parts = [
         { name: meta.hostName || 'ホスト', avatar: charImg(hostChar), kind: isHost ? 'me' : 'remote' },
         { name: meta.guestName || 'ゲスト', avatar: charImg(guestChar), kind: isHost ? 'remote' : 'me' },
@@ -450,7 +479,7 @@ async function startOnlineGame(meta) {
         onExit: () => { exitRoom(true); show('home'); },
         onFinish: final => {
             const row = final.rows.find(r => r.seat === mySeat);
-            if (row) addRecord('online', row.rank);
+            if (row) addRecord(g.N === 3 ? 'online3' : 'online', row.rank);
         },
         // 対局が おわったら ホストが 部屋を「おわった」に する（あとから 入りなおしても まえの 対局は はじまらない）
         onMatchOver: () => { if (isHost && online.code === code) net.finishMatch(code, game).catch(() => {}); },
@@ -524,22 +553,51 @@ const RULE_ITEMS = [
     ['timer', '持ち時間', [['none', 'なし'], ['wait', '5秒＋30秒（切れても まつ）'], ['auto', '5秒＋30秒（切れたら ツモ切り）']]]
 ];
 
+/** 3人麻雀の ルールの 項目（4人と ちがう ところを さしかえる） */
+const RULE_ITEMS3 = [
+    ['length', '対局の 長さ', [['tonpu', '東風戦'], ['hanchan', '半荘戦']]],
+    ['kita', '北の あつかい', [['nuki', '北抜き（抜きドラ）'], ['kaze', 'ふつうの 字牌（客風牌）']]],
+    ['tsumoLoss', 'ツモの 点数', [[true, 'ツモ損（2人から だけ）'], [false, '北家の ぶんを 折半']]],
+    ['startPoints', '持ち点', [[35000, '35000'], [40000, '40000']]],
+    ['returnPoints', '返し点', [[35000, '35000'], [40000, '40000']]],
+    ['uma3', 'ウマ（さいごの ポイント 1位／3位）', [['none', 'なし'], ['10', '+10/-10'], ['15', '+15/-15'], ['20', '+20/-20']]],
+    ['aka', '赤ドラ（赤5 2枚：筒子・索子）', [[true, 'あり'], [false, 'なし']]],
+    ...RULE_ITEMS.filter(([k]) => !['length', 'startPoints', 'returnPoints', 'uma', 'aka', 'sanchahou'].includes(k))
+        .map(([k, l, o]) => (k === 'abortive' ? [k, '途中流局（九種九牌・四槓散了）', o] : [k, l, o]))
+];
+let rulesTab = 0;   // 0：いま えらんで いる 人数
+
 function renderRules(root) {
-    const r = store.rules;
+    const three = rulesTab ? rulesTab === 3 : store.players === 3;
+    const r = three ? store.rules3 : store.rules;
+    const items = three ? RULE_ITEMS3 : RULE_ITEMS;
     root.innerHTML = `<div class="page">
 ${back()}
 <h2>ルール設定</h2>
+<div class="seg rules-tab"><button data-t="4" class="${three ? '' : 'on'}">4人麻雀</button><button data-t="3" class="${three ? 'on' : ''}">3人麻雀</button></div>
 <p class="note">対局を はじめる まえに えらびます。友だちと 対戦では ホストの ルールに なります。</p>
-<div class="rules-list">${RULE_ITEMS.map(([key, label, opts]) => `
+${three ? `<div class="box sanma-box"><b>3人麻雀の きほん（かえられない ところ）</b><ul>
+<li>萬子は 一萬と 九萬だけ（二萬〜八萬を ぬいた 108枚）。ドラ表示が 一萬なら ドラは 九萬</li>
+<li>チーは できない（ポン・カンは できる）</li>
+<li>北抜き：北を よこに 出すと ドラ 1枚ぶん。かわりに 王牌から 1枚 ひく（一発・天和などは きえる・嶺上開花には ならない）。抜いた 北で ロンも できる</li>
+<li>本場は 1本 200点（ツモは 2人から 100点ずつ）。ノーテン罰符は 場に 2000点</li>
+<li>東家・南家・西家の 3人。東場・南場は それぞれ 3局</li></ul></div>` : ''}
+<div class="rules-list">${items.map(([key, label, opts]) => `
   <div class="rule-item"><div class="ri-label">${label}</div>
-  <div class="seg small" data-key="${key}">${opts.map(([v, l]) => `<button data-v="${v}" class="${r[key] === v ? 'on' : ''}">${l}</button>`).join('')}</div></div>`).join('')}
+  <div class="seg small" data-key="${key}">${opts.map(([v, l]) => `<button data-v="${v}" class="${String(r[key]) === String(v) ? 'on' : ''}">${l}</button>`).join('')}</div></div>`).join('')}
 </div>
 <button class="btn reset">はじめの ルールに もどす</button>
 </div>`;
-    bindSeg(root);
+    bindSeg(root, () => (three ? store.rules3 : store.rules));
+    root.querySelector('.rules-tab').addEventListener('click', e => {
+        const b = e.target.closest('[data-t]'); if (!b) return;
+        sfx.button(); rulesTab = Number(b.dataset.t); renderRules(root);
+    });
     root.querySelector('.reset').addEventListener('click', () => {
         sfx.button();
-        store.rules = { ...DEFAULT_RULES }; save();
+        if (three) store.rules3 = { ...DEFAULT_RULES, ...SANMA_DEFAULTS };
+        else store.rules = { ...DEFAULT_RULES };
+        save();
         renderRules(root);
     });
 }
@@ -599,7 +657,7 @@ if (/[?&]debug\b/.test(location.search)) window.__mj = { get view() { return vie
 setHandlers({
     async createRoom() {
         if (online.code) await exitRoom(true);
-        const c = await net.createRoom(store.name || 'あなた', store.rules, store.level, charById(store.char).id);
+        const c = await net.createRoom(store.name || 'あなた', curRules(), store.level, charById(store.char).id);
         online.code = c; online.role = 'host'; online.meta = null; online.autoStarted = false;
         await net.updateMeta(c, { inv: true });
         watchRoom();

@@ -71,6 +71,9 @@ export function turnAdvice(g, seat, opt, nameOf) {
     if (opt.tsumo) {
         return { ana, mood: 'happy', title: 'ツモ できるよ！', lines: ['「ツモ」ボタンを おして あがろう！'], tile: null };
     }
+    if (opt.kita && opt.kita.length) {
+        return { ana, mood: 'happy', title: '北を 抜こう！', lines: ['「北抜き」ボタンで 北を よこに 出すと ドラ 1枚ぶん（1翻）に なるよ。かわりに 1枚 ひける', '国士無双を ねらって いる ときだけは 北を のこそう'], tile: null };
+    }
     if (ana.riichiSeats.length) {
         // リーチが かかって いる
         const q = ana.riichiSeats[0];

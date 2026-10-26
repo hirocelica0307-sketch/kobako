@@ -8,6 +8,18 @@ import { decompositions, isChiitoi, isKokushi } from './hand.js';
 
 export const ceil100 = x => Math.ceil(x / 100) * 100;
 
+/** ツモの 支払い（本場 なし）。{ dealer：親が はらう（子の あがり）, ko：子が はらう } */
+export function tsumoPays(base, isDealer, N = 4, tsumoLoss = true) {
+    if (isDealer) {
+        let ko = ceil100(base * 2);
+        if (N === 3 && !tsumoLoss) ko += ceil100(ceil100(base * 2) / 2);   // 北家の ぶんを 折半
+        return { ko };
+    }
+    let oya = ceil100(base * 2), ko = ceil100(base);
+    if (N === 3 && !tsumoLoss) { const half = ceil100(ceil100(base) / 2); oya += half; ko += half; }
+    return { oya, ko };
+}
+
 /** 基本点（子の ロンは ×4、親の ロンは ×6） */
 export function basePoints(han, fu, yakuman, rules) {
     if (yakuman > 0) return 8000 * yakuman;
@@ -56,7 +68,8 @@ function yakuhaiKinds(seatWind, roundWind) {
  *   doraInd     ドラ表示牌の 種類（カンドラ ふくむ）
  *   uraInd      裏ドラ表示牌の 種類（リーチの ときだけ）
  *   rules
- * かえす もの：null（役なし） または { yaku, han, fu, yakuman, base, name, dora, aka, ura }
+ * かえす もの：null（役なし） または { yaku, han, fu, yakuman, base, name, dora, aka, ura, kita }
+ *   sanma（3人麻雀）/ kita（抜いた 北の 数）も わたせる
  */
 export function evaluateWin(ctx) {
     const { rules } = ctx;
@@ -67,10 +80,13 @@ export function evaluateWin(ctx) {
     const allCounts = toCounts(allIds);
 
     // ドラ
+    // 3人麻雀：抜いた 北（kita 枚）は 1枚 1翻。北が ドラ・裏ドラなら その ぶんも
     let dora = 0, aka = 0, ura = 0;
-    for (const ind of ctx.doraInd || []) dora += allCounts[doraFromIndicator(ind)];
+    const kita = ctx.kita || 0;
+    const dk = ind => doraFromIndicator(ind, !!ctx.sanma);
+    for (const ind of ctx.doraInd || []) dora += allCounts[dk(ind)] + (dk(ind) === 30 ? kita : 0);
     if (rules.aka) aka = allIds.filter(isRedId).length;
-    if (ctx.riichi && rules.ura) for (const ind of ctx.uraInd || []) ura += allCounts[doraFromIndicator(ind)];
+    if (ctx.riichi && rules.ura) for (const ind of ctx.uraInd || []) ura += allCounts[dk(ind)] + (dk(ind) === 30 ? kita : 0);
 
     const meldSets = ctx.melds.map(m => {
         const k = Math.min(...m.tiles.map(kindOf));
@@ -154,15 +170,15 @@ export function evaluateWin(ctx) {
     let best = null;
     for (const c of candidates) {
         if (!c) continue;
-        const r = c.yakuman ? c : scoreNormal(c, menzen, dora, aka, ura, rules);
+        const r = c.yakuman ? c : scoreNormal(c, menzen, dora, aka, ura, rules, kita);
         if (!r) continue;
         if (!best || compare(r, best, rules) > 0) best = r;
     }
     if (!best) return null;
     if (!best.yakuman) {
-        best.dora = dora; best.aka = aka; best.ura = ura;
+        best.dora = dora; best.aka = aka; best.ura = ura; best.kita = kita;
     } else {
-        best.dora = 0; best.aka = 0; best.ura = 0;
+        best.dora = 0; best.aka = 0; best.ura = 0; best.kita = 0;
     }
     best.base = basePoints(best.han, best.fu, best.yakuman, rules);
     best.name = tierName(best.han, best.base, best.yakuman, rules.kazoe);
@@ -320,11 +336,11 @@ const SHORT = ['一萬', '二萬', '三萬', '四萬', '五萬', '六萬', '七�
     '一索', '二索', '三索', '四索', '五索', '六索', '七索', '八索', '九索', '東', '南', '西', '北', '白', '發', '中'];
 const tileShortName = k => SHORT[k];
 
-function scoreNormal(c, menzen, dora, aka, ura, rules) {
+function scoreNormal(c, menzen, dora, aka, ura, rules, kita = 0) {
     if (!c.yaku.length) return null;
     const yaku = c.yaku.map(([name, han]) => ({ name, han }));
     let han = yaku.reduce((s, y) => s + y.han, 0);
-    han += dora + aka + ura;
+    han += dora + aka + ura + kita;
     return { yaku, han, fu: c.fu, yakuman: 0, fuParts: c.fuParts || null, wait: c.wait || null };
 }
 
