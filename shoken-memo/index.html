@@ -1,0 +1,1841 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>所見メモ作成</title>
+<style>
+/* ===========================================================
+   所見メモ作成アプリ
+   - 児童の氏名は扱いません。出席番号のみで運用します。
+   - 保存先は「このPCのブラウザ」か「Googleスプレッドシート」です。
+   - AI（Claude）には、先生がコピーして貼り付けたときだけ、
+     出席番号とメモが渡ります。このアプリが自分で送ることはありません。
+   =========================================================== */
+:root{
+  --bg:#f4f2ee; --panel:#ffffff; --ink:#23211e; --muted:#6b665f; --faint:#9a948b;
+  --line:#e3dfd7; --line2:#cfc8bd;
+  --accent:#2f6f56; --accent-d:#245845; --accent-w:#e6f0ea;
+  --err:#b23a2f; --err-w:#fbeceb;
+  --warn:#8a6212; --warn-w:#fbf2df;
+  --info:#3a5d84; --info-w:#e9f0f8;
+  --part:#c9771c; --part-w:#fcefdc;
+  --ok:#2f6f56;
+  --r:10px;
+  --shadow:0 1px 2px rgba(35,33,30,.05), 0 2px 8px rgba(35,33,30,.04);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:"BIZ UDPGothic","Yu Gothic UI","Yu Gothic","Meiryo","Hiragino Kaku Gothic ProN",sans-serif;
+  background:var(--bg); color:var(--ink); font-size:14.5px; line-height:1.7;
+}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hide{display:none !important}
+.mini{font-size:12.5px;color:var(--muted)}
+.spacer{flex:1}
+code{background:#f1eee8;border-radius:4px;padding:0 4px;font-size:.92em}
+
+/* 保存先による出し分け。data-store は起動時に body に付く */
+.sheet-only{display:none}
+body[data-store="sheet"] .local-only{display:none !important}
+body[data-store="sheet"] .sheet-only{display:revert}
+
+/* ---- 上の帯（見出し＋手順） ---- */
+.topbar{position:sticky;top:0;z-index:30;background:var(--panel);border-bottom:1px solid var(--line);box-shadow:var(--shadow)}
+.appbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:10px 18px 6px}
+.brand{display:flex;flex-direction:column;line-height:1.3}
+.brand b{font-size:17px;letter-spacing:.03em}
+.brand small{font-size:11.5px;color:var(--muted)}
+.ctx{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ctxchip{border:1px solid var(--line2);background:#faf8f4;border-radius:999px;padding:4px 14px;font-weight:700}
+.ctxchip:hover{border-color:var(--accent);color:var(--accent)}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:8px;overflow:hidden;background:#fff}
+.seg button{border:0;background:none;padding:5px 14px;color:var(--muted);border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--accent);color:#fff;font-weight:700}
+.savechip{font-size:12.5px;color:var(--muted);border-radius:999px;padding:3px 12px;background:#f3f1ec;white-space:nowrap}
+.savechip.saving{color:var(--info);background:var(--info-w)}
+.savechip.saved{color:var(--accent);background:var(--accent-w)}
+.savechip.error,.savechip.conflict{color:var(--err);background:var(--err-w);font-weight:700;cursor:pointer}
+
+nav.steps{display:flex;align-items:stretch;gap:4px;padding:0 14px;overflow-x:auto}
+nav.steps button{
+  border:0;background:none;padding:8px 14px 9px;border-bottom:3px solid transparent;
+  color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:7px;font-size:14px
+}
+nav.steps button .no{
+  display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;
+  background:#ece8e1;color:var(--muted);font-weight:700;font-size:12.5px
+}
+nav.steps button .badge{font-size:11.5px}
+nav.steps button.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:700}
+nav.steps button.on .no{background:var(--accent);color:#fff}
+nav.steps .arrow{color:var(--faint);align-self:center;font-size:12px}
+nav.steps button.sub{font-size:13px}
+nav.steps .sep{width:1px;background:var(--line);margin:8px 6px}
+
+main{padding:18px;max-width:1440px;margin:0 auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card > h2{font-size:15px;margin:0 0 10px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card > h2 .step{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:13px}
+.lead{margin:0 0 12px;color:var(--muted);font-size:13.5px}
+.notice{border-radius:8px;padding:9px 12px;font-size:13px;margin:0 0 12px;border-left:4px solid}
+.notice.info{background:var(--info-w);border-color:var(--info)}
+.notice.warn{background:var(--warn-w);border-color:var(--warn)}
+.notice.ok{background:var(--accent-w);border-color:var(--accent)}
+
+/* ---- ボタン ---- */
+.btn{
+  border:1px solid var(--line2); background:#fff; border-radius:8px;
+  padding:6px 14px; white-space:nowrap; min-height:34px; display:inline-flex; align-items:center; gap:6px
+}
+.btn:hover{background:#f5f2ec}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.btn.primary:hover{background:var(--accent-d)}
+.btn.ghost{border-color:transparent;background:var(--accent-w);color:var(--accent)}
+.btn.danger{border-color:var(--err);color:var(--err)}
+.btn.danger:hover{background:var(--err-w)}
+.btn.sm{padding:2px 10px;font-size:12.5px;min-height:28px}
+.btn.big{padding:9px 20px;font-size:15px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+label.inline{display:inline-flex;align-items:center;gap:6px}
+select,input[type=text],input[type=number]{border:1px solid var(--line2);border-radius:7px;padding:5px 8px;background:#fff;min-height:34px}
+
+/* ---- 名簿と本体の2段組 ---- */
+.layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:16px;align-items:start}
+.layout > *{min-width:0}
+.side{position:sticky;top:112px}
+.roster{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr}
+  .side{position:static}
+  .roster{grid-auto-flow:column;grid-template-columns:none;grid-auto-columns:46px;overflow-x:auto;padding-bottom:4px}
+}
+/* スマホでは上の帯を固定しない（画面が狭くなりすぎるため） */
+@media(max-width:700px){
+  .topbar{position:static}
+  th{top:0}
+  main{padding:12px}
+  .card{padding:14px}
+}
+.rbtn{
+  border:1px solid var(--line2);background:#fff;border-radius:7px;height:38px;
+  text-align:center;font-variant-numeric:tabular-nums;font-size:14px;position:relative;border-bottom-width:4px
+}
+.rbtn:hover{border-color:var(--accent)}
+.rbtn.on{outline:2px solid var(--accent);outline-offset:1px;font-weight:700}
+.rbtn.st-memo{border-bottom-color:var(--info)}
+.rbtn.st-part{border-bottom-color:var(--part);background:var(--part-w)}
+.rbtn.st-err{border-bottom-color:var(--err);background:var(--err-w)}
+.rbtn.st-warn{border-bottom-color:var(--warn);background:#fffaf0}
+.rbtn.st-ok{border-bottom-color:var(--ok);background:var(--accent-w)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:10px;font-size:11.5px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:4px;border-radius:2px;margin-right:4px;vertical-align:middle;background:var(--line2)}
+.legend .memo i{background:var(--info)} .legend .part i{background:var(--part)}
+.legend .err i{background:var(--err)} .legend .warn i{background:var(--warn)} .legend .ok i{background:var(--ok)}
+.progress{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.bar{height:8px;border-radius:4px;background:#ece8e1;overflow:hidden;display:flex;margin:4px 0 6px}
+.bar span{display:block;height:100%}
+.counts{display:grid;grid-template-columns:1fr auto;gap:0 8px;font-size:12.5px}
+.counts b{font-variant-numeric:tabular-nums;text-align:right}
+
+/* 子どもの見出し（番号と前後移動） */
+.kid{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:-2px 0 12px}
+.kid .num{font-size:22px;font-weight:700;letter-spacing:.02em}
+.kid .num small{font-size:13px;font-weight:400;color:var(--muted);margin-right:4px}
+.stbadge{font-size:12px;padding:2px 10px;border-radius:999px;font-weight:700;background:#efece6;color:var(--muted)}
+.stbadge.memo{background:var(--info-w);color:var(--info)}
+.stbadge.part{background:var(--part-w);color:var(--part)}
+.stbadge.err{background:var(--err-w);color:var(--err)}
+.stbadge.warn{background:var(--warn-w);color:var(--warn)}
+.stbadge.ok{background:var(--accent-w);color:var(--accent)}
+
+/* ---- メモ入力 ---- */
+.memogroup{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);margin:16px 0 10px;padding-top:12px}
+.memogroup:first-child{border-top:0;margin-top:0;padding-top:0}
+.memogroup > b{font-size:14px;color:var(--accent)}
+.field{margin-bottom:14px}
+.field label{display:block;font-weight:700;font-size:13.5px;margin-bottom:1px}
+.field .hint{font-size:12px;color:var(--muted);margin-bottom:5px}
+textarea{
+  width:100%;border:1px solid var(--line2);border-radius:8px;padding:9px 11px;
+  resize:vertical;line-height:1.8;background:#fff
+}
+textarea:focus{outline:3px solid var(--accent-w);border-color:var(--accent)}
+details.more{border:1px dashed var(--line2);border-radius:8px;padding:6px 12px;margin-top:6px}
+details.more > summary{cursor:pointer;color:var(--muted);font-size:13px}
+details.more[open] > summary{margin-bottom:10px}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.chip{border:1px solid var(--line);background:#faf9f6;border-radius:999px;padding:3px 11px;font-size:12.5px;color:var(--ink)}
+.chip:hover{background:var(--accent-w);border-color:var(--accent);color:var(--accent)}
+.chipgroup{margin-bottom:8px}
+.chipgroup > b{font-size:12px;color:var(--muted)}
+.foot{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+
+/* ---- 下書き＋校正 ---- */
+.draftbox{border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:14px;background:#fdfcfa}
+.draftbox > .top{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.draftbox > .top b{font-size:15px}
+.count{font-variant-numeric:tabular-nums;font-size:12.5px;padding:1px 9px;border-radius:999px;background:#eee;color:var(--muted)}
+.count.ok{background:var(--accent-w);color:var(--accent)}
+.count.ng{background:var(--err-w);color:var(--err)}
+.memoref{background:#f6f4ef;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:13px}
+.memoref summary{cursor:pointer;color:var(--muted)}
+.memoref div{margin-top:4px}
+.preview{
+  border:1px dashed var(--line2);border-radius:8px;padding:9px 12px;margin-top:8px;
+  background:#fff;line-height:2;min-height:2.4em;white-space:pre-wrap;word-break:break-all
+}
+mark{padding:1px 0;border-radius:2px;background:none}
+mark.error{background:var(--err-w);box-shadow:0 2px 0 var(--err)}
+mark.warn{background:var(--warn-w);box-shadow:0 2px 0 var(--warn)}
+mark.info{background:var(--info-w);box-shadow:0 2px 0 var(--info)}
+.issues{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.issue{display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:5px 9px;border-radius:6px;border-left:3px solid}
+.issue.error{background:var(--err-w);border-color:var(--err)}
+.issue.warn{background:var(--warn-w);border-color:var(--warn)}
+.issue.info{background:var(--info-w);border-color:var(--info)}
+.issue .tag{font-weight:700;white-space:nowrap;font-size:11.5px;padding-top:1px;min-width:4em}
+.issue .fix{margin-left:auto}
+.noissue{font-size:13px;color:var(--accent);background:var(--accent-w);padding:6px 10px;border-radius:6px;margin-top:8px}
+
+/* ---- 案の選択 ---- */
+.cands{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.candhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:2px}
+.candhead .mini{flex:1;min-width:220px}
+.cand{
+  display:flex;gap:9px;text-align:left;width:100%;position:relative;
+  border:1px solid var(--line2);background:#fff;border-radius:8px;padding:8px 36px 8px 11px;line-height:1.6
+}
+.cand:hover{background:#faf9f6}
+.cand.on{border-color:var(--accent);background:var(--accent-w);box-shadow:inset 0 0 0 1px var(--accent)}
+.cand .pick{color:var(--accent);font-size:13px;padding-top:2px}
+.cand .cbody{flex:1;min-width:0}
+.cand .chead{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:2px}
+.cand.on .chead{color:var(--accent)}
+.cand .ctext{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:13px;color:var(--ink)}
+.cand.on .ctext{-webkit-line-clamp:5}
+.canddel{
+  position:absolute;top:6px;right:6px;width:24px;height:24px;line-height:1;
+  border:1px solid var(--line);background:#fff;border-radius:6px;color:var(--muted);font-size:14px;padding:0;
+  display:flex;align-items:center;justify-content:center;cursor:pointer
+}
+.canddel:hover{background:var(--err-w);border-color:var(--err);color:var(--err)}
+.candnote{font-size:13px;background:var(--info-w);border-left:3px solid var(--info);border-radius:6px;padding:6px 10px;margin-bottom:8px}
+.candnote b{margin-right:6px}
+.badge{display:inline-block;font-size:11.5px;padding:1px 8px;border-radius:999px;font-weight:700}
+.badge.error{background:var(--err-w);color:var(--err)}
+.badge.warn{background:var(--warn-w);color:var(--warn)}
+.badge.ok{background:var(--accent-w);color:var(--accent)}
+.badge.none{background:#eee;color:var(--muted)}
+
+/* ---- AIで案を作る ---- */
+.aigrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@media(max-width:1100px){.aigrid{grid-template-columns:1fr}}
+.opts{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center;margin-bottom:12px}
+.opts > span{font-size:13px;color:var(--muted);text-align:right}
+pre.prompt{
+  background:#fbfaf7;border:1px solid var(--line);border-radius:8px;padding:12px;
+  white-space:pre-wrap;word-break:break-all;max-height:420px;overflow:auto;margin:10px 0 0;
+  font-family:"Consolas","BIZ UDGothic",monospace;font-size:12px;line-height:1.65
+}
+.chunks{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chunks button{border:1px solid var(--line2);background:#fff;border-radius:7px;padding:4px 12px;font-size:13px}
+.chunks button.on{border-color:var(--accent);background:var(--accent-w);color:var(--accent);font-weight:700}
+.chunks button.done::after{content:" ✓";color:var(--accent)}
+
+/* ---- 仕上げ（一覧） ---- */
+.summary{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.sumbox{border:1px solid var(--line);border-radius:8px;padding:6px 14px;min-width:92px;background:#fff;text-align:left}
+.sumbox b{display:block;font-size:20px;font-variant-numeric:tabular-nums;line-height:1.2}
+.sumbox span{font-size:12px;color:var(--muted)}
+.sumbox.err b{color:var(--err)} .sumbox.warn b{color:var(--warn)} .sumbox.ok b{color:var(--accent)}
+.sumbox.on{outline:2px solid var(--accent)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{border-bottom:1px solid var(--line);padding:8px 9px;vertical-align:top;text-align:left}
+th{background:#faf8f4;font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap;position:sticky;top:112px}
+td.no{text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap;width:52px;font-weight:700}
+td.len{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;width:60px}
+td.st{white-space:nowrap;width:86px}
+td .issues{margin-top:6px}
+td .issue{font-size:12px;padding:3px 8px}
+tr.rowlink:hover td{background:#fbfaf7}
+
+/* ---- ルール ---- */
+.rulegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:4px 14px;font-size:13px}
+.rulegrid div{padding:1px 0;border-bottom:1px dotted var(--line)}
+.rulegrid s{color:var(--muted)}
+ul.plain{margin:0;padding-left:1.2em}
+ul.plain li{margin-bottom:3px}
+
+/* ---- 小窓・お知らせ ---- */
+.dlgwrap{position:fixed;inset:0;background:rgba(35,33,30,.38);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
+.dlg{background:#fff;border-radius:12px;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.2)}
+.dlg h3{margin:0 0 10px;font-size:16px}
+.dlg .body{font-size:14px}
+.dlg .btns{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:18px}
+.dlg .kv{display:grid;grid-template-columns:110px 1fr;gap:10px 12px;align-items:center}
+.dlg .kv > span{color:var(--muted);font-size:13px}
+.typechecks{display:flex;flex-direction:column;gap:4px}
+.toast{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:#fff;padding:9px 20px;border-radius:999px;font-size:13.5px;
+  opacity:0;pointer-events:none;transition:opacity .2s;z-index:120
+}
+.toast.on{opacity:1}
+
+@media print{
+  .topbar,.noprint,.side,.dlgwrap,.toast{display:none !important}
+  body{background:#fff}
+  main{padding:0;max-width:none}
+  .card{border:0;padding:0;box-shadow:none}
+  th{position:static}
+  th,td{border:1px solid #999}
+  td .issues{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <header class="appbar">
+    <div class="brand">
+      <b>所見メモ作成</b>
+      <small id="storeinfo">氏名は扱いません</small>
+    </div>
+    <div class="ctx">
+      <button class="ctxchip" id="ctx-btn" title="年度・学年・人数・今回書く種類を変える"></button>
+      <div class="seg" id="term-seg" role="tablist" aria-label="学期">
+        <button data-term="1">1学期</button><button data-term="2">2学期</button><button data-term="3">3学期</button>
+      </div>
+    </div>
+    <span class="spacer"></span>
+    <span class="savechip" id="savestate">—</span>
+    <button class="btn sm" id="btn-settings">設定</button>
+  </header>
+  <nav class="steps" aria-label="作業の手順">
+    <button data-tab="memo"><span class="no">1</span>メモを書く<span class="badge" data-badge="memo"></span></button>
+    <span class="arrow">›</span>
+    <button data-tab="ai"><span class="no">2</span>AIで案を作る</button>
+    <span class="arrow">›</span>
+    <button data-tab="pick"><span class="no">3</span>案を選ぶ・直す<span class="badge" data-badge="pick"></span></button>
+    <span class="arrow">›</span>
+    <button data-tab="finish"><span class="no">4</span>仕上げ・書き出し<span class="badge" data-badge="finish"></span></button>
+    <span class="spacer"></span>
+    <span class="sep"></span>
+    <button data-tab="stock" class="sub">記録メモ帳</button>
+    <button data-tab="rules" class="sub">ルール</button>
+  </nav>
+</div>
+
+<main id="main"></main>
+
+<div class="toast" id="toast" role="status"></div>
+<input type="file" id="file-json" accept=".json" class="hide">
+
+<script src="rules/course-of-study.js"></script>
+<script src="rules/shoken-rules.js"></script>
+<script src="engine.js"></script>
+<script>
+/* =========================================================================
+   状態
+   -------------------------------------------------------------------------
+   氏名フィールドは意図的に持ちません。個人が特定できる情報をこのアプリに
+   入れない運用のため、後から「便利だから」と追加しないでください。
+   氏名と番号の対応は、先生の手元の名簿で行います。
+   ========================================================================= */
+let R = window.SHOKEN_RULES;
+const CS = window.COURSE_OF_STUDY || null;
+let E = null;
+
+let S = null;          // いま開いている学年のデータ
+let cur = 1;           // 選択中の出席番号
+let view = 'memo';     // 表示中の画面
+let lastField = null;  // 入力補助の挿入先 {key, el}
+
+const $  = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ルールファイルが読めなかったときの復旧画面。
+   置き場所を直すのが本筋だが、それでも読めない環境のために手で選べるようにしておく。 */
+function showRulesRecovery(){
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;inset:0;background:#f4f2ee;z-index:999;padding:48px;overflow:auto';
+  d.innerHTML =
+    '<h2 style="margin-top:0;font-size:18px">ルールファイルが読み込めませんでした</h2>'+
+    '<p><code>index.html</code> と <code>rules</code> フォルダ、<code>engine.js</code> は、必ず同じ場所に一緒に置いてください。</p>'+
+    '<p>置き場所が正しいのにこの画面が出るときは、下のボタンから <code>rules/shoken-rules.js</code> を選んでください。</p>'+
+    '<p><input type="file" accept=".js"></p>'+
+    '<p class="mini">選んだファイルはこの PC の中だけで読み込まれます。どこにも送信しません。</p>';
+  document.body.appendChild(d);
+  d.querySelector('input').onchange = e => {
+    const f = e.target.files[0]; if(!f) return;
+    const fr = new FileReader();
+    fr.onload = ()=>{
+      try{
+        (0,eval)(fr.result);
+        if(!window.SHOKEN_RULES) throw new Error('ルールの入っていないファイルです');
+        R = window.SHOKEN_RULES; d.remove(); boot();
+      }catch(err){ alert('読み込めませんでした：'+err.message); }
+    };
+    fr.readAsText(f);
+  };
+}
+
+/* =========================================================================
+   保存
+   -------------------------------------------------------------------------
+   保存先は2通り。同じ画面がどちらでもそのまま動きます。
+     local … このPCのブラウザの中（index.html をダブルクリックで開いたとき）
+     sheet … Googleスプレッドシート（GASのWebアプリとして開いたとき）
+
+   どちらも「保存番号（rev）」を持ちます。保存するときは、読み込んだときの
+   保存番号を添えて送り、ほかの端末・タブが先に保存していたら上書きしません。
+   また、送るのは常に1件だけです（前の保存が終わるまで次は送らない）。
+   これで「古い内容があとから届いて新しい内容を消す」ことが起きません。
+   ========================================================================= */
+const inGAS = typeof google !== 'undefined' && google.script && google.script.run;
+const LS_PREFIX = 'shoken.v1.';
+function projectKey(m){ return LS_PREFIX + `${m.year}-${m.grade}`; }
+
+function gasCall(fn, ...args){
+  return new Promise((resolve, reject) => {
+    google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](...args);
+  });
+}
+
+const Store = {
+  kind: inGAS ? 'sheet' : 'local',
+
+  /* meta は local のときだけ使う（スプレッドシートは1つで1学年） */
+  load(meta){
+    if(inGAS) return gasCall('getState').then(o => (o && o.data) ? o : null);
+    try{
+      const raw = localStorage.getItem(projectKey(meta));
+      const o = raw ? JSON.parse(raw) : null;
+      if(o) o.meta = Object.assign(o.meta || {}, meta);
+      return Promise.resolve(o);
+    }catch(e){ return Promise.reject(e); }
+  },
+
+  /* 戻り値 Promise<{ok, rev} | {conflict, rev}> */
+  save(state, baseRev, force){
+    if(inGAS) return gasCall('putState', state, baseRev, !!force);
+    try{
+      const key = projectKey(state.meta);
+      const raw = localStorage.getItem(key);
+      const curRev = raw ? (JSON.parse(raw).rev || 0) : 0;
+      if(!force && curRev !== (baseRev || 0)) return Promise.resolve({ conflict:true, rev:curRev });
+      const next = curRev + 1;
+      localStorage.setItem(key, JSON.stringify(Object.assign({}, state, { rev: next })));
+      return Promise.resolve({ ok:true, rev:next });
+    }catch(e){ return Promise.reject(e); }
+  },
+
+  peekRev(meta){
+    if(inGAS) return 0;
+    try{ const raw = localStorage.getItem(projectKey(meta)); return raw ? (JSON.parse(raw).rev || 0) : 0; }
+    catch(e){ return 0; }
+  }
+};
+
+const Saver = { busy:false, dirty:false, blocked:false, failed:false, timer:null, at:null };
+
+function setSave(kind, msg){
+  const el = $('#savestate');
+  el.className = 'savechip ' + kind;
+  el.onclick = null;
+  el.title = '';
+  if(kind === 'saving') el.textContent = '保存中…';
+  else if(kind === 'typing') el.textContent = '入力中…';
+  else if(kind === 'saved'){
+    const d = Saver.at || new Date();
+    el.textContent = '保存済み ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  }
+  else if(kind === 'error'){
+    el.textContent = '保存できませんでした（押すと再試行）';
+    el.title = msg || '';
+    el.onclick = ()=>{ Saver.dirty = true; Saver.failed = false; pump(); };
+  }
+  else if(kind === 'conflict'){
+    el.textContent = 'ほかの画面で更新されています';
+    el.onclick = showConflict;
+  }
+  else el.textContent = msg || '—';
+}
+
+/* すぐ保存する（ボタン操作のあとなど） */
+function save(){
+  if(!S) return;
+  Saver.dirty = true;
+  clearTimeout(Saver.timer);
+  pump();
+}
+/* 入力中は少し待ってからまとめて保存する */
+function saveSoon(){
+  if(!S) return;
+  Saver.dirty = true;
+  clearTimeout(Saver.timer);
+  Saver.timer = setTimeout(pump, inGAS ? 1200 : 400);
+  if(!Saver.busy && !Saver.blocked) setSave('typing');
+}
+function pump(){
+  clearTimeout(Saver.timer);
+  if(!S || Saver.busy || Saver.blocked || !Saver.dirty) return;
+  Saver.dirty = false;
+  Saver.busy = true;
+  setSave('saving');
+  Store.save(S, S.rev || 0, false).then(res => {
+    Saver.busy = false;
+    if(res && res.conflict){
+      Saver.blocked = true; Saver.dirty = true;
+      setSave('conflict');
+      showConflict();
+      return;
+    }
+    S.rev = res.rev; Saver.failed = false; Saver.at = new Date();
+    if(Saver.dirty) pump(); else setSave('saved');
+  }).catch(err => {
+    Saver.busy = false; Saver.dirty = true; Saver.failed = true;
+    setSave('error', err && err.message);
+  });
+}
+
+/* ほかの端末・タブが先に保存していたとき */
+function showConflict(){
+  dlg({
+    title:'ほかの画面で、先に保存されています',
+    body:`<p style="margin-top:0">このデータは、ほかの端末か、このブラウザのほかのタブで保存されています。
+      このまま保存すると、向こうで入力した内容が消えてしまうため、保存を止めています。</p>
+      <p>どちらかを選んでください。</p>
+      <ul class="plain">
+        <li><b>向こうの内容を読み込む</b> … この画面でまだ保存していない変更は消えます。</li>
+        <li><b>この画面の内容で上書きする</b> … 向こうで入力した内容が消えます。</li>
+      </ul>`,
+    buttons:[
+      { label:'あとで決める', value:null },
+      { label:'この画面の内容で上書きする', value:'mine', kind:'danger' },
+      { label:'向こうの内容を読み込む', value:'theirs', kind:'primary' }
+    ]
+  }).then(v => {
+    if(v === 'theirs'){
+      Store.load(S.meta).then(o => {
+        if(o){ S = normalize(o); }
+        Saver.blocked = false; Saver.dirty = false;
+        Saver.at = new Date(); setSave('saved');
+        renderAll(); toast('読み込み直しました');
+      }).catch(e => alert('読み込めませんでした：' + e.message));
+    }else if(v === 'mine'){
+      Saver.busy = true; setSave('saving');
+      Store.save(S, S.rev || 0, true).then(res => {
+        Saver.busy = false; Saver.blocked = false; Saver.dirty = false;
+        S.rev = res.rev; Saver.at = new Date(); setSave('saved'); toast('この画面の内容で保存しました');
+      }).catch(err => { Saver.busy = false; setSave('error', err.message); });
+    }
+  });
+}
+
+/* =========================================================================
+   データの形
+   ========================================================================= */
+function defaultWrite(grade){
+  const g = String(grade), out = {};
+  ['1','2','3'].forEach(t => {
+    const d = (R.defaultWrite && R.defaultWrite[g] && R.defaultWrite[g][t]) || ['shoken'];
+    out[t] = d.slice();
+  });
+  return out;
+}
+function blankState(meta){
+  const m = Object.assign({ year:R.meta.year, grade:'3', count:32 }, meta || {});
+  return { version:2, rev:0, meta:m, term:'2', write:defaultWrite(m.grade),
+           data:{ "1":{}, "2":{}, "3":{} }, stock:{ "1":'', "2":'', "3":'' } };
+}
+function normalize(o){
+  o.version = 2;
+  o.rev = o.rev || 0;
+  o.meta = Object.assign({ year:R.meta.year, grade:'3', count:32 }, o.meta || {});
+  o.meta.count = Math.min(45, Math.max(1, +o.meta.count || 32));
+  o.term = o.term || '2';
+  o.data = Object.assign({ "1":{}, "2":{}, "3":{} }, o.data || {});
+  o.stock = Object.assign({ "1":'', "2":'', "3":'' }, o.stock || {});
+  if(!o.write || typeof o.write !== 'object') o.write = defaultWrite(o.meta.grade);
+  ['1','2','3'].forEach(t => { if(!Array.isArray(o.write[t])) o.write[t] = defaultWrite(o.meta.grade)[t]; });
+  return o;
+}
+
+/* 1人分の記録
+     memos  … 先生が書いたメモ
+     cands  … Claude が作った案（種別ごとに最大5つ）[{text, note}, …]
+     pick   … 採用中の案の番号（種別ごと）
+     drafts … 採用中の本文。校正・一覧・書き出しはすべてこれを見る。 */
+function rec(term, no){
+  const t = S.data[term] || (S.data[term] = {});
+  const r = t[no] || (t[no] = { memos:{}, drafts:{}, done:{} });
+  if(!r.cands) r.cands = {};
+  if(!r.pick)  r.pick  = {};
+  if(!r.memos) r.memos = {};
+  if(!r.drafts) r.drafts = {};
+  return r;
+}
+/* 読むだけ（記録を作らない） */
+function peek(term, no){ return (S.data[term] || {})[no] || null; }
+function draftOf(no, k, term){ const r = peek(term || S.term, no); return ((r && r.drafts && r.drafts[k]) || '').trim(); }
+function candsOf(no, k, term){ const r = peek(term || S.term, no); return (r && r.cands && r.cands[k]) || []; }
+function pickOf(no, k, term){
+  const r = peek(term || S.term, no);
+  const i = r && r.pick ? r.pick[k] : undefined;
+  return (typeof i === 'number' && candsOf(no, k, term)[i]) ? i : 0;
+}
+function setCands(no, k, list){
+  const r = rec(S.term, no);
+  r.cands[k] = list; r.pick[k] = 0;
+  r.drafts[k] = list.length ? list[0].text : '';
+}
+function addCands(no, k, list){
+  const r = rec(S.term, no);
+  r.cands[k] = (r.cands[k] || []).concat(list);
+  if(typeof r.pick[k] !== 'number') r.pick[k] = 0;
+  if(!(r.drafts[k] || '').trim() && r.cands[k][r.pick[k]]) r.drafts[k] = r.cands[k][r.pick[k]].text;
+}
+function pickCand(no, k, i){
+  const r = rec(S.term, no), list = r.cands[k] || [];
+  if(!list[i]) return;
+  r.pick[k] = i; r.drafts[k] = list[i].text;
+}
+/* 本文を手で直したとき。採用中の案にも書き戻す（案を選び直しても直しが残る） */
+function editDraft(no, k, text){
+  const r = rec(S.term, no), list = r.cands[k] || [];
+  r.drafts[k] = text;
+  const i = pickOf(no, k);
+  if(list[i]) list[i].text = text;
+}
+function hasData(r){
+  if(!r) return false;
+  const any = o => o && Object.values(o).some(v => Array.isArray(v) ? v.length : String(v || '').trim());
+  return any(r.memos) || any(r.drafts) || any(r.cands);
+}
+
+/* =========================================================================
+   学期・種類・学年段階
+   ========================================================================= */
+/* 今回書く種類（設定で選んだもの）。進み具合はこれだけで数える */
+function activeTypes(term){
+  const t = term || S.term;
+  const can = (R.termMatrix[S.meta.grade] || {})[t] || R.allTypes;
+  const w = (S.write && S.write[t]) || defaultWrite(S.meta.grade)[t];
+  return R.allTypes.filter(k => can.includes(k) && w.includes(k) && R.types[k]);
+}
+function stageNow(){ return E.stageOf(S.meta.grade); }
+
+/* 他の学期で使った教科を調べる。avoid が渡されればその学期だけ、無ければ現在学期以外すべて。 */
+function otherTerms(no, typeKey, avoid){
+  if(typeKey !== 'shoken') return [];
+  const out = [];
+  ['1','2','3'].forEach(t => {
+    if(t === S.term) return;
+    if(avoid && avoid.indexOf(t) < 0) return;
+    const txt = draftOf(no, 'shoken', t);
+    if(txt) out.push({ term:t, label:t+'学期', text:txt });
+  });
+  return out;
+}
+function ctxFor(no, k){ return { stage: stageNow(), others: otherTerms(no, k) }; }
+function check(text, k, no){ return E.checkCached(text, k, ctxFor(no, k)); }
+
+/* =========================================================================
+   進み具合
+     none 未入力 / memo メモだけ / part 書きかけ（今回書く種類のうち、まだ無いものがある）
+     err 要修正 / warn 注意あり / ok 完成
+   ========================================================================= */
+const ST = {
+  none:{ label:'未入力' }, memo:{ label:'メモあり' }, part:{ label:'書きかけ' },
+  err:{ label:'要修正' }, warn:{ label:'注意あり' }, ok:{ label:'完成' }
+};
+function statusOf(no){
+  const r = peek(S.term, no);
+  if(!r) return 'none';
+  const types = activeTypes();
+  const hasMemo = Object.values(r.memos || {}).some(v => (v || '').trim());
+  const drafted = types.filter(k => draftOf(no, k));
+  if(!drafted.length) return hasMemo ? 'memo' : 'none';
+  let lv = 'ok';
+  for(const k of drafted){
+    const w = E.worst(check(draftOf(no, k), k, no));
+    if(w === 'error') return 'err';
+    if(w === 'warn') lv = 'warn';
+  }
+  if(drafted.length < types.length) return 'part';
+  return lv;
+}
+function tally(){
+  const c = { none:0, memo:0, part:0, err:0, warn:0, ok:0 };
+  for(let n = 1; n <= S.meta.count; n++) c[statusOf(n)]++;
+  return c;
+}
+
+/* =========================================================================
+   画面の骨組み
+   ========================================================================= */
+function renderAll(){
+  renderHeader();
+  renderSteps();
+  renderView();
+}
+function renderHeader(){
+  const types = activeTypes().map(k => R.types[k].label).join('・') || '書く種類なし';
+  $('#ctx-btn').innerHTML = `${esc(S.meta.year)}年度 ${esc(S.meta.grade)}年 · ${S.meta.count}人 · <span class="mini">${esc(types)}</span>`;
+  $$('#term-seg button').forEach(b => b.classList.toggle('on', b.dataset.term === S.term));
+  $('#storeinfo').textContent = '氏名は扱いません · 保存先：' + (Store.kind === 'sheet' ? 'スプレッドシート' : 'このPCのブラウザ');
+}
+function renderSteps(){
+  const c = tally(), N = S.meta.count;
+  $$('nav.steps button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === view));
+  const memo = N - c.none, done = c.ok + c.warn;
+  $('[data-badge="memo"]').textContent = `${memo}/${N}`;
+  $('[data-badge="pick"]').textContent = `完成 ${done}/${N}`;
+  const fb = $('[data-badge="finish"]');
+  fb.textContent = c.err ? `要修正 ${c.err}` : '';
+  fb.style.color = c.err ? 'var(--err)' : '';
+}
+function showTab(name){
+  view = name;
+  renderSteps();
+  renderView();
+  window.scrollTo(0, 0);
+}
+function renderView(){
+  const m = $('#main');
+  const fn = { memo:viewMemo, ai:viewAI, pick:viewPick, finish:viewFinish, stock:viewStock, rules:viewRules }[view] || viewMemo;
+  m.innerHTML = '';
+  fn(m);
+}
+function goKid(n){
+  cur = Math.min(S.meta.count, Math.max(1, n));
+  renderView();
+}
+
+/* ---------- 名簿（左の列） ---------- */
+function rosterCard(){
+  const box = document.createElement('div');
+  box.className = 'card side';
+  const N = S.meta.count;
+  box.innerHTML =
+    `<h2>出席番号</h2><div class="roster" role="listbox" aria-label="出席番号"></div>
+     <div class="legend">
+       <span><i></i>未入力</span><span class="memo"><i></i>メモあり</span><span class="part"><i></i>書きかけ</span>
+       <span class="err"><i></i>要修正</span><span class="warn"><i></i>注意あり</span><span class="ok"><i></i>完成</span>
+     </div>
+     <div class="progress">${progressHTML()}</div>`;
+  const el = $('.roster', box);
+  for(let n = 1; n <= N; n++){
+    const b = document.createElement('button');
+    const st = statusOf(n);
+    b.className = 'rbtn st-' + st + (n === cur ? ' on' : '');
+    b.textContent = n;
+    b.title = `${n}番：${ST[st].label}`;
+    b.dataset.no = n;
+    b.onclick = () => goKid(n);
+    el.appendChild(b);
+  }
+  return box;
+}
+function progressHTML(){
+  const c = tally(), N = S.meta.count;
+  const seg = (k, color) => c[k] ? `<span style="width:${c[k]/N*100}%;background:${color}"></span>` : '';
+  return `<div class="mini">今回書く：${esc(activeTypes().map(k => R.types[k].label).join('・') || 'なし')}</div>
+    <div class="bar">${seg('ok','var(--ok)')}${seg('warn','var(--warn)')}${seg('err','var(--err)')}${seg('part','var(--part)')}${seg('memo','var(--info)')}</div>
+    <div class="counts">
+      <span>完成</span><b>${c.ok + c.warn} / ${N}</b>
+      <span>要修正</span><b style="color:${c.err?'var(--err)':'inherit'}">${c.err}</b>
+      <span>書きかけ</span><b>${c.part}</b>
+      <span>メモだけ</span><b>${c.memo}</b>
+      <span>未入力</span><b>${c.none}</b>
+    </div>`;
+}
+/* 入力のたびに名簿全体を描き直さず、その子のボタンと集計だけ直す */
+function refreshKid(no){
+  const b = $(`.rbtn[data-no="${no}"]`);
+  if(b){
+    const st = statusOf(no);
+    b.className = 'rbtn st-' + st + (no === cur ? ' on' : '');
+    b.title = `${no}番：${ST[st].label}`;
+  }
+  const sb = $('#kid-status');
+  if(sb){ const st = statusOf(no); sb.className = 'stbadge ' + st; sb.textContent = ST[st].label; }
+  const pg = $('.side .progress');
+  if(pg) pg.innerHTML = progressHTML();
+  renderSteps();
+}
+function kidHeader(title){
+  const st = statusOf(cur);
+  return `<div class="kid">
+    <button class="btn sm" data-go="-1" ${cur<=1?'disabled':''} aria-label="前の子">‹ 前</button>
+    <span class="num"><small>出席番号</small>${cur}</span>
+    <button class="btn sm" data-go="1" ${cur>=S.meta.count?'disabled':''} aria-label="次の子">次 ›</button>
+    <span id="kid-status" class="stbadge ${st}">${ST[st].label}</span>
+    <span class="spacer"></span>
+    <span class="mini">${esc(title)}</span>
+  </div>`;
+}
+function wireKidNav(root){
+  $$('[data-go]', root).forEach(b => b.onclick = () => goKid(cur + (+b.dataset.go)));
+}
+
+/* =========================================================================
+   1 メモを書く
+   ========================================================================= */
+const MEMO_GROUPS = [
+  { key:'shoken',    title:'所見のもと',     note:'「所見」の案づくりに使います' },
+  { key:'doutoku',   title:'道徳',           note:'「道徳所見」の案づくりに使います' },
+  { key:'sogo',      title:'総合的な学習',   note:'「総合的な学習の記録」の案づくりに使います' },
+  { key:'gaikokugo', title:'外国語（活動）', note:'「外国語活動の記録」の案づくりに使います' }
+];
+function viewMemo(root){
+  const wrap = document.createElement('div'); wrap.className = 'layout';
+  wrap.appendChild(rosterCard());
+  const mainCol = document.createElement('div');
+  const card = document.createElement('section'); card.className = 'card';
+  card.innerHTML = kidHeader(`${S.meta.grade}年 ${S.term}学期`) + `<div id="memoform"></div>
+    <div class="foot">
+      <button class="btn" data-go="1" ${cur>=S.meta.count?'disabled':''}>次の子へ ›</button>
+    </div>`;
+  mainCol.appendChild(card);
+
+  const chipCard = document.createElement('section'); chipCard.className = 'card';
+  chipCard.innerHTML = `<h2>入力補助 <span class="mini" style="font-weight:400">押すと、最後に触れた欄のカーソルの位置に入ります</span></h2><div id="chips"></div>`;
+  mainCol.appendChild(chipCard);
+  wrap.appendChild(mainCol);
+  root.appendChild(wrap);
+  wireKidNav(root);
+
+  const r = peek(S.term, cur) || { memos:{} };
+  const box = $('#memoform');
+  const types = activeTypes();
+  const field = f => {
+    const d = document.createElement('div'); d.className = 'field';
+    d.innerHTML = `<label for="memo-${f.key}">${esc(f.label)}</label><div class="hint">${esc(f.hint)}</div>`;
+    const ta = document.createElement('textarea');
+    ta.id = 'memo-' + f.key;
+    ta.rows = f.key === 'free' ? 2 : 3;
+    ta.placeholder = f.placeholder || '';
+    ta.value = (r.memos || {})[f.key] || '';
+    ta.addEventListener('focus', () => lastField = { key:f.key, el:ta });
+    ta.addEventListener('input', () => { rec(S.term, cur).memos[f.key] = ta.value; saveSoon(); refreshKid(cur); });
+    d.appendChild(ta);
+    return d;
+  };
+  const group = (g, parent) => {
+    const fields = R.memoFields.filter(f => (f.group || 'shoken') === g.key);
+    if(!fields.length) return;
+    const h = document.createElement('div'); h.className = 'memogroup';
+    h.innerHTML = `<b>${esc(g.title)}</b><span class="mini">${esc(g.note)}</span>`;
+    parent.appendChild(h);
+    fields.forEach(f => parent.appendChild(field(f)));
+  };
+
+  /* 今回書く種類の欄を上に出し、それ以外はたたんでおく（入れてある欄は開いておく） */
+  MEMO_GROUPS.filter(g => types.includes(g.key)).forEach(g => group(g, box));
+  group({ key:'all', title:'その他', note:'どの種類の案づくりにも使います' }, box);
+  const rest = MEMO_GROUPS.filter(g => !types.includes(g.key));
+  if(rest.length){
+    const det = document.createElement('details'); det.className = 'more';
+    const filled = rest.some(g => R.memoFields.some(f => f.group === g.key && ((r.memos || {})[f.key] || '').trim()));
+    det.open = filled;
+    det.innerHTML = `<summary>ほかの欄（今回は書かない種類：${esc(rest.map(g => g.title).join('・'))}）</summary>`;
+    rest.forEach(g => group(g, det));
+    box.appendChild(det);
+  }
+  if(!lastField || !document.body.contains(lastField.el)){
+    const first = $('#memoform textarea');
+    lastField = first ? { key:first.id.replace('memo-',''), el:first } : null;
+  }
+  renderChips();
+}
+
+function renderChips(){
+  const box = $('#chips'); if(!box) return;
+  Object.entries(R.chips).forEach(([g, words]) => {
+    const d = document.createElement('div'); d.className = 'chipgroup';
+    d.innerHTML = `<b>${esc(g)}</b>`;
+    const wrap = document.createElement('div'); wrap.className = 'chips';
+    words.forEach(w => {
+      const c = document.createElement('button'); c.className = 'chip'; c.textContent = w;
+      c.onmousedown = e => e.preventDefault();   // 欄のカーソル位置を失わない
+      c.onclick = () => {
+        if(!lastField || !document.body.contains(lastField.el)) return toast('先に、入れたい欄を押してください');
+        const ta = lastField.el;
+        const s = ta.selectionStart ?? ta.value.length, e2 = ta.selectionEnd ?? ta.value.length;
+        ta.value = ta.value.slice(0, s) + w + ta.value.slice(e2);
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = s + w.length;
+        ta.dispatchEvent(new Event('input'));
+      };
+      wrap.appendChild(c);
+    });
+    d.appendChild(wrap); box.appendChild(d);
+  });
+}
+
+/* =========================================================================
+   2 AIで案を作る（プロンプト → 貼り戻し）
+   ========================================================================= */
+let AI = { type:null, scope:'all', size:10, avoid1:true, avoid2:true, chunks:[], at:0, copied:{}, importType:null, info:'' };
+
+function memoBlock(no, typeKey){
+  const r = peek(S.term, no); if(!r) return '';
+  const keys = (typeKey && R.memoFor && R.memoFor[typeKey]) ? R.memoFor[typeKey] : R.memoFields.map(f => f.key);
+  return R.memoFields
+    .filter(f => keys.indexOf(f.key) >= 0 && ((r.memos || {})[f.key] || '').trim())
+    .map(f => `【${f.label}】${r.memos[f.key].trim().replace(/\s*\n\s*/g,' ')}`)
+    .join('\n');
+}
+function targetNums(typeKey, scope){
+  const nums = [];
+  for(let n = 1; n <= S.meta.count; n++){
+    if(scope === 'one' && n !== cur) continue;
+    if(!memoBlock(n, typeKey)) continue;
+    if(scope === 'todo' && draftOf(n, typeKey)) continue;
+    nums.push(n);
+  }
+  return nums;
+}
+
+/* メモ本文から教科を推定する。当たった語の数が多い順。 */
+function detectSubjects(text, typeKey){
+  if(!CS || !text) return [];
+  const stage = stageNow();
+  const hits = [];
+  Object.entries(CS.subjects).forEach(([key, sub]) => {
+    if(sub.stages && sub.stages.indexOf(stage) < 0) return;
+    if(!sub.areas || !sub.areas[stage]) return;
+    let n = 0; const words = [];
+    (sub.match || []).forEach(w => { if(text.indexOf(w) >= 0){ n++; words.push(w); } });
+    const topics = Object.keys(sub.topics || {}).filter(kw => text.indexOf(kw) >= 0);
+    if(n || topics.length) hits.push({ key, sub, n:n + topics.length, words, topics });
+  });
+  hits.sort((a, b) => b.n - a.n);
+  const force = { doutoku:'doutoku', sogo:'sougou', gaikokugo:'gaikokugo' }[typeKey];
+  if(force && CS.subjects[force] && !hits.some(h => h.key === force)){
+    const sub = CS.subjects[force];
+    if(sub.areas && sub.areas[stage]) hits.unshift({ key:force, sub, n:99, words:[], topics:[] });
+    else{
+      const near = ['中','高','低'].find(st => sub.areas && sub.areas[st]);
+      if(near) hits.unshift({ key:force, sub, n:99, words:[], topics:[], useStage:near, ref:true });
+    }
+  }
+  const top = hits.slice(0, 4);
+  /* 所見は「教科1つ＋教科以外1つ」なので、特別活動は常に入れる */
+  if(typeKey === 'shoken' && CS.subjects.tokkatsu && !top.some(h => h.key === 'tokkatsu') && CS.subjects.tokkatsu.areas[stage]){
+    top.push({ key:'tokkatsu', sub:CS.subjects.tokkatsu, n:0, words:[], topics:[] });
+  }
+  return top;
+}
+
+function courseBlock(subjectHits){
+  if(!CS || !subjectHits.length) return [];
+  const stage = stageNow(), sl = CS.stageLabel[stage];
+  const L = [];
+  L.push('# 学習指導要領（この所見に関わる部分）');
+  L.push(`${CS.meta.title}　${sl}（${stage}学年）`);
+  L.push('所見の表現・語句は、下の指導事項をもとに選んでください。');
+  L.push('「使える言い方」から、その子の姿にいちばん合うものを選び、具体的な事実と組み合わせます。');
+  L.push('ただし、指導事項の用語をそのまま並べず、保護者が読んで分かる文にしてください。');
+  L.push('');
+  subjectHits.forEach(h => {
+    const st = h.useStage || stage;
+    L.push(`## ${h.sub.label}（${CS.stageLabel[st]}）`);
+    if(h.ref) L.push('※ この学年段階には学習指導要領上の定めがありません。いちばん近い段階の指導事項を参考として示します。学年に合わせて言い方をやさしくしてください。');
+    if(h.sub.aim) L.push(`目標：${h.sub.aim}`);
+    if(h.sub.evaluation) h.sub.evaluation.forEach(e => L.push(`※ ${e}`));
+    (h.sub.areas[st] || []).forEach(it => {
+      L.push(`- 〈${it.cite}〉${it.t}`);
+      if(it.w && it.w.length) L.push(`  使える言い方：${it.w.join('／')}`);
+    });
+    (h.topics || []).forEach(kw => L.push(`▲ 「${kw}」について：${h.sub.topics[kw]}`));
+    L.push('');
+  });
+  L.push('## 表記の決め方');
+  (CS.notation.principle || []).forEach(p => L.push('- ' + p));
+  if((CS.notation.softening || []).length){
+    L.push('- 学習指導要領の用語は、そのままだと硬いので次のように言いかえてよい：');
+    CS.notation.softening.forEach(s => L.push(`  「${s.term}」→「${s.plain}」`));
+  }
+  L.push('');
+  return L;
+}
+
+function buildPrompt(typeKey, nums, opt){
+  const t = R.types[typeKey], rg = E.lenRange(typeKey);
+  const NC = (R.generation && R.generation.candidates) || 5;
+  const L = [];
+  L.push('あなたは日本の小学校の担任教師です。勤務校のきまりに従って、通知表の所見文を書いてください。');
+  L.push('');
+  L.push('# 今回書くもの');
+  L.push(`- 対象：${S.meta.grade}年 ${S.term}学期`);
+  L.push(`- 種別：${t.label}`);
+  L.push(`- 字数：${t.target}字程度（${rg.min}〜${rg.max}字に必ず収める。句読点を含めて数える）`);
+  if(t.note) L.push(`- 備考：${t.note}`);
+  L.push(`- 人数：${nums.length}人（出席番号 ${nums.join('・')}）`);
+  L.push('');
+  L.push('# 出力形式（厳守）');
+  L.push('- 児童ごとに、行頭が「#出席番号」だけの行を置く。');
+  L.push(`- そのあとに、その児童の所見案を ${NC}つ 並べる。`);
+  L.push('- 各案は「1)」「2)」…で始め、本文は改行のない1段落で書く。');
+  L.push('- 各案のすぐ下に「※」で始まる行を1行だけ置き、どこを工夫したかを短く書く。');
+  L.push('- これ以外の前置き・見出し・字数の注記・解説は一切書かない。');
+  L.push('- 出力例：');
+  L.push('#1'); L.push('1) （1番の所見案1）'); L.push('※ （案1で工夫したこと）');
+  L.push('2) （1番の所見案2）'); L.push('※ （案2で工夫したこと）'); L.push(`…（${NC}まで）`);
+  L.push(''); L.push('#2'); L.push('1) （2番の所見案1）'); L.push('※ …'); L.push('');
+
+  if(typeKey === 'doutoku' && R.doutokuFormat){
+    const DF = R.doutokuFormat, st = stageNow();
+    L.push('# 道徳所見の書き方（厳守）');
+    DF.rules.forEach(x => L.push('- ' + x));
+    L.push(''); L.push('## 型');
+    L.push('〈1文目：道徳全体の評価〉特に「内容項目」の学習では、〈何に気付いた／理解したか〉、〈その子の言葉や意欲〉。');
+    L.push(''); L.push('## 1文目に使える型（この中から選ぶか、これに近い形で書く）');
+    DF.opening.forEach(x => L.push('- ' + x));
+    L.push(''); L.push('## 2文目の締め方');
+    DF.closing.forEach(x => L.push('- ' + x));
+    L.push(''); L.push(`## 内容項目（${CS ? CS.stageLabel[st] : ''}。この名称をそのまま「 」に入れる）`);
+    L.push((DF.contentItems[st] || DF.contentItems['中']).join('／'));
+    L.push('※ メモに教材名や内容項目が書かれていれば、それを使う。書かれていなければ、');
+    L.push('　 メモの内容にいちばん近い内容項目を選び、「※」の行でその旨を先生に伝える。');
+    L.push(''); L.push('## 勤務校のお手本（この形に寄せる）');
+    (DF.examples[st] || DF.examples['中']).forEach(x => L.push('○ ' + x));
+    L.push('');
+  }
+  if(typeKey === 'shoken' && R.structure){
+    L.push('# 書く順序（厳守）');
+    L.push('- **前半に教科の評価を書き、後半に生活面のことを書く。** この順序を必ず守る。');
+    L.push('- どの案も同じ順序にする。生活面から書き始めてはいけない。');
+    L.push('- 例：「国語科〜では、…することができました。掃除の時間には、…することができました。」');
+    L.push('');
+  }
+  L.push(`# ${NC}つの案の作り分け`);
+  L.push(`- ${NC}案は「同じ文の言い換え」にしない。取り上げる場面・切り口・文の組み立てを変える。`);
+  L.push('- 切り口の目安（どの案も「教科の評価 → 生活面」の順序は変えない）：');
+  ((R.generation && R.generation.angles) || []).forEach((a, i) => L.push(`  ${i+1}. ${a}`));
+  L.push('- ただし、メモに材料が無い切り口は無理に作らない。その場合は近い切り口で書き分ける。');
+  L.push('- どの案も字数の範囲に収め、上のきまりをすべて満たすこと。');
+  L.push('- 先生がどれを使うか選ぶので、どの案もそのまま通知表に載せられる完成度で書く。');
+  L.push('');
+
+  const allMemo = nums.map(n => memoBlock(n, typeKey)).join('\n');
+  courseBlock(detectSubjects(allMemo, typeKey)).forEach(l => L.push(l));
+
+  const sug = (R.generation && R.generation.suggestion) || {};
+  L.push('# 表現の提案について');
+  L.push('メモをそのまま文にするだけでなく、保護者にがんばりが伝わる書き方を提案してください。');
+  L.push('**提案の根拠は、必ず上の学習指導要領の指導事項に置いてください。**');
+  L.push('メモに「詩を書いた」とあれば、国語科の詩に関わる指導事項（言葉の響きやリズム、言葉を選ぶこと、感じたことを書くこと）から、その子の姿にいちばん合うものを選んで提案します。');
+  L.push('## してよいこと');
+  (sug.allow || []).forEach(s => L.push('- ' + s));
+  L.push('## してはいけないこと');
+  (sug.forbid || []).forEach(s => L.push('- ' + s));
+  L.push('- 事実を足したかどうか迷ったら、足さずに「※」の行で先生に確認を促す。');
+  L.push('## 「※」の行の書き方');
+  if(sug.noteRule) L.push('- ' + sug.noteRule);
+  L.push('- **どの指導事項をもとにしたかを必ず書く。**（例：※ 国語科C読むこと「叙述を基に捉える」をもとに、文章の言葉から気持ちを読み取った姿として書きました。）');
+  L.push('- 先生が根拠をたどれるように、教科名と領域名を入れる。');
+  L.push('');
+  L.push('# 基本的な考え方');
+  R.principles.forEach(p => L.push('- ' + p));
+  L.push('');
+  L.push('# 絶対に守るきまり');
+  R.commonRules.forEach(p => L.push('- ' + p));
+  L.push('- 児童の氏名・友達の名前・大会名・学校名などの固有名詞は書かない。');
+  L.push('- メモに無い「事実」は作らない。（書き方の工夫は上の「表現の提案について」を見ること）');
+  if(nums.length > 1) L.push('- まとめて書くので、同じ言い回し・同じ文型が並ばないよう、児童ごとに書き分ける。');
+  L.push('');
+  L.push('# 文末');
+  L.push('- 過去形で書く。「〜しています。」→「〜しました。」／「〜できます。」→「〜できました。」');
+  L.push('- 可能動詞は使わない。「書けるようになりました」→「書くことができました」');
+  L.push('- 子どもの言葉を「 」で引用するときは、その子の言葉のままでよい。');
+  L.push('');
+  L.push('# 数字・記号');
+  L.push('- ' + R.numberFormat.note);
+  L.push('- 読点は「、」。感嘆符・疑問符・三点リーダは使わない。文頭は1マス空けない。');
+  L.push('');
+  L.push('# 避ける表現 → 言い換え');
+  R.vague.filter(v => v.level !== 'info').forEach(v => L.push(`- ${v.ng} → ${v.ok}`));
+  L.push('');
+  L.push('# 表記（左の表記を必ず使う）');
+  L.push('この一覧は学習指導要領および学年別漢字配当表に準拠したものです。必ずこのとおりに書いてください。');
+  L.push(R.hyoki.filter(h => h.level !== 'info' && !/^（/.test(h.ok)).map(h => `${h.ok}（×${h.ng}）`).join('、'));
+  L.push('一覧に無い語は、学習指導要領の本文で使われている表記に合わせてください。');
+  L.push('');
+  L.push('# 教科名');
+  L.push('必ず「科」を付ける：' + R.subjects.list.join('、'));
+  L.push('');
+  L.push('# 書き方のお手本');
+  R.examples.forEach(e => { L.push(`× ${e.bad}`); L.push(`○ ${e.good}`); L.push(''); });
+  L.push('# 児童ごとのメモ');
+  L.push('（番号だけで管理しています。氏名はありません。）');
+  L.push('');
+  nums.forEach(n => {
+    L.push(`## #${n}`);
+    L.push(memoBlock(n, typeKey));
+    otherTerms(n, typeKey, opt.avoidTerms).forEach(o => {
+      const used = R.subjects.list.filter(s => o.text.indexOf(s) >= 0);
+      if(used.length) L.push(`※ ${o.label}は「${used.join('・')}」で書いたので、今回は違う教科で書く。`);
+    });
+    L.push('');
+  });
+  L.push('---');
+  L.push(`上のメモをもとに、#${nums.join('、#')} の${t.label}を、1人につき${NC}案ずつ、指定の出力形式で書いてください。`);
+  return L.join('\n');
+}
+
+function typeOptions(sel){
+  return activeTypes().map(k => `<option value="${k}" ${k===sel?'selected':''}>${esc(R.types[k].label)}（${R.types[k].target}字程度）</option>`).join('');
+}
+
+function viewAI(root){
+  const types = activeTypes();
+  if(!types.includes(AI.type)) AI.type = types[0] || null;
+  if(!types.includes(AI.importType)) AI.importType = AI.type;
+  if(!types.length){ root.innerHTML = noTypesCard(); wireNoTypes(root); return; }
+
+  root.innerHTML = `
+  <div class="aigrid">
+    <section class="card">
+      <h2><span class="step">A</span>プロンプトを作ってコピーする</h2>
+      <p class="lead">できたプロンプトを Claude（チャット／Cowork）に貼り付けます。人数が多いと返事が途中で切れることがあるので、何人かずつに分けて作れます。</p>
+      <div class="notice warn">AI に渡るのは<b>出席番号とメモだけ</b>です。メモに、本人が分かる事情（家庭・健康・転出入など）や友達の名前が入っていないか、貼り付ける前に確かめてください。</div>
+      <div class="opts">
+        <span>種類</span><select id="p-type">${typeOptions(AI.type)}</select>
+        <span>対象</span>
+        <select id="p-scope">
+          <option value="all">メモのある児童すべて</option>
+          <option value="todo">メモがあり、まだ本文が無い児童</option>
+          <option value="one">選択中の1人だけ（${cur}番）</option>
+        </select>
+        <span>1回の人数</span>
+        <select id="p-size">${[5,10,15,20,45].map(n=>`<option value="${n}">${n===45?'全員まとめて':n+'人ずつ'}</option>`).join('')}</select>
+        <span>教科の重なり</span>
+        <div class="row">
+          <label class="inline"><input type="checkbox" id="p-avoid1">1学期と違う教科で</label>
+          <label class="inline"><input type="checkbox" id="p-avoid2">2学期と違う教科で</label>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="btn-build">プロンプトを作る</button>
+        <button class="btn" id="btn-copy" disabled>このプロンプトをコピー</button>
+        <span class="mini" id="p-info"></span>
+      </div>
+      <div class="chunks" id="chunks"></div>
+      <pre class="prompt" id="promptout">（「プロンプトを作る」を押してください）</pre>
+    </section>
+
+    <section class="card">
+      <h2><span class="step">B</span>返ってきた文を貼り付けて取り込む</h2>
+      <p class="lead">Claude の返事をそのまま貼り付けて「取り込む」を押すと、番号ごとに振り分けて、案として保存します。<br>
+        行頭の <code>#12</code> <code>【12】</code> <code>12.</code> を目印に読み取ります。</p>
+      <div class="opts"><span>種類</span><select id="i-type">${typeOptions(AI.importType)}</select></div>
+      <textarea id="pastearea" rows="14" placeholder="#1&#10;1) 国語科「ごんぎつね」の学習では、…&#10;※ …&#10;2) …&#10;&#10;#2&#10;…"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="btn primary" id="btn-parse">取り込む</button>
+        <button class="btn" id="btn-clearpaste">貼り付け欄を消す</button>
+      </div>
+      <div id="i-info" style="margin-top:10px">${AI.info}</div>
+    </section>
+  </div>`;
+
+  $('#p-scope').value = AI.scope;
+  $('#p-size').value = String(AI.size);
+  $('#p-avoid1').checked = AI.avoid1; $('#p-avoid2').checked = AI.avoid2;
+  $('#p-avoid1').disabled = S.term === '1'; $('#p-avoid2').disabled = S.term === '2';
+  $('#p-type').onchange = e => { AI.type = e.target.value; AI.importType = AI.type; $('#i-type').value = AI.type; AI.chunks = []; drawChunks(); };
+  $('#p-scope').onchange = e => { AI.scope = e.target.value; AI.chunks = []; drawChunks(); };
+  $('#p-size').onchange = e => { AI.size = +e.target.value; AI.chunks = []; drawChunks(); };
+  $('#p-avoid1').onchange = e => { AI.avoid1 = e.target.checked; };
+  $('#p-avoid2').onchange = e => { AI.avoid2 = e.target.checked; };
+  $('#i-type').onchange = e => { AI.importType = e.target.value; };
+
+  $('#btn-build').onclick = () => {
+    const nums = targetNums(AI.type, AI.scope);
+    AI.chunks = []; AI.at = 0; AI.copied = {};
+    if(!nums.length){ drawChunks('対象になる児童がいません。先に「1 メモを書く」でメモを入れてください。'); return; }
+    const avoidTerms = [];
+    if(AI.avoid1 && S.term !== '1') avoidTerms.push('1');
+    if(AI.avoid2 && S.term !== '2') avoidTerms.push('2');
+    for(let i = 0; i < nums.length; i += AI.size){
+      const part = nums.slice(i, i + AI.size);
+      AI.chunks.push({ nums:part, text:buildPrompt(AI.type, part, { avoidTerms }) });
+    }
+    drawChunks();
+  };
+  $('#btn-copy').onclick = async () => {
+    const c = AI.chunks[AI.at]; if(!c) return;
+    await copyText(c.text);
+    AI.copied[AI.at] = true; drawChunks();
+    toast(AI.chunks.length > 1 ? `#${c.nums[0]}〜#${c.nums[c.nums.length-1]} をコピーしました` : 'コピーしました');
+  };
+  $('#btn-parse').onclick = doImport;
+  $('#btn-clearpaste').onclick = () => { $('#pastearea').value = ''; AI.info = ''; $('#i-info').innerHTML = ''; };
+  drawChunks();
+}
+function drawChunks(msg){
+  const out = $('#promptout'), box = $('#chunks'), info = $('#p-info'), copy = $('#btn-copy');
+  if(!out) return;
+  box.innerHTML = '';
+  if(!AI.chunks.length){
+    out.textContent = msg || '（「プロンプトを作る」を押してください）';
+    info.textContent = ''; copy.disabled = true; return;
+  }
+  if(AI.chunks.length > 1){
+    AI.chunks.forEach((c, i) => {
+      const b = document.createElement('button');
+      b.className = (i === AI.at ? 'on ' : '') + (AI.copied[i] ? 'done' : '');
+      b.textContent = `${i+1}回目 #${c.nums[0]}〜#${c.nums[c.nums.length-1]}`;
+      b.onclick = () => { AI.at = i; drawChunks(); };
+      box.appendChild(b);
+    });
+  }
+  const c = AI.chunks[AI.at];
+  out.textContent = c.text;
+  copy.disabled = false;
+  const total = AI.chunks.reduce((a, x) => a + x.nums.length, 0);
+  info.textContent = AI.chunks.length > 1
+    ? `${total}人を${AI.chunks.length}回に分けました（この回：${c.nums.length}人・約${c.text.length}字）`
+    : `${c.nums.length}人分・約${c.text.length}字`;
+}
+
+function doImport(){
+  const raw = $('#pastearea').value;
+  if(!raw.trim()) return toast('貼り付け欄が空です');
+  const k = AI.importType;
+  const res = E.parsePasted(raw);
+  const nos = res.order.filter(n => n >= 1 && n <= S.meta.count);
+  const skipped = res.order.filter(n => !(n >= 1 && n <= S.meta.count));
+  if(!nos.length){
+    AI.info = '<div class="notice warn">「#番号」の行が見つかりませんでした。返ってきた文の形を確かめてください。</div>';
+    $('#i-info').innerHTML = AI.info; return;
+  }
+  const already = nos.filter(n => draftOf(n, k));
+  const apply = mode => {
+    let cands = 0, applied = 0;
+    nos.forEach(n => {
+      if(mode === 'skip' && draftOf(n, k)) return;
+      const list = res.blocks[n];
+      if(mode === 'add' && draftOf(n, k)) addCands(n, k, list); else setCands(n, k, list);
+      cands += list.length; applied++;
+    });
+    save();
+    AI.info = `<div class="notice ok">${R.types[k].label}：${applied}人分・計${cands}案を取り込みました。` +
+      (skipped.length ? `（名簿にない番号 ${skipped.join('・')} は除きました）` : '') +
+      `<div style="margin-top:8px"><button class="btn primary sm" id="go-pick">3 案を選ぶ・直す へ ›</button></div></div>`;
+    $('#i-info').innerHTML = AI.info;
+    $('#go-pick').onclick = () => { cur = nos[0]; showTab('pick'); };
+    renderSteps();
+    toast(`${applied}人分・${cands}案を取り込みました`);
+  };
+  if(!already.length) return apply('replace');
+  dlg({
+    title:'すでに本文がある児童がいます',
+    body:`<p style="margin-top:0">${already.map(n=>'#'+n).join('・')} には、すでに「${esc(R.types[k].label)}」の本文があります（手で直した文かもしれません）。</p>
+      <ul class="plain">
+        <li><b>新しい案を後ろに足す</b> … いまの本文はそのまま。新しい案は「案を選ぶ」で選べます。</li>
+        <li><b>この子たちは取り込まない</b> … 本文がまだ無い子だけ取り込みます。</li>
+        <li><b>置き換える</b> … いまの案と本文を消して、新しい案にします。</li>
+      </ul>`,
+    buttons:[
+      { label:'やめる', value:null },
+      { label:'置き換える', value:'replace', kind:'danger' },
+      { label:'この子たちは取り込まない', value:'skip' },
+      { label:'新しい案を後ろに足す', value:'add', kind:'primary' }
+    ]
+  }).then(v => { if(v) apply(v); });
+}
+
+/* =========================================================================
+   3 案を選ぶ・直す
+   ========================================================================= */
+function noTypesCard(){
+  return `<section class="card"><h2>この学期に書く種類が選ばれていません</h2>
+    <p class="lead">「設定」で、${S.term}学期に書く種類（所見・道徳所見など）を選んでください。</p>
+    <button class="btn primary" id="open-settings">設定を開く</button></section>`;
+}
+function wireNoTypes(root){ const b = $('#open-settings', root); if(b) b.onclick = openSettings; }
+
+function viewPick(root){
+  const types = activeTypes();
+  const wrap = document.createElement('div'); wrap.className = 'layout';
+  wrap.appendChild(rosterCard());
+  const card = document.createElement('section'); card.className = 'card';
+  card.innerHTML = kidHeader(`${S.meta.grade}年 ${S.term}学期`) + '<div id="drafts"></div>';
+  wrap.appendChild(card);
+  root.appendChild(wrap);
+  wireKidNav(root);
+  const box = $('#drafts');
+  if(!types.length){ box.innerHTML = noTypesCard(); wireNoTypes(box); return; }
+  types.forEach(k => box.appendChild(draftBox(k)));
+}
+
+function draftBox(k){
+  const t = R.types[k], rg = E.lenRange(k);
+  const d = document.createElement('div'); d.className = 'draftbox';
+  const top = document.createElement('div'); top.className = 'top';
+  top.innerHTML = `<b>${esc(t.label)}</b><span class="mini">${rg.target}字程度（${rg.min}〜${rg.max}字）</span>
+    <span class="count" data-c></span><span class="badge" data-lv></span>`;
+  d.appendChild(top);
+
+  /* その子のメモ（この種類に使う欄だけ） */
+  const mb = memoBlock(cur, k);
+  const ref = document.createElement('details'); ref.className = 'memoref';
+  ref.innerHTML = mb
+    ? `<summary>メモを見る</summary>${mb.split('\n').map(l => `<div>${esc(l)}</div>`).join('')}`
+    : `<summary>メモがありません</summary><div>「1 メモを書く」で入れると、案づくりに使えます。</div>`;
+  d.appendChild(ref);
+
+  const cl = document.createElement('div'); cl.className = 'cands'; d.appendChild(cl);
+  const note = document.createElement('div'); note.className = 'candnote'; d.appendChild(note);
+  const ta = document.createElement('textarea');
+  ta.rows = 4; ta.value = draftOf(cur, k);
+  ta.placeholder = '案を選ぶか、ここに直接書いてください。' + (t.note ? '（' + t.note + '）' : '');
+  ta.setAttribute('aria-label', t.label + 'の本文');
+  d.appendChild(ta);
+  const pv = document.createElement('div'); pv.className = 'preview'; d.appendChild(pv);
+  const iss = document.createElement('div'); iss.className = 'issues'; d.appendChild(iss);
+
+  const renderCands = () => {
+    const list = candsOf(cur, k), sel = pickOf(cur, k);
+    cl.innerHTML = ''; note.innerHTML = '';
+    if(list.length < 2){ cl.classList.add('hide'); note.classList.add('hide'); return; }
+    cl.classList.remove('hide'); note.classList.remove('hide');
+    const head = document.createElement('div'); head.className = 'candhead';
+    head.innerHTML = `<span class="mini">Claude が作った${list.length}つの案です。使うものを選んでください。選ばなかった案も残ります。</span>`;
+    const delAll = document.createElement('button');
+    delAll.className = 'btn sm danger'; delAll.textContent = 'この子の案を全部削除';
+    delAll.onclick = () => dlg({
+      title:'案を全部削除します',
+      body:`出席番号 ${cur} の「${esc(t.label)}」の案を ${list.length}件すべて削除し、本文も空にします。元に戻せません。`,
+      buttons:[{ label:'やめる', value:false }, { label:'削除する', value:true, kind:'danger' }]
+    }).then(ok => {
+      if(!ok) return;
+      const rr = rec(S.term, cur);
+      delete rr.cands[k]; delete rr.pick[k]; rr.drafts[k] = '';
+      save(); renderCands(); ta.value = ''; refresh(); refreshKid(cur); toast('案を削除しました');
+    });
+    head.appendChild(delAll);
+    cl.appendChild(head);
+
+    list.forEach((c, i) => {
+      const n = E.countChars(c.text);
+      const lv = E.worst(check(c.text, k, cur));
+      const row = document.createElement('button');
+      row.className = 'cand' + (i === sel ? ' on' : '');
+      row.setAttribute('aria-pressed', i === sel ? 'true' : 'false');
+      row.innerHTML =
+        `<span class="pick">${i === sel ? '●' : '○'}</span>` +
+        `<span class="cbody"><span class="chead">案${i+1}` +
+        `<span class="count ${n>=rg.min&&n<=rg.max?'ok':'ng'}">${n}字</span>` +
+        `<span class="badge ${lv==='error'?'error':lv==='warn'?'warn':'ok'}">${lv==='error'?'要修正':lv==='warn'?'注意':'OK'}</span></span>` +
+        `<span class="ctext">${esc(c.text)}</span></span>`;
+      row.onclick = () => {
+        pickCand(cur, k, i);
+        ta.value = draftOf(cur, k);
+        save(); renderCands(); refresh(); refreshKid(cur);
+      };
+      const del = document.createElement('span');
+      del.className = 'canddel'; del.title = `案${i+1}を削除`; del.textContent = '×'; del.setAttribute('role', 'button');
+      del.onclick = e => {
+        e.stopPropagation();
+        dlg({
+          title:`案${i+1}を削除します`,
+          body:`<p style="margin-top:0">出席番号 ${cur} の「${esc(t.label)}」の案${i+1}を削除します。元に戻せません。</p><div class="preview">${esc(c.text)}</div>`,
+          buttons:[{ label:'やめる', value:false }, { label:'削除する', value:true, kind:'danger' }]
+        }).then(ok => {
+          if(!ok) return;
+          const rr = rec(S.term, cur), l = rr.cands[k];
+          const wasSel = pickOf(cur, k);
+          l.splice(i, 1);
+          if(!l.length){ delete rr.cands[k]; delete rr.pick[k]; rr.drafts[k] = ''; }
+          else{
+            const ns = Math.min(wasSel > i ? wasSel - 1 : (wasSel === i ? 0 : wasSel), l.length - 1);
+            rr.pick[k] = ns; rr.drafts[k] = l[ns].text;
+          }
+          ta.value = draftOf(cur, k);
+          save(); renderCands(); refresh(); refreshKid(cur);
+          toast(`案${i+1}を削除しました`);
+        });
+      };
+      row.appendChild(del);
+      cl.appendChild(row);
+    });
+    const cn = list[sel] && list[sel].note;
+    note.innerHTML = cn ? `<b>この案の工夫</b> ${esc(cn)}` : '';
+    if(!cn) note.classList.add('hide');
+  };
+
+  const refresh = () => {
+    const text = ta.value;
+    const n = E.countChars(text);
+    const cEl = $('[data-c]', top), lvEl = $('[data-lv]', top);
+    cEl.textContent = n + '字';
+    cEl.className = 'count ' + (!text.trim() ? '' : (n >= rg.min && n <= rg.max ? 'ok' : 'ng'));
+    const issues = check(text, k, cur);
+    const lv = text.trim() ? E.worst(issues) : 'none';
+    lvEl.className = 'badge ' + (lv === 'error' ? 'error' : lv);
+    lvEl.textContent = { error:'要修正', warn:'注意', ok:'OK', none:'未作成' }[lv];
+    pv.innerHTML = text.trim() ? E.highlight(text, issues) : '<span class="mini">（ここに校正結果が色付きで出ます）</span>';
+    iss.innerHTML = '';
+    if(text.trim() && !issues.length){
+      iss.innerHTML = '<div class="noissue">ルール上の問題は見つかりませんでした。内容が事実と合っているか、最後にご自身で確かめてください。</div>';
+    }
+    issues.forEach(i => {
+      const e = document.createElement('div'); e.className = 'issue ' + i.level;
+      e.innerHTML = `<span class="tag">${esc(i.kind)}</span><span>${esc(i.msg)}${
+        i.ng && i.ok ? ` <s style="color:var(--muted)">${esc(i.ng)}</s> → <b>${esc(i.ok)}</b>` : ''}</span>`;
+      if(i.fixable){
+        const fx = document.createElement('button'); fx.className = 'btn sm fix'; fx.textContent = '直す';
+        fx.onclick = () => {
+          ta.value = ta.value.slice(0, i.index) + i.ok + ta.value.slice(i.index + i.length);
+          editDraft(cur, k, ta.value); save(); refresh(); renderCands(); refreshKid(cur);
+        };
+        e.appendChild(fx);
+      }
+      iss.appendChild(e);
+    });
+  };
+  ta.addEventListener('input', () => { editDraft(cur, k, ta.value); saveSoon(); refresh(); refreshKid(cur); });
+  ta.addEventListener('blur', renderCands);
+  renderCands(); refresh();
+  return d;
+}
+
+/* =========================================================================
+   4 仕上げ・書き出し（クラス全体の確認と一覧）
+   ========================================================================= */
+let FIN = { type:null, filter:'all' };
+
+function viewFinish(root){
+  const types = activeTypes();
+  if(!types.includes(FIN.type)) FIN.type = types[0] || null;
+  if(!types.length){ root.innerHTML = noTypesCard(); wireNoTypes(root); return; }
+  const k = FIN.type;
+
+  const rows = [];
+  const c = { error:0, warn:0, ok:0, none:0 };
+  for(let n = 1; n <= S.meta.count; n++){
+    const text = draftOf(n, k);
+    const issues = text ? check(text, k, n) : [];
+    const lv = text ? E.worst(issues) : 'none';
+    c[lv]++;
+    rows.push({ n, text, issues, lv });
+  }
+  const dups = E.findDuplicates(rows.map(r => ({ no:r.n, text:r.text })));
+  const shown = rows.filter(r =>
+    FIN.filter === 'all' ? true :
+    FIN.filter === 'fix' ? (r.lv === 'error' || r.lv === 'warn') :
+    FIN.filter === 'none' ? r.lv === 'none' : true);
+
+  root.innerHTML = `
+  <section class="card noprint">
+    <h2>仕上げ・書き出し</h2>
+    <div class="row" style="margin-bottom:12px">
+      <label class="inline">種類 <select id="l-type">${typeOptions(k)}</select></label>
+      <span class="spacer"></span>
+      <button class="btn local-only" id="btn-csv">CSVで保存（Excel用）</button>
+      <button class="btn local-only" id="btn-txt">テキストで保存</button>
+      <button class="btn sheet-only" id="btn-sheet">書き出しシートに出す</button>
+      <button class="btn" id="btn-print">印刷</button>
+    </div>
+    <div class="summary">
+      <button class="sumbox ${FIN.filter==='all'?'on':''}" data-f="all"><b>${S.meta.count}</b><span>すべて</span></button>
+      <button class="sumbox err ${FIN.filter==='fix'?'on':''}" data-f="fix"><b>${c.error}</b><span>要修正</span></button>
+      <button class="sumbox warn ${FIN.filter==='fix'?'on':''}" data-f="fix"><b>${c.warn}</b><span>注意</span></button>
+      <div class="sumbox ok"><b>${c.ok}</b><span>OK</span></div>
+      <button class="sumbox ${FIN.filter==='none'?'on':''}" data-f="none"><b>${c.none}</b><span>未作成</span></button>
+    </div>
+    <p class="mini" style="margin:0"><span class="local-only">CSVはBOM付きUTF-8です。Excelでそのまま開けます。</span>
+      <span class="sheet-only">同じスプレッドシートに書き出しシートを作ります。そこから校務システムへコピーできます。</span>
+      数字の箱を押すと、その児童だけを表示します。</p>
+  </section>
+
+  <section class="card">
+    <h2 id="list-title">${esc(S.meta.year)}年度 ${esc(S.meta.grade)}年 ${S.term}学期 ／ ${esc(R.types[k].label)}</h2>
+    <table>
+      <thead><tr><th>番号</th><th>本文と校正</th><th>字数</th><th>判定</th><th class="noprint"></th></tr></thead>
+      <tbody id="listbody"></tbody>
+    </table>
+    ${shown.length ? '' : '<p class="mini">該当する児童はいません。</p>'}
+  </section>
+
+  <section class="card noprint">
+    <h2>クラス内で表現が似ている組み合わせ</h2>
+    <div id="dupresult" class="mini"></div>
+  </section>`;
+
+  const tb = $('#listbody');
+  shown.forEach(r => {
+    const tr = document.createElement('tr'); tr.className = 'rowlink';
+    const list = candsOf(r.n, k);
+    const which = list.length > 1 ? `<div class="mini">案${pickOf(r.n, k)+1}/${list.length}</div>` : '';
+    const badge = r.lv === 'none' ? '<span class="badge none">未作成</span>'
+      : r.lv === 'error' ? '<span class="badge error">要修正</span>'
+      : r.lv === 'warn' ? '<span class="badge warn">注意</span>' : '<span class="badge ok">OK</span>';
+    const issues = r.issues.filter(i => i.level !== 'info').map(i =>
+      `<div class="issue ${i.level}"><span class="tag">${esc(i.kind)}</span><span>${esc(i.msg)}${
+        i.ng && i.ok ? ` <s style="color:var(--muted)">${esc(i.ng)}</s> → <b>${esc(i.ok)}</b>` : ''}</span></div>`).join('');
+    tr.innerHTML = `<td class="no">${r.n}</td>
+      <td>${r.text ? E.highlight(r.text, r.issues) : '<span class="mini">（まだありません）</span>'}${issues ? `<div class="issues">${issues}</div>` : ''}</td>
+      <td class="len">${r.text ? E.countChars(r.text) : ''}</td>
+      <td class="st">${badge}${which}</td>
+      <td class="noprint"><button class="btn sm ghost" data-open="${r.n}">${r.text ? '直す ›' : '書く ›'}</button></td>`;
+    tb.appendChild(tr);
+  });
+  $$('[data-open]', root).forEach(b => b.onclick = () => { cur = +b.dataset.open; showTab(b.textContent.indexOf('書く') >= 0 && !memoBlock(cur, k) ? 'memo' : 'pick'); });
+  $$('[data-f]', root).forEach(b => b.onclick = () => { FIN.filter = FIN.filter === b.dataset.f ? 'all' : b.dataset.f; renderView(); });
+  $('#l-type').onchange = e => { FIN.type = e.target.value; renderView(); };
+
+  const dv = $('#dupresult');
+  if(!dups.length) dv.textContent = '似すぎている組み合わせはありません。';
+  else{
+    dv.innerHTML = dups.map(d => {
+      const lv = d.sim >= R.duplication.errorThreshold ? 'error' : 'warn';
+      const na = candsOf(d.a, k).length, nb = candsOf(d.b, k).length;
+      const hint = (na > 1 || nb > 1) ? `　どちらかを別の案に変えると直せます（#${d.a}：${na}案／#${d.b}：${nb}案）。` : '';
+      return `<div class="issue ${lv}"><span class="tag">#${d.a} と #${d.b}</span>
+        <span>${Math.round(d.sim*100)}% 一致。${esc(R.duplication.msg)}${hint}</span>
+        <button class="btn sm fix" data-dup="${d.a}">#${d.a}を開く</button></div>`;
+    }).join('');
+    $$('[data-dup]', dv).forEach(b => b.onclick = () => { cur = +b.dataset.dup; showTab('pick'); });
+  }
+
+  const exportRows = () => {
+    const out = [];
+    for(let n = 1; n <= S.meta.count; n++){ const t = draftOf(n, k); out.push([n, t, t ? E.countChars(t) : '']); }
+    return out;
+  };
+  $('#btn-csv').onclick = () => {
+    const rows2 = [['出席番号', R.types[k].label, '字数']].concat(exportRows());
+    const csv = '﻿' + rows2.map(r => r.map(csvCell).join(',')).join('\r\n');
+    download(`所見_${S.meta.year}_${S.meta.grade}年_${S.term}学期_${R.types[k].label}.csv`, csv, 'text/csv;charset=utf-8');
+  };
+  $('#btn-txt').onclick = () => {
+    let out = `${S.meta.year} ${S.meta.grade}年 ${S.term}学期 ${R.types[k].label}\n\n`;
+    exportRows().forEach(([n, t, len]) => { out += `#${n}（${len || 0}字）\n${t || '（未作成）'}\n\n`; });
+    download(`所見_${S.meta.grade}年_${S.term}学期_${R.types[k].label}.txt`, out);
+  };
+  $('#btn-sheet').onclick = () => {
+    const b = $('#btn-sheet'); b.disabled = true; toast('書き出しています…');
+    gasCall('exportToSheet', `${S.term}学期_${R.types[k].label}`, R.types[k].label, exportRows())
+      .then(name => { b.disabled = false; toast(`シート「${name}」に書き出しました`); })
+      .catch(e => { b.disabled = false; alert('書き出せませんでした：' + e.message); });
+  };
+  $('#btn-print').onclick = () => {
+    if(FIN.filter !== 'all'){ FIN.filter = 'all'; renderView(); }
+    setTimeout(() => window.print(), 50);
+  };
+}
+
+/* =========================================================================
+   記録メモ帳（名簿とは別。書き出しにも一覧にも出ない）
+   ========================================================================= */
+function viewStock(root){
+  root.innerHTML = `<section class="card">
+    <h2>記録メモ帳（${S.term}学期）</h2>
+    <p class="lead">児童の名簿とは別の、自由に書ける場所です。使い回したい所見文、行事の記録、
+      使わなかった案の控えなど、何でも貯めておけます。学期ごとに分かれています。
+      <b>ここは所見の書き出しにも一覧にも、AIへのプロンプトにも出ません。</b></p>
+    <textarea id="stockarea" rows="24" placeholder="ここに自由に書けます。&#10;&#10;例）&#10;【使い回せる言い回し】&#10;・くり返し練習し、記録を伸ばすことができました。&#10;&#10;【2学期の行事】&#10;・10月 学習発表会（リコーダー「星の世界」）&#10;・11月 なわとび大会"></textarea>
+    <div class="row" style="margin-top:8px">
+      <span class="mini" id="stock-info"></span><span class="spacer"></span>
+      <button class="btn sm" id="btn-stock-copy">全部コピー</button>
+    </div></section>`;
+  const ta = $('#stockarea');
+  ta.value = S.stock[S.term] || '';
+  const info = () => $('#stock-info').textContent = `${E.countChars(ta.value)}字`;
+  info();
+  ta.addEventListener('input', () => { S.stock[S.term] = ta.value; info(); saveSoon(); });
+  $('#btn-stock-copy').onclick = () => ta.value.trim() ? copyText(ta.value).then(() => toast('コピーしました')) : toast('メモ帳が空です');
+}
+
+/* =========================================================================
+   ルール
+   ========================================================================= */
+function viewRules(root){
+  root.innerHTML = `
+  <section class="card"><h2>この学校の所見ルール（出典）</h2><div id="rule-meta" class="mini"></div></section>
+  <section class="card"><h2>学習指導要領（この学年で使う部分）</h2><p class="mini" id="cs-note" style="margin-top:0"></p><div id="rule-course"></div></section>
+  <section class="card"><h2>基本的な考え方</h2><ul class="plain" id="rule-principles"></ul></section>
+  <section class="card"><h2>共通理解事項</h2><ul class="plain" id="rule-common"></ul></section>
+  <section class="card"><h2>字数の目安</h2><div id="rule-types"></div></section>
+  <section class="card"><h2>避ける表現と言い換え</h2><div class="rulegrid" id="rule-vague"></div></section>
+  <section class="card"><h2>表記ルール</h2><p class="mini" style="margin-top:0">「 」の中（子どもの言葉・単元名）は、表記・文末・言い換えのチェックから外しています。</p><div class="rulegrid" id="rule-hyoki"></div></section>
+  <section class="card"><h2>書き方のお手本</h2><div id="rule-examples"></div></section>
+  <section class="card"><h2>ルールの直し方</h2>
+    <p class="mini" style="margin:0">ルールは <code>rules/shoken-rules.js</code> にまとまっています。字数や語句を変えるときは
+      そのファイルを直し、<code>node tests/rules.test.js</code> でお手本と食い違っていないか確かめてから、
+      <code>node build-gas.js</code> でスプレッドシート用の画面を作り直してください。</p></section>`;
+
+  const stage = stageNow(), box = $('#rule-course');
+  if(!CS) box.innerHTML = '<p class="mini">rules/course-of-study.js が読み込めていません。</p>';
+  else{
+    $('#cs-note').innerHTML = `${esc(CS.meta.title)}　${esc(CS.stageLabel[stage])}　—　${esc(CS.meta.note)}`;
+    let h = '';
+    Object.values(CS.subjects).forEach(sub => {
+      const items = (sub.areas || {})[stage];
+      if(!items || !items.length) return;
+      h += `<details style="margin-bottom:8px"><summary><b>${esc(sub.label)}</b></summary>`;
+      if(sub.aim) h += `<div class="mini">目標：${esc(sub.aim)}</div>`;
+      h += '<table style="margin-top:5px"><thead><tr><th style="width:24%;position:static">領域</th><th style="position:static">指導事項（要旨）</th><th style="width:28%;position:static">所見に使える言い方</th></tr></thead><tbody>';
+      items.forEach(it => { h += `<tr><td class="mini">${esc(it.cite)}</td><td>${esc(it.t)}</td><td class="mini">${(it.w || []).map(esc).join('<br>')}</td></tr>`; });
+      h += '</tbody></table></details>';
+    });
+    box.innerHTML = h || '<p class="mini">この学年段階の指導事項がありません。</p>';
+  }
+  $('#rule-meta').innerHTML = '出典：' + R.meta.source.map(esc).join('／') + `（版 ${esc(R.meta.updated)}）`;
+  $('#rule-principles').innerHTML = R.principles.map(p => `<li>${esc(p)}</li>`).join('');
+  $('#rule-common').innerHTML = R.commonRules.map(p => `<li>${esc(p)}</li>`).join('');
+  $('#rule-types').innerHTML = '<table><thead><tr><th style="position:static">種別</th><th style="position:static">目安</th><th style="position:static">許容</th><th style="position:static">今回書く</th></tr></thead><tbody>' +
+    Object.entries(R.types).map(([k, t]) => {
+      const rg = E.lenRange(k);
+      const w = ['1','2','3'].filter(tm => activeTypes(tm).includes(k)).map(tm => tm + '学期');
+      return `<tr><td>${esc(t.label)}</td><td class="len">${t.target}字</td><td class="len">${rg.min}〜${rg.max}</td><td class="mini">${w.join('、') || '—'}</td></tr>`;
+    }).join('') + '</tbody></table>';
+  $('#rule-vague').innerHTML = R.vague.map(v => `<div><s>${esc(v.ng)}</s> → ${esc(v.ok)}</div>`).join('');
+  $('#rule-hyoki').innerHTML = R.hyoki.map(h => `<div><b>${esc(h.ok)}</b> <s>${esc(h.ng)}</s></div>`).join('') +
+    R.subjects.checks.map(c => `<div><b>${esc(c.ok)}</b> <s>${esc(c.ng)}</s></div>`).join('');
+  $('#rule-examples').innerHTML = R.examples.map(e =>
+    `<div style="margin-bottom:10px"><div class="issue error" style="margin-bottom:3px"><span class="tag">×</span><span>${esc(e.bad)}</span></div>
+     <div class="issue" style="background:var(--accent-w);border-color:var(--accent)"><span class="tag">○</span><span>${esc(e.good)}</span></div></div>`).join('');
+}
+
+/* =========================================================================
+   設定（年度・学年・人数・今回書く種類）
+   ========================================================================= */
+function numsWithData(from){
+  const out = [];
+  for(let n = from; n <= 45; n++){
+    if(['1','2','3'].some(t => hasData(peek(t, n)))) out.push(n);
+  }
+  return out;
+}
+function openSettings(){
+  const box = document.createElement('div');
+  const draftWrite = JSON.parse(JSON.stringify(S.write));
+  const typeChecks = (grade, term) => {
+    const can = (R.termMatrix[grade] || {})[term] || R.allTypes;
+    return R.allTypes.filter(k => can.includes(k)).map(k =>
+      `<label class="inline"><input type="checkbox" data-type="${k}" ${draftWrite[term].includes(k)?'checked':''}> ${esc(R.types[k].label)}（${R.types[k].target}字）</label>`).join('');
+  };
+  let term = S.term;
+  box.innerHTML = `
+    <div class="kv">
+      <span>年度</span><input type="text" id="s-year" value="${esc(S.meta.year)}" style="width:90px">
+      <span>学年</span><select id="s-grade">${[1,2,3,4,5,6].map(g=>`<option ${String(g)===String(S.meta.grade)?'selected':''}>${g}</option>`).join('')}</select>
+      <span>人数</span><div><input type="number" id="s-count" min="1" max="45" value="${S.meta.count}" style="width:80px"> 人</div>
+    </div>
+    <div style="margin-top:16px">
+      <div class="row" style="margin-bottom:6px"><b>今回書く種類</b>
+        <div class="seg" id="s-term">${['1','2','3'].map(t=>`<button data-t="${t}" class="${t===term?'on':''}">${t}学期</button>`).join('')}</div></div>
+      <div class="typechecks" id="s-types"></div>
+      <p class="mini" style="margin:6px 0 0">進み具合（完成・書きかけ）と、プロンプト・一覧・書き出しの種類は、ここで選んだものだけになります。
+        選んでいない種類の欄も、メモ画面の「ほかの欄」から入力できます。</p>
+    </div>
+    <div class="notice info" style="margin:14px 0 0">保存先：<b>${Store.kind==='sheet' ? 'このスプレッドシート' : 'このPCのブラウザ'}</b>。
+      ${Store.kind==='sheet'
+        ? 'スプレッドシート1つで1学年分です。'
+        : '年度か学年を変えると、その学年のデータに切り替わります。ブラウザのデータを消すと記録も消えるので、ときどき「JSON保存」で控えを取ってください。'}</div>
+    <div class="row local-only" style="margin-top:12px">
+      <button class="btn sm" id="btn-export-json">JSON保存（控え）</button>
+      <button class="btn sm" id="btn-import-json">JSON読込</button>
+    </div>`;
+  const drawTypes = () => {
+    $('#s-types', box).innerHTML = typeChecks($('#s-grade', box).value, term);
+    $$('#s-types input', box).forEach(cb => cb.onchange = () => {
+      const k = cb.dataset.type, list = draftWrite[term];
+      if(cb.checked){ if(!list.includes(k)) list.push(k); }
+      else draftWrite[term] = list.filter(x => x !== k);
+    });
+  };
+  $$('#s-term button', box).forEach(b => b.onclick = () => {
+    term = b.dataset.t;
+    $$('#s-term button', box).forEach(x => x.classList.toggle('on', x === b));
+    drawTypes();
+  });
+  $('#s-grade', box).onchange = e => {
+    Object.assign(draftWrite, defaultWrite(e.target.value));
+    drawTypes();
+  };
+  drawTypes();
+  $('#btn-export-json', box).onclick = () => {
+    download(`所見データ_${S.meta.year}_${S.meta.grade}年.json`, JSON.stringify(S, null, 2), 'application/json');
+  };
+  $('#btn-import-json', box).onclick = () => $('#file-json').click();
+
+  dlg({ title:'設定', node:box, buttons:[{ label:'キャンセル', value:false }, { label:'決定', value:true, kind:'primary' }] })
+    .then(ok => {
+      if(!ok) return;
+      const year = $('#s-year', box).value.trim() || R.meta.year;
+      const grade = $('#s-grade', box).value;
+      const count = Math.min(45, Math.max(1, +$('#s-count', box).value || S.meta.count));
+      applySettings({ year, grade, count, write:draftWrite });
+    });
+}
+
+async function applySettings(o){
+  /* ローカル保存で年度・学年を変えたら、その学年のデータに切り替える */
+  if(Store.kind === 'local' && (o.year !== S.meta.year || String(o.grade) !== String(S.meta.grade))){
+    pump();
+    const meta = { year:o.year, grade:String(o.grade) };
+    let next = null;
+    try{ next = await Store.load(meta); }catch(e){ next = null; }
+    S = normalize(next || blankState(Object.assign({ count:o.count }, meta)));
+    if(!next) S.write = o.write;
+    cur = 1; renderAll(); save();
+    toast(next ? `${o.year}年度 ${o.grade}年のデータに切り替えました` : `${o.year}年度 ${o.grade}年を新しく始めます`);
+    return;
+  }
+  /* 人数を減らすとき、入力済みの番号があれば知らせる（データは消さない） */
+  if(o.count < S.meta.count){
+    const left = numsWithData(o.count + 1);
+    if(left.length){
+      const ok = await dlg({
+        title:`人数を${o.count}人にします`,
+        body:`<p style="margin-top:0"><b>${left.map(n=>n+'番').join('・')}</b> には、入力済みのメモや所見があります。</p>
+          <p>人数を減らしても、<b>データは消えずに残ります</b>。人数を戻すと、また表示されます。<br>
+          それまでは、名簿・一覧・書き出し・プロンプトには出てきません。</p>`,
+        buttons:[{ label:'やめる', value:false }, { label:`${o.count}人にする`, value:true, kind:'primary' }]
+      });
+      if(!ok) return;
+    }
+  }
+  S.meta.year = o.year; S.meta.grade = String(o.grade); S.meta.count = o.count;
+  S.write = o.write;
+  if(cur > S.meta.count) cur = S.meta.count;
+  renderAll(); save();
+  toast('設定を変えました');
+}
+
+/* =========================================================================
+   小物
+   ========================================================================= */
+/* 小窓。buttons の value が Promise の結果になる。背景を押すと最初のボタン（取り消し）扱い */
+function dlg(opt){
+  return new Promise(resolve => {
+    const wrap = document.createElement('div'); wrap.className = 'dlgwrap';
+    const box = document.createElement('div'); box.className = 'dlg';
+    box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+    box.innerHTML = `<h3>${esc(opt.title || '')}</h3><div class="body"></div><div class="btns"></div>`;
+    if(opt.node) $('.body', box).appendChild(opt.node); else $('.body', box).innerHTML = opt.body || '';
+    const btns = opt.buttons || [{ label:'OK', value:true, kind:'primary' }];
+    const close = v => { wrap.remove(); document.removeEventListener('keydown', onKey); resolve(v); };
+    const onKey = e => { if(e.key === 'Escape') close(btns[0].value); };
+    btns.forEach(b => {
+      const el = document.createElement('button');
+      el.className = 'btn ' + (b.kind || '');
+      el.textContent = b.label;
+      el.onclick = () => close(b.value);
+      $('.btns', box).appendChild(el);
+    });
+    wrap.onclick = e => { if(e.target === wrap) close(btns[0].value); };
+    document.addEventListener('keydown', onKey);
+    wrap.appendChild(box); document.body.appendChild(wrap);
+    const last = $('.btns .btn:last-child', box); if(last) last.focus();
+  });
+}
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('on'), 2000);
+}
+async function copyText(t){
+  try{ await navigator.clipboard.writeText(t); }
+  catch(e){
+    const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove();
+  }
+}
+function download(name, text, mime){
+  const blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 100);
+}
+function csvCell(s){ return '"' + String(s ?? '').replace(/"/g, '""') + '"'; }
+
+/* =========================================================================
+   起動
+   ========================================================================= */
+function boot(){
+  E = window.ShokenEngine.create(R, CS);
+  document.body.dataset.store = Store.kind;
+  setSave('', '読み込み中…');
+  const meta = { year:R.meta.year, grade:'3' };
+  /* ローカルでは、前回開いた学年を覚えておく */
+  if(Store.kind === 'local'){
+    try{ const last = JSON.parse(localStorage.getItem(LS_PREFIX + 'last') || 'null'); if(last) Object.assign(meta, last); }catch(e){}
+  }
+  Store.load(meta).then(o => start(o, meta)).catch(e => {
+    setSave('error', e.message);
+    $('#main').innerHTML = `<section class="card"><h2>読み込めませんでした</h2><p>${esc(e.message)}</p>
+      <button class="btn primary" onclick="location.reload()">もう一度読み込む</button></section>`;
+  });
+}
+
+function start(o, meta){
+  S = normalize(o || blankState(meta));
+  Saver.at = null;
+  setSave('', '準備完了');
+
+  $$('nav.steps button[data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+  $$('#term-seg button').forEach(b => b.onclick = () => {
+    if(S.term === b.dataset.term) return;
+    S.term = b.dataset.term; renderAll(); save();
+  });
+  $('#ctx-btn').onclick = openSettings;
+  $('#btn-settings').onclick = openSettings;
+
+  /* --- JSON 読込（ローカル保存のとき） --- */
+  $('#file-json').onchange = e => {
+    const f = e.target.files[0]; if(!f) return;
+    const fr = new FileReader();
+    fr.onload = async () => {
+      try{
+        const o2 = JSON.parse(fr.result);
+        if(!o2.data || !o2.meta) throw new Error('形式が違います');
+        const ok = await dlg({
+          title:'JSONを読み込みます',
+          body:`${esc(o2.meta.year)}年度 ${esc(o2.meta.grade)}年 のデータを読み込みます。同じ学年の、いまのデータは上書きされます。`,
+          buttons:[{ label:'やめる', value:false }, { label:'読み込む', value:true, kind:'danger' }]
+        });
+        if(!ok) return;
+        $$('.dlgwrap').forEach(w => w.remove());
+        S = normalize(o2);
+        S.rev = Store.peekRev(S.meta);
+        cur = 1; renderAll(); save(); toast('読み込みました');
+      }catch(err){ alert('読み込めませんでした：' + err.message); }
+      e.target.value = '';
+    };
+    fr.readAsText(f);
+  };
+
+  /* 閉じる前・ほかのタブへ行く前に、まだ送っていない分を送る */
+  document.addEventListener('visibilitychange', () => { if(document.hidden) pump(); });
+  window.addEventListener('beforeunload', e => {
+    if(Store.kind === 'local' && S){
+      try{ localStorage.setItem(LS_PREFIX + 'last', JSON.stringify({ year:S.meta.year, grade:S.meta.grade })); }catch(err){}
+    }
+    if(Saver.dirty || Saver.busy){ pump(); e.preventDefault(); e.returnValue = ''; }
+  });
+
+  renderAll();
+  if(!o) setTimeout(openSettings, 50);   // はじめて開いたときは設定から
+}
+
+if(R && window.ShokenEngine) boot(); else showRulesRecovery();
+</script>
+</body>
+</html>
+<!-- ここが最終行です(貼り付け確認用: SHOKEN-HTML-END) -->
