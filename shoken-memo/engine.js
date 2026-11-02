@@ -373,8 +373,153 @@
       return { blocks: blocks, order: order.filter(function (no) { return blocks[no]; }) };
     }
 
+    /* ======================================================================
+       クラス全体の書き分け
+       ====================================================================== */
+    var V = R.variety || { life: [], defaultShare: 1, minLimit: 3, memoSimilarity: 0.35, unitMaxLength: 15, phraseRepeat: 3 };
+    var lifeRes = (V.life || []).map(function (t) {
+      return { label: t.label, re: t.re ? new RegExp(t.re) : new RegExp((t.words || []).map(escRe).join('|')) };
+    });
+    var subjChecks = R.subjects.checks.filter(function (c) { return c.level === 'error'; });
+
+    /* 文の中の教科・単元・生活の話題・書き出しを見分ける */
+    function topicsOf(text, typeKey) {
+      var t = String(text || '');
+      var masked = maskQuotes(t);
+      var subjects = [];
+      R.subjects.list.forEach(function (sname) { if (masked.indexOf(sname) >= 0) subjects.push(sname); });
+      subjChecks.forEach(function (c) {
+        var re = reOf(c.re || escRe(c.ng));
+        if (re && subjects.indexOf(c.ok) < 0) { re.lastIndex = 0; if (re.test(masked)) subjects.push(c.ok); }
+      });
+      var units = [];
+      var ur = /「([^「」『』]+)」/g, m;
+      while ((m = ur.exec(t))) {
+        var u = m[1].trim();
+        if (u && u.length <= (V.unitMaxLength || 15) && u.indexOf('。') < 0 && units.indexOf(u) < 0) units.push(u);
+      }
+      var life = lifeRes.filter(function (x) { return x.re.test(masked); }).map(function (x) { return x.label; });
+      return { subjects: subjects, units: units, life: life, opening: openingOf(t, typeKey) };
+    }
+
+    /* 書き出しの型。所見は最初の読点まで、道徳所見は1文目を、教科名と単元名を伏せて比べる */
+    function openingOf(text, typeKey) {
+      var t = String(text || '').trim();
+      if (!t) return '';
+      var masked = maskQuotes(t);
+      var end = typeKey === 'doutoku' ? masked.indexOf('。') : masked.search(/[、。]/);
+      var head = end >= 0 ? t.slice(0, end + (typeKey === 'doutoku' ? 1 : 0)) : t;
+      if (typeKey !== 'doutoku' && head.length > 30) head = head.slice(0, 30);
+      head = head.replace(/「[^「」]*」/g, '「…」');
+      R.subjects.list.concat(subjChecks.map(function (c) { return c.ng; }))
+        .sort(function (a, b) { return b.length - a.length; })
+        .forEach(function (sname) { head = head.split(sname).join('〈教科〉'); });
+      return head.replace(/〈教科〉科/g, '〈教科〉');
+    }
+
+    /* 配分を数えるときの「鍵」。所見だけ、教科・単元・生活の話題も数える */
+    function keysOf(text, typeKey) {
+      var tp = topicsOf(text, typeKey), keys = [];
+      if (typeKey === 'shoken') {
+        tp.subjects.forEach(function (x) { keys.push('教科|' + x); });
+        tp.units.forEach(function (x) { keys.push('単元|' + x); });
+        tp.life.forEach(function (x) { keys.push('生活・行事|' + x); });
+      }
+      if (tp.opening) keys.push('書き出し|' + tp.opening);
+      return keys;
+    }
+
+    /* 目安の人数。share が 1 以上なら目安を使わない */
+    function limitOf(count, share) {
+      if (!share || share >= 1) return Infinity;
+      return Math.max(V.minLimit || 3, Math.ceil(count * share));
+    }
+
+    /* entries = [{no, text}] → { 鍵: [番号…] } */
+    function tallyKeys(entries, typeKey) {
+      var out = {};
+      entries.forEach(function (e) {
+        if (!(e.text || '').trim()) return;
+        keysOf(e.text, typeKey).forEach(function (k) { (out[k] = out[k] || []).push(e.no); });
+      });
+      return out;
+    }
+
+    /* 似ているもの同士をまとめる。list = [{no, text}] → [[番号…], …]（2人以上のまとまりだけ） */
+    function groupSimilar(list, threshold) {
+      var th = threshold == null ? V.memoSimilarity : threshold;
+      var items = list.filter(function (x) { return (x.text || '').trim(); })
+        .map(function (x) { return { no: x.no, g: bigrams(x.text) }; });
+      var parent = {};
+      items.forEach(function (x) { parent[x.no] = x.no; });
+      var find = function (a) { while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; } return a; };
+      for (var i = 0; i < items.length; i++) for (var j = i + 1; j < items.length; j++) {
+        if (jaccard(items[i].g, items[j].g) >= th) parent[find(items[i].no)] = find(items[j].no);
+      }
+      var groups = {};
+      items.forEach(function (x) { var r = find(x.no); (groups[r] = groups[r] || []).push(x.no); });
+      return Object.keys(groups).map(function (k) { return groups[k].sort(function (a, b) { return a - b; }); })
+        .filter(function (g) { return g.length > 1; })
+        .sort(function (a, b) { return a[0] - b[0]; });
+    }
+
+    /* 何人もの所見に出てくる、まったく同じ言い回し（読点・句点で区切ったひとまとまり） */
+    function repeatedPhrases(texts, minCount) {
+      var min = minCount || V.phraseRepeat || 3, cnt = {};
+      texts.forEach(function (t) {
+        var seen = {};
+        maskQuotes(String(t || '')).split(/[、。]/).forEach(function (p) {
+          p = p.trim();
+          if (Array.from(p).length < 6 || p.indexOf(MASK) >= 0 || seen[p]) return;
+          seen[p] = 1; cnt[p] = (cnt[p] || 0) + 1;
+        });
+      });
+      return Object.keys(cnt).filter(function (p) { return cnt[p] >= min; })
+        .map(function (p) { return { phrase: p, count: cnt[p] }; })
+        .sort(function (a, b) { return b.count - a.count; });
+    }
+
+    /* 案の切りかえの提案
+       entries = [{no, pick, text, cands:[{text, usable}]}]
+       目安を超えている鍵が減るように、1人ずつ「いちばん偏りが減る案」を選ぶ。
+       usable が false の案（要修正など）は選ばない。 */
+    function planSwaps(entries, typeKey, limit) {
+      var counts = {};
+      var keyCache = new Map();
+      var kOf = function (t) { if (!keyCache.has(t)) keyCache.set(t, keysOf(t, typeKey)); return keyCache.get(t); };
+      entries.forEach(function (e) { if (e.text) kOf(e.text).forEach(function (k) { counts[k] = (counts[k] || 0) + 1; }); });
+      var over = function (c) { var s = 0; for (var k in c) if (c[k] > limit) s += c[k] - limit; return s; };
+      var out = [];
+      var order = entries.filter(function (e) { return e.text && e.cands && e.cands.length > 1; })
+        .map(function (e) { return { e: e, n: kOf(e.text).filter(function (k) { return counts[k] > limit; }).length }; })
+        .filter(function (x) { return x.n > 0; })
+        .sort(function (a, b) { return b.n - a.n || a.e.no - b.e.no; });
+      order.forEach(function (x) {
+        var e = x.e;
+        var curKeys = kOf(e.text);
+        if (!curKeys.some(function (k) { return counts[k] > limit; })) return;
+        var base = over(counts), best = null;
+        e.cands.forEach(function (c, i) {
+          if (i === e.pick || !c.usable || !c.text) return;
+          var next = Object.assign({}, counts);
+          curKeys.forEach(function (k) { next[k]--; });
+          kOf(c.text).forEach(function (k) { next[k] = (next[k] || 0) + 1; });
+          var sc = over(next);
+          if (sc < base && (!best || sc < best.score)) best = { i: i, score: sc, counts: next };
+        });
+        if (best) {
+          out.push({ no: e.no, from: e.pick, to: best.i,
+            fromKeys: curKeys, toKeys: kOf(e.cands[best.i].text) });
+          counts = best.counts;
+        }
+      });
+      return { swaps: out, counts: counts };
+    }
+
     return {
       MASK: MASK,
+      topicsOf: topicsOf, openingOf: openingOf, keysOf: keysOf, limitOf: limitOf, tallyKeys: tallyKeys,
+      groupSimilar: groupSimilar, repeatedPhrases: repeatedPhrases, planSwaps: planSwaps,
       countChars: countChars, lenRange: lenRange, stageOf: stageOf,
       maskQuotes: maskQuotes, checkText: checkText, checkCached: checkCached, worst: worst,
       highlight: highlight, esc: esc,

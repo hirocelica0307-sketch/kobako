@@ -94,3 +94,13 @@ test('前の版のシート（保存番号の行が無い）もそのまま読�
   assert.equal(s.write, null, '書く種類は画面が学年の初期値で埋める');
   assert.deepEqual(srv.putState(s, 0), { ok: true, rev: 1 });
 });
+
+test('書き分けの目安を保存して読み戻せる（前の版のシートでは null）', () => {
+  const { srv } = fresh();
+  assert.equal(srv.getState().variety, null);
+  const s = srv.getState();
+  s.variety = { share: 0.25 };
+  srv.putState(s, s.rev);
+  assert.deepEqual(srv.getState().variety, { share: 0.25 });
+  assert.equal(srv.getState().write === null || typeof srv.getState().write === 'object', true);
+});

@@ -75,6 +75,15 @@ test('学習指導要領の「使える言い方」は指摘されない', () =>
   expectClean('やさしい言いかえ', CS.notation.softening.map(s => s.plain), 'shoken', PHRASE_KINDS);
 });
 
+test('書き分けの書き出しの例は指摘されない', () => {
+  expectClean('書き出しの例', R.variety.openingIdeas.map(s => s.replace(/〜/g, '')), 'shoken', PHRASE_KINDS);
+});
+
+test('書き分けの話題の正規表現は、どれも使える', () => {
+  R.variety.life.forEach(t => assert.ok(t.re ? new RegExp(t.re) : (t.words || []).length, t.label));
+  R.variety.shareOptions.forEach(o => assert.ok(o.value > 0 && o.value <= 1, o.label));
+});
+
 test('入力補助の語は指摘されない', () => {
   expectClean('入力補助', Object.values(R.chips).flat(), 'shoken', PHRASE_KINDS);
 });

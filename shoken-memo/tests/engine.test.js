@@ -105,3 +105,66 @@ test('似ている所見を見つける', () => {
   assert.equal(d.length, 1);
   assert.deepEqual([d[0].a, d[0].b], [1, 2]);
 });
+
+/* ---------- クラス全体の書き分け ---------- */
+const A1 = '国語科「ごんぎつね」の学習では、文章の言葉をもとに考えることができました。掃除の時間には、だまって床をふきました。';
+
+test('書き分け：教科・単元・生活の話題・書き出しを見分ける', () => {
+  const tp = E.topicsOf(A1, 'shoken');
+  assert.deepEqual([...tp.subjects], ['国語科']);
+  assert.deepEqual([...tp.units], ['ごんぎつね']);
+  assert.deepEqual([...tp.life], ['掃除']);
+  assert.equal(tp.opening, '〈教科〉「…」の学習では');
+  /* 「科」の抜けた教科名も数える。「関係」は係活動にしない。子どもの言葉は単元にしない */
+  const t2 = E.topicsOf('体育のハードル走で、関係を考え、「これからはきまりを守ります。」と書きました。', 'shoken');
+  assert.deepEqual([...t2.subjects], ['体育科']);
+  assert.deepEqual([...t2.units], []);
+  assert.ok(!t2.life.includes('係活動'));
+  /* 道徳所見は1文目を書き出しとして比べ、教科・話題は数えない */
+  const keys = E.keysOf('登場人物の気持ちに寄り添い、考えることができました。特に「礼儀」の学習では、気付きました。', 'doutoku');
+  assert.deepEqual([...keys], ['書き出し|登場人物の気持ちに寄り添い、考えることができました。']);
+});
+
+test('書き分け：目安の人数', () => {
+  assert.equal(E.limitOf(32, 0.34), 11);
+  assert.equal(E.limitOf(6, 0.25), 3);       // 下限は3人
+  assert.equal(E.limitOf(32, 1), Infinity);  // 目安を使わない
+});
+
+test('書き分け：似ているメモの子をまとめる', () => {
+  const g = E.groupSimilar([
+    { no: 1, text: '国語科「ごんぎつね」で、ごんの気持ちを叙述をもとに考えて発表した' },
+    { no: 2, text: '算数科のわり算で、図を使って説明した。給食当番を最後まで行った' },
+    { no: 3, text: '国語科「ごんぎつね」で、ごんの気持ちを叙述をもとに考えた' },
+    { no: 4, text: '' }
+  ]);
+  assert.equal(g.length, 1);
+  assert.deepEqual([...g[0]], [1, 3]);
+});
+
+test('書き分け：何人にも出てくる言い回しを見つける（「 」の中は数えない）', () => {
+  const r = E.repeatedPhrases([
+    '最後まで粘り強く取り組むことができました。「最後まで粘り強く取り組む」',
+    '算数科では、最後まで粘り強く取り組むことができました。',
+    '体育科では、最後まで粘り強く取り組むことができました。'
+  ], 3);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].phrase, '最後まで粘り強く取り組むことができました');
+});
+
+test('書き分け：目安を超えた話題が減るように、案の切りかえを提案する', () => {
+  const kokugo = n => `国語科「ごんぎつね」の学習では、${n}番は考えを書きました。掃除の時間には、床をふきました。`;
+  const sansu = n => `算数科のわり算では、${n}番は図に表して説明しました。給食の時間には、配ぜんを手伝いました。`;
+  const entries = [1, 2, 3, 4, 5, 6].map(n => ({
+    no: n, text: kokugo(n), pick: 0,
+    cands: [{ text: kokugo(n), usable: true }, { text: sansu(n), usable: n !== 6 }]
+  }));
+  const plan = E.planSwaps(entries, 'shoken', 3);
+  /* 6人とも国語科・掃除。目安3人なので3人を算数科に切りかえる（#6 の案2は要修正なので選ばない） */
+  assert.equal(plan.swaps.length, 3);
+  assert.ok(plan.swaps.every(w => w.to === 1 && w.no !== 6));
+  assert.equal(plan.counts['教科|国語科'], 3);
+  assert.equal(plan.counts['教科|算数科'], 3);
+  /* 目安を超えていなければ何も提案しない */
+  assert.equal(E.planSwaps(entries, 'shoken', 10).swaps.length, 0);
+});

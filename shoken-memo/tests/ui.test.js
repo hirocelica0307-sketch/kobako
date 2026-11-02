@@ -216,6 +216,61 @@ test('取り込み → 案を選ぶ → 仕上げ の流れ（すでに本文が
   await ctx.close();
 });
 
+test('クラス全体の書き分け：プロンプト・案の話題・偏りの表と切りかえ', async () => {
+  const { page, errors, ctx } = await openLocal({ count: 8 });
+  /* 6人が国語科・掃除の所見（案2は算数科・給食）、7・8番はメモだけ */
+  await page.evaluate(() => {
+    const key = 'shoken.v1.R7-3';
+    const st = JSON.parse(localStorage.getItem(key));
+    for (let n = 1; n <= 6; n++) {
+      const k = `国語科「ごんぎつね」の学習では、${n}番は文章の言葉をもとに考えを書きました。掃除の時間には、床をふきました。`;
+      const s = `算数科のわり算では、${n}番は図に表して考え方を説明しました。給食の時間には、配ぜんを手伝いました。`;
+      st.write = { 1: ['shoken'], 2: ['shoken'], 3: ['shoken'] };
+      st.variety = { share: 0.25 };
+      st.data['2'][n] = { memos: { subject: '国語科「ごんぎつね」で考えを書いた。算数科のわり算', life: '掃除と給食' },
+        drafts: { shoken: k }, cands: { shoken: [{ text: k, note: '' }, { text: s, note: '' }] }, pick: { shoken: 0 } };
+    }
+    st.data['2'][7] = { memos: { subject: '国語科「ごんぎつね」の音読', life: '掃除' }, drafts: {}, cands: {}, pick: {} };
+    st.data['2'][8] = { memos: { subject: '国語科「ごんぎつね」の音読をした', life: '掃除をした' }, drafts: {}, cands: {}, pick: {} };
+    st.rev = (st.rev || 0);
+    localStorage.setItem(key, JSON.stringify(st));
+  });
+  await page.reload();
+  await page.waitForSelector('.rbtn');
+
+  /* メモ画面：材料の表示 */
+  assert.match(await page.textContent('#material'), /国語科.*ごんぎつね.*掃除/);
+
+  /* プロンプト：配分と、似たメモの子 */
+  await page.click('nav [data-tab="ai"]');
+  await page.selectOption('#p-scope', 'todo');
+  await page.click('#btn-build');
+  const prompt = await page.textContent('#promptout');
+  assert.match(prompt, /# クラス全体での書き分け/);
+  assert.match(prompt, /3人までを目安/);
+  assert.match(prompt, /国語科 6人（目安に達しています/);
+  assert.match(prompt, /同じ単元・教材「ごんぎつね」：#7・#8/);
+  assert.match(prompt, /メモがよく似ている：#7・#8/);
+  assert.match(prompt, /「案1」は、下の配分を見て/);
+
+  /* 案を選ぶ：各案の話題と「多い」 */
+  await page.click('nav [data-tab="pick"]');
+  assert.match(await page.textContent('.cand .tchip.hot'), /国語科/);
+  await shot(page, '09-pick-topics');
+
+  /* 仕上げ：偏りの表と切りかえ */
+  await page.click('nav [data-tab="finish"]');
+  assert.match(await page.textContent('#variety'), /目安を超えているもの：.*国語科.*6人/);
+  assert.equal(await page.locator('[data-swap]').count(), 3);
+  await shot(page, '10-variety');
+  await page.click('#swap-all');
+  await page.waitForTimeout(100);
+  assert.match(await page.textContent('#variety'), /目安（3人まで）を超えている/);
+  assert.equal(await page.locator('[data-swap]').count(), 0);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('スマホの幅でも横にはみ出さない', async () => {
   const { page, errors, ctx } = await openLocal({ viewport: { width: 390, height: 800 } });
   const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

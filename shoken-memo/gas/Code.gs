@@ -5,7 +5,7 @@
    スプレッドシート1つ ＝ 1学年分（1年度）です。
 
    シート構成（なければ自動で作ります）
-     設定       … 年度・学年・人数・学期・今回書く種類・保存番号
+     設定       … 年度・学年・人数・学期・今回書く種類・書き分けの目安・保存番号
      所見データ … 学期 × 出席番号 の1行ずつ。メモと所見文。
      案         … Claude が作った案（採用しなかった案も残す）
      記録メモ帳 … 学期ごとの自由メモ
@@ -154,7 +154,7 @@ function revOf_(conf) { return Number(conf['保存番号'] || 0) || 0; }
 /* -------------------------------------------------------------------------
    読み込み
    index.html が持っている状態オブジェクトと同じ形で返します。
-     { version, rev, meta:{year,grade,count}, term, write:{"1":[…],…},
+     { version, rev, meta:{year,grade,count}, term, write:{"1":[…],…}, variety:{share},
        data:{ "1":{no:rec}, ... }, stock:{…} }
    ------------------------------------------------------------------------- */
 function getState() {
@@ -168,6 +168,8 @@ function getState() {
   var write = null;
   try { write = conf['書く種類'] ? JSON.parse(String(conf['書く種類'])) : null; } catch (e) { write = null; }
 
+  var share = Number(conf['書き分けの目安']);
+
   var state = {
     version: 2,
     rev: revOf_(conf),
@@ -178,6 +180,7 @@ function getState() {
     },
     term: String(conf['学期'] || '2'),
     write: write,
+    variety: (conf['書き分けの目安'] !== undefined && conf['書き分けの目安'] !== '' && !isNaN(share)) ? { share: share } : null,
     data: { '1': {}, '2': {}, '3': {} },
     stock: { '1': '', '2': '', '3': '' }
   };
@@ -298,13 +301,14 @@ function putState(state, baseRev, force) {
     var next = cur + 1;
 
     /* --- 設定 --- */
-    st.getRange('A1:B7').setNumberFormat('@').setValues([
+    st.getRange('A1:B8').setNumberFormat('@').setValues([
       ['項目', '値'],
       ['年度', String(state.meta.year)],
       ['学年', String(state.meta.grade)],
       ['人数', String(Number(state.meta.count))],
       ['学期', String(state.term)],
       ['書く種類', JSON.stringify(state.write || {})],
+      ['書き分けの目安', String(state.variety && typeof state.variety.share === 'number' ? state.variety.share : '')],
       ['保存番号', String(next)]
     ]);
     st.getRange('A1:B1').setFontWeight('bold');

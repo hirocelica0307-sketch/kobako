@@ -3,7 +3,7 @@
      直すのは index.html / engine.js / rules/shoken-rules.js /
      rules/course-of-study.js のほうです。
      直したら  node build-gas.js  を実行して作り直します。
-     生成日時: 2026/10/31 0:43:21
+     生成日時: 2026/11/2 18:16:00
      ============================================================ -->
 <!DOCTYPE html>
 <html lang="ja">
@@ -239,6 +239,26 @@ mark.info{background:var(--info-w);box-shadow:0 2px 0 var(--info)}
 .badge.warn{background:var(--warn-w);color:var(--warn)}
 .badge.ok{background:var(--accent-w);color:var(--accent)}
 .badge.none{background:#eee;color:var(--muted)}
+
+/* ---- 話題（教科・単元・生活）の小さな札 ---- */
+.tchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.tchip{font-size:11.5px;border-radius:5px;padding:0 7px;background:#f1eee8;color:var(--muted);font-weight:400}
+.tchip.hot{background:var(--part-w);color:var(--part);font-weight:700}
+.material{font-size:12.5px;background:#f6f4ef;border-radius:8px;padding:7px 11px;margin-bottom:12px}
+.material b{color:var(--accent)}
+
+/* ---- クラス全体の偏り ---- */
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px 18px}
+.vcat h3{font-size:13px;margin:0 0 6px;color:var(--muted)}
+.vrow{display:grid;grid-template-columns:minmax(0,1fr) 56px 46px;gap:6px;align-items:center;font-size:13px;margin-bottom:3px}
+.vrow .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vrow .vb{height:7px;border-radius:4px;background:#ece8e1;overflow:hidden}
+.vrow .vb span{display:block;height:100%;background:var(--accent)}
+.vrow.over .vb span{background:var(--part)}
+.vrow.over .nm,.vrow.over b{color:var(--part);font-weight:700}
+.vrow b{text-align:right;font-variant-numeric:tabular-nums}
+.swap{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;background:#fff;font-size:13px}
+.swap .no{font-weight:700;min-width:3em}
 
 /* ---- AIで案を作る ---- */
 .aigrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
@@ -1607,6 +1627,67 @@ window.SHOKEN_RULES = {
   },
 
   /* ------------------------------------------------------------------
+     クラス全体の書き分け（同じ教科・単元・生活の話題・書き出しが並ばないように）
+     ------------------------------------------------------------------
+     ・AIへのプロンプトに「すでに多い話題」「似たメモの子」を書き込む
+     ・「4 仕上げ」で偏りを数え、案の切りかえを提案する
+     ・「3 案を選ぶ」で、各案が取り上げている話題を表示する
+     話題として数えたい語は、下の life に足してください。
+       label … 画面とプロンプトに出す名前
+       words … この語のどれかが入っていれば、その話題とみなす
+       re    … words の代わりに正規表現で見分けるとき
+     教科・単元・生活の話題で数えるのは「所見」だけです。道徳所見は
+     内容項目を学年でそろえるきまりがあるため、書き出しの重なりだけを見ます。
+     ------------------------------------------------------------------ */
+  variety: {
+    /* 同じ教科・話題・書き出しは、クラスのこの割合までを目安にする（設定で変えられる） */
+    defaultShare: 0.34,
+    shareOptions: [
+      { value: 0.25, label: "クラスの4分の1まで" },
+      { value: 0.34, label: "クラスの3分の1まで" },
+      { value: 0.5,  label: "クラスの半分まで" },
+      { value: 1,    label: "目安を使わない" }
+    ],
+    /* 目安の人数の下限（少人数のクラスで厳しくなりすぎないように） */
+    minLimit: 3,
+    /* メモどうしがこれ以上似ていたら「似たメモの子」として知らせる（文字bigram Jaccard） */
+    memoSimilarity: 0.35,
+    /* 単元名とみなす「 」の長さの上限（これより長い・「。」を含むものは子どもの言葉とみなす） */
+    unitMaxLength: 15,
+    /* 何回も使われている言い回しとして知らせる回数 */
+    phraseRepeat: 3,
+    life: [
+      { label: "掃除",           words: ["掃除", "そうじ", "清掃"] },
+      { label: "給食",           words: ["給食"] },
+      { label: "当番・日直",     words: ["当番", "日直"] },
+      { label: "係活動",         re: "(?<![関])係(?!数|り合)" },
+      { label: "委員会",         words: ["委員会"] },
+      { label: "クラブ",         words: ["クラブ"] },
+      { label: "休憩時間",       words: ["休憩時間", "休み時間"] },
+      { label: "あいさつ",       words: ["あいさつ", "挨拶"] },
+      { label: "整理整とん",     words: ["整とん", "整頓", "片付け", "片づけ"] },
+      { label: "声掛け・手伝い", words: ["困っている友達", "声を掛け", "声かけ", "声掛け", "手伝", "下級生"] },
+      { label: "運動会",         words: ["運動会", "体育大会"] },
+      { label: "学習発表会",     words: ["学習発表会", "発表会"] },
+      { label: "音楽会",         words: ["音楽会"] },
+      { label: "遠足・校外学習", words: ["遠足", "校外学習"] },
+      { label: "宿泊学習・修学旅行", words: ["宿泊", "修学旅行"] },
+      { label: "なわとび・マラソン大会", words: ["なわとび大会", "マラソン大会", "持久走"] },
+      { label: "縦割り班",       words: ["縦割り"] },
+      { label: "集会",           words: ["集会"] }
+    ],
+    /* 書き出しを変えるときの例（プロンプトに入れる） */
+    openingIdeas: [
+      "〜に取り組み、",
+      "〜の時間には、",
+      "〜を通して、",
+      "〜では、自分から",
+      "学期のはじめは〜でしたが、",
+      "〜のとき、"
+    ]
+  },
+
+  /* ------------------------------------------------------------------
      メモ入力欄の定義
      ------------------------------------------------------------------ */
   memoFields: [
@@ -2242,8 +2323,153 @@ window.SHOKEN_RULES = {
       return { blocks: blocks, order: order.filter(function (no) { return blocks[no]; }) };
     }
 
+    /* ======================================================================
+       クラス全体の書き分け
+       ====================================================================== */
+    var V = R.variety || { life: [], defaultShare: 1, minLimit: 3, memoSimilarity: 0.35, unitMaxLength: 15, phraseRepeat: 3 };
+    var lifeRes = (V.life || []).map(function (t) {
+      return { label: t.label, re: t.re ? new RegExp(t.re) : new RegExp((t.words || []).map(escRe).join('|')) };
+    });
+    var subjChecks = R.subjects.checks.filter(function (c) { return c.level === 'error'; });
+
+    /* 文の中の教科・単元・生活の話題・書き出しを見分ける */
+    function topicsOf(text, typeKey) {
+      var t = String(text || '');
+      var masked = maskQuotes(t);
+      var subjects = [];
+      R.subjects.list.forEach(function (sname) { if (masked.indexOf(sname) >= 0) subjects.push(sname); });
+      subjChecks.forEach(function (c) {
+        var re = reOf(c.re || escRe(c.ng));
+        if (re && subjects.indexOf(c.ok) < 0) { re.lastIndex = 0; if (re.test(masked)) subjects.push(c.ok); }
+      });
+      var units = [];
+      var ur = /「([^「」『』]+)」/g, m;
+      while ((m = ur.exec(t))) {
+        var u = m[1].trim();
+        if (u && u.length <= (V.unitMaxLength || 15) && u.indexOf('。') < 0 && units.indexOf(u) < 0) units.push(u);
+      }
+      var life = lifeRes.filter(function (x) { return x.re.test(masked); }).map(function (x) { return x.label; });
+      return { subjects: subjects, units: units, life: life, opening: openingOf(t, typeKey) };
+    }
+
+    /* 書き出しの型。所見は最初の読点まで、道徳所見は1文目を、教科名と単元名を伏せて比べる */
+    function openingOf(text, typeKey) {
+      var t = String(text || '').trim();
+      if (!t) return '';
+      var masked = maskQuotes(t);
+      var end = typeKey === 'doutoku' ? masked.indexOf('。') : masked.search(/[、。]/);
+      var head = end >= 0 ? t.slice(0, end + (typeKey === 'doutoku' ? 1 : 0)) : t;
+      if (typeKey !== 'doutoku' && head.length > 30) head = head.slice(0, 30);
+      head = head.replace(/「[^「」]*」/g, '「…」');
+      R.subjects.list.concat(subjChecks.map(function (c) { return c.ng; }))
+        .sort(function (a, b) { return b.length - a.length; })
+        .forEach(function (sname) { head = head.split(sname).join('〈教科〉'); });
+      return head.replace(/〈教科〉科/g, '〈教科〉');
+    }
+
+    /* 配分を数えるときの「鍵」。所見だけ、教科・単元・生活の話題も数える */
+    function keysOf(text, typeKey) {
+      var tp = topicsOf(text, typeKey), keys = [];
+      if (typeKey === 'shoken') {
+        tp.subjects.forEach(function (x) { keys.push('教科|' + x); });
+        tp.units.forEach(function (x) { keys.push('単元|' + x); });
+        tp.life.forEach(function (x) { keys.push('生活・行事|' + x); });
+      }
+      if (tp.opening) keys.push('書き出し|' + tp.opening);
+      return keys;
+    }
+
+    /* 目安の人数。share が 1 以上なら目安を使わない */
+    function limitOf(count, share) {
+      if (!share || share >= 1) return Infinity;
+      return Math.max(V.minLimit || 3, Math.ceil(count * share));
+    }
+
+    /* entries = [{no, text}] → { 鍵: [番号…] } */
+    function tallyKeys(entries, typeKey) {
+      var out = {};
+      entries.forEach(function (e) {
+        if (!(e.text || '').trim()) return;
+        keysOf(e.text, typeKey).forEach(function (k) { (out[k] = out[k] || []).push(e.no); });
+      });
+      return out;
+    }
+
+    /* 似ているもの同士をまとめる。list = [{no, text}] → [[番号…], …]（2人以上のまとまりだけ） */
+    function groupSimilar(list, threshold) {
+      var th = threshold == null ? V.memoSimilarity : threshold;
+      var items = list.filter(function (x) { return (x.text || '').trim(); })
+        .map(function (x) { return { no: x.no, g: bigrams(x.text) }; });
+      var parent = {};
+      items.forEach(function (x) { parent[x.no] = x.no; });
+      var find = function (a) { while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; } return a; };
+      for (var i = 0; i < items.length; i++) for (var j = i + 1; j < items.length; j++) {
+        if (jaccard(items[i].g, items[j].g) >= th) parent[find(items[i].no)] = find(items[j].no);
+      }
+      var groups = {};
+      items.forEach(function (x) { var r = find(x.no); (groups[r] = groups[r] || []).push(x.no); });
+      return Object.keys(groups).map(function (k) { return groups[k].sort(function (a, b) { return a - b; }); })
+        .filter(function (g) { return g.length > 1; })
+        .sort(function (a, b) { return a[0] - b[0]; });
+    }
+
+    /* 何人もの所見に出てくる、まったく同じ言い回し（読点・句点で区切ったひとまとまり） */
+    function repeatedPhrases(texts, minCount) {
+      var min = minCount || V.phraseRepeat || 3, cnt = {};
+      texts.forEach(function (t) {
+        var seen = {};
+        maskQuotes(String(t || '')).split(/[、。]/).forEach(function (p) {
+          p = p.trim();
+          if (Array.from(p).length < 6 || p.indexOf(MASK) >= 0 || seen[p]) return;
+          seen[p] = 1; cnt[p] = (cnt[p] || 0) + 1;
+        });
+      });
+      return Object.keys(cnt).filter(function (p) { return cnt[p] >= min; })
+        .map(function (p) { return { phrase: p, count: cnt[p] }; })
+        .sort(function (a, b) { return b.count - a.count; });
+    }
+
+    /* 案の切りかえの提案
+       entries = [{no, pick, text, cands:[{text, usable}]}]
+       目安を超えている鍵が減るように、1人ずつ「いちばん偏りが減る案」を選ぶ。
+       usable が false の案（要修正など）は選ばない。 */
+    function planSwaps(entries, typeKey, limit) {
+      var counts = {};
+      var keyCache = new Map();
+      var kOf = function (t) { if (!keyCache.has(t)) keyCache.set(t, keysOf(t, typeKey)); return keyCache.get(t); };
+      entries.forEach(function (e) { if (e.text) kOf(e.text).forEach(function (k) { counts[k] = (counts[k] || 0) + 1; }); });
+      var over = function (c) { var s = 0; for (var k in c) if (c[k] > limit) s += c[k] - limit; return s; };
+      var out = [];
+      var order = entries.filter(function (e) { return e.text && e.cands && e.cands.length > 1; })
+        .map(function (e) { return { e: e, n: kOf(e.text).filter(function (k) { return counts[k] > limit; }).length }; })
+        .filter(function (x) { return x.n > 0; })
+        .sort(function (a, b) { return b.n - a.n || a.e.no - b.e.no; });
+      order.forEach(function (x) {
+        var e = x.e;
+        var curKeys = kOf(e.text);
+        if (!curKeys.some(function (k) { return counts[k] > limit; })) return;
+        var base = over(counts), best = null;
+        e.cands.forEach(function (c, i) {
+          if (i === e.pick || !c.usable || !c.text) return;
+          var next = Object.assign({}, counts);
+          curKeys.forEach(function (k) { next[k]--; });
+          kOf(c.text).forEach(function (k) { next[k] = (next[k] || 0) + 1; });
+          var sc = over(next);
+          if (sc < base && (!best || sc < best.score)) best = { i: i, score: sc, counts: next };
+        });
+        if (best) {
+          out.push({ no: e.no, from: e.pick, to: best.i,
+            fromKeys: curKeys, toKeys: kOf(e.cands[best.i].text) });
+          counts = best.counts;
+        }
+      });
+      return { swaps: out, counts: counts };
+    }
+
     return {
       MASK: MASK,
+      topicsOf: topicsOf, openingOf: openingOf, keysOf: keysOf, limitOf: limitOf, tallyKeys: tallyKeys,
+      groupSimilar: groupSimilar, repeatedPhrases: repeatedPhrases, planSwaps: planSwaps,
       countChars: countChars, lenRange: lenRange, stageOf: stageOf,
       maskQuotes: maskQuotes, checkText: checkText, checkCached: checkCached, worst: worst,
       highlight: highlight, esc: esc,
@@ -2472,7 +2698,8 @@ function defaultWrite(grade){
 function blankState(meta){
   const m = Object.assign({ year:R.meta.year, grade:'3', count:32 }, meta || {});
   return { version:2, rev:0, meta:m, term:'2', write:defaultWrite(m.grade),
-           data:{ "1":{}, "2":{}, "3":{} }, stock:{ "1":'', "2":'', "3":'' } };
+           data:{ "1":{}, "2":{}, "3":{} }, stock:{ "1":'', "2":'', "3":'' },
+           variety:{ share:(R.variety && R.variety.defaultShare) || 1 } };
 }
 function normalize(o){
   o.version = 2;
@@ -2482,6 +2709,7 @@ function normalize(o){
   o.term = o.term || '2';
   o.data = Object.assign({ "1":{}, "2":{}, "3":{} }, o.data || {});
   o.stock = Object.assign({ "1":'', "2":'', "3":'' }, o.stock || {});
+  if(!o.variety || typeof o.variety.share !== 'number') o.variety = { share:(R.variety && R.variety.defaultShare) || 1 };
   if(!o.write || typeof o.write !== 'object') o.write = defaultWrite(o.meta.grade);
   ['1','2','3'].forEach(t => { if(!Array.isArray(o.write[t])) o.write[t] = defaultWrite(o.meta.grade)[t]; });
   return o;
@@ -2744,7 +2972,7 @@ function viewMemo(root){
     ta.placeholder = f.placeholder || '';
     ta.value = (r.memos || {})[f.key] || '';
     ta.addEventListener('focus', () => lastField = { key:f.key, el:ta });
-    ta.addEventListener('input', () => { rec(S.term, cur).memos[f.key] = ta.value; saveSoon(); refreshKid(cur); });
+    ta.addEventListener('input', () => { rec(S.term, cur).memos[f.key] = ta.value; saveSoon(); refreshKid(cur); showMaterial(); });
     d.appendChild(ta);
     return d;
   };
@@ -2756,6 +2984,12 @@ function viewMemo(root){
     parent.appendChild(h);
     fields.forEach(f => parent.appendChild(field(f)));
   };
+
+  /* 所見の材料（教科・生活の話題）がいくつあるかを見せる */
+  if(types.includes('shoken')){
+    const mt = document.createElement('div'); mt.className = 'material'; mt.id = 'material';
+    box.appendChild(mt);
+  }
 
   /* 今回書く種類の欄を上に出し、それ以外はたたんでおく（入れてある欄は開いておく） */
   MEMO_GROUPS.filter(g => types.includes(g.key)).forEach(g => group(g, box));
@@ -2773,7 +3007,18 @@ function viewMemo(root){
     const first = $('#memoform textarea');
     lastField = first ? { key:first.id.replace('memo-',''), el:first } : null;
   }
+  showMaterial();
   renderChips();
+}
+function showMaterial(){
+  const el = $('#material'); if(!el) return;
+  const tp = E.topicsOf(memoRaw(cur, 'shoken'), 'shoken');
+  const items = tp.subjects.concat(tp.units.map(u => `「${u}」`), tp.life);
+  const nSub = tp.subjects.length, nLife = tp.life.length;
+  el.innerHTML = `<b>このメモの材料</b>　${items.length ? esc(items.join('・')) : 'まだありません'}
+    <span class="mini">（教科${nSub}・生活や行事${nLife}）</span><br>
+    <span class="mini">教科の姿と生活の姿を、それぞれ2つずつくらい書いておくと、AIがクラス全体で話題をバラけさせやすくなります。
+    メモに無い教科や話題を、AIが作ることはありません。</span>`;
 }
 
 function renderChips(){
@@ -2804,6 +3049,110 @@ function renderChips(){
    2 AIで案を作る（プロンプト → 貼り戻し）
    ========================================================================= */
 let AI = { type:null, scope:'all', size:10, avoid1:true, avoid2:true, chunks:[], at:0, copied:{}, importType:null, info:'' };
+
+/* ---------- クラス全体の書き分け ---------- */
+function limitNow(){ return E.limitOf(S.meta.count, S.variety ? S.variety.share : 1); }
+/* 採用済みの本文（exclude の番号は除く） */
+function classEntries(k, exclude){
+  const out = [];
+  for(let n = 1; n <= S.meta.count; n++){
+    if(exclude && exclude.indexOf(n) >= 0) continue;
+    const t = draftOf(n, k);
+    if(t) out.push({ no:n, text:t });
+  }
+  return out;
+}
+/* その種類に使うメモ欄の中身だけ（見出しを付けない） */
+function memoRaw(no, typeKey){
+  const r = peek(S.term, no); if(!r) return '';
+  const keys = (R.memoFor && R.memoFor[typeKey]) || R.memoFields.map(f => f.key);
+  return keys.map(k => ((r.memos || {})[k] || '').trim()).filter(Boolean).join('\n');
+}
+const KEY_CATS = ['教科', '単元', '生活・行事', '書き出し'];
+function keyLabel(key){
+  const i = key.indexOf('|'), cat = key.slice(0, i), name = key.slice(i + 1);
+  return (cat === '単元' || cat === '書き出し') ? `「${name}」` : name;
+}
+/* 文の話題を小さな札で見せる。others = その子以外のクラスの数（鍵→番号の配列） */
+function topicChips(text, k, others){
+  const limit = limitNow();
+  const keys = E.keysOf(text, k);
+  const html = keys.map(key => {
+    const n = ((others && others[key]) || []).length + 1;
+    const hot = n > limit;
+    const isOpen = key.startsWith('書き出し|');
+    if(isOpen && !hot) return '';
+    const label = isOpen ? '書き出しが重なる' : keyLabel(key);
+    return `<span class="tchip ${hot ? 'hot' : ''}" title="${hot ? `クラスで${n}人になります（目安${limit}人）` : ''}">${esc(label)}${hot ? ` ${n}人` : ''}</span>`;
+  }).join('');
+  return html ? `<span class="tchips">${html}</span>` : '';
+}
+
+/* プロンプトに入れる「クラス全体での書き分け」 */
+function varietyBlock(typeKey, nums){
+  const V = R.variety; if(!V) return [];
+  const L = [];
+  const limit = limitNow(), hasLimit = limit !== Infinity;
+  const isShoken = typeKey === 'shoken';
+  const others = classEntries(typeKey, nums);
+  const tally = E.tallyKeys(others, typeKey);
+
+  L.push('# クラス全体での書き分け（大切）');
+  L.push('通知表は、保護者どうしで見比べられることがあります。クラスの中で同じような文が並ばないようにしてください。');
+  L.push('## 書き分けのきまり');
+  L.push('- 同じ単元・同じ話題・似たメモの子は、取り上げる場面・文の組み立て・書き出し・文末の言い方を変える。');
+  if(isShoken){
+    if(hasLimit) L.push(`- 同じ教科・同じ単元・同じ生活の話題は、クラス全体（${S.meta.count}人）で${limit}人までを目安にする。`);
+    L.push('- 各児童の「案1」は、下の配分を見て、クラス全体で教科・単元・生活の話題がバラけるように選んだ組み合わせにする。案2〜5は、これまでどおり切り口を変えて書く。');
+    L.push('- この回の児童どうしでも、案1で取り上げる教科・話題がなるべく重ならないようにする。');
+  }else{
+    L.push('- 各児童の「案1」は、この回のほかの児童と、書き出しと文の組み立てがいちばん重ならないものにする。');
+  }
+  if(hasLimit) L.push(`- 同じ書き出しも、クラス全体で${limit}人までを目安にする。`);
+  L.push('- ただし、メモに無い教科・話題は、配分のためでも持ち出さない。メモの材料が1つしかない子は、その材料のまま言い方を変える。');
+  L.push('- 「※」の行の最初に、取り上げた教科・話題を【 】で書く。（例：※【算数科・給食】…）');
+  L.push('');
+
+  if(others.length){
+    L.push(`## すでに採用した${R.types[typeKey].label}での配分（この回の児童を除く${others.length}人分）`);
+    (isShoken ? KEY_CATS : ['書き出し']).forEach(cat => {
+      const items = Object.entries(tally).filter(([key]) => key.startsWith(cat + '|'))
+        .map(([key, v]) => [key, v.length]).sort((a, b) => b[1] - a[1]);
+      if(!items.length) return;
+      L.push(`- ${cat}：` + items.slice(0, 10).map(([key, c]) =>
+        `${keyLabel(key)} ${c}人${hasLimit && c >= limit ? '（目安に達しています。なるべく避ける）' : ''}`).join('、'));
+    });
+    const reps = E.repeatedPhrases(others.map(o => o.text));
+    if(reps.length) L.push('- 何人もの所見に出てくる言い回し（そのまま使わない）：' + reps.slice(0, 10).map(r => `「${r.phrase}」${r.count}人`).join('、'));
+    if((V.openingIdeas || []).length) L.push('- 書き出しを変えるときの例：' + V.openingIdeas.join('／'));
+    L.push('');
+  }
+
+  if(nums.length > 1){
+    const memos = nums.map(n => ({ no:n, text:memoRaw(n, typeKey) }));
+    const groups = {};
+    const add = (k, n) => { (groups[k] = groups[k] || []).push(n); };
+    memos.forEach(m => {
+      const tp = E.topicsOf(m.text, typeKey);
+      tp.units.forEach(u => add(`同じ単元・教材「${u}」`, m.no));
+      if(isShoken){
+        tp.subjects.forEach(x => add(`同じ教科（${x}）`, m.no));
+        tp.life.forEach(x => add(`同じ話題（${x}）`, m.no));
+      }
+    });
+    const lines = Object.entries(groups).filter(([, v]) => v.length > 1)
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([k, v]) => `- ${k}：${v.map(n => '#' + n).join('・')}`);
+    E.groupSimilar(memos).forEach(g => lines.push(`- メモがよく似ている：${g.map(n => '#' + n).join('・')}（特に、言い回しと文の組み立てを変える）`));
+    if(lines.length){
+      L.push('## この回で、メモの材料が重なっている児童');
+      lines.forEach(l => L.push(l));
+      L.push('上の子どうしは、案1で取り上げる話題（メモにほかの材料があれば）と、書き出し・文末の言い方を変える。');
+      L.push('');
+    }
+  }
+  return L;
+}
 
 function memoBlock(no, typeKey){
   const r = peek(S.term, no); if(!r) return '';
@@ -2945,6 +3294,8 @@ function buildPrompt(typeKey, nums, opt){
   L.push('- どの案も字数の範囲に収め、上のきまりをすべて満たすこと。');
   L.push('- 先生がどれを使うか選ぶので、どの案もそのまま通知表に載せられる完成度で書く。');
   L.push('');
+
+  varietyBlock(typeKey, nums).forEach(l => L.push(l));
 
   const allMemo = nums.map(n => memoBlock(n, typeKey)).join('\n');
   courseBlock(detectSubjects(allMemo, typeKey)).forEach(l => L.push(l));
@@ -3216,6 +3567,8 @@ function draftBox(k){
 
   const cl = document.createElement('div'); cl.className = 'cands'; d.appendChild(cl);
   const note = document.createElement('div'); note.className = 'candnote'; d.appendChild(note);
+  /* この子を除いたクラスの話題の数（各案の話題が多すぎないかを見るため） */
+  const others = E.tallyKeys(classEntries(k, [cur]), k);
   const ta = document.createElement('textarea');
   ta.rows = 4; ta.value = draftOf(cur, k);
   ta.placeholder = '案を選ぶか、ここに直接書いてください。' + (t.note ? '（' + t.note + '）' : '');
@@ -3257,7 +3610,7 @@ function draftBox(k){
         `<span class="cbody"><span class="chead">案${i+1}` +
         `<span class="count ${n>=rg.min&&n<=rg.max?'ok':'ng'}">${n}字</span>` +
         `<span class="badge ${lv==='error'?'error':lv==='warn'?'warn':'ok'}">${lv==='error'?'要修正':lv==='warn'?'注意':'OK'}</span></span>` +
-        `<span class="ctext">${esc(c.text)}</span></span>`;
+        `<span class="ctext">${esc(c.text)}</span>${topicChips(c.text, k, others)}</span>`;
       row.onclick = () => {
         pickCand(cur, k, i);
         ta.value = draftOf(cur, k);
@@ -3379,6 +3732,16 @@ function viewFinish(root){
       数字の箱を押すと、その児童だけを表示します。</p>
   </section>
 
+  <section class="card noprint">
+    <h2>クラス全体の偏り <span class="mini" style="font-weight:400" id="v-limit"></span></h2>
+    <div id="variety"></div>
+  </section>
+
+  <section class="card noprint">
+    <h2>クラス内で表現が似ている組み合わせ</h2>
+    <div id="dupresult" class="mini"></div>
+  </section>
+
   <section class="card">
     <h2 id="list-title">${esc(S.meta.year)}年度 ${esc(S.meta.grade)}年 ${S.term}学期 ／ ${esc(R.types[k].label)}</h2>
     <table>
@@ -3386,11 +3749,6 @@ function viewFinish(root){
       <tbody id="listbody"></tbody>
     </table>
     ${shown.length ? '' : '<p class="mini">該当する児童はいません。</p>'}
-  </section>
-
-  <section class="card noprint">
-    <h2>クラス内で表現が似ている組み合わせ</h2>
-    <div id="dupresult" class="mini"></div>
   </section>`;
 
   const tb = $('#listbody');
@@ -3414,6 +3772,8 @@ function viewFinish(root){
   $$('[data-open]', root).forEach(b => b.onclick = () => { cur = +b.dataset.open; showTab(b.textContent.indexOf('書く') >= 0 && !memoBlock(cur, k) ? 'memo' : 'pick'); });
   $$('[data-f]', root).forEach(b => b.onclick = () => { FIN.filter = FIN.filter === b.dataset.f ? 'all' : b.dataset.f; renderView(); });
   $('#l-type').onchange = e => { FIN.type = e.target.value; renderView(); };
+
+  drawVariety(k);
 
   const dv = $('#dupresult');
   if(!dups.length) dv.textContent = '似すぎている組み合わせはありません。';
@@ -3454,6 +3814,70 @@ function viewFinish(root){
     if(FIN.filter !== 'all'){ FIN.filter = 'all'; renderView(); }
     setTimeout(() => window.print(), 50);
   };
+}
+
+/* クラス全体の偏り：教科・単元・生活の話題・書き出しの人数と、案の切りかえの提案 */
+function drawVariety(k){
+  const box = $('#variety'); if(!box) return;
+  const limit = limitNow(), hasLimit = limit !== Infinity;
+  const entries = classEntries(k);
+  $('#v-limit').textContent = hasLimit ? `目安：同じものは${limit}人まで（設定で変えられます）` : '目安を使わない設定です';
+  if(!entries.length){ box.innerHTML = '<p class="mini" style="margin:0">本文がまだありません。</p>'; return; }
+  const tally = E.tallyKeys(entries, k);
+  const cats = k === 'shoken' ? KEY_CATS : ['書き出し'];
+  let html = '<div class="vgrid">';
+  cats.forEach(cat => {
+    const items = Object.entries(tally).filter(([key]) => key.startsWith(cat + '|'))
+      .map(([key, v]) => ({ key, n:v.length, nos:v })).sort((a, b) => b.n - a.n);
+    if(!items.length) return;
+    if(cat === '書き出し' && !items.some(x => x.n > 1)) return;
+    const shown = items.slice(0, 8);
+    html += `<div class="vcat"><h3>${esc(cat)}</h3>` + shown.map(x =>
+      `<div class="vrow ${hasLimit && x.n > limit ? 'over' : ''}" title="${x.nos.map(n => '#' + n).join('・')}">
+        <span class="nm">${esc(keyLabel(x.key))}</span>
+        <span class="vb"><span style="width:${Math.min(100, x.n / entries.length * 100)}%"></span></span>
+        <b>${x.n}人</b></div>`).join('') +
+      (items.length > shown.length ? `<div class="mini">ほか ${items.length - shown.length}件</div>` : '') + '</div>';
+  });
+  html += '</div>';
+  if(k !== 'shoken') html += '<p class="mini">道徳所見などは、内容項目を学年でそろえるきまりがあるため、書き出しの重なりだけを数えます。</p>';
+
+  const overKeys = Object.keys(tally).filter(key => tally[key].length > limit);
+  if(!hasLimit){ box.innerHTML = html; return; }
+  if(!overKeys.length){
+    box.innerHTML = html + `<div class="notice ok" style="margin:12px 0 0">目安（${limit}人まで）を超えている教科・話題・書き出しはありません。</div>`;
+    return;
+  }
+  const plan = E.planSwaps(entries.map(e => ({
+    no:e.no, text:e.text, pick:pickOf(e.no, k),
+    cands:candsOf(e.no, k).map(c => ({ text:c.text, usable:E.worst(check(c.text, k, e.no)) !== 'error' }))
+  })), k, limit);
+  html += `<div class="notice warn" style="margin:12px 0 10px">目安を超えているもの：${overKeys.map(key =>
+    `<b>${esc(keyLabel(key))}</b> ${tally[key].length}人`).join('、')}</div>`;
+  if(plan.swaps.length){
+    html += `<div class="row" style="margin-bottom:8px"><b style="font-size:13.5px">案を切りかえると減らせます</b>
+      <span class="spacer"></span><button class="btn primary sm" id="swap-all">提案をまとめて切りかえる（${plan.swaps.length}人）</button></div>`;
+    html += plan.swaps.map((w, i) => {
+      const show = keys => keys.filter(x => !x.startsWith('書き出し|')).map(keyLabel).join('・') || '（書き出しだけが変わります）';
+      return `<div class="swap"><span class="no">#${w.no}</span>
+        <span>案${w.from + 1} → <b>案${w.to + 1}</b></span>
+        <span class="mini">${esc(show(w.fromKeys))} → <b>${esc(show(w.toKeys))}</b></span>
+        <span class="spacer"></span>
+        <button class="btn sm" data-look="${w.no}">見る</button>
+        <button class="btn sm ghost" data-swap="${i}">案${w.to + 1}にする</button></div>`;
+    }).join('');
+  }else{
+    html += '<p class="mini">選べる案の中には、偏りを減らせるものがありません。「2 AIで案を作る」で、目安を超えている子だけを作り直すと、クラスの配分を見た案が出ます。</p>';
+  }
+  box.innerHTML = html;
+  const apply = list => {
+    list.forEach(w => pickCand(w.no, k, w.to));
+    save(); renderView(); renderSteps();
+    toast(`${list.length}人の案を切りかえました`);
+  };
+  $$('[data-swap]', box).forEach(b => b.onclick = () => apply([plan.swaps[+b.dataset.swap]]));
+  $$('[data-look]', box).forEach(b => b.onclick = () => { cur = +b.dataset.look; showTab('pick'); });
+  const all = $('#swap-all', box); if(all) all.onclick = () => apply(plan.swaps);
 }
 
 /* =========================================================================
@@ -3553,6 +3977,9 @@ function openSettings(){
       <span>年度</span><input type="text" id="s-year" value="${esc(S.meta.year)}" style="width:90px">
       <span>学年</span><select id="s-grade">${[1,2,3,4,5,6].map(g=>`<option ${String(g)===String(S.meta.grade)?'selected':''}>${g}</option>`).join('')}</select>
       <span>人数</span><div><input type="number" id="s-count" min="1" max="45" value="${S.meta.count}" style="width:80px"> 人</div>
+      <span>書き分けの目安</span><div><select id="s-share">${(R.variety ? R.variety.shareOptions : []).map(o =>
+        `<option value="${o.value}" ${Math.abs(o.value - S.variety.share) < 0.001 ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select>
+        <div class="mini">同じ教科・単元・生活の話題・書き出しを、何人までにするかの目安です。AIへのお願いと「4 仕上げ」の偏りの表に使います。</div></div>
     </div>
     <div style="margin-top:16px">
       <div class="row" style="margin-bottom:6px"><b>今回書く種類</b>
@@ -3598,7 +4025,8 @@ function openSettings(){
       const year = $('#s-year', box).value.trim() || R.meta.year;
       const grade = $('#s-grade', box).value;
       const count = Math.min(45, Math.max(1, +$('#s-count', box).value || S.meta.count));
-      applySettings({ year, grade, count, write:draftWrite });
+      const share = +($('#s-share', box) ? $('#s-share', box).value : S.variety.share);
+      applySettings({ year, grade, count, write:draftWrite, share });
     });
 }
 
@@ -3611,6 +4039,7 @@ async function applySettings(o){
     try{ next = await Store.load(meta); }catch(e){ next = null; }
     S = normalize(next || blankState(Object.assign({ count:o.count }, meta)));
     if(!next) S.write = o.write;
+    if(!next && o.share) S.variety = { share:o.share };
     cur = 1; renderAll(); save();
     toast(next ? `${o.year}年度 ${o.grade}年のデータに切り替えました` : `${o.year}年度 ${o.grade}年を新しく始めます`);
     return;
@@ -3631,6 +4060,7 @@ async function applySettings(o){
   }
   S.meta.year = o.year; S.meta.grade = String(o.grade); S.meta.count = o.count;
   S.write = o.write;
+  if(o.share) S.variety = { share:o.share };
   if(cur > S.meta.count) cur = S.meta.count;
   renderAll(); save();
   toast('設定を変えました');
