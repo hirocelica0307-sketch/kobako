@@ -1,4 +1,4 @@
-/* かんじプリント の しくみ（画面に かかわらない ぶぶん）
+/* 漢字プリ＆テスト作成支援の しくみ（画面に かかわらない ぶぶん）
    index.html から よみこみ、tests.js（node）でも そのまま しらべます。 */
 (function (root) {
 'use strict';
@@ -182,6 +182,59 @@ function replaceOne(questions, idx, bank, range, seed) {
   return { line: p.line, kind: questions[idx].kind };
 }
 
+/* 1もんを「同じ 漢字が 入った 別の 文」に 入れかえる。
+   見つからなければ null（＝その 漢字の 文は もう ない） */
+function swapSameKanji(questions, idx, bank, range, seed) {
+  const r = rng(seed);
+  const byLine = new Map(bank.filter(p => !p.error).map(p => [p.line, p]));
+  const cur = byLine.get(questions[idx].line) || parseSentence(questions[idx].line);
+  if (cur.error) return null;
+  const inR = cur.target.kanji.filter(c => range.R.has(c));
+  const keys = inR.length ? inR : cur.target.kanji;
+  const used = new Set(questions.map(q => q.line));
+  const cands = bank.filter(p => !p.error && !used.has(p.line) && eligible(p, range) && p.target.kanji.some(c => keys.includes(c)));
+  if (!cands.length) return null;
+  // 同じ 漢字の 数が 多い 文を さきに（「春」なら 春が 入った 文）
+  const score = p => p.target.kanji.filter(c => keys.includes(c)).length;
+  const best = Math.max(...cands.map(score));
+  const top = cands.filter(p => score(p) === best);
+  return { line: top[Math.floor(r() * top.length)].line, kind: questions[idx].kind, kanji: keys };
+}
+
+/* 自分の 例文と アプリの 例文を まとめる（同じ 文は 1つ。自分の ほうを のこす） */
+function mergeBanks(mine, app, hidden) {
+  const h = new Set(hidden || []), seen = new Set(), out = [];
+  [mine || [], app || []].forEach(list => list.forEach(p => {
+    if (p.error || h.has(p.line) || seen.has(p.line)) return;
+    seen.add(p.line); out.push(p);
+  }));
+  return out;
+}
+
+/* 漢字ノートに 入れる ことばを 例文の [ ] から えらぶ。
+   1字に per こまで。その 字 だけ → 送りがな つき → 熟語 の じゅん */
+function noteWords(bank, kanjiList, per) {
+  const lines = [];
+  kanjiList.forEach(c => {
+    const seen = new Set(), list = [];
+    bank.forEach(p => {
+      if (p.error || !p.target.kanji.includes(c)) return;
+      const w = p.target.text + '(' + p.target.reading + ')';
+      if (seen.has(w)) return;
+      seen.add(w);
+      const rank = p.target.text === c ? 0 : (p.target.kanji.length === 1 ? 1 : 2);
+      list.push({ w, rank, i: list.length });
+    });
+    list.sort((a, b) => a.rank - b.rank || a.i - b.i);
+    // 1つ目は その 字 だけ、のこりは なるべく ちがう しゅるいの ことば
+    const pick = [];
+    for (const rank of [0, 1, 2]) { const x = list.find(o => o.rank === rank); if (x && pick.length < per) pick.push(x); }
+    list.forEach(x => { if (pick.length < per && !pick.includes(x)) pick.push(x); });
+    pick.forEach(x => lines.push(x.w));
+  });
+  return lines;
+}
+
 /* ================================================================
    テストの 紙の 大きさ（mm）。15もんから B4、それより 少なければ A4。
    どちらも よこ向き。たて書きで、右に だい名、左に れんしゅうの マス。
@@ -329,7 +382,7 @@ const KANSUJI = ['', '一', '二', '三', '四', '五', '六'];
 const KP = {
   KANJI1, KANJI2, isKanji, isKana, normalize,
   parseSentence, parseBank, parseUnits, rangeOf, eligible,
-  rng, shuffle, pickQuestions, replaceOne,
+  rng, shuffle, pickQuestions, replaceOne, swapSameKanji, mergeBanks, noteWords,
   PAPERS, testGeometry, sentenceUnits, charSize, tooLong, BOX, SIDE,
   NOTE_SIZES, noteSize, noteGeometry, parseWord, alignRuby, layoutNote, KANSUJI,
 };
