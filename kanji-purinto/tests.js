@@ -1,4 +1,4 @@
-/* かんじプリントの しくみの たしかめ（node tests.js で 動きます） */
+/* 漢字プリ＆テスト作成支援の しくみの たしかめ（node tests.js で 動きます） */
 'use strict';
 const K = require('./logic.js');
 
@@ -110,6 +110,47 @@ const L3 = K.layoutNote('一二三四五六七八九十一二三四五(あいう
 t('ながい ことばは つぎの 行へ（読みも わける）', L3.pages[0].length === 2 && L3.pages[0][0].cells.length === 12 && L3.pages[0][1].cells.length === 3 &&
   L3.pages[0][0].rubies[0].reading === 'あいうえおかきくけこさし' && L3.pages[0][1].rubies[0].reading === 'すせそ', J(L3.pages[0].map(c => c.rubies)));
 t('なにも 入れなければ マス目だけ 1まい', (r => r.pages.length === 1 && r.pages[0].length === 0)(K.layoutNote('', 84)));
+
+/* ---------- アプリの 例文（data.js） ---------- */
+const APP = K.parseBank(require('./data.js'));
+const appOk = APP.filter(p => !p.error);
+t('アプリの 例文は ぜんぶ よめる', APP.every(p => !p.error), APP.filter(p => p.error).map(p => p.lineNo + ' ' + p.error).join(' / '));
+t('アプリの 例文は 450文 いじょう', appOk.length >= 450, appOk.length);
+const outside = appOk.filter(p => [...(p.before + p.after)].some(c => K.isKanji(c) && !K.KANJI1.includes(c)));
+t('[ ] の ほかは 1年の 漢字だけ', outside.length === 0, outside.map(p => p.line).join(' / '));
+t('[ ] の 中は 1・2年の 漢字だけ', appOk.every(p => p.target.kanji.every(c => K.KANJI1.includes(c) || K.KANJI2.includes(c))));
+const lacking = [...K.KANJI2].filter(c => appOk.filter(p => p.target.kanji.includes(c)).length < 3);
+t('2年の 160字 すべてに 3文 いじょう', lacking.length === 0, lacking.join(''));
+const noSolo = [...K.KANJI2].filter(c => !appOk.some(p => p.target.kanji.every(k => k === c || K.KANJI1.includes(k))));
+t('どの 字も、その 字だけ えらんで 出せる 文が ある', noSolo.length === 0, noSolo.join(''));
+
+/* ---------- 同じ 漢字の 別の 文に 入れかえ ---------- */
+const rHaru = K.rangeOf([], 'kanji', ['春', '夏']);
+const pkH = K.pickQuestions(appOk, rHaru, { yomi: 0, kaki: 2 }, 5);
+const iHaru = pkH.questions.findIndex(q => K.parseSentence(q.line).target.kanji.includes('春'));
+const sw = K.swapSameKanji(pkH.questions, iHaru, appOk, rHaru, 11);
+t('⇄ は 同じ 漢字が 入った 別の 文に なる', sw && sw.line !== pkH.questions[iHaru].line && K.parseSentence(sw.line).target.kanji.includes('春') && sw.kind === 'kaki', J(sw));
+const onlyOne = K.parseBank('[春](はる)が 来る\n[夏](なつ)が 来る');
+t('同じ 漢字の 文が もう ない → null', K.swapSameKanji([{ line: '[春](はる)が 来る', kind: 'kaki' }], 0, onlyOne, rHaru, 1) === null);
+const seenH = new Set(); let cur = { line: pkH.questions[iHaru].line, kind: 'kaki' };
+for (let i = 0; i < 20; i++) { seenH.add(cur.line); const n = K.swapSameKanji([cur], 0, appOk, rHaru, i); if (n) cur = { line: n.line, kind: 'kaki' }; }
+t('なんども おすと いろいろな 文が 出る', seenH.size >= 3, seenH.size);
+
+/* ---------- 自分の 文と アプリの 文を まとめる ---------- */
+const mine = K.parseBank('[春](はる)に なると 花が さく\n[春](はる)の 名前');
+const merged = K.mergeBanks(mine, appOk, ['[春](はる)休み']);
+t('同じ 文は 1つ・「出さない」は のぞく', merged.filter(p => p.line === '[春](はる)に なると 花が さく').length === 1 && !merged.some(p => p.line === '[春](はる)休み') && merged.length === appOk.length + 1 - 1, merged.length);
+
+/* ---------- ノートの ことばを 自動で ---------- */
+const nw = K.noteWords(appOk, ['春', '新', '電'], 2);
+t('1字に 2つずつ', nw.length === 6, J(nw));
+t('はじめは その 字 だけの ことば', nw[0] === '春(はる)', J(nw));
+t('送りがな・熟語も 入る', nw.includes('新しい(あたらしい)') && nw.some(w => w.startsWith('電') && w.length > 4), J(nw));
+const nwAll = K.noteWords(appOk, [...K.KANJI2], 3);
+const badWords = nwAll.filter(w => { const r = K.parseWord(w); return r.error || !r.rubies.length; });
+t('160字の ことばが ぜんぶ ノートに 入る（読みがな つき）', nwAll.length >= 160 * 2 && badWords.length === 0, badWords.join(' '));
+const wo = K.parseWord('新しい(あたらしい)');
+t('送りがなの ことばは 漢字の となりだけに 読みがな', J(wo.rubies) === J([{ start: 0, len: 1, reading: 'あたら' }]), J(wo.rubies));
 
 /* ---------- けっか ---------- */
 const ng = rows.filter(r => !r.ok);

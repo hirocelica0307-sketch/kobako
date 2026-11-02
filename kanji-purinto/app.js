@@ -1,4 +1,4 @@
-/* かんじプリント：画面 */
+/* 漢字プリ＆テスト作成支援：画面 */
 (function () {
 'use strict';
 const $ = s => document.querySelector(s);
@@ -8,38 +8,14 @@ const mm = v => v.toFixed(2) + 'mm';
 const abs = (cls, x, y, w, h) => { const e = el('div', 'ab ' + (cls || '')); e.style.left = mm(x); e.style.top = mm(y); if (w !== undefined) e.style.width = mm(w); if (h !== undefined) e.style.height = mm(h); return e; };
 const CIRCLED = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
 
-/* 見本の 例文（オリジナル）。「見本の 例文を 下に たす」で 入る */
-const SAMPLE = [
-  '# 見本の 例文（けして かまいません）',
-  '[春](はる)に なると 花が さく',
-  '[夏](なつ)休みに 海へ 行く',
-  '[秋](あき)の 虫の こえを 聞く',
-  '[冬](ふゆ)の あさは さむい',
-  '[朝](あさ)ごはんを 食べる',
-  '[昼](ひる)休みに 本を よむ',
-  '[夜](よる)空に 星が 光る',
-  '[電車](でんしゃ)に のる',
-  '[友](とも)だちと あそぶ',
-  '大きな [声](こえ)で うたう',
-  '[新しい](あたらしい) くつを はく',
-  '[国語](こくご)の 時間',
-  '[高い](たかい) 山に のぼる',
-  'みんなの 前で [話す](はなす)',
-  '[弟](おとうと)と 公園へ 行く',
-  '[雪](ゆき)が つもる',
-  '[東](ひがし)の 空が 明るい',
-  '小さな [鳥](とり)が 鳴く',
-  '[絵](え)を かく',
-  '[算数](さんすう)の ノート',
-];
 
 /* ---------- 保存 ---------- */
 const LS_KEY = 'kanji-purinto:v1';
 const DEF = {
   tab: 'test', bank: '', units: '', hidden: [], saved: [],
-  test: { title: '二年 かんじテスト', count: 10, kind: 'kaki', yomi: 5, range: 'kanji', terms: [1], units: [], kanji: [...KP.KANJI2],
-          cross: true, answers: true, seed: 1, questions: null },
-  note: { title: '二年 かんじノート', size: 84, paper: 'B5', words: '' },
+  test: { title: '二年 かんじテスト', count: 10, kind: 'kaki', yomi: 5, range: 'kanji', terms: [1], units: [], kanji: [],
+          src: { app: true, mine: true }, cross: true, answers: true, seed: 1, questions: null },
+  note: { title: '二年 かんじノート', size: 84, paper: 'B5', words: '', kanji: [], per: 2 },
 };
 const clone = o => JSON.parse(JSON.stringify(o));
 function load() {
@@ -50,6 +26,7 @@ function load() {
     ['tab', 'bank', 'units'].forEach(k => { if (typeof s[k] === 'string') st[k] = s[k]; });
     ['hidden', 'saved'].forEach(k => { if (Array.isArray(s[k])) st[k] = s[k]; });
     if (s.test) Object.assign(st.test, s.test);
+    st.test.src = Object.assign({ app: true, mine: true }, st.test.src);
     if (s.note) Object.assign(st.note, s.note);
   }
   return st;
@@ -69,11 +46,17 @@ function toast(msg, ms) {
 
 /* ---------- データ ---------- */
 let bankItems = [], unitData = { units: [], errors: [] };
+const appItems = KP.parseBank(window.KP_BUILTIN || '').filter(p => !p.error);   // アプリに 入って いる 例文（data.js）
+const appLines = new Set(appItems.map(p => p.line));
 function parseData() {
   bankItems = KP.parseBank(st.bank);
   unitData = KP.parseUnits(st.units);
 }
-const pool = () => { const h = new Set(st.hidden); return bankItems.filter(p => !p.error && !h.has(p.line)); };
+const mineOk = () => bankItems.filter(p => !p.error);
+/* テストに つかう 例文（えらんだ もと・「出さない」を のぞく） */
+const pool = () => KP.mergeBanks(st.test.src.mine ? mineOk() : [], st.test.src.app ? appItems : [], st.hidden);
+/* ノートの ことばに つかう 例文（自分の ＋ アプリの） */
+const wordPool = () => KP.mergeBanks(mineOk(), appItems, st.hidden);
 function curRange() {
   const t = st.test;
   const sel = t.range === 'term' ? t.terms : t.range === 'unit' ? t.units : t.kanji;
@@ -207,16 +190,20 @@ function testSheet(questions, answer) {
 function qTools(i) {
   const box = el('div', 'qtools');
   const mk = (label, title, fn) => { const b = el('button', '', label); b.title = title; b.addEventListener('click', e => { e.stopPropagation(); fn(i); }); box.append(b); };
-  mk('⇄', 'ほかの 例文に 入れかえる', swapQ);
+  mk('⇄ 別の文', 'この 漢字が 入った 別の 文に 入れかえる', swapQ);
   mk('直す', 'この 例文を 直す', editQ);
   mk('出さない', 'この 例文を もう 出さない', hideQ);
   return box;
 }
 function swapQ(i) {
   const qs = st.test.questions;
-  const nq = KP.replaceOne(qs, i, pool(), curRange(), Math.floor(Math.random() * 1e9));
-  if (!nq) { toast('ほかに 使える 例文が ありません'); return; }
-  qs[i] = nq; save(); renderAll();
+  const nq = KP.swapSameKanji(qs, i, pool(), curRange(), Math.floor(Math.random() * 1e9));
+  if (!nq) {
+    const p = KP.parseSentence(qs[i].line);
+    toast(`「${p.error ? '' : p.target.kanji.join('・')}」が 入った 別の 文は もう ありません（「例文・単元」で ふやせます）`, 3600);
+    return;
+  }
+  qs[i] = { line: nq.line, kind: nq.kind }; save(); renderAll();
 }
 function editQ(i) {
   const q = st.test.questions[i];
@@ -226,7 +213,12 @@ function editQ(i) {
   if (p.error) { alert(p.error); return; }
   let found = false;
   st.bank = st.bank.split(/\r?\n/).map(l => { if (!found && KP.normalize(l) === q.line) { found = true; return p.line; } return l; }).join('\n');
-  if (!found) st.bank = (st.bank.trim() ? st.bank.replace(/\s*$/, '\n') : '') + p.line;
+  if (!found) {
+    // アプリの 文は、直した 文を 自分の 例文に たして、もとの 文は 出さない ことに する
+    st.bank = (st.bank.trim() ? st.bank.replace(/\s*$/, '\n') : '') + p.line;
+    if (appLines.has(q.line) && q.line !== p.line && !st.hidden.includes(q.line)) st.hidden.push(q.line);
+    st.test.src.mine = true;
+  }
   q.line = p.line;
   parseData(); save(); renderAll(); renderData();
   toast('例文を 直しました');
@@ -234,8 +226,9 @@ function editQ(i) {
 function hideQ(i) {
   const qs = st.test.questions;
   if (!st.hidden.includes(qs[i].line)) st.hidden.push(qs[i].line);
-  const nq = KP.replaceOne(qs, i, pool(), curRange(), Math.floor(Math.random() * 1e9));
-  if (nq) qs[i] = nq; else qs.splice(i, 1);
+  const nq = KP.swapSameKanji(qs, i, pool(), curRange(), Math.floor(Math.random() * 1e9)) ||
+             KP.replaceOne(qs, i, pool(), curRange(), Math.floor(Math.random() * 1e9));
+  if (nq) qs[i] = { line: nq.line, kind: nq.kind }; else qs.splice(i, 1);
   save(); renderAll(); renderData();
   toast('もう 出しません（「例文・単元」で もどせます）', 3200);
 }
@@ -348,11 +341,12 @@ function renderTestSheets(box) {
 
   const n = $('#notice'); n.textContent = '';
   const k = kinds();
-  n.append(`用紙：${KP.PAPERS[g.paper].label}（印刷は 倍率「100%（実際の サイズ）」で）・読み ${k.yomi}問／書き ${k.kaki}問・使える 例文 ${pool().filter(p => KP.eligible(p, curRange())).length}こ。問題に マウスを のせると「⇄ 入れかえ・直す・出さない」が 出ます。`);
+  n.append(`用紙：${KP.PAPERS[g.paper].label}（印刷は 倍率「100%（実際の サイズ）」で）・読み ${k.yomi}問／書き ${k.kaki}問・使える 例文 ${pool().filter(p => KP.eligible(p, curRange())).length}こ。問題に マウスを のせると「⇄ 別の文（同じ 漢字の 別の 文に する）・直す・出さない」が 出ます。`);
   const long = qs.map((q, i) => { const p = KP.parseSentence(q.line); return !p.error && KP.tooLong(p, q.kind, g) ? CIRCLED[i] : ''; }).filter(Boolean);
   if (long.length) n.append(el('span', 'warn', `　${long.join('')}の 文が ながくて 入りきりません（「直す」で みじかく して ください）。`));
   const short = t.count - qs.length;
-  if (!bankItems.some(p => !p.error)) n.append(el('span', 'warn', '　まだ 例文が ありません。「例文・単元」で 入れて ください。'));
+  if (!pool().length) n.append(el('span', 'warn', '　つかえる 例文が ありません。「例文の もと」を たしかめて ください。'));
+  else if (t.range === 'kanji' && !t.kanji.length) n.append(el('span', 'warn', '　漢字を えらんで「えらんだ 漢字で 文を 自動で 入れる」を おして ください。'));
   else if (short > 0) n.append(el('span', 'warn', `　例文が ${short}こ たりません（はんいを ひろげるか、例文を ふやして ください）。`));
 }
 
@@ -385,6 +379,9 @@ function renderSide() {
   const k = kinds();
   $('#t-yomi').textContent = k.yomi; $('#t-kaki').textContent = k.kaki;
   $('#b-ans').checked = !!t.answers;
+  $$('#t-src button').forEach(b => b.classList.toggle('on', !!t.src[b.dataset.v]));
+  $('#t-src-app').textContent = `${appItems.length}文`;
+  $('#t-src-mine').textContent = `${mineOk().length}文`;
   renderRange();
   renderSaved();
 
@@ -393,6 +390,12 @@ function renderSide() {
   setSeg('#n-size', n.size);
   setSeg('#n-paper', n.paper);
   if ($('#n-words').value !== n.words) $('#n-words').value = n.words;
+  setSeg('#n-per', n.per);
+  const wc = new Map();
+  wordPool().forEach(p => p.target.kanji.forEach(c => wc.set(c, (wc.get(c) || 0) + 1)));
+  const pk = $('#n-pick'); pk.textContent = '';
+  pk.append(kanjiPicker(n.kanji, wc, v => { n.kanji = v; save(); renderSide(); }));
+  $('#n-auto').disabled = !n.kanji.length;
 }
 
 function countByKanji() {
@@ -429,28 +432,42 @@ function renderRange() {
       body.append(ul);
     }
   } else {
-    const cnt = countByKanji();
-    const row = el('div', 'row-btns');
-    const all = el('button', 'btn', 'ぜんぶ'), none = el('button', 'btn', 'なし'), has = el('button', 'btn', '例文が ある 字');
-    all.addEventListener('click', () => { t.kanji = [...KP.KANJI2]; changed(); });
-    none.addEventListener('click', () => { t.kanji = []; changed(); });
-    has.addEventListener('click', () => { t.kanji = [...KP.KANJI2].filter(c => cnt.get(c)); changed(); });
-    row.append(all, none, has);
-    const grid = el('div', 'kgrid');
-    [...KP.KANJI2].forEach(c => {
-      const n = cnt.get(c) || 0;
-      const b = el('button', (t.kanji.includes(c) ? 'on' : '') + (n ? '' : ' zero'));
-      b.append(c, el('i', '', n));
-      b.title = `${c}：例文 ${n}こ`;
-      b.addEventListener('click', () => { t.kanji = toggle(t.kanji, c); changed(); });
-      grid.append(b);
+    // 漢字を えらぶ だけでは 作り直さない。ボタンで 文を 自動で 入れる
+    body.append(kanjiPicker(t.kanji, countByKanji(), v => { t.kanji = v; save(); renderAll(); }));
+    const go = el('button', 'btn main-btn wide auto-btn', 'えらんだ 漢字で 文を 自動で 入れる');
+    go.disabled = !t.kanji.length;
+    go.addEventListener('click', () => {
+      regen(true); renderAll();
+      const n = st.test.questions.length;
+      toast(n ? `${n}問 入れました（問題の「⇄ 別の文」で 文を かえられます）` : 'えらんだ 漢字の 文が ありません', 3200);
     });
-    body.append(grid, row);
+    body.append(go);
   }
   const R = curRange();
   $('#t-range-info').textContent = `出す 漢字 ${R.R.size}字・使える 例文 ${pool().filter(p => KP.eligible(p, R)).length}こ。習う 漢字から、かたよりなく 出します。`;
 }
 const toggle = (arr, v) => (arr.includes(v) ? arr.filter(x => x !== v) : arr.concat([v]));
+
+/* 2年の 160字を えらぶ（テスト・ノート どちらでも つかう）。数字は 文の 数 */
+function kanjiPicker(sel, cnt, onChange) {
+  const box = el('div');
+  const grid = el('div', 'kgrid');
+  [...KP.KANJI2].forEach(c => {
+    const n = cnt.get(c) || 0;
+    const b = el('button', (sel.includes(c) ? 'on' : '') + (n ? '' : ' zero'));
+    b.append(c, el('i', '', n));
+    b.title = `${c}：文 ${n}こ`;
+    b.addEventListener('click', () => onChange(toggle(sel, c)));
+    grid.append(b);
+  });
+  const row = el('div', 'row-btns');
+  const all = el('button', 'btn', 'ぜんぶ'), none = el('button', 'btn', 'なし');
+  all.addEventListener('click', () => onChange([...KP.KANJI2]));
+  none.addEventListener('click', () => onChange([]));
+  row.append(all, none, el('span', 'picked', `${sel.length}字 えらんで います`));
+  box.append(grid, row);
+  return box;
+}
 
 function renderSaved() {
   const ul = $('#t-saved'); ul.textContent = '';
@@ -470,7 +487,7 @@ function renderData() {
   if ($('#d-bank').value !== st.bank) $('#d-bank').value = st.bank;
   if ($('#d-units').value !== st.units) $('#d-units').value = st.units;
   const ok = bankItems.filter(p => !p.error);
-  $('#d-bank-count').textContent = `（使える 例文 ${pool().length}こ${st.hidden.length ? `・出さない ${ok.length - pool().length}こ` : ''}）`;
+  $('#d-bank-count').textContent = `（${mineOk().length}文${st.hidden.length ? `・「出さない」 ${st.hidden.length}文` : ''}）`;
   const errs = $('#d-bank-errs'); errs.textContent = '';
   bankItems.forEach(p => {
     if (p.error) { const li = el('li'); li.append(`${p.lineNo}行目：`, el('code', '', p.line), `　${p.error}`); errs.append(li); }
@@ -523,6 +540,11 @@ function bind() {
   $$('#t-kind button').forEach(b => b.addEventListener('click', () => { st.test.kind = b.dataset.v; changed(); }));
   $$('#t-mix .step').forEach(b => b.addEventListener('click', () => { const t = st.test; t.yomi = Math.max(0, Math.min(t.count, kinds().yomi + +b.dataset.d)); changed(); }));
   $$('#t-range button').forEach(b => b.addEventListener('click', () => { st.test.range = b.dataset.v; changed(); }));
+  $$('#t-src button').forEach(b => b.addEventListener('click', () => {
+    const src = st.test.src; src[b.dataset.v] = !src[b.dataset.v];
+    if (!src.app && !src.mine) src[b.dataset.v === 'app' ? 'mine' : 'app'] = true;   // どちらかは のこす
+    changed();
+  }));
   $$('#t-cross button').forEach(b => b.addEventListener('click', () => { st.test.cross = b.dataset.v === '1'; save(); renderAll(); }));
   $('#b-ans').addEventListener('change', e => { st.test.answers = e.target.checked; save(); renderAll(); });
   $('#b-remake').addEventListener('click', () => { regen(true); renderAll(); toast('ちがう 問題で 作り直しました'); });
@@ -539,16 +561,28 @@ function bind() {
   $$('#n-size button').forEach(b => b.addEventListener('click', () => { st.note.size = +b.dataset.v; save(); renderAll(); }));
   $$('#n-paper button').forEach(b => b.addEventListener('click', () => { st.note.paper = b.dataset.v; save(); renderAll(); }));
   $('#n-title').addEventListener('input', e => { st.note.title = e.target.value; save(); renderAllSoon(); });
+  $$('#n-per button').forEach(b => b.addEventListener('click', () => { st.note.per = +b.dataset.v; save(); renderSide(); }));
+  $('#n-auto').addEventListener('click', () => {
+    const n = st.note;
+    const order = [...KP.KANJI2].filter(c => n.kanji.includes(c));
+    const words = KP.noteWords(wordPool(), order, n.per);
+    if (n.words.trim() && !confirm('いまの ことばを、えらんだ 漢字の ことばに 入れかえます。よいですか？')) return;
+    n.words = words.join('\n');
+    save(); renderAll();
+    const pages = KP.layoutNote(n.words, n.size).pages.length;
+    toast(`${words.length}この ことばを 入れました（${pages}まい）`);
+  });
   $('#n-words').addEventListener('input', e => { st.note.words = e.target.value; save(); renderAllSoon(); });
 
   $('#d-bank').addEventListener('input', e => { st.bank = e.target.value; clearTimeout(dataTimer); dataTimer = setTimeout(dataChanged, 300); });
   $('#d-units').addEventListener('input', e => { st.units = e.target.value; clearTimeout(dataTimer); dataTimer = setTimeout(dataChanged, 300); });
-  $('#d-sample').addEventListener('click', () => {
+  $('#d-copy').addEventListener('click', () => {
     const have = new Set(st.bank.split(/\r?\n/).map(KP.normalize));
-    const add = SAMPLE.filter(l => !have.has(KP.normalize(l)));
-    if (!add.length) { toast('見本は もう 入って います'); return; }
+    const add = window.KP_BUILTIN.split(/\r?\n/).filter(l => l.trim() && !have.has(KP.normalize(l)));
+    if (!add.some(l => !l.startsWith('#'))) { toast('アプリの 文は もう 入って います'); return; }
+    if (!confirm(`アプリの 文（${appItems.length}文）を、下の らんに コピーします。よいですか？`)) return;
     st.bank = (st.bank.trim() ? st.bank.replace(/\s*$/, '\n') : '') + add.join('\n');
-    dataChanged(); toast('見本の 例文を たしました');
+    dataChanged(); toast('コピーしました。直したら、テストの「例文の もと」で「アプリの 文」を はずして ください', 5000);
   });
   $('#d-export').addEventListener('click', () => {
     const data = { app: 'kanji-purinto', version: 1, bank: st.bank, units: st.units, hidden: st.hidden, saved: st.saved };
@@ -565,7 +599,7 @@ function bind() {
     f.text().then(txt => {
       let d;
       try { d = JSON.parse(txt); } catch (err) { d = null; }
-      if (!d || d.app !== 'kanji-purinto') { alert('かんじプリントの ファイルでは ありません'); return; }
+      if (!d || d.app !== 'kanji-purinto') { alert('漢字プリ＆テスト作成支援の ファイルでは ありません'); return; }
       if (!confirm('いまの 例文・単元・保存した 問題を、ファイルの なかみに 入れかえます。よいですか？')) return;
       st.bank = String(d.bank || ''); st.units = String(d.units || '');
       st.hidden = Array.isArray(d.hidden) ? d.hidden : []; st.saved = Array.isArray(d.saved) ? d.saved : [];
