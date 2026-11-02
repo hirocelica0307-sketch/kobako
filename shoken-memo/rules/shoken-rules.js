@@ -587,13 +587,14 @@ window.SHOKEN_RULES = {
       hint: "学期の初めと比べてどう変わったか",
       placeholder: "例）はじめは声が小さかったが、学期末にははっきりした声で発表できるようになった" },
 
-    { key: "doutoku",  label: "道徳の姿", group: "doutoku",
+    /* allTerms: true の欄は、どの学期に書いたメモも案づくりに使う（学期をまたいで集める） */
+    { key: "doutoku",  label: "道徳の姿", group: "doutoku", allTerms: true,
       hint: "教材名／内容項目／授業でどう考えたか／道徳ノートに書いたことや発言したこと（そのままの言葉で）",
       placeholder: "例）教材「バスの中で」内容項目「親切、思いやり」。相手の立場を考えて発言。道徳ノートに「困っている人がいたら声をかけたい。」と記述" },
-    { key: "sogo",     label: "総合的な学習での姿", group: "sogo",
+    { key: "sogo",     label: "総合的な学習での姿", group: "sogo", allTerms: true,
       hint: "探究のテーマ／課題の設定・情報の収集・整理分析・まとめ表現のどこでどう伸びたか",
       placeholder: "例）福祉について課題を決め、アンケートを取って表に整理し、発表会で分かりやすく伝えた" },
-    { key: "gaikokugo", label: "外国語（活動）での姿", group: "gaikokugo",
+    { key: "gaikokugo", label: "外国語（活動）での姿", group: "gaikokugo", allTerms: true,
       hint: "聞くこと／話すこと〔やり取り〕／話すこと〔発表〕／読むこと・書くこと のどれか",
       placeholder: "例）ALTに進んであいさつをして、好きな食べ物を伝え合った。はっきりした声で発表した" },
 

@@ -3,7 +3,7 @@
      直すのは index.html / engine.js / rules/shoken-rules.js /
      rules/course-of-study.js のほうです。
      直したら  node build-gas.js  を実行して作り直します。
-     生成日時: 2026/11/2 18:16:00
+     生成日時: 2026/11/2 18:31:04
      ============================================================ -->
 <!DOCTYPE html>
 <html lang="ja">
@@ -244,6 +244,8 @@ mark.info{background:var(--info-w);box-shadow:0 2px 0 var(--info)}
 .tchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
 .tchip{font-size:11.5px;border-radius:5px;padding:0 7px;background:#f1eee8;color:var(--muted);font-weight:400}
 .tchip.hot{background:var(--part-w);color:var(--part);font-weight:700}
+.othermemo{margin-top:6px;background:#f6f4ef;border-radius:8px;padding:6px 10px;font-size:13px}
+.othermemo > div + div{margin-top:3px}
 .material{font-size:12.5px;background:#f6f4ef;border-radius:8px;padding:7px 11px;margin-bottom:12px}
 .material b{color:var(--accent)}
 
@@ -1704,13 +1706,14 @@ window.SHOKEN_RULES = {
       hint: "学期の初めと比べてどう変わったか",
       placeholder: "例）はじめは声が小さかったが、学期末にははっきりした声で発表できるようになった" },
 
-    { key: "doutoku",  label: "道徳の姿", group: "doutoku",
+    /* allTerms: true の欄は、どの学期に書いたメモも案づくりに使う（学期をまたいで集める） */
+    { key: "doutoku",  label: "道徳の姿", group: "doutoku", allTerms: true,
       hint: "教材名／内容項目／授業でどう考えたか／道徳ノートに書いたことや発言したこと（そのままの言葉で）",
       placeholder: "例）教材「バスの中で」内容項目「親切、思いやり」。相手の立場を考えて発言。道徳ノートに「困っている人がいたら声をかけたい。」と記述" },
-    { key: "sogo",     label: "総合的な学習での姿", group: "sogo",
+    { key: "sogo",     label: "総合的な学習での姿", group: "sogo", allTerms: true,
       hint: "探究のテーマ／課題の設定・情報の収集・整理分析・まとめ表現のどこでどう伸びたか",
       placeholder: "例）福祉について課題を決め、アンケートを取って表に整理し、発表会で分かりやすく伝えた" },
-    { key: "gaikokugo", label: "外国語（活動）での姿", group: "gaikokugo",
+    { key: "gaikokugo", label: "外国語（活動）での姿", group: "gaikokugo", allTerms: true,
       hint: "聞くこと／話すこと〔やり取り〕／話すこと〔発表〕／読むこと・書くこと のどれか",
       placeholder: "例）ALTに進んであいさつをして、好きな食べ物を伝え合った。はっきりした声で発表した" },
 
@@ -2803,11 +2806,37 @@ const ST = {
   none:{ label:'未入力' }, memo:{ label:'メモあり' }, part:{ label:'書きかけ' },
   err:{ label:'要修正' }, warn:{ label:'注意あり' }, ok:{ label:'完成' }
 };
+/* その種類の案づくりに使うメモ。[{label, text, key, term}]
+   allTerms の欄（道徳・総合・外国語）は、1〜3学期のメモをすべて集め、学期を添える。
+   それ以外の欄（所見のもと・その他メモ）は、いまの学期のメモだけ。 */
+function memoOf(term, no, key){ const r = peek(term, no); return (((r && r.memos) || {})[key] || '').trim(); }
+function memoLines(no, typeKey){
+  const keys = (typeKey && R.memoFor && R.memoFor[typeKey]) ? R.memoFor[typeKey] : R.memoFields.map(f => f.key);
+  const out = [];
+  R.memoFields.filter(f => keys.indexOf(f.key) >= 0).forEach(f => {
+    if(f.allTerms){
+      ['1','2','3'].forEach(t => {
+        const v = memoOf(t, no, f.key);
+        if(v) out.push({ label:`${f.label}（${t}学期）`, text:v, key:f.key, term:t });
+      });
+    }else{
+      const v = memoOf(S.term, no, f.key);
+      if(v) out.push({ label:f.label, text:v, key:f.key, term:S.term });
+    }
+  });
+  return out;
+}
+/* 学期をまたいで使う種類か */
+function usesAllTerms(typeKey){
+  const keys = (R.memoFor && R.memoFor[typeKey]) || [];
+  return R.memoFields.some(f => f.allTerms && keys.indexOf(f.key) >= 0);
+}
+
 function statusOf(no){
   const r = peek(S.term, no);
-  if(!r) return 'none';
   const types = activeTypes();
-  const hasMemo = Object.values(r.memos || {}).some(v => (v || '').trim());
+  const hasMemo = (r && Object.values(r.memos || {}).some(v => (v || '').trim())) || types.some(k => memoLines(no, k).length);
+  if(!r) return hasMemo ? 'memo' : 'none';
   const drafted = types.filter(k => draftOf(no, k));
   if(!drafted.length) return hasMemo ? 'memo' : 'none';
   let lv = 'ok';
@@ -2938,9 +2967,9 @@ function wireKidNav(root){
    ========================================================================= */
 const MEMO_GROUPS = [
   { key:'shoken',    title:'所見のもと',     note:'「所見」の案づくりに使います' },
-  { key:'doutoku',   title:'道徳',           note:'「道徳所見」の案づくりに使います' },
-  { key:'sogo',      title:'総合的な学習',   note:'「総合的な学習の記録」の案づくりに使います' },
-  { key:'gaikokugo', title:'外国語（活動）', note:'「外国語活動の記録」の案づくりに使います' }
+  { key:'doutoku',   title:'道徳',           note:'「道徳所見」の案づくりに使います。どの学期に書いたメモも使います' },
+  { key:'sogo',      title:'総合的な学習',   note:'「総合的な学習の記録」の案づくりに使います。どの学期に書いたメモも使います' },
+  { key:'gaikokugo', title:'外国語（活動）', note:'「外国語活動の記録」の案づくりに使います。どの学期に書いたメモも使います' }
 ];
 function viewMemo(root){
   const wrap = document.createElement('div'); wrap.className = 'layout';
@@ -2974,6 +3003,16 @@ function viewMemo(root){
     ta.addEventListener('focus', () => lastField = { key:f.key, el:ta });
     ta.addEventListener('input', () => { rec(S.term, cur).memos[f.key] = ta.value; saveSoon(); refreshKid(cur); showMaterial(); });
     d.appendChild(ta);
+    /* 学期をまたいで使う欄は、ほかの学期に書いたメモも見せる */
+    if(f.allTerms){
+      const others = ['1','2','3'].filter(t => t !== S.term).map(t => ({ t, v:memoOf(t, cur, f.key) })).filter(x => x.v);
+      if(others.length){
+        const o = document.createElement('div'); o.className = 'othermemo';
+        o.innerHTML = `<div class="mini">ほかの学期に書いたメモ（これも案づくりに使います。直すときは、その学期に切りかえてください）</div>` +
+          others.map(x => `<div><span class="tchip">${x.t}学期</span> ${esc(x.v)}</div>`).join('');
+        d.appendChild(o);
+      }
+    }
     return d;
   };
   const group = (g, parent) => {
@@ -2997,7 +3036,8 @@ function viewMemo(root){
   const rest = MEMO_GROUPS.filter(g => !types.includes(g.key));
   if(rest.length){
     const det = document.createElement('details'); det.className = 'more';
-    const filled = rest.some(g => R.memoFields.some(f => f.group === g.key && ((r.memos || {})[f.key] || '').trim()));
+    const filled = rest.some(g => R.memoFields.some(f => f.group === g.key &&
+      (f.allTerms ? ['1','2','3'].some(t => memoOf(t, cur, f.key)) : ((r.memos || {})[f.key] || '').trim())));
     det.open = filled;
     det.innerHTML = `<summary>ほかの欄（今回は書かない種類：${esc(rest.map(g => g.title).join('・'))}）</summary>`;
     rest.forEach(g => group(g, det));
@@ -3064,9 +3104,7 @@ function classEntries(k, exclude){
 }
 /* その種類に使うメモ欄の中身だけ（見出しを付けない） */
 function memoRaw(no, typeKey){
-  const r = peek(S.term, no); if(!r) return '';
-  const keys = (R.memoFor && R.memoFor[typeKey]) || R.memoFields.map(f => f.key);
-  return keys.map(k => ((r.memos || {})[k] || '').trim()).filter(Boolean).join('\n');
+  return memoLines(no, typeKey).map(m => m.text).join('\n');
 }
 const KEY_CATS = ['教科', '単元', '生活・行事', '書き出し'];
 function keyLabel(key){
@@ -3155,12 +3193,7 @@ function varietyBlock(typeKey, nums){
 }
 
 function memoBlock(no, typeKey){
-  const r = peek(S.term, no); if(!r) return '';
-  const keys = (typeKey && R.memoFor && R.memoFor[typeKey]) ? R.memoFor[typeKey] : R.memoFields.map(f => f.key);
-  return R.memoFields
-    .filter(f => keys.indexOf(f.key) >= 0 && ((r.memos || {})[f.key] || '').trim())
-    .map(f => `【${f.label}】${r.memos[f.key].trim().replace(/\s*\n\s*/g,' ')}`)
-    .join('\n');
+  return memoLines(no, typeKey).map(m => `【${m.label}】${m.text.replace(/\s*\n\s*/g,' ')}`).join('\n');
 }
 function targetNums(typeKey, scope){
   const nums = [];
@@ -3249,6 +3282,10 @@ function buildPrompt(typeKey, nums, opt){
   L.push(`- 字数：${t.target}字程度（${rg.min}〜${rg.max}字に必ず収める。句読点を含めて数える）`);
   if(t.note) L.push(`- 備考：${t.note}`);
   L.push(`- 人数：${nums.length}人（出席番号 ${nums.join('・')}）`);
+  if(usesAllTerms(typeKey)){
+    L.push(`- メモ：1学期〜3学期に書いたメモを合わせて載せています。（〇学期）は、そのメモを書いた学期です。`);
+    L.push(`  今回は${S.term}学期の${t.label}です。ほかの学期のメモも、その子の姿として使ってよい。学期をまたいだ伸びが分かれば書き添えてよい。`);
+  }
   L.push('');
   L.push('# 出力形式（厳守）');
   L.push('- 児童ごとに、行頭が「#出席番号」だけの行を置く。');
@@ -3380,7 +3417,8 @@ function viewAI(root){
       <p class="lead">できたプロンプトを Claude（チャット／Cowork）に貼り付けます。人数が多いと返事が途中で切れることがあるので、何人かずつに分けて作れます。</p>
       <div class="notice warn">AI に渡るのは<b>出席番号とメモだけ</b>です。メモに、本人が分かる事情（家庭・健康・転出入など）や友達の名前が入っていないか、貼り付ける前に確かめてください。</div>
       <div class="opts">
-        <span>種類</span><select id="p-type">${typeOptions(AI.type)}</select>
+        <span>種類</span><div><select id="p-type">${typeOptions(AI.type)}</select>
+          <div class="mini">道徳所見・総合・外国語は、1〜3学期に書いたメモをすべて使います。</div></div>
         <span>対象</span>
         <select id="p-scope">
           <option value="all">メモのある児童すべて</option>

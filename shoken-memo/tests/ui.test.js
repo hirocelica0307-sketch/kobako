@@ -271,6 +271,42 @@ test('クラス全体の書き分け：プロンプト・案の話題・偏り�
   await ctx.close();
 });
 
+test('道徳・総合・外国語：ほかの学期に書いたメモも案づくりに使える', async () => {
+  const { page, errors, ctx } = await openLocal();
+  /* 3年2学期は「所見・総合」。道徳の欄は「ほかの欄」にたたまれている */
+  await page.click('details.more > summary');
+  await page.fill('#memo-doutoku', '教材「バスの中で」。相手の立場を考えて発言した');
+  await page.fill('#memo-sogo', '福祉についてアンケートを取り、表に整理した');
+  await page.click('.rbtn[data-no="2"]');
+  await page.click('details.more > summary');
+  await page.fill('#memo-doutoku', '2番の道徳のメモ');
+  await page.waitForTimeout(500);
+
+  /* 3学期に切りかえる（3年3学期は「所見・道徳所見」） */
+  await page.click('#term-seg button[data-term="3"]');
+  await page.click('.rbtn[data-no="1"]');
+  assert.match(await page.getAttribute('.rbtn[data-no="1"]', 'class'), /st-memo/, '2学期の道徳メモで「メモあり」になる');
+  assert.match(await page.textContent('.othermemo'), /2学期.*バスの中で/);
+  await shot(page, '11-other-term-memo');
+
+  await page.click('nav [data-tab="ai"]');
+  await page.selectOption('#p-type', 'doutoku');
+  await page.click('#btn-build');
+  const prompt = await page.textContent('#promptout');
+  assert.match(prompt, /人数：2人（出席番号 1・2）/);
+  assert.match(prompt, /【道徳の姿（2学期）】教材「バスの中で」/);
+  assert.match(prompt, /1学期〜3学期に書いたメモを合わせて/);
+  assert.ok(!/福祉/.test(prompt), '道徳所見のプロンプトに総合のメモは入らない');
+
+  /* 所見のもと（教科での姿）は、これまでどおりその学期のメモだけ */
+  await page.click('nav [data-tab="memo"]');
+  await page.fill('#memo-subject', '3学期の国語のメモ');
+  await page.click('#term-seg button[data-term="2"]');
+  assert.equal(await page.inputValue('#memo-subject'), '');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('スマホの幅でも横にはみ出さない', async () => {
   const { page, errors, ctx } = await openLocal({ viewport: { width: 390, height: 800 } });
   const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
