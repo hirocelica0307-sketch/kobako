@@ -31,7 +31,10 @@ function parseSentence(raw) {
     if (!/[\[\]]/.test(line)) return { line, error: 'もんだいに する ところを [ ] で かこんで ください（れい：[色](いろ)がみを おる）' };
     return { line, error: '[ ] の すぐ うしろに ( ) で 読みを 書いて ください' };
   }
-  const before = m[1], inner = m[2].replace(/ /g, ''), reading = m[3].replace(/ /g, ''), after = m[4];
+  const before = m[1], inner = m[2].replace(/ /g, ''), after = m[4];
+  const rawReading = m[3].replace(/ /g, '').replace(/[|｜]/g, '・');
+  const parts = rawReading.includes('・') ? rawReading.split('・') : null;   // 「でん・しゃ」＝ 1字ずつの 読み
+  const reading = rawReading.replace(/・/g, '');
   if (/[\[\]]/.test(after)) return { line, error: '1行に もんだいは 1つだけです' };
   if (/[()]/.test(before + after)) return { line, error: '( ) は [ ] の すぐ うしろだけに 書けます' };
   const chars = [...inner];
@@ -46,14 +49,43 @@ function parseSentence(raw) {
   if (okuri && !reading.endsWith(okuri)) return { line, error: `送りがな「${okuri}」と 読み「${reading}」が あいません` };
   const headReading = reading.slice(0, reading.length - okuri.length);
   if (!headReading) return { line, error: '読みが たりません' };
+  const spans = readingSpans(chars, reading, parts);
+  if (spans.error) return { line, error: spans.error };
   return {
     line, before, after,
     target: {
-      text: inner, chars, head: head.join(''), okuri, reading, headReading,
+      text: inner, chars, head: head.join(''), okuri, reading, headReading, parts, spans,
       kanji: [...new Set(chars.filter(isKanji))],
       kana: chars.some(c => !isKanji(c)),               // 送りがな・まんなかの かなが ある → 書きは（ ）に する
     },
   };
+}
+
+/* 読みを [ ] の 中の 字に わりふる。
+   漢字 1字（＋うしろの かな）を 1かたまりと して、「・」で 区切った 読みを じゅんに あてる。
+   区切りが ない ときは かなを 目じるしに する（わけられない 熟語は まとめて 1つ）。
+   かえす もの：[{ start, len, reading, kana }]（kana＝送りがななど、その 字 そのもの） */
+function readingSpans(chars, reading, parts) {
+  const units = [];
+  chars.forEach((c, i) => { if (isKanji(c)) units.push({ start: i, len: 1 }); else units[units.length - 1].len++; });
+  const out = [];
+  if (parts) {
+    if (parts.some(x => !x)) return { error: '「・」の 前か うしろに 読みが ありません' };
+    if (parts.length !== units.length) return { error: `「・」で 区切った 読みの 数（${parts.length}）が 漢字の 数（${units.length}）と あいません` };
+    for (let u = 0; u < units.length; u++) {
+      const { start, len } = units[u];
+      const tail = chars.slice(start + 1, start + len).join('');
+      if (!parts[u].endsWith(tail) || parts[u].length <= tail.length) return { error: `「${chars.slice(start, start + len).join('')}」と 読み「${parts[u]}」が あいません` };
+      out.push({ start, len: 1, reading: parts[u].slice(0, parts[u].length - tail.length), kana: false });
+      [...tail].forEach((k, j) => out.push({ start: start + 1 + j, len: 1, reading: k, kana: true }));
+    }
+    return out;
+  }
+  const ks = alignRuby(chars, reading, 0).map(r => Object.assign(r, { kana: false }));
+  const covered = new Set();
+  ks.forEach(r => { for (let i = r.start; i < r.start + r.len; i++) covered.add(i); });
+  chars.forEach((c, i) => { if (!covered.has(i)) ks.push({ start: i, len: 1, reading: c, kana: true }); });
+  return ks.sort((a, b) => a.start - b.start);
 }
 
 /* 例文の 一覧（テキスト）を よむ。空の 行と # で はじまる 行は とばす */
@@ -211,6 +243,14 @@ function mergeBanks(mine, app, hidden) {
   return out;
 }
 
+/* 「電(でん)車(しゃ)」「新(あたら)しい」の 形に する（ノートで 読みが 字の となりに そろう） */
+function wordWithRuby(t) {
+  return t.spans.map(sp => {
+    const txt = t.chars.slice(sp.start, sp.start + sp.len).join('');
+    return sp.kana ? txt : txt + '(' + sp.reading + ')';
+  }).join('');
+}
+
 /* 漢字ノートに 入れる ことばを 例文の [ ] から えらぶ。
    1字に per こまで。その 字 だけ → 送りがな つき → 熟語 の じゅん */
 function noteWords(bank, kanjiList, per) {
@@ -219,7 +259,7 @@ function noteWords(bank, kanjiList, per) {
     const seen = new Set(), list = [];
     bank.forEach(p => {
       if (p.error || !p.target.kanji.includes(c)) return;
-      const w = p.target.text + '(' + p.target.reading + ')';
+      const w = wordWithRuby(p.target);
       if (seen.has(w)) return;
       seen.add(w);
       const rank = p.target.text === c ? 0 : (p.target.kanji.length === 1 ? 1 : 2);
@@ -263,23 +303,38 @@ function testGeometry(n) {
 }
 
 /* 1もんの 文の ながさ（字の 大きさ c を 1 と した とき）*/
-const BOX = 1.45;                                     // □の 大きさ
-const SIDE = 0.85;                                    // 右の 読みがな・読みの 答えの はば
+const BOX = 1.6;                                      // 書く □・（ ）の 1字ぶんの 大きさ
+const GAP = 0.15;                                     // □と □の あいだ
+const BRK = 0.35;                                     // （ ）の 上と 下の まるい ところ
+const SIDE = 1.15;                                    // 右の 読みがな・読みの 答えの はば
+const YK = 0.9;                                       // 読みの 答えの わくの、かな 1字ぶんの 高さ
+const ROOM = 0.18;                                    // 書く らんの 上と 下の すきま
+const NUM_H = 8;                                      // 問題の ばんごうの 高さ（mm。どの 問題も 同じ）
+/* 読みの 問題の わく：となりあう 漢字は 1つの わくに まとめ（電車＝でんしゃ）、かなは そのまま */
+function yomiGroups(t) {
+  const out = [];
+  t.spans.forEach(sp => {
+    const last = out[out.length - 1];
+    if (!sp.kana && last && !last.kana) { last.len += sp.len; last.reading += sp.reading; }
+    else out.push({ start: sp.start, len: sp.len, reading: sp.reading, kana: sp.kana });
+  });
+  return out;
+}
 function sentenceUnits(p, kind) {
   const plain = s => [...s].reduce((a, ch) => a + (ch === ' ' ? 0.5 : 1), 0);
-  const t = p.target;
+  const t = p.target, n = t.chars.length;
   let mid;
-  if (kind === 'kaki') mid = t.kana ? [...t.text].length * 1.1 + 0.8 : t.chars.length * BOX + 0.15 * (t.chars.length - 1);
-  else mid = Math.max([...t.head].length, [...t.headReading].length * 0.7) + 0.3 + [...t.okuri].length;
-  return 1.6 + plain(p.before) + mid + plain(p.after);   // 1.6 = ばんごう
+  if (kind === 'kaki') mid = t.kana ? n * BOX + BRK * 2 : n * BOX + GAP * (n - 1);
+  else mid = yomiGroups(t).reduce((a, g) => a + (g.kana ? 1 : Math.max(g.len, [...g.reading].length * YK) + 0.3), 0);
+  return plain(p.before) + mid + ROOM * 2 + plain(p.after);
 }
 function charSize(p, kind, geo) {
   const byW = geo.colW / (BOX + SIDE);
-  const byH = (geo.rowH - 8) / sentenceUnits(p, kind);
+  const byH = (geo.rowH - 8 - NUM_H) / sentenceUnits(p, kind);
   return Math.max(4, Math.min(geo.rows === 1 ? 13 : 10, byW, byH));
 }
 /* 字を いちばん 小さく しても だんに 入らない 文 */
-const tooLong = (p, kind, geo) => sentenceUnits(p, kind) * charSize(p, kind, geo) > geo.rowH - 8 + 1e-6;
+const tooLong = (p, kind, geo) => sentenceUnits(p, kind) * charSize(p, kind, geo) > geo.rowH - 8 - NUM_H + 1e-6;
 
 /* ================================================================
    漢字ノート。市販の 漢字練習帳（ジャポニカ学習帳 かんじれんしゅう・
@@ -383,7 +438,7 @@ const KP = {
   KANJI1, KANJI2, isKanji, isKana, normalize,
   parseSentence, parseBank, parseUnits, rangeOf, eligible,
   rng, shuffle, pickQuestions, replaceOne, swapSameKanji, mergeBanks, noteWords,
-  PAPERS, testGeometry, sentenceUnits, charSize, tooLong, BOX, SIDE,
+  PAPERS, testGeometry, sentenceUnits, charSize, tooLong, BOX, GAP, BRK, SIDE, YK, ROOM, NUM_H, readingSpans, wordWithRuby, yomiGroups,
   NOTE_SIZES, noteSize, noteGeometry, parseWord, alignRuby, layoutNote, KANSUJI,
 };
 root.KP = KP;

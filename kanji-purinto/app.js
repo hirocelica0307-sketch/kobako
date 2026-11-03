@@ -84,7 +84,7 @@ function regen(newSeed) {
 function sentenceTokens(p, kind, c, answer, cross) {
   const b = KP.BOX * c, sw = KP.SIDE * c;
   const out = [];
-  const tk = (h) => { const t = el('div', 'tk'); t.style.width = mm(b + sw); if (h) t.style.height = mm(h); const m = el('div', 'tm'); m.style.width = mm(b); const s = el('div', 'ts'); s.style.width = mm(sw); t.append(m, s); return { t, m, s }; };
+  const tk = (h) => { const t = el('div', 'tk'); t.style.width = mm(b + sw); if (h) { t.style.height = mm(h); t.style.margin = `${mm(KP.ROOM * c)} 0`; } const m = el('div', 'tm'); m.style.width = mm(b); const s = el('div', 'ts'); s.style.width = mm(sw); t.append(m, s); return { t, m, s }; };
   const plain = (text) => {
     if (!text.trim()) return;
     const { t, m } = tk();
@@ -95,46 +95,61 @@ function sentenceTokens(p, kind, c, answer, cross) {
   const T = p.target;
   plain(p.before);
   if (kind === 'kaki') {
+    const n = T.chars.length;
     if (!T.kana) {
-      const H = T.chars.length * b + (T.chars.length - 1) * 0.15 * c;
+      // 漢字 1字に □ 1つ。読みがなは その □の 右に、□の 高さに あわせて 入れる
+      const gap = KP.GAP * c, H = n * b + (n - 1) * gap;
       const { t, m, s } = tk(H);
-      m.style.justifyContent = 'space-between';
+      m.style.justifyContent = 'flex-start'; m.style.gap = mm(gap);
       T.chars.forEach(ch => {
         const k = el('div', 'kbox' + (cross ? ' cross' : '')); k.style.width = mm(b); k.style.height = mm(b);
-        if (answer) { const a = el('span', 'ansk', ch); a.style.fontSize = mm(c); k.append(a); }
+        if (answer) { const a = el('span', 'ansk', ch); a.style.fontSize = mm(c * 1.05); k.append(a); }
         m.append(k);
       });
-      sideReading(s, T.reading, H, c);
+      T.spans.forEach(sp => sideReading(s, sp.reading, sp.start * (b + gap), sp.len * b + (sp.len - 1) * gap, c));
       out.push(t);
     } else {
-      const H = T.chars.length * 1.1 * c + 0.8 * c;
+      // 送りがな つき：（ ）の 中を 1字ずつの 高さ b に わけて、読みも その 字の となりに
+      const pad = KP.BRK * c, H = n * b + pad * 2;
       const { t, m, s } = tk(H);
-      const k = el('div', 'brk'); k.style.width = mm(b * 0.8); k.style.height = mm(H);
-      if (answer) { const a = el('span', 'ansk', T.text); a.style.fontSize = mm(c); a.style.letterSpacing = mm(c * 0.1); k.append(a); }
+      const k = el('div', 'brk'); k.style.width = mm(b); k.style.height = mm(H); k.style.setProperty('--pad', mm(pad));
+      if (answer) T.chars.forEach((ch, i) => {
+        const a = el('span', 'ansk', ch); a.style.fontSize = mm(c * 1.05);
+        a.style.top = mm(pad + i * b); a.style.height = mm(b); k.append(a);
+      });
       m.append(k);
-      sideReading(s, T.reading, H, c);
+      T.spans.forEach(sp => sideReading(s, sp.reading, pad + sp.start * b, sp.len * b, c));
       out.push(t);
     }
   } else {
-    const hl = [...T.head].length, rl = [...T.headReading].length;
-    const H = (Math.max(hl, rl * 0.7) + 0.3) * c;
-    const { t, m, s } = tk(H);
-    const d = el('div', 'ptxt', T.head); d.style.fontSize = mm(c * 0.92); d.style.lineHeight = mm(b);
-    m.append(d);
-    const box = el('div', 'ybox'); box.style.width = mm(sw - 1);
-    if (answer) { const a = el('span', 'ansk', T.headReading); a.style.fontSize = mm(Math.min(c * 0.5, (H - 1) / rl * 0.95, (sw - 1.6) * 0.95)); box.append(a); }
-    s.append(box);
-    out.push(t);
-    plain(T.okuri + p.after);
+    // 読み：漢字の かたまりごとに、右に 読みを 書く わく。かなは そのまま
+    KP.yomiGroups(T).forEach(gp => {
+      const txt = T.chars.slice(gp.start, gp.start + gp.len).join('');
+      if (gp.kana) { plain(txt); return; }
+      const rl = [...gp.reading].length;
+      const H = (Math.max(gp.len, rl * KP.YK) + 0.3) * c;
+      const { t, m, s } = tk(H);
+      const d = el('div', 'ptxt', txt); d.style.fontSize = mm(c * 0.92); d.style.lineHeight = mm(b);
+      m.append(d);
+      const box = el('div', 'ybox'); box.style.width = mm(sw - 1);
+      if (answer) { const a = el('span', 'ansk', gp.reading); a.style.fontSize = mm(Math.min(c * 0.6, (H - 1) / rl * 0.95, (sw - 1.6) * 0.95)); box.append(a); }
+      s.append(box);
+      out.push(t);
+    });
+    plain(p.after);
     return out;
   }
   plain(p.after);
   return out;
 }
-function sideReading(s, reading, H, c) {
-  const r = el('div', 'side-yomi', reading);
-  const n = [...reading].length;
-  r.style.fontSize = mm(Math.min(c * 0.42, H / n * 0.95));
+/* 読みがなを、右の らんの top から 高さ H の ところに、まんなか そろえで 1字ずつ ならべる */
+function sideReading(s, reading, top, H, c) {
+  const chars = [...reading], n = chars.length;
+  const fs = Math.min(c * 0.42, H / n * 0.92);
+  const r = el('div', 'side-yomi');
+  r.style.top = mm(top); r.style.height = mm(H); r.style.fontSize = mm(fs);
+  r.style.gap = mm(Math.max(0, Math.min(fs * 0.25, (H - n * fs) / (n + 1))));
+  chars.forEach(ch => r.append(el('span', '', ch)));
   s.append(r);
 }
 
@@ -164,8 +179,8 @@ function testSheet(questions, answer) {
     if (p && !p.error) {
       const c = KP.charSize(p, item.kind, g);
       const qi = el('div', 'qi');
-      const num = el('div', 'tk'); num.style.width = mm((KP.BOX + KP.SIDE) * c); num.style.height = mm(1.6 * c);
-      const nm = el('div', 'tm qn', CIRCLED[i] || String(i + 1)); nm.style.width = mm(KP.BOX * c); nm.style.fontSize = mm(c * 0.62);
+      const num = el('div', 'tk'); num.style.width = mm((KP.BOX + KP.SIDE) * c); num.style.height = mm(KP.NUM_H);
+      const nm = el('div', 'tm qn', CIRCLED[i] || String(i + 1)); nm.style.width = mm(KP.BOX * c); nm.style.fontSize = mm(g.rows === 1 ? 6 : 5);
       num.append(nm);
       qi.append(num, ...sentenceTokens(p, item.kind, c, answer, t.cross));
       q.append(qi);
@@ -293,6 +308,30 @@ function noteSheet(cols, g) {
 /* ================================================================
    画面を かく
    ================================================================ */
+/* プリントの 字の 書体を しらべる（その 端末に 入って いる 教科書体） */
+const FONTS = [
+  ['UD Digi Kyokasho NK-R', 'UDデジタル教科書体'], ['UD デジタル 教科書体 NK-R', 'UDデジタル教科書体'],
+  ['UD Digi Kyokasho NK', 'UDデジタル教科書体'], ['UD デジタル 教科書体 NK', 'UDデジタル教科書体'],
+  ['UD Digi Kyokasho N-R', 'UDデジタル教科書体'], ['UD デジタル 教科書体 N-R', 'UDデジタル教科書体'],
+  ['YuKyokasho', '游教科書体'], ['游教科書体', '游教科書体'], ['Yu Kyokasho', '游教科書体'],
+];
+let fontName = '';
+function detectFont() {
+  try {
+    const cv = document.createElement('canvas').getContext('2d');
+    const w = f => { cv.font = `40px ${f}`; return cv.measureText('永あ漢字のれんしゅう、。').width; };
+    const base = [w('monospace'), w('serif'), w('sans-serif')];
+    const hit = FONTS.find(([f]) => { const x = [w(`"${f}", monospace`), w(`"${f}", serif`), w(`"${f}", sans-serif`)]; return x.every((v, i) => v !== base[i]); });
+    fontName = hit ? hit[1] : (document.fonts && document.fonts.check('600 40px "Klee One"') ? 'Klee One' : '');
+  } catch (e) { fontName = ''; }
+}
+function fontNote() {
+  if (!fontName) return '';
+  return fontName === 'Klee One'
+    ? '字：Klee One（教科書体に にた 字。この 端末には 教科書体が ありません）・'
+    : `字：${fontName}（この 端末に 入って います）・`;
+}
+
 const zooms = [];
 function wrap(sheet, skip) {
   const z = el('div', 'zoom' + (skip ? ' skip' : ''));
@@ -341,7 +380,7 @@ function renderTestSheets(box) {
 
   const n = $('#notice'); n.textContent = '';
   const k = kinds();
-  n.append(`用紙：${KP.PAPERS[g.paper].label}（印刷は 倍率「100%（実際の サイズ）」で）・読み ${k.yomi}問／書き ${k.kaki}問・使える 例文 ${pool().filter(p => KP.eligible(p, curRange())).length}こ。問題に マウスを のせると「⇄ 別の文（同じ 漢字の 別の 文に する）・直す・出さない」が 出ます。`);
+  n.append(`${fontNote()}用紙：${KP.PAPERS[g.paper].label}（印刷は 倍率「100%（実際の サイズ）」で）・読み ${k.yomi}問／書き ${k.kaki}問・使える 例文 ${pool().filter(p => KP.eligible(p, curRange())).length}こ。問題に マウスを のせると「⇄ 別の文（同じ 漢字の 別の 文に する）・直す・出さない」が 出ます。`);
   const long = qs.map((q, i) => { const p = KP.parseSentence(q.line); return !p.error && KP.tooLong(p, q.kind, g) ? CIRCLED[i] : ''; }).filter(Boolean);
   if (long.length) n.append(el('span', 'warn', `　${long.join('')}の 文が ながくて 入りきりません（「直す」で みじかく して ください）。`));
   const short = t.count - qs.length;
@@ -362,7 +401,7 @@ function renderNoteSheets(box) {
   res.errors.forEach(e => { const li = el('li'); li.append(`${e.lineNo}行目：`, el('code', '', e.line), `　${e.error}`); errs.append(li); });
   const P = KP.PAPERS[g.paper];
   const sz = KP.noteSize(t.size);
-  $('#notice').textContent = `用紙：${g.paper}（${P.w}×${P.h}mm）・${sz.id}字（${sz.rows}字×${sz.cols}行、マス ${sizeLabel(sz)}）・${res.pages.length}まい。印刷は 倍率「100%（実際の サイズ）」で。`;
+  $('#notice').textContent = `${fontNote()}用紙：${g.paper}（${P.w}×${P.h}mm）・${sz.id}字（${sz.rows}字×${sz.cols}行、マス ${sizeLabel(sz)}）・${res.pages.length}まい。印刷は 倍率「100%（実際の サイズ）」で。`;
 }
 const sizeLabel = s => (s.w === s.h ? `${s.w}mm` : `${s.w}×${s.h}mm`);
 
@@ -619,6 +658,12 @@ function doPrint() {
 
 parseData();
 bind();
+detectFont();
 renderAll();
+if (document.fonts) {
+  const again = () => { const before = fontName; detectFont(); if (fontName !== before) renderAll(); };
+  if (document.fonts.ready) document.fonts.ready.then(again);
+  document.fonts.addEventListener && document.fonts.addEventListener('loadingdone', again);
+}
 if (st.tab === 'data') renderData();
 })();

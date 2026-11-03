@@ -9,7 +9,11 @@
   --accent-soft: #fbeee6;
   --red: #d7261e;
   --ui: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
-  --kaku: "Klee One", "UD デジタル 教科書体 N", "UD Digi Kyokasho N", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  /* 教科書体：その 端末に 入って いる ものを さきに つかう（Windows＝UDデジタル教科書体、Mac＝游教科書体）。
+     ない 端末（Chromebook・iPad など）は Klee One（Google Fonts） */
+  --kaku: "UD Digi Kyokasho NK-R", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK", "UD デジタル 教科書体 NK",
+          "UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", "YuKyokasho", "游教科書体", "Yu Kyokasho",
+          "Klee One", "Hiragino Mincho ProN", "Yu Mincho", serif;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--ui); font-weight: 500; }
@@ -142,12 +146,13 @@ input[type=text]:focus, textarea:focus { outline: none; border-color: var(--acce
 .kbox.cross::before { left: 50%; top: 0; bottom: 0; border-left-width: .25mm; }
 .kbox.cross::after { top: 50%; left: 0; right: 0; border-top-width: .25mm; }
 .kbox .ansk { position: relative; z-index: 1; color: var(--red); line-height: 1; }
-.brk { position: relative; display: flex; justify-content: center; align-items: center; }
-.brk::before, .brk::after { content: ""; position: absolute; left: 0; right: 0; height: 2.4mm; border: .4mm solid #222; }
+.brk { position: relative; }
+.brk::before, .brk::after { content: ""; position: absolute; left: 0; right: 0; height: var(--pad, 2.4mm); border: .4mm solid #222; }
 .brk::before { top: 0; border-bottom: none; border-radius: 50% 50% 0 0 / 100% 100% 0 0; }
 .brk::after { bottom: 0; border-top: none; border-radius: 0 0 50% 50% / 0 0 100% 100%; }
-.brk .ansk { color: var(--red); writing-mode: vertical-rl; white-space: nowrap; line-height: 1; }
-.side-yomi { position: absolute; left: .6mm; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; white-space: nowrap; color: #333; line-height: 1; }
+.brk .ansk { position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: center; color: var(--red); writing-mode: vertical-rl; line-height: 1; }
+.side-yomi { position: absolute; left: .6mm; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #333; line-height: 1; }
+.side-yomi span { writing-mode: vertical-rl; display: block; }
 .ybox { position: absolute; left: .8mm; top: 0; bottom: 0; border: .35mm solid #222; display: flex; align-items: center; justify-content: center; }
 .ybox .ansk { color: var(--red); writing-mode: vertical-rl; white-space: nowrap; line-height: 1; }
 .ymark { position: absolute; left: .1mm; top: 0; bottom: 0; border-left: .5mm solid #222; }

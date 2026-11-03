@@ -145,7 +145,29 @@ t('同じ 文は 1つ・「出さない」は のぞく', merged.filter(p => p.l
 const nw = K.noteWords(appOk, ['春', '新', '電'], 2);
 t('1字に 2つずつ', nw.length === 6, J(nw));
 t('はじめは その 字 だけの ことば', nw[0] === '春(はる)', J(nw));
-t('送りがな・熟語も 入る', nw.includes('新しい(あたらしい)') && nw.some(w => w.startsWith('電') && w.length > 4), J(nw));
+t('送りがな・熟語も 入る（読みは 1字ずつ）', nw.includes('新(あたら)しい') && nw.includes('電(でん)車(しゃ)'), J(nw));
+const wr = K.parseWord('電(でん)車(しゃ)');
+t('ノートでも 読みが 1字ずつ そろう', J(wr.rubies) === J([{ start: 0, len: 1, reading: 'でん' }, { start: 1, len: 1, reading: 'しゃ' }]));
+
+/* ---------- 読みがなの ばしょ（書く □・（ ）に あわせる） ---------- */
+const sp = s => K.parseSentence(s).target.spans.map(x => `${x.start}:${x.len}:${x.reading}${x.kana ? '*' : ''}`).join(' ');
+t('「・」で 1字ずつの 読み', sp('[電車](でん・しゃ)に のる') === '0:1:でん 1:1:しゃ');
+t('全角の ｜ でも 区切れる', sp('[電車](でん｜しゃ)') === '0:1:でん 1:1:しゃ');
+t('送りがなは その 字の となりに そのまま', sp('[近く](ちかく)') === '0:1:ちか 1:1:く*');
+t('とちゅうの かなも 目じるしに', sp('[組み立てる](くみたてる)') === '0:1:く 1:1:み* 2:1:た 3:1:て* 4:1:る*' && sp('[組み立てる](くみ・たてる)') === sp('[組み立てる](くみたてる)'));
+t('区切れない 熟語（今日）は 2字に まとめて', sp('[今日](きょう)は 雨') === '0:2:きょう');
+t('区切りの 数が ちがう → エラー', /数/.test(K.parseSentence('[電車](でん・しゃ・い)').error || ''));
+t('区切りと 送りがなが あわない → エラー', !!K.parseSentence('[夏休み](なつ・やすむ)').error);
+t('「・」は 読みから のぞく', K.parseSentence('[電車](でん・しゃ)').target.reading === 'でんしゃ');
+const multi = appOk.filter(p => p.target.kanji.length > 1 && p.target.spans.some(x => !x.kana && x.len > 1)).map(p => p.target.text);
+t('アプリの 熟語は 1字ずつ 読みが ある（熟字訓の 今日・明日・時計 だけ まとめる）', new Set(multi).size <= 3 && multi.every(w => ['今日', '明日', '時計'].includes(w)), [...new Set(multi)].join(' '));
+
+/* ---------- 書く らんの 大きさ ---------- */
+const gA = K.testGeometry(10);
+const okuriP = K.parseSentence('[近く](ちかく)の 川'), boxP = K.parseSentence('[春](はる)に なる');
+const cO = K.charSize(okuriP, 'kaki', gA), cB = K.charSize(boxP, 'kaki', gA);
+t('（ ）の 1字ぶんは □と 同じ 大きさ', K.BOX * cO >= 11 && K.BOX * cB >= 11, `（ ）${(K.BOX * cO).toFixed(1)}mm・□${(K.BOX * cB).toFixed(1)}mm`);
+t('10問 A4 で □は 1.2cm いじょう（ふつうの 文）', K.BOX * K.charSize(K.parseSentence('[夏](なつ)休みに 海へ 行く'), 'kaki', gA) >= 12);
 const nwAll = K.noteWords(appOk, [...K.KANJI2], 3);
 const badWords = nwAll.filter(w => { const r = K.parseWord(w); return r.error || !r.rubies.length; });
 t('160字の ことばが ぜんぶ ノートに 入る（読みがな つき）', nwAll.length >= 160 * 2 && badWords.length === 0, badWords.join(' '));
