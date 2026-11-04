@@ -20,7 +20,16 @@
    tsuunen-hoshi        星 ／ 小さい 星 ／ 丸
    tsuunen-heart        ハート ／ 小さい ハート ／ 丸
 
+1b. frames-src/rich/<名前>-<かたち>.webp … にぎやかな わくの もと画像（かたち＝tate たて長・yoko よこ長・kaku 正方形）
+   入手もと: 1 と 同じく、もちぬしが ChatGPT（画像生成）で 作った もの（文章だけの プロンプトで 作った オリジナル）。
+   ライセンス・メモ: 1 と 同じ。
+   haru-sakura          さくらの 花・つぼみ・えだ・花びら、右上に 小鳥
+
 2. frames/<名前>/corner.svg・a.svg・b.svg、frames/sizes.js … 1 から 作った もの
    作りかた: tools/make_frames.py（もと画像を 白黒に して、すみの 絵と へんの 絵を 1つずつ 切り出し、
              potrace〔potracer〕で ベクター〔SVG〕に した もの）。もと画像を ふやしたら もう一度 うごかす。
    アプリでは すみの 絵を 4すみに おき（右がわは 左右 はんてん）、A・B を 面の 大きさに あわせて 交互に ならべます。
+
+3. frames/rich/<名前>-<かたち>.svg、frames/rich/sizes.js … 1b から 作った もの
+   作りかた: tools/make_rich.py（白黒に して まるごと potrace で SVG に し、まん中の 書ける ところ〔長方形〕を はかる）。
+   アプリでは 面の 形に いちばん 近い 1まいを えらび、ゆがめずに 面の 中へ おさめます。

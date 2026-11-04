@@ -4,7 +4,9 @@
 
   const $ = (s) => document.querySelector(s);
   const FRAMES = window.FRAMES;
-  const SIZES = window.FRAME_SIZES;
+  const SIZES = window.FRAME_SIZES;      // シンプルな わく（すみ・へんの 絵）
+  const RICH = window.RICH_SIZES || {};   // にぎやかな わく（まるごと 1まいの 絵）
+  const byId = (id) => FRAMES.find((f) => f.id === id);
   const NONE = 'none';
 
   // ---------- きまり（mm） ----------
@@ -24,7 +26,7 @@
   const PX_PER_MM = 96 / 25.4;
 
   const DEF = { paper: 'tate', faces: 2, dir: 'yoko', grade: 'chu', lines: null, atena: true, yori: true,
-    frame: 'haru-sakura', mode: 'same', season: 'all', view: 'fit' };
+    frame: 'haru-sakura-r', mode: 'same', season: 'all', view: 'fit' };
   const KEY = 'binsen.v1';
   let S = load();
 
@@ -34,7 +36,7 @@
       if (v && typeof v === 'object') {
         const s = { ...DEF, ...v };
         if (!PAPER[s.paper] || !GRID[s.paper][s.faces] || !GRADES[s.grade]) return { ...DEF };
-        if (s.frame !== NONE && !SIZES[s.frame]) s.frame = DEF.frame;
+        if (s.frame !== NONE && !byId(s.frame)) s.frame = DEF.frame;
         return s;
       }
     } catch (e) { /* つかえない ときは はじめの 設定 */ }
@@ -52,12 +54,48 @@
   // b = わくの 帯の はば、c = すみの 絵の 大きさの めやす
   // cw・ch = すみの 絵の ほんとうの はば・高さ（バスの ような よこ長の 絵も 小さく なりすぎない ように 面積で あわせる）
   function frameGeom(fw, fh, fid) {
-    if (!fid || fid === NONE) return { b: 0, c: 0, cw: 0, ch: 0 };
+    if (!fid || !SIZES[fid]) return { b: 0, c: 0, cw: 0, ch: 0 };
     const b = clamp(Math.min(fw, fh) * 0.1, 4.5, 13);
     const c = b * 1.55;
     const [w0, h0] = SIZES[fid].corner;
     const s = Math.min(c / Math.sqrt(w0 * h0), (c * 1.4) / Math.max(w0, h0));
     return { b, c, cw: w0 * s, ch: h0 * s };
+  }
+
+  // にぎやかな わく：面の 形に いちばん 近い 絵（たて長・よこ長・正方形）を えらび、ゆがめずに 面の 中へ おさめる
+  function richGeom(fid, fw, fh) {
+    const set = RICH[byId(fid).src];
+    let best = null;
+    for (const [shape, v] of Object.entries(set)) {
+      const d = Math.abs(Math.log(fw / fh) - Math.log(v.size[0] / v.size[1]));
+      if (!best || d < best.d) best = { d, shape, v };
+    }
+    const [w0, h0] = best.v.size;
+    const s = Math.min(fw / w0, fh / h0);
+    const ox = (fw - w0 * s) / 2, oy = (fh - h0 * s) / 2;
+    const [ix, iy, iw, ih] = best.v.inner;
+    return {
+      src: `assets/frames/rich/${byId(fid).src}-${best.shape}.svg`,
+      box: { x: ox, y: oy, w: w0 * s, h: h0 * s },
+      inner: { x: ox + ix * s, y: oy + iy * s, w: iw * s, h: ih * s },
+    };
+  }
+
+  // 行を ひける ところ（面の 中の mm）
+  function areaFor(fid, fw, fh) {
+    const f = byId(fid);
+    if (f && f.rich) {
+      const { inner } = richGeom(fid, fw, fh);
+      const p = 1.5;
+      return { x: inner.x + p, y: inner.y + p, w: inner.w - 2 * p, h: inner.h - 2 * p };
+    }
+    const g = frameGeom(fw, fh, fid);
+    const pad = g.b ? 2 : 5;
+    // 行が すみの 絵に ぶつからない ように、行の はしの ほうは すみの 絵の 内がわから
+    let ix = g.b + pad;
+    let iy = g.b + pad;
+    if (g.b) { if (S.dir === 'yoko') iy = g.ch + 1.5; else ix = g.cw + 1.5; }
+    return { x: ix, y: iy, w: fw - 2 * ix, h: fh - 2 * iy };
   }
 
   function layout() {
@@ -67,16 +105,12 @@
     const ph = (H - 2 * MARGIN) / rows;
     const fw = pw - 2 * CUT;
     const fh = ph - 2 * CUT;
-    // 面ごとに わくが ちがう ときは、すみの 絵が いちばん 大きい ものに あわせる
+    // 面ごとに わくが ちがう ときは、どの わくでも 絵に ぶつからない ところ（かさなる ところ）に 行を ひく
     const fids = [...new Set(Array.from({ length: cols * rows }, (_, i) => frameFor(i)))];
-    const gs = fids.map((f) => frameGeom(fw, fh, f));
-    const g = gs.reduce((a, x) => ({ b: Math.max(a.b, x.b), c: Math.max(a.c, x.c), cw: Math.max(a.cw, x.cw), ch: Math.max(a.ch, x.ch) }));
-    const pad = g.b ? 2 : 5;
-    // 行が すみの 絵に ぶつからない ように、行の はしの ほうは すみの 絵の 内がわから
-    let ix = g.b + pad;
-    let iy = g.b + pad;
-    if (g.b) { if (S.dir === 'yoko') iy = g.ch + 1.5; else ix = g.cw + 1.5; }
-    const area = { x: ix, y: iy, w: fw - 2 * ix, h: fh - 2 * iy };
+    const area = fids.map((f) => areaFor(f, fw, fh)).reduce((a, b) => {
+      const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y);
+      return { x, y, w: Math.min(a.x + a.w, b.x + b.w) - x, h: Math.min(a.y + a.h, b.y + b.h) - y };
+    });
     const across = S.dir === 'yoko' ? area.h : area.w; // 行が ならぶ ほう
     const along = S.dir === 'yoko' ? area.w : area.h;  // 1行の ながさ
     const gp = GRADES[S.grade].pitch;
@@ -88,11 +122,16 @@
     const pitch = across / n;
     const body = n - need + 1;
     const perLine = Math.max(1, Math.floor(along / gp));
-    return { W, H, cols, rows, pw, ph, fw, fh, g, area, across, along, gp, fit, need, maxLines, auto, n, pitch, body, perLine };
+    return { W, H, cols, rows, pw, ph, fw, fh, area, across, along, gp, fit, need, maxLines, auto, n, pitch, body, perLine };
   }
 
   // ---------- わくを かく ----------
   function frameHTML(fid, fw, fh) {
+    const f = byId(fid);
+    if (f && f.rich) {
+      const { src, box } = richGeom(fid, fw, fh);
+      return `<img class="motif" src="${src}" alt="" style="left:${mm(box.x)};top:${mm(box.y)};width:${mm(box.w)};height:${mm(box.h)}">`;
+    }
     const sz = SIZES[fid];
     if (!sz) return '';
     const g = frameGeom(fw, fh, fid);
@@ -265,7 +304,7 @@
     } else if (L.pitch < L.gp - 0.05) {
       warn.push(`行の はばが 学年の めやす（${L.gp}mm）より せまく なって います。`);
     }
-    const fr = FRAMES.find((f) => f.id === S.frame);
+    const fr = byId(S.frame);
     if (S.faces >= 12 && (S.mode === 'cycle' ? seasonFrames().some((f) => f.fine) : fr && fr.fine)) {
       warn.push('こまかい 絵の わくは、小さい 面だと 絵が つぶれやすいです。');
     }
