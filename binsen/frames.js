@@ -1,0 +1,24 @@
+// わくの いちらん（絵は assets/frames/<id>/ に ある。大きさは assets/frames/sizes.js）
+// fine: 絵が こまかいので 小さい 面（12面・16面）では つぶれやすい
+window.SEASONS = [
+  ['all', 'ぜんぶ'],
+  ['haru', 'はる'],
+  ['natsu', 'なつ'],
+  ['aki', 'あき'],
+  ['fuyu', 'ふゆ'],
+  ['kengaku', 'ぎょうじ・見学'],
+  ['tsuunen', '通年'],
+];
+
+window.FRAMES = [
+  { id: 'haru-sakura', name: 'さくら', season: 'haru' },
+  { id: 'natsu-asagao', name: 'あさがお', season: 'natsu' },
+  { id: 'natsu-himawari', name: 'ひまわり', season: 'natsu', fine: true },
+  { id: 'aki-momiji', name: 'もみじ', season: 'aki' },
+  { id: 'aki-donguri', name: 'どんぐり', season: 'aki', fine: true },
+  { id: 'fuyu-yuki', name: 'ゆき', season: 'fuyu' },
+  { id: 'kengaku-norimono', name: 'のりもの', season: 'kengaku', fine: true },
+  { id: 'kengaku-hatake', name: 'やさい', season: 'kengaku', fine: true },
+  { id: 'tsuunen-hoshi', name: 'ほし', season: 'tsuunen' },
+  { id: 'tsuunen-heart', name: 'ハート', season: 'tsuunen' },
+];

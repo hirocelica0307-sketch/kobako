@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>おれいの てがみ びんせん</title>
+<meta name="description" content="わくの 絵と 学年を えらぶだけで、けい線つきの 便せんを A4 で いんさつ できる">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One:wght@600&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top no-print">
+  <h1>おれいの てがみ びんせん</h1>
+  <p>わくの 絵と 学年を えらぶだけで、けい線つきの 便せんが できあがります（わくは 線画なので 色ぬりも できます）</p>
+</header>
+
+<div class="layout">
+  <aside class="side no-print">
+    <button id="b-print" class="print-btn">いんさつする</button>
+    <p id="note" class="note" hidden></p>
+
+    <div class="field">
+      <div class="lbl"><span class="num">1</span>ようし</div>
+      <div class="seg" id="s-paper">
+        <button data-v="tate">A4 たて</button>
+        <button data-v="yoko">A4 よこ</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="lbl"><span class="num">2</span>1まいに いくつ</div>
+      <div class="seg seg-faces" id="s-faces">
+        <button data-v="1">1面</button><button data-v="2">2面</button><button data-v="4">4面</button><button data-v="6">6面</button>
+        <button data-v="8">8面</button><button data-v="9">9面</button><button data-v="12">12面</button><button data-v="16">16面</button>
+      </div>
+      <p class="hint" id="i-face"></p>
+    </div>
+
+    <div class="field">
+      <div class="lbl"><span class="num">3</span>かきかた</div>
+      <div class="seg" id="s-dir">
+        <button data-v="yoko">よこ書き</button>
+        <button data-v="tate">たて書き</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="lbl"><span class="num">4</span>字の 大きさ（学年）</div>
+      <div class="seg" id="s-grade">
+        <button data-v="tei"><b>1・2年</b><span>行の はば 15mm</span></button>
+        <button data-v="chu"><b>3・4年</b><span>12mm</span></button>
+        <button data-v="kou"><b>5・6年</b><span>8mm</span></button>
+      </div>
+      <p class="hint strong" id="i-fit"></p>
+      <div class="lines">
+        <span>行の 数</span>
+        <button id="b-minus" aria-label="行を へらす">−</button>
+        <b id="i-lines">0</b>
+        <button id="b-plus" aria-label="行を ふやす">＋</button>
+        <button id="b-reset" class="sub">めやすに もどす</button>
+      </div>
+      <p class="hint" id="i-detail"></p>
+      <p class="warn" id="i-warn" hidden></p>
+      <div class="checks">
+        <label><input type="checkbox" id="c-atena">「＿＿へ」の 行（あて名）</label>
+        <label><input type="checkbox" id="c-yori">「＿＿より」の 行（なまえ）</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="lbl"><span class="num">5</span>わくの 絵</div>
+      <div class="seg" id="s-mode">
+        <button data-v="same">ぜんぶ 同じ</button>
+        <button data-v="cycle">じゅんに くりかえす</button>
+      </div>
+      <div class="chips" id="s-season"></div>
+      <div class="frames" id="frames"></div>
+      <p class="hint" id="i-frame"></p>
+    </div>
+
+    <details class="help">
+      <summary>つかいかた</summary>
+      <ul>
+        <li>①〜⑤を えらぶと、右の 見本が すぐに かわります。「いんさつする」で A4 に いんさつ できます。</li>
+        <li>いんさつの ときは、ブラウザの 「倍率 100%（実際の サイズ）」「余白 なし」に すると、行の はばが ぴったりに なります。</li>
+        <li>2面いじょうの ときは、うすい 点線で 切りはなせます。</li>
+        <li>「じゅんに くりかえす」に すると、えらんで いる きせつの わくを 1面ずつ じゅんに つかいます。</li>
+        <li>えらんだ 設定は この 端末の ブラウザの 中だけに のこります。</li>
+      </ul>
+    </details>
+  </aside>
+
+  <main class="main">
+    <div class="viewbar no-print">
+      <span>ひょうじ：</span>
+      <div class="seg mini" id="s-view">
+        <button data-v="fit">ぴったり</button>
+        <button data-v="big">大きく</button>
+      </div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="zoom" id="zoom"><div class="sheet" id="sheet"></div></div>
+    </div>
+  </main>
+</div>
+
+<script src="assets/frames/sizes.js"></script>
+<script src="frames.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
