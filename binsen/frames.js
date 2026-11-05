@@ -15,6 +15,7 @@ window.FRAMES = [
   { id: 'haru-sakura-r', src: 'haru-sakura', rich: true, name: 'さくらと 小鳥', season: 'haru', fine: true },
   { id: 'natsu-asagao-r', src: 'natsu-asagao', rich: true, name: 'あさがおと じょうろ', season: 'natsu', fine: true },
   { id: 'natsu-himawari-r', src: 'natsu-himawari', rich: true, name: 'ひまわりと むぎわらぼうし', season: 'natsu', fine: true },
+  { id: 'aki-momiji-r', src: 'aki-momiji', rich: true, name: 'もみじと とんぼ', season: 'aki', fine: true },
   { id: 'haru-sakura', name: 'さくら', season: 'haru' },
   { id: 'natsu-asagao', name: 'あさがお', season: 'natsu' },
   { id: 'natsu-himawari', name: 'ひまわり', season: 'natsu', fine: true },
