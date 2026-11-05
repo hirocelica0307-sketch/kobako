@@ -13,6 +13,7 @@ window.SEASONS = [
 // rich: にぎやかな わく（assets/frames/rich/<src>-tate・yoko・kaku.svg を まるごと つかう）
 window.FRAMES = [
   { id: 'haru-sakura-r', src: 'haru-sakura', rich: true, name: 'さくらと 小鳥', season: 'haru', fine: true },
+  { id: 'natsu-asagao-r', src: 'natsu-asagao', rich: true, name: 'あさがおと じょうろ', season: 'natsu', fine: true },
   { id: 'haru-sakura', name: 'さくら', season: 'haru' },
   { id: 'natsu-asagao', name: 'あさがお', season: 'natsu' },
   { id: 'natsu-himawari', name: 'ひまわり', season: 'natsu', fine: true },
