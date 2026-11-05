@@ -436,6 +436,11 @@
         updateView();
         applyColumnDisplay();
         renderTodoCounts();
+        // 印刷の設定（入りきらないときの扱い）を、この端末で前にえらんだものにする。
+        // 印刷の設定を変えたら、はみ出すマスの赤い三角も調べ直す。
+        restorePrintFit();
+        const pm = document.getElementById('printModal');
+        if (pm) pm.addEventListener('change', function() { rememberPrintFit(); schedulePrintOverCheck(); });
         if (serverData && !saveBlocked) checkDraftOnStart();
         // 前の版が入れた祝日の名前や名簿を片づけたときは、保存しておく
         if ((holCleaned || stuCleaned) && serverData && !saveBlocked && document.getElementById('dialogModal').style.display !== 'flex') requestSave();
@@ -658,6 +663,7 @@
     function syncToServer() { requestSave(); }
 
     function requestSave() {
+      schedulePrintOverCheck();
       if (saveBlocked) { showToast("閲覧のみのモードです（保存されません）"); return; }
       pendingSave = true;
       setSaveState('dirty');
@@ -2294,6 +2300,61 @@
       frame.contentWindow.print();
     }
 
+    // 見えないところで「ふつうの枠のまま」の印刷ページを作り、はみ出すマスを調べる。
+    // はみ出すマスは、週案の画面で右下に小さな赤い三角を出す（書いている途中に気づけるように）。
+    let printOverTimer = null, printOverSeq = 0;
+    const PRINT_OVER_TITLE = 'このマスは、ふつうの大きさで印刷すると枠に入りきりません';
+    function schedulePrintOverCheck() {
+      if (printOverTimer) clearTimeout(printOverTimer);
+      printOverTimer = setTimeout(runPrintOverCheck, 700);
+    }
+    function runPrintOverCheck() {
+      printOverTimer = null;
+      let fr = document.getElementById('printCheckFrame');
+      if (!fr) {
+        fr = document.createElement('iframe');
+        fr.id = 'printCheckFrame';
+        fr.title = '印刷の確認用（見えません）';
+        fr.setAttribute('aria-hidden', 'true');
+        fr.tabIndex = -1;
+        fr.style.cssText = 'position:fixed; left:-12000px; top:0; width:1200px; height:1100px; border:0; visibility:hidden; pointer-events:none;';
+        document.body.appendChild(fr);
+      }
+      const modeEl = document.querySelector('input[name="printMode"]:checked');
+      let html;
+      try { html = buildWeekPrintHtml(modeEl ? modeEl.value : 'kanji', 'none'); } catch (e) { return; }
+      const seq = ++printOverSeq;
+      const week = fmtDate(currentMonday);
+      fr.onload = function() {
+        const doc = fr.contentDocument;
+        if (!doc) return;
+        const done = function() {
+          if (seq !== printOverSeq || week !== fmtDate(currentMonday)) return;
+          const over = {};
+          Array.prototype.forEach.call(doc.querySelectorAll('td[data-cell]'), function(td) {
+            const els = [td].concat(Array.prototype.slice.call(td.querySelectorAll('.fitbox, .pslot, .unit')));
+            if (els.some(function(el) { return el.scrollHeight > el.clientHeight + 1; })) over[td.getAttribute('data-cell')] = true;
+          });
+          applyPrintOverMarks(over);
+        };
+        if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(done); else done();
+      };
+      fr.srcdoc = html;
+    }
+    function applyPrintOverMarks(over) {
+      Array.prototype.forEach.call(document.querySelectorAll('.timetable td.print-over'), function(c) {
+        if (over[c.id.replace(/^cell-/, '')]) return;
+        c.classList.remove('print-over');
+        if (c.title === PRINT_OVER_TITLE) c.removeAttribute('title');
+      });
+      Object.keys(over).forEach(function(k) {
+        const c = document.getElementById('cell-' + k);
+        if (!c) return;
+        c.classList.add('print-over');
+        if (!c.title) c.title = PRINT_OVER_TITLE;
+      });
+    }
+
     // 印刷する紙の中で動かす。この関数は、文字にして印刷ページへ埋めこむ（アプリの画面では呼ばない）。
     // 1) 行ごとに、中身がちょうど入る高さを測る
     // 2) 文字の多い行は高く、空いている行は低くして、A4 1枚にそろえる（授業の行はなるべく同じ高さ）
@@ -2354,14 +2415,16 @@
       }
 
       let chosen = null, k = 1, m = null;
-      for (k = 1; k >= o.kMin - 0.001; k = Math.round((k - 0.05) * 100) / 100) {
+      // 「文字の大きさを保つ」ときは、文字は小さくしない（入らなければ2枚にする）
+      const kMin = o.keepSize ? 1 : o.kMin;
+      for (k = 1; k >= kMin - 0.001; k = Math.round((k - 0.05) * 100) / 100) {
         m = measure(k);
         for (let stage = 0; stage < 3 && !chosen; stage++) chosen = plan(m, stage);
         if (chosen) break;
       }
       if (!chosen) {
         // いちばん小さくしても入らない：文字は切らずに、入るだけの高さにして2枚目へ送る
-        k = o.kMin;
+        k = kMin;
         m = measure(k);
         chosen = m.need.map(function(n, i) { return grow[i] ? Math.max(n, 8) : Math.max(n, o.bandMin); });
       }
@@ -2369,7 +2432,9 @@
       rows.forEach(function(tr, i) { setRow(tr, chosen[i]); });
       const over = sheet.getBoundingClientRect().height / MM > o.pageH + 0.5;
       if (note) {
-        note.textContent = over ? '文字が多く、1枚に入りきらないため、2枚に分かれます（文字の大きさ ' + Math.round(k * 100) + '%）。文字を少し減らすと1枚に入ります。'
+        note.textContent = over ? (o.keepSize
+                           ? '文字の大きさを保つため、2枚に分かれます。1枚にしたいときは、印刷の設定で「1枚に収める」をえらんでください。'
+                           : '文字が多く、1枚に入りきらないため、2枚に分かれます（文字の大きさ ' + Math.round(k * 100) + '%）。文字を少し減らすと1枚に入ります。')
                          : (k < 1 ? '文字がすべて入るように、文字を ' + Math.round(k * 100) + '% に小さくしました。' : '');
         note.style.display = note.textContent ? 'block' : 'none';
       }
@@ -2394,7 +2459,29 @@
       return css.replace(/font-size:\s*([\d.]+)pt/g, 'font-size: calc($1pt * var(--k, 1))');
     }
 
+    // 入りきらないときの扱い：'fit' = 1枚に収める（文字を小さくする） ／ 'keep' = 文字の大きさを保つ（2枚に分ける）
+    const PRINT_FIT_KEY = 'shuuan_print_fit';
+    function printFitMode() {
+      const el = document.querySelector('input[name="printFit"]:checked');
+      return (el && el.value === 'keep') ? 'keep' : 'fit';
+    }
+    function rememberPrintFit() {
+      try { localStorage.setItem(PRINT_FIT_KEY, printFitMode()); } catch (e) {}
+    }
+    function restorePrintFit() {
+      let v = '';
+      try { v = localStorage.getItem(PRINT_FIT_KEY) || ''; } catch (e) {}
+      const el = document.querySelector('input[name="printFit"][value="' + (v === 'keep' ? 'keep' : 'fit') + '"]');
+      if (el) el.checked = true;
+    }
+
     function printTimetable(mode) {
+      rememberPrintFit();
+      openPrintWindow(buildWeekPrintHtml(mode, printFitMode()));
+    }
+
+    // 週案の印刷ページを組み立てる。fit：'fit' / 'keep'、'none' は自動で合わせない（ふつうの枠のまま。入りきらないマスを調べるのに使う）
+    function buildWeekPrintHtml(mode, fit) {
       const isH = (mode === 'hiragana');
       // 白黒（くっきり）：線と文字を黒で太めにし、うすい色は使わない。
       // 罫線は0.5pt以上・文字は黒、灰色の地は15%前後までにしておくと、コピーをくり返しても消えにくい。
@@ -2532,7 +2619,7 @@
             const bars = isEvent ? printPeriodBars(printPl, d, mono) : '';
             const barH = isEvent ? printPl.lanes * PD_LANE_MM : 0;
             const boxH = Math.max(2, h - 0.6 - barH).toFixed(1);
-            rows += '<td class="memo-cell" style="' + tint + 'height:' + h.toFixed(1) + 'mm;">' + bars +
+            rows += '<td class="memo-cell" data-cell="' + d + '-' + r.id + '" style="' + tint + 'height:' + h.toFixed(1) + 'mm;">' + bars +
                     (txt ? '<div class="box fitbox" data-sub="' + (0.6 + barH).toFixed(1) + '" style="height:' + boxH + 'mm;">' + txt + '</div>' : '') + '</td>';
             continue;
           }
@@ -2553,7 +2640,7 @@
             .filter(function(sl) { return sl.subject || !rtEmpty(sl.unit); }) : [];
           if (slots.length === 0 && !(showContact && data && !rtEmpty(data.contact))) {
             // 空きコマも枠だけは同じ形にして、手書きできるようにする
-            rows += '<td class="lesson-cell" style="' + cellStyle + '"><div class="cellbox fitbox" data-sub="0.6"' + boxStyle + '>' + ntime +
+            rows += '<td class="lesson-cell" data-cell="' + d + '-' + r.id + '" style="' + cellStyle + '"><div class="cellbox fitbox" data-sub="0.6"' + boxStyle + '>' + ntime +
                     '<div class="pslot"><div class="subj blank">&nbsp;</div>' +
                     (showUnit ? '<div class="unit"></div>' : '') + '</div></div></td>';
             continue;
@@ -2567,7 +2654,7 @@
                        (unitBadgeText(cellKey, sl.idx) ? '<span class="uc">' + unitBadgeText(cellKey, sl.idx) + '</span>' : '') + '</div>' : '') + '</div>';
           });
           if (showContact && !rtEmpty(data.contact)) inner += '<div class="contact"><b>連絡</b> ' + rtRender(data.contact) + '</div>';
-          rows += '<td class="lesson-cell" style="' + cellStyle + '"><div class="cellbox fitbox" data-sub="0.6"' + boxStyle + '>' + ntime + inner + '</div></td>';
+          rows += '<td class="lesson-cell" data-cell="' + d + '-' + r.id + '" style="' + cellStyle + '"><div class="cellbox fitbox" data-sub="0.6"' + boxStyle + '>' + ntime + inner + '</div></td>';
         }
         rows += '</tr>';
       });
@@ -2660,10 +2747,10 @@
       '<div class="credit-line">週案ノート</div>' +
       '</div>' +
       '<div class="print-btn-area"><button onclick="window.print();" style="padding:10px 28px; font-size:12pt; cursor:pointer; background:#2f5597; color:#fff; border:none; border-radius:5px; font-family:inherit; font-weight:800;">印刷する</button></div>' +
-      printFitScript({ pageH: isLand ? 192 : 279, cap: 40, growMin: 14, bandMin: 6, kMin: 0.55 }) +
+      (fit === 'none' ? '' : printFitScript({ pageH: isLand ? 192 : 279, cap: 40, growMin: 14, bandMin: 6, kMin: 0.55, keepSize: fit === 'keep' })) +
       '</body></html>';
 
-      openPrintWindow(h);
+      return h;
     }
 
     // ===== タグ =====
@@ -4960,7 +5047,7 @@
         '</style></head><body><div class="fit-note"></div><div class="sheet"><h1>' + head + '<small>' + escapeHTML((conf.grade ? conf.grade + '年' : '') + (conf.className || '')) + '</small></h1>' +
         '<table><thead><tr>' + idx.map(function(i) { return '<th>' + days[i] + '</th>'; }).join('') + '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
         '<div class="pb"><button onclick="window.print()">印刷する</button></div>' +
-        printFitScript({ pageH: 192, cap: 40, growMin: 20, bandMin: 6, kMin: 0.6 }) + '</body></html>';
+        printFitScript({ pageH: 192, cap: 40, growMin: 20, bandMin: 6, kMin: 0.6, keepSize: printFitMode() === 'keep' }) + '</body></html>';
       openPrintWindow(h);
     }
 
@@ -5166,6 +5253,7 @@
       loadWeekGoal();
       autoFoldForWeek();
       applyFold();
+      schedulePrintOverCheck();
       renderPrevPanel();
       renderTodoPanel();
       // 月の予定を開いているときは、そちらも書きなおす（月の予定から行事を直したとき）

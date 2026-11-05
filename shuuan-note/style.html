@@ -1171,6 +1171,12 @@
     .year-chip.on { background: var(--leaf); color: #fff; border-color: var(--leaf-dk); }
     .year-chip small { display: block; font-size: 0.68rem; font-weight: 700; opacity: 0.75; }
 
+    /* ふつうの大きさで印刷すると枠に入りきらないマス：右下の角に小さな赤い三角 */
+    .timetable tbody td.print-over::after {
+      content: ''; position: absolute; right: 0; bottom: 0; width: 0; height: 0; z-index: 6; pointer-events: none;
+      border-style: solid; border-width: 0 0 11px 11px; border-color: transparent transparent #d32f2f transparent;
+    }
+
     /* キーボードの矢印で動かしたときだけ出る目印。マウスやタッチでは出さない */
     .timetable td.sel { outline: 2px solid var(--sky-dk); outline-offset: -2px; }
 

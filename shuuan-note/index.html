@@ -346,6 +346,15 @@
           <p class="field-hint">白黒は、線を太めの黒、見出しを薄い灰色にして、コピーを重ねても線や字が消えにくいようにしています。色の付いた教科や矢印も、白地に黒わくで印刷します。</p>
         </div>
         <div class="field">
+          <label>文字が多くて入りきらないとき</label>
+          <div class="radio-row">
+            <label><input type="radio" name="printFit" value="fit" checked> 1枚に収める（文字を小さくする）</label>
+            <label><input type="radio" name="printFit" value="keep"> 文字の大きさを保つ（2枚に分ける）</label>
+          </div>
+          <p class="field-hint">どちらでも、まず行の高さを合わせて1枚に入れようとします。文字が切れることはありません。えらんだものは、この端末で覚えておきます。<br>
+          週案の画面で、マスの右下に<b>小さな赤い三角</b>が出ているところは、ふつうの大きさの枠に入りきらないマスです。</p>
+        </div>
+        <div class="field">
           <label>印刷する内容</label>
           <label class="check-line" style="margin-bottom:8px;"><input type="checkbox" id="printUnit" checked> 単元名も印刷する</label>
           <label class="check-line" style="margin-bottom:8px;"><input type="checkbox" id="printContact" checked> 連絡欄を印刷する</label>
