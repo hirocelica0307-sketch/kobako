@@ -25,6 +25,7 @@
    ライセンス・メモ: 1 と 同じ。
    haru-sakura          さくらの 花・つぼみ・えだ・花びら、右上に 小鳥
    natsu-asagao         あさがおの 花・つぼみ・ハートの 葉・つる、右下に じょうろ
+   natsu-himawari       ひまわり・葉・つぼみ・くも・とんぼ、右上に むぎわらぼうし
 
 2. frames/<名前>/corner.svg・a.svg・b.svg、frames/sizes.js … 1 から 作った もの
    作りかた: tools/make_frames.py（もと画像を 白黒に して、すみの 絵と へんの 絵を 1つずつ 切り出し、
