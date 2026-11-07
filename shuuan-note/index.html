@@ -346,6 +346,15 @@
           <p class="field-hint">白黒は、線を太めの黒、見出しを薄い灰色にして、コピーを重ねても線や字が消えにくいようにしています。色の付いた教科や矢印も、白地に黒わくで印刷します。</p>
         </div>
         <div class="field">
+          <label>文字が多くて入りきらないとき</label>
+          <div class="radio-row">
+            <label><input type="radio" name="printFit" value="fit" checked> 1枚に収める（文字を小さくする）</label>
+            <label><input type="radio" name="printFit" value="keep"> 文字の大きさを保つ（2枚に分ける）</label>
+          </div>
+          <p class="field-hint">どちらでも、まず行の高さを合わせて1枚に入れようとします。文字が切れることはありません。えらんだものは、この端末で覚えておきます。<br>
+          週案の画面で、マスの右下に<b>小さな赤い三角</b>が出ているところは、ふつうの大きさの枠に入りきらないマスです。</p>
+        </div>
+        <div class="field">
           <label>印刷する内容</label>
           <label class="check-line" style="margin-bottom:8px;"><input type="checkbox" id="printUnit" checked> 単元名も印刷する</label>
           <label class="check-line" style="margin-bottom:8px;"><input type="checkbox" id="printContact" checked> 連絡欄を印刷する</label>
@@ -524,6 +533,35 @@
     </div>
   </div>
 
+  <!-- ===== 時間割を週に入れる（入れかたをえらぶ） ===== -->
+  <div id="fillModal" class="modal-overlay" style="z-index: 1100;">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 id="fillTitle">時間割を入れる</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closeFillModal()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body">
+        <p class="field-hint" id="fillLead" style="margin-bottom:12px;"></p>
+        <div class="field">
+          <label>入れかた</label>
+          <div class="fill-pick">
+            <label class="fill-opt"><input type="radio" name="fillMode" value="empty" checked onchange="renderFillCounts()">
+              <span><b>空いているコマだけに入れる</b> <span class="fill-n" id="fillCntEmpty"></span><br>
+              <small>すでに教科・単元名・授業なし・メモなどが入っているコマは、そのままにします</small></span></label>
+            <label class="fill-opt"><input type="radio" name="fillMode" value="all" onchange="renderFillCounts()">
+              <span><b>すべて上書きする</b> <span class="fill-n" id="fillCntAll"></span><br>
+              <small>1〜6時間目を、そのとおりに作り直します（空欄のところは空欄になります）</small></span></label>
+          </div>
+        </div>
+        <p class="field-hint">まちがえたときは、すぐあとなら「元に戻す」で戻せます。</p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-soft" onclick="closeFillModal()">キャンセル</button>
+        <button class="btn btn-leaf btn-lg" id="fillRunBtn" onclick="runFill()">入れる</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== 基本時間割の選択 ===== -->
   <div id="baseChooserModal" class="modal-overlay">
     <div class="modal-box">
@@ -534,7 +572,7 @@
       <div class="modal-body">
         <p class="field-hint" style="margin-bottom:12px;">
           今週の「月〜金」「1〜6時間目」に、選んだ時間割の教科を入れます。<br>
-          基本時間割のとおりに作り直します。空欄のコマは空欄になり、単元名やメモは消えます。
+          次の画面で、<b>空いているコマだけに入れる</b>か、<b>すべて上書きする</b>かをえらべます。行事・メモ・連絡の欄は変わりません。
         </p>
         <div class="bt-pick" id="basePickList"></div>
       </div>
