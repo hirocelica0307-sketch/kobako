@@ -50,8 +50,8 @@
     // fold: true の行は、見出しを押すと1週間ぶんまとめて開閉できる。
     const ROWS = [
       { id: 'gyoji',   label: '行事', title: '行事予定', type: 'memo',   cls: 'row-event', print: true },
-      { id: 'renraku', label: '連絡', title: '連絡', type: 'memo', cls: 'row-note', print: true, fold: true },
       { id: 'memo',    label: 'メモ', title: 'メモ',  type: 'memo', cls: 'row-memo', print: false, fold: true },
+      { id: 'renraku', label: '連絡', title: '連絡', type: 'memo', cls: 'row-note', print: true, fold: true },
       { id: 'morning', label: '朝',   title: '朝の活動', type: 'memo',   cls: 'row-break', print: true },
       { id: '1', label: '1', title: '1時間目', type: 'lesson', cls: '', print: true },
       { id: '2', label: '2', title: '2時間目', type: 'lesson', cls: '', print: true },
@@ -5219,10 +5219,11 @@
         else if (vacName) { th.style.background = '#eef4ff'; th.style.color = 'var(--sky-dk)'; }
         else if (i === 5) { th.className = 'day-th th-sat'; }
 
-        // 今日はいちばん強い印にする（土日・祝日・休業より優先）
+        // 今日はいちばん強い印にする（土日・祝日・休業より優先）。見出しのいちばん上に「今日」と出す
         if (dStr === todayStr) {
           th.className = 'day-th today-th';
           th.style.background = ''; th.style.color = '';
+          th.innerHTML = '<span class="today-tag">今日</span>' + th.innerHTML;
         }
 
         // 年度の外の日は、書けないことが見て分かるようにする
@@ -5240,7 +5241,7 @@
       renderPeriodHeads();
       ALL_PERIODS.forEach(function(p) { for (let d = 0; d < 7; d++) { renderCell(d, p); } });
 
-      // 今日の列をうすい青にする
+      // 今日の列は、うすい青の地と、左右の紺の線で囲む
       for (let d = 0; d < 7; d++) {
         const dt = new Date(currentMonday); dt.setDate(dt.getDate() + d);
         const isToday = (fmtDate(dt) === todayStr);
@@ -6142,8 +6143,8 @@
     let csvSkipNote = '';   // 読めなかった行などの知らせ（えらび直しても変わらない）
     let csvSkipArgs = [0, 0];
 
-    // 入れる場所（行事・連絡・メモ）
-    const CSV_DESTS = [['gyoji', '行事'], ['renraku', '連絡'], ['memo', 'メモ']];
+    // 入れる場所（行事・メモ・連絡。週案の画面の並びと同じ）
+    const CSV_DESTS = [['gyoji', '行事'], ['memo', 'メモ'], ['renraku', '連絡']];
     function csvDestName(d) { const x = CSV_DESTS.filter(function(v) { return v[0] === d; })[0]; return x ? x[1] : '行事'; }
 
     // その場所に、同じものがもう入っているか
@@ -6259,7 +6260,7 @@
         '<div class="csv-dest-all"><span>チェックしたものを、まとめて</span>' +
           CSV_DESTS.map(function(v) { return '<button type="button" class="btn btn-soft btn-sm" data-d="' + v[0] + '" onclick="setCsvDestChecked(this.dataset.d)">' + v[1] + 'へ</button>'; }).join('') +
         '</div>' +
-        '<div class="csv-hint">取り込まないものは、左のチェックを外してください。右の「行事・連絡・メモ」で、1件ずつ入れる場所をえらべます。</div>' +
+        '<div class="csv-hint">取り込まないものは、左のチェックを外してください。右の「行事・メモ・連絡」で、1件ずつ入れる場所をえらべます。</div>' +
         (csvSkipNote ? '<div class="csv-hint">' + csvSkipNote + '</div>' : '');
 
       const btn = document.getElementById('csvRunBtn');
