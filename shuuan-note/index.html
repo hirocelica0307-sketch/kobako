@@ -533,6 +533,35 @@
     </div>
   </div>
 
+  <!-- ===== 時間割を週に入れる（入れかたをえらぶ） ===== -->
+  <div id="fillModal" class="modal-overlay" style="z-index: 1100;">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 id="fillTitle">時間割を入れる</h3>
+        <div class="head-tools"><button class="icon-btn" onclick="closeFillModal()" aria-label="閉じる">✕</button></div>
+      </div>
+      <div class="modal-body">
+        <p class="field-hint" id="fillLead" style="margin-bottom:12px;"></p>
+        <div class="field">
+          <label>入れかた</label>
+          <div class="fill-pick">
+            <label class="fill-opt"><input type="radio" name="fillMode" value="empty" checked onchange="renderFillCounts()">
+              <span><b>空いているコマだけに入れる</b> <span class="fill-n" id="fillCntEmpty"></span><br>
+              <small>すでに教科・単元名・授業なし・メモなどが入っているコマは、そのままにします</small></span></label>
+            <label class="fill-opt"><input type="radio" name="fillMode" value="all" onchange="renderFillCounts()">
+              <span><b>すべて上書きする</b> <span class="fill-n" id="fillCntAll"></span><br>
+              <small>1〜6時間目を、そのとおりに作り直します（空欄のところは空欄になります）</small></span></label>
+          </div>
+        </div>
+        <p class="field-hint">まちがえたときは、すぐあとなら「元に戻す」で戻せます。</p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-soft" onclick="closeFillModal()">キャンセル</button>
+        <button class="btn btn-leaf btn-lg" id="fillRunBtn" onclick="runFill()">入れる</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== 基本時間割の選択 ===== -->
   <div id="baseChooserModal" class="modal-overlay">
     <div class="modal-box">
@@ -543,7 +572,7 @@
       <div class="modal-body">
         <p class="field-hint" style="margin-bottom:12px;">
           今週の「月〜金」「1〜6時間目」に、選んだ時間割の教科を入れます。<br>
-          基本時間割のとおりに作り直します。空欄のコマは空欄になり、単元名やメモは消えます。
+          次の画面で、<b>空いているコマだけに入れる</b>か、<b>すべて上書きする</b>かをえらべます。行事・メモ・連絡の欄は変わりません。
         </p>
         <div class="bt-pick" id="basePickList"></div>
       </div>

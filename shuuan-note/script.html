@@ -1572,43 +1572,111 @@
       openPeriodModal('', fmtDate(d));
     }
 
-    // 先週の内容を今週に写す
+    // ===== 時間割を週に入れる（基本時間割・先週から） =====
+    // どちらも「1〜6時間目」だけを入れる。行事・メモ・連絡・朝・業間・昼の欄にはさわらない。
+    // 入れかたは2つ：空いているコマだけに入れる（すでに書いたコマはそのまま）／すべて上書きする。
+
+    // 授業のコマが空いているか（教科・単元名・授業なし・連絡・メモ・添付のどれもない）
+    function lessonCellEmpty(v) {
+      if (!v) return true;
+      if (v.disabled) return false;
+      if (getSlots(v).some(function(s) { return s.subject || !rtEmpty(s.unit); })) return false;
+      if (!rtEmpty(v.contact) || !rtEmpty(v.record)) return false;
+      return !(v.attachments && v.attachments.length);
+    }
+
+    let fillPlan = null;   // いま開いている「入れかた」の画面の中身
+
+    // plan.cells(d, p) は、そのコマに入れるもの（null = 空にする、undefined = 何もしない）を返す
+    function openFillModal(plan) {
+      fillPlan = plan;
+      document.getElementById('fillTitle').innerText = plan.title;
+      document.getElementById('fillLead').innerHTML = plan.lead;
+      const empty = document.querySelector('input[name="fillMode"][value="empty"]');
+      if (empty) empty.checked = true;
+      renderFillCounts();
+      document.getElementById('fillModal').style.display = 'flex';
+    }
+    function closeFillModal() { document.getElementById('fillModal').style.display = 'none'; fillPlan = null; }
+    function fillMode() {
+      const el = document.querySelector('input[name="fillMode"]:checked');
+      return (el && el.value === 'all') ? 'all' : 'empty';
+    }
+
+    // その入れかたで変わるコマの一覧
+    function fillChanges(mode) {
+      const out = [];
+      if (!fillPlan) return out;
+      for (let d = 0; d < 7; d++) {
+        if (fillPlan.days.indexOf(d) === -1 || dayIsOutside(d)) continue;   // 年度の外には入れない
+        LESSON_PERIODS.forEach(function(p) {
+          const key = getDataKey(d, p);
+          const cur = appData[key];
+          const val = fillPlan.cells(d, p);
+          if (val === undefined) return;
+          if (mode === 'empty') {
+            if (!lessonCellEmpty(cur) || val === null) return;
+          } else if (val === null && !cur) return;
+          if (cur && val && JSON.stringify(cur) === JSON.stringify(val)) return;
+          out.push({ key: key, val: val, over: !lessonCellEmpty(cur) });
+        });
+      }
+      return out;
+    }
+
+    function renderFillCounts() {
+      const e = fillChanges('empty'), a = fillChanges('all');
+      const over = a.filter(function(c) { return c.over; }).length;
+      document.getElementById('fillCntEmpty').innerText = e.length + 'コマ';
+      document.getElementById('fillCntAll').innerText = a.length + 'コマ' + (over ? '（すでに書いた ' + over + 'コマも置きかわります）' : '');
+      const n = fillMode() === 'all' ? a.length : e.length;
+      const btn = document.getElementById('fillRunBtn');
+      btn.disabled = (n === 0);
+      btn.innerText = n ? n + 'コマに入れる' : (fillMode() === 'empty' ? '空いているコマがありません' : '変わるコマがありません');
+    }
+
+    function runFill() {
+      if (!fillPlan) return;
+      const mode = fillMode();
+      const changes = fillChanges(mode);
+      if (!changes.length) return;
+      const plan = fillPlan;
+      pushUndo(plan.undoLabel, weekKeys());
+      changes.forEach(function(c) {
+        if (c.val === null) delete appData[c.key];
+        else appData[c.key] = JSON.parse(JSON.stringify(c.val));
+      });
+      closeFillModal();
+      updateView(); syncToServer();
+      showToast(plan.doneLabel + '（' + (mode === 'all' ? 'すべて上書き' : '空いているコマだけ') + '・' + changes.length + 'コマ）', true);
+    }
+
+    // 先週の時間割（1〜6時間目）を今週に写す
     function copyLastWeek() {
       const last = new Date(currentMonday); last.setDate(last.getDate() - 7);
-      const srcKey = function(d, p) {
+      const srcOf = function(d, p) {
         const dt = new Date(last); dt.setDate(dt.getDate() + d);
-        return fmtDate(dt) + '-' + p;
+        return appData[fmtDate(dt) + '-' + p];
       };
+      const days = visibleDayIndexes();
       let found = 0;
-      for (let d = 0; d < 7; d++) {
-        ALL_PERIODS.forEach(function(p) { if (appData[srcKey(d, p)]) found++; });
-      }
-      if (found === 0) { uiAlert("先週には何も入っていません。"); return; }
-
-      uiConfirm('先週（' + (last.getMonth()+1) + '/' + last.getDate() + 'の週）の内容を、今週にまるごと写します。\n\n' +
-                '・教科・単元名・連絡・メモ・「授業なし」もそのまま写ります\n' +
-                '・今週にすでに入っている内容は上書きされます\n' +
-                '・添付ファイルのリンクも引き継がれます', function(ok) {
-        if (!ok) return;
-        pushUndo('先週から写す', weekKeys());
-        let n = 0;
-        for (let d = 0; d < 7; d++) {
-          if (dayIsOutside(d)) continue;   // 年度の外には写さない
-          ALL_PERIODS.forEach(function(p) {
-            const src = appData[srcKey(d, p)];
-            const dst = getDataKey(d, p);
-            if (!src) { delete appData[dst]; return; }
-            const copy = JSON.parse(JSON.stringify(src));
-            if (copy.attachments) {
-              copy.attachments.forEach(function(a) { a.id = Date.now() + Math.random(); });
-            }
-            appData[dst] = copy;
-            n++;
-          });
+      days.forEach(function(d) { LESSON_PERIODS.forEach(function(p) { if (!lessonCellEmpty(srcOf(d, p))) found++; }); });
+      if (found === 0) { uiAlert("先週の1〜6時間目には、何も入っていません。"); return; }
+      openFillModal({
+        title: '先週から写す',
+        lead: '先週（' + (last.getMonth()+1) + '/' + last.getDate() + 'の週）の<b>1〜6時間目</b>の教科・単元名・分けかた・「授業なし」を、今週に写します。<br>' +
+              '<b>行事・メモ・連絡・朝・業間・昼の欄は、変えません。</b>コマの中の連絡・メモ・所感・添付も写しません。',
+        days: days,
+        undoLabel: '先週から写す', doneLabel: '先週から写しました',
+        cells: function(d, p) {
+          const src = srcOf(d, p);
+          if (lessonCellEmpty(src)) return null;
+          if (src.disabled) return { disabled: true };
+          const v = JSON.parse(JSON.stringify(src));
+          v.contact = ''; v.record = ''; v.attachments = [];
+          return v;
         }
-        updateView(); syncToServer();
-        showToast(n + "コマを先週から写しました", true);
-      }, '写す');
+      });
     }
 
     // ===== 先週を横にならべる =====
@@ -2241,31 +2309,22 @@
         return;
       }
       closeBaseChooser();
-      uiConfirm('今週の「月〜金」「1〜6時間目」を「' + set.name + '」のとおりに作り直します。\n\n' +
-                '・基本時間割が空欄のコマは、空欄になります\n' +
-                '・「― 授業なし ―」のコマは、授業なしになります\n' +
-                '・教科が入っているコマは、その教科だけの状態になります\n\n' +
-                '【ご注意】いま入っている単元名・連絡・メモは消えます。\n' +
-                'すぐあとなら「元に戻す」で戻せます。', function(ok) {
-        if (!ok) return;
-        pushUndo('基本時間割の読み込み', weekKeys());
-        // 月〜金の1〜6時間目を、基本時間割のとおりに作り直す。
-        // 空欄は空欄に、「授業なし」は授業なしに、教科はその教科だけの状態にする。
-        for (let d = 0; d < 5; d++) {
-          if (dayIsOutside(d)) continue;   // 年度の外には入れない
-          for (let p = 1; p <= 6; p++) {
-            const val = cells[d + '-' + p];
-            const key = getDataKey(d, p);
-            if (!val) { delete appData[key]; continue; }
-            if (val === BT_OFF) { appData[key] = { disabled: true }; continue; }
-            const fresh = blankLesson();
-            fresh.subject = val;
-            appData[key] = fresh;
-          }
+      openFillModal({
+        title: '基本時間割「' + set.name + '」を入れる',
+        lead: '今週の<b>月〜金の1〜6時間目</b>に、「' + escapeHTML(set.name) + '」の教科を入れます。<br>' +
+              '<b>行事・メモ・連絡・朝・業間・昼の欄は、変えません。</b>',
+        days: [0, 1, 2, 3, 4],
+        undoLabel: '基本時間割の読み込み', doneLabel: '「' + set.name + '」を入れました',
+        // 空欄は空欄に、「授業なし」は授業なしに、教科はその教科だけの状態にする（上書きのとき）
+        cells: function(d, p) {
+          const val = cells[d + '-' + p];
+          if (!val) return null;
+          if (val === BT_OFF) return { disabled: true };
+          const fresh = blankLesson();
+          fresh.subject = val;
+          return fresh;
         }
-        updateView(); syncToServer();
-        showToast('「' + set.name + '」を読み込みました', true);
-      }, '読み込む');
+      });
     }
 
 

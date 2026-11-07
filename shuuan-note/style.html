@@ -875,6 +875,17 @@
       margin: 22px 0 10px; padding-bottom: 7px; border-bottom: 3px dotted var(--line);
     }
     .sec-title:first-child { margin-top: 0; }
+
+    /* 時間割を週に入れるときの「入れかた」 */
+    .fill-pick { display: flex; flex-direction: column; gap: 8px; }
+    .fill-opt {
+      display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; cursor: pointer;
+      border: 1px solid var(--line-2); border-radius: var(--r-md); background: var(--paper); font-weight: 500;
+    }
+    .fill-opt:has(input:checked) { border-color: var(--leaf); box-shadow: 0 0 0 2px rgba(44,74,124,0.18); background: #f3f6fb; }
+    .fill-opt input { margin-top: 4px; }
+    .fill-opt small { color: var(--brown-2); font-size: 0.76rem; }
+    .fill-n { color: var(--leaf-dk); font-weight: 800; font-size: 0.82rem; }
     /* ヘルプの中の「設定を開く ›」などのリンク */
     .help-go {
       display: inline-block; border: none; background: none; padding: 0 2px; cursor: pointer;
