@@ -1,4 +1,4 @@
-/* おれいの てがみ びんせん */
+/* 手紙ちゃん */
 :root {
   --bg: #f6f1ea;
   --card: #fff;
@@ -18,7 +18,8 @@ html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: v
 button, input { font-family: inherit; color: inherit; }
 
 .top { padding: 14px 20px 10px; }
-.top h1 { margin: 0; font-size: 22px; font-weight: 900; color: var(--accent); }
+.top h1 { margin: 0; font-size: 22px; font-weight: 900; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+.top h1 .logo { width: 32px; height: 32px; }
 .top p { margin: 4px 0 0; font-size: 13px; color: var(--sub); }
 
 .layout { display: grid; grid-template-columns: 360px 1fr; gap: 16px; padding: 0 16px 16px; align-items: start; }
