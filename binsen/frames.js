@@ -20,6 +20,7 @@ window.FRAMES = [
   { id: 'fuyu-yuki-r', src: 'fuyu-yuki', rich: true, name: 'ゆきと ゆきだるま', season: 'fuyu', fine: true },
   { id: 'kengaku-norimono-r', src: 'kengaku-norimono', rich: true, name: 'のりものと しょうぼうしょ', season: 'kengaku', fine: true },
   { id: 'kengaku-hatake-r', src: 'kengaku-hatake', rich: true, name: 'やさいと かご', season: 'kengaku', fine: true },
+  { id: 'tsuunen-hoshi-r', src: 'tsuunen-hoshi', rich: true, name: 'ほしと おつきさま', season: 'tsuunen', fine: true },
   { id: 'haru-sakura', name: 'さくら', season: 'haru' },
   { id: 'natsu-asagao', name: 'あさがお', season: 'natsu' },
   { id: 'natsu-himawari', name: 'ひまわり', season: 'natsu', fine: true },
