@@ -1,4 +1,4 @@
-おれいの てがみ びんせん ― つかって いる 素材（assets/）
+手紙ちゃん ― つかって いる 素材（assets/）
 ==================================================================
 
 1. frames-src/*.webp … わくの もと画像（10まい）
@@ -42,3 +42,10 @@
 3. frames/rich/<名前>-<かたち>.svg、frames/rich/sizes.js … 1b から 作った もの
    作りかた: tools/make_rich.py（白黒に して まるごと potrace で SVG に し、まん中の 書ける ところ〔長方形〕を はかる）。
    アプリでは 面の 形に いちばん 近い 1まいを えらび、ゆがめずに 面の 中へ おさめます。
+
+4. app-icon.png（64×64・すきとおし）・app-icon-180.png（180×180・白い 地）… アプリの アイコン
+   もと: Microsoft Fluent Emoji「3D」の Love letter（💌）
+   入手もと: https://github.com/microsoft/fluentui-emoji/blob/main/assets/Love%20letter/3D/love_letter_3d.png
+   ライセンス: MIT License（全文は リポジトリ直下の THIRD_PARTY_LICENSES.txt。画面には 表示しない）
+   ライセンス確認: https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE（MIT）
+   加工: 256×256 の PNG を 縮めた（180 は 白い 地に のせた）。2026-11-09 に 依頼者に 候補を 見せて きめた。
