@@ -27,6 +27,7 @@
    natsu-asagao         あさがおの 花・つぼみ・ハートの 葉・つる、右下に じょうろ
    natsu-himawari       ひまわり・葉・つぼみ・くも・とんぼ、右上に むぎわらぼうし
    aki-momiji           もみじ・いちょう・どんぐり・木の実・葉、右上に とんぼ
+   aki-donguri          どんぐり・まつぼっくり・くり・きのこ・葉・木の実、右上に リス
 
 2. frames/<名前>/corner.svg・a.svg・b.svg、frames/sizes.js … 1 から 作った もの
    作りかた: tools/make_frames.py（もと画像を 白黒に して、すみの 絵と へんの 絵を 1つずつ 切り出し、
