@@ -439,6 +439,7 @@
         // 印刷の設定（入りきらないときの扱い）を、この端末で前にえらんだものにする。
         // 印刷の設定を変えたら、はみ出すマスの赤い三角も調べ直す。
         restorePrintFit();
+        window.addEventListener('resize', scheduleFitWeek);
         const pm = document.getElementById('printModal');
         if (pm) pm.addEventListener('change', function() { rememberPrintFit(); schedulePrintOverCheck(); });
         if (serverData && !saveBlocked) checkDraftOnStart();
@@ -1662,6 +1663,7 @@
       let found = 0;
       days.forEach(function(d) { LESSON_PERIODS.forEach(function(p) { if (!lessonCellEmpty(srcOf(d, p))) found++; }); });
       if (found === 0) { uiAlert("先週の1〜6時間目には、何も入っていません。"); return; }
+      closeBaseChooser();
       openFillModal({
         title: '先週から写す',
         lead: '先週（' + (last.getMonth()+1) + '/' + last.getDate() + 'の週）の<b>1〜6時間目</b>の教科・単元名・分けかた・「授業なし」を、今週に写します。<br>' +
@@ -2279,20 +2281,23 @@
       renderBtTabs();
     }
 
-    // ホーム画面から、登録した基本時間割のどれを読み込むか選ぶ
+    // 「時間割を入れる」：基本時間割から入れるか、先週から入れるかをえらぶ
     function openBaseChooser() {
+      const last = new Date(currentMonday); last.setDate(last.getDate() - 7);
+      const lw = document.getElementById('fillLastWeekBtn');
+      if (lw) lw.innerText = '先週（' + weekLabel(last) + '）から入れる';
       const sets = getBaseSets(getConfig());
       const list = document.getElementById('basePickList');
-      list.innerHTML = sets.map(function(b, i) {
+      // 登録してあるものだけを出す（空の枠は出さない）
+      const btns = sets.map(function(b, i) {
         const filled = Object.keys(b.cells || {}).filter(function(k) { return b.cells[k]; }).length;
-        if (!filled) {
-          return '<button type="button" class="btn btn-soft" disabled style="opacity:.55; cursor:default;">' +
-                 BT_MARKS[i] + ' ' + escapeHTML(b.name) + '（まだ登録されていません）</button>';
-        }
+        if (!filled) return '';
         return '<button type="button" class="btn btn-leaf" onclick="loadBaseTimetable(' + i + ')">' +
                BT_MARKS[i] + ' ' + escapeHTML(b.name) + '（' + filled + 'コマ）</button>';
-      }).join('') +
-      '<p class="field-hint" style="margin-top:6px;">登録や編集は「設定」の中の「基本の時間割」からできます。</p>';
+      }).join('');
+      list.innerHTML = (btns || '<p class="empty-msg" style="padding:8px 4px;">基本の時間割が、まだ登録されていません。</p>') +
+        '<p class="field-hint" style="margin-top:6px;">登録や編集は ' +
+        '<button type="button" class="help-go" onclick="closeBaseChooser(); openSettingModal(\'set-base\')">設定の「基本の時間割」 ›</button> からできます（5つまで）。</p>';
       document.getElementById('baseChooserModal').style.display = 'flex';
     }
 
@@ -4948,19 +4953,108 @@
       if (area) {
         area.classList.toggle('compare', compareOn);
         area.classList.toggle('todo-on', sidePanel === 'todo');
+        area.classList.toggle('base-on', sidePanel === 'base');
       }
       document.body.classList.toggle('compare-on', sidePanel !== '');
       const cb = document.getElementById('compareBtn');
       if (cb) cb.innerText = compareOn ? '先週を隠す' : '先週と比べる';
       const tb = document.getElementById('todoBtn');
       if (tb) tb.classList.toggle('on', sidePanel === 'todo');
+      const bb = document.getElementById('baseViewBtn');
+      if (bb) {
+        bb.classList.toggle('on', sidePanel === 'base');
+        bb.innerText = sidePanel === 'base' ? '時間割を隠す' : '時間割を表示';
+      }
       if (compareOn) prevOffset = 1;
       renderPrevPanel();
       renderTodoPanel(true);
       renderTodoCounts();
+      renderBasePanel();
+      fitWeekHeight();
     }
 
     function toggleTodo() { setSidePanel('todo'); }
+    function toggleBaseView() { setSidePanel('base'); }
+
+    // ===== 時間割表を左に出す =====
+    // 登録してある基本の時間割を、見るだけの表で出す。右の週案はふだんどおり書ける。
+    let baseViewIndex = -1;
+
+    function setBaseView(i) { baseViewIndex = i; renderBasePanel(); }
+
+    function renderBasePanel() {
+      const panel = document.getElementById('basePanel');
+      if (!panel) return;
+      if (sidePanel !== 'base') { panel.innerHTML = ''; return; }
+      const sets = getBaseSets(getConfig());
+      const filled = function(b) { return Object.keys(b.cells || {}).filter(function(k) { return b.cells[k]; }).length; };
+      // 前にえらんだものが空なら、登録のあるいちばん上のものを出す
+      if (!sets[baseViewIndex] || !filled(sets[baseViewIndex])) {
+        baseViewIndex = sets.findIndex(function(b) { return filled(b) > 0; });
+      }
+      let h = '<div class="bv-head"><span class="bv-title">時間割表</span>' +
+              '<button type="button" class="icon-btn" onclick="toggleBaseView()" aria-label="時間割表を閉じる">✕</button></div>';
+      if (baseViewIndex === -1) {
+        panel.innerHTML = h + '<p class="empty-msg">基本の時間割が、まだ登録されていません。</p>' +
+          '<div class="bv-foot"><button type="button" class="btn btn-leaf btn-sm" onclick="openSettingModal(\'set-base\')">設定で登録する</button></div>';
+        return;
+      }
+      h += '<div class="bv-tabs">' + sets.map(function(b, i) {
+        if (!filled(b)) return '';
+        return '<button type="button" class="bt-tab' + (i === baseViewIndex ? ' on' : '') + '" onclick="setBaseView(' + i + ')">' +
+               BT_MARKS[i] + ' ' + escapeHTML(b.name) + '</button>';
+      }).join('') + '</div>';
+      const cells = sets[baseViewIndex].cells || {};
+      const days = ['月', '火', '水', '木', '金'];
+      h += '<table class="bv-table"><thead><tr><th class="bv-p"></th>' + days.map(function(d) { return '<th>' + d + '</th>'; }).join('') + '</tr></thead><tbody>';
+      for (let p = 1; p <= 6; p++) {
+        h += '<tr><th class="bv-p">' + p + '</th>';
+        for (let d = 0; d < 5; d++) {
+          const v = cells[d + '-' + p];
+          if (!v) h += '<td></td>';
+          else if (v === BT_OFF) h += '<td class="bv-off">授業なし</td>';
+          else h += '<td><span class="subject-tag ' + (subjectColors[v] || 'color-other') + '">' + escapeHTML(v) + '</span></td>';
+        }
+        h += '</tr>';
+      }
+      h += '</tbody></table>' +
+           '<div class="bv-foot">' +
+           '<button type="button" class="btn btn-leaf btn-sm" onclick="loadBaseTimetable(' + baseViewIndex + ')">この時間割を今週に入れる</button>' +
+           '<button type="button" class="btn btn-soft btn-sm" onclick="openSettingModal(\'set-base\')">設定で直す</button>' +
+           '</div>';
+      panel.innerHTML = h;
+    }
+
+    // ===== 週の表を、画面の高さに収める =====
+    // 表の見出しから6時間目までが1画面に入るように、1〜6時間目の行の高さを決める。
+    // 文字の多いコマは、その分だけ高いまま（文字は切らない）。上のメニューや今週の目標は数えない。
+    let fitWeekTimer = null;
+    function fitWeekHeight() {
+      const wrap = document.querySelector('.tt-wrap');
+      const root = document.documentElement;
+      if (!wrap) return;
+      // せまい画面（スマホなど）は横になぞって使うので、高さは合わせない
+      if (window.innerWidth <= 820) { root.style.removeProperty('--lesson-h'); return; }
+      const MIN = 40, MAX = 120;
+      root.style.setProperty('--lesson-h', MIN + 'px');
+      const rows = LESSON_PERIODS.map(function(p) { return document.getElementById('row-' + p); }).filter(Boolean);
+      const need = rows.map(function(r) { return r.getBoundingClientRect().height; });
+      const other = wrap.getBoundingClientRect().height - need.reduce(function(a, b) { return a + b; }, 0);
+      const room = window.innerHeight - 10 - other;
+      const sum = function(L) { return need.reduce(function(a, n) { return a + Math.max(n, L); }, 0); };
+      let L = MIN;
+      if (sum(MAX) <= room) L = MAX;
+      else if (sum(MIN) < room) {
+        let lo = MIN, hi = MAX;
+        for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (sum(mid) <= room) lo = mid; else hi = mid; }
+        L = lo;
+      }
+      root.style.setProperty('--lesson-h', Math.floor(L) + 'px');
+    }
+    function scheduleFitWeek() {
+      if (fitWeekTimer) clearTimeout(fitWeekTimer);
+      fitWeekTimer = setTimeout(fitWeekHeight, 120);
+    }
 
     // ===== 月の予定 =====
     // 1か月ぶんの行事・期間の取り組み・日課・ToDo のしめきりを、カレンダーの形で見る。
@@ -5278,11 +5372,10 @@
         else if (vacName) { th.style.background = '#eef4ff'; th.style.color = 'var(--sky-dk)'; }
         else if (i === 5) { th.className = 'day-th th-sat'; }
 
-        // 今日はいちばん強い印にする（土日・祝日・休業より優先）。見出しのいちばん上に「今日」と出す
+        // 今日はいちばん強い印にする（土日・祝日・休業より優先）
         if (dStr === todayStr) {
           th.className = 'day-th today-th';
           th.style.background = ''; th.style.color = '';
-          th.innerHTML = '<span class="today-tag">今日</span>' + th.innerHTML;
         }
 
         // 年度の外の日は、書けないことが見て分かるようにする
@@ -5313,6 +5406,8 @@
       loadWeekGoal();
       autoFoldForWeek();
       applyFold();
+      renderBasePanel();
+      fitWeekHeight();
       schedulePrintOverCheck();
       renderPrevPanel();
       renderTodoPanel();
@@ -5422,6 +5517,7 @@
     function toggleFold(id) {
       rowFolded[id] = !rowFolded[id];
       applyFold();
+      fitWeekHeight();
     }
 
     function applyFold() {
@@ -5501,6 +5597,7 @@
       if (tt) tt.classList.toggle('wk7', showWeekend);
       const wk = document.getElementById('toggleWeekendBtn');
       if (wk) wk.innerHTML = showWeekend ? "土日を隠す" : "土日を表示";
+      fitWeekHeight();
       highlightSelected();
     }
 

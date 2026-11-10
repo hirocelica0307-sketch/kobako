@@ -145,8 +145,9 @@
     }
     /* height は表のセルでは「最低の高さ」として働く。
        overflow を切らないことで、書いた内容の分だけ行が自動で伸びる。 */
+    /* 1〜6時間目の高さ（--lesson-h）は、表が1画面に入るように fitWeekHeight が決める */
     .timetable tbody td {
-      height: 70px; background: var(--paper); cursor: pointer; transition: background .12s;
+      height: var(--lesson-h, 70px); background: var(--paper); cursor: pointer; transition: background .12s;
       position: relative; overflow: visible;
     }
     .timetable tbody td:hover { background: var(--hover); box-shadow: inset 0 0 0 2px var(--leaf); }
@@ -177,7 +178,7 @@
     .split-part .memo.ruled { padding-top: 2px; margin-top: 1px; }
     .long-memo { font-size: 0.7rem; color: #4a4237; line-height: 1.4; text-align: left; width: 100%; padding: 2px 4px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; font-weight: 400; }
     .empty-tag {
-      width: 92%; margin-top: 18%; border: 1px dashed var(--brown-3); border-radius: 5px;
+      width: 92%; margin-top: clamp(3px, calc((var(--lesson-h, 70px) - 34px) / 2), 36px); border: 1px dashed var(--brown-3); border-radius: 5px;
       color: var(--brown-2); font-size: 0.72rem; font-weight: 700; padding: 3px 0; background: transparent;
     }
     .row-event .empty-tag, .row-note .empty-tag, .row-memo .empty-tag { margin-top: 4px; }
@@ -283,6 +284,35 @@
       .tt-area.todo-on .todo-panel { position: static; max-height: none; }
     }
     .td-btn.on { background: var(--leaf); color: #fff; border-color: var(--leaf-dk); }
+
+    /* ===== 時間割表（週案の左に出す） ===== */
+    .base-panel { display: none; min-width: 0; }
+    .tt-area.base-on {
+      display: grid; grid-template-columns: minmax(260px, 30fr) minmax(0, 70fr);
+      gap: 12px; align-items: start;
+    }
+    .tt-area.base-on .base-panel {
+      display: block; position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow-y: auto;
+      background: var(--paper); border: 1px solid var(--line-2); border-radius: 14px; padding: 10px 10px 12px;
+    }
+    @media screen and (max-width: 1000px) {
+      .tt-area.base-on { grid-template-columns: minmax(0, 1fr); }
+      .tt-area.base-on .base-panel { position: static; max-height: none; }
+    }
+    .bv-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .bv-title { font-family: var(--font-ui); font-size: 1rem; font-weight: 800; }
+    .bv-tabs { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+    .bv-tabs .bt-tab { font-size: 0.74rem; padding: 4px 9px; }
+    .bv-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .bv-table th, .bv-table td { border: 1px solid var(--line); text-align: center; vertical-align: middle; padding: 3px 2px; height: 34px; }
+    .bv-table thead th { background: var(--sand); font-family: var(--font-ui); font-size: 0.78rem; font-weight: 800; height: auto; padding: 4px 0; }
+    .bv-table .bv-p { width: 26px; background: var(--paper-2); font-family: var(--font-ui); font-size: 0.72rem; font-weight: 800; color: var(--brown-2); }
+    .bv-table .subject-tag { display: block; width: 100%; font-size: 0.72rem; padding: 2px 0; }
+    .bv-table td.bv-off {
+      background-color: #ebe5d8; color: var(--brown-3); font-size: 0.6rem; font-weight: 700;
+      background-image: repeating-linear-gradient(45deg, rgba(0,0,0,0.055) 0 7px, rgba(0,0,0,0) 7px 14px);
+    }
+    .bv-foot { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
     .td-btn-n { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--bell); color: #fff; font-size: 0.68rem; line-height: 16px; text-align: center; }
     .td-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
     .td-head-title { font-family: var(--font-ui); font-weight: 800; font-size: 1rem; }
@@ -1204,10 +1234,7 @@
     .timetable tbody tr:last-child td.today-col { box-shadow: inset 3px 0 0 var(--leaf), inset -3px 0 0 var(--leaf), inset 0 -3px 0 var(--leaf); }
     .timetable tbody tr td.today-col:hover { box-shadow: inset 0 0 0 3px var(--leaf); }
     .timetable thead th.today-th { box-shadow: inset 3px 0 0 var(--leaf-dk), inset -3px 0 0 var(--leaf-dk), inset 0 -3px 0 var(--leaf-dk); }
-    .today-tag {
-      display: table; margin: 0 auto 2px; padding: 0 8px; border-radius: 9px;
-      background: #fff; color: var(--leaf-dk); font-size: 0.66rem; font-weight: 800; line-height: 1.5;
-    }
+
 
     /* 時数集計の「見通し」列 */
     .summary-table td.fc {
