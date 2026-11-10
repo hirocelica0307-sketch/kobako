@@ -60,7 +60,8 @@
         <button class="btn btn-soft btn-sm td-btn" id="todoBtn" onclick="toggleTodo()" aria-label="ToDo を左に出す">ToDo</button>
         <button class="btn btn-soft btn-sm" onclick="openMonthView()">月の予定</button>
         <button class="btn btn-soft btn-sm" id="compareBtn" onclick="toggleCompare()">先週と比べる</button>
-        <button class="btn btn-soft btn-sm" onclick="openBaseChooser()">基本時間割</button>
+        <button class="btn btn-soft btn-sm td-btn" id="baseViewBtn" onclick="toggleBaseView()" aria-label="時間割表を左に出す">時間割を表示</button>
+        <button class="btn btn-soft btn-sm" onclick="openBaseChooser()">時間割を入れる</button>
         <button class="btn btn-soft btn-sm" id="toggleWeekendBtn" onclick="toggleWeekend()">土日</button>
         <button class="btn btn-soft btn-sm" onclick="openSettingModal()">設定</button>
         <button class="btn btn-soft btn-sm" onclick="openHelp()">ヘルプ</button>
@@ -71,7 +72,6 @@
       <button class="nav-arrow" onclick="changeWeek(-1)">◀ 先週</button>
       <div class="current-week" id="weekDisplay">--/-- 〜 --/--</div>
       <button class="nav-arrow" onclick="changeWeek(1)">来週 ▶</button>
-      <button class="nav-arrow" onclick="copyLastWeek()" title="先週の内容を今週に写す">先週から</button>
       <span class="jump-group">
         <button class="nav-arrow" onclick="jumpToToday()" title="今週にもどる">今日</button>
         <input type="date" id="jumpDateInput" class="date-jump" onchange="jumpToSelectedDate()" title="日付を選んでその週へ">
@@ -102,6 +102,7 @@
         <div class="td-done" id="tdDone"></div>
       </div>
       <div class="prev-panel" id="prevPanel"></div>
+      <div class="base-panel" id="basePanel" aria-label="時間割表"></div>
 
       <div class="tt-wrap">
         <table class="timetable" id="timetable">
@@ -566,15 +567,21 @@
   <div id="baseChooserModal" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-head">
-        <h3>基本時間割を読み込む</h3>
+        <h3>時間割を入れる</h3>
         <div class="head-tools"><button class="icon-btn" onclick="closeBaseChooser()" aria-label="閉じる">✕</button></div>
       </div>
       <div class="modal-body">
         <p class="field-hint" style="margin-bottom:12px;">
-          今週の「月〜金」「1〜6時間目」に、選んだ時間割の教科を入れます。<br>
+          今週の<b>1〜6時間目</b>に、時間割を入れます。どこから入れるかをえらんでください。<br>
           次の画面で、<b>空いているコマだけに入れる</b>か、<b>すべて上書きする</b>かをえらべます。行事・メモ・連絡の欄は変わりません。
         </p>
+        <div class="sec-title">基本時間割から入れる</div>
         <div class="bt-pick" id="basePickList"></div>
+        <div class="sec-title">先週から入れる</div>
+        <div class="bt-pick">
+          <button type="button" class="btn btn-leaf" id="fillLastWeekBtn" onclick="copyLastWeek()">先週から入れる</button>
+          <p class="field-hint" style="margin-top:6px;">先週の教科・単元名・分けかた・「授業なし」を写します。</p>
+        </div>
       </div>
       <div class="modal-foot">
         <span></span>
@@ -864,7 +871,7 @@
           <summary>基本の時間割（5つまで）</summary>
           <div class="set-body">
           <p class="field-hint" style="margin-bottom:8px;">
-            毎週くり返す時間割を5パターンまで登録できます。ホーム画面の「基本時間割」から、どれを読み込むか選べます。<br>
+            毎週くり返す時間割を5パターンまで登録できます。ホーム画面の「時間割を入れる」から、どれを読み込むか選べます。<br>
             コマを「― 授業なし ―」にしておくと、読み込んだときにそのコマが灰色（授業なし）になります。
           </p>
           <div class="bt-tabs" id="btTabs"></div>
