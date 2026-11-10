@@ -440,6 +440,8 @@
         // 印刷の設定を変えたら、はみ出すマスの赤い三角も調べ直す。
         restorePrintFit();
         window.addEventListener('resize', scheduleFitWeek);
+        // 文字の形（フォント）を読み終えると行の高さが変わるので、そのあとにも合わせ直す
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(scheduleFitWeek);
         const pm = document.getElementById('printModal');
         if (pm) pm.addEventListener('change', function() { rememberPrintFit(); schedulePrintOverCheck(); });
         if (serverData && !saveBlocked) checkDraftOnStart();
