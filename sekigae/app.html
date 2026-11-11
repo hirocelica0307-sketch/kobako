@@ -414,6 +414,8 @@
     State.chartDirty = true;
     State.editingHistoryId = entry.id;
     State.editingHistoryLabel = entry.label || entry.at;
+    // 書き出すときの見出しも、呼び戻した記録のものにそろえる（前に打った見出しが残らないように）
+    $('inputExportLabel').value = entry.label || '';
 
     var notices = [];
     if (gone.length) {
@@ -478,6 +480,7 @@
     // （これまでの記録すべてが「避ける相手」に戻る）
     State.editingHistoryId = '';
     State.editingHistoryLabel = '';
+    $('inputExportLabel').value = '';   // 新しい記録になるので、前の見出しは消しておく
     showLoading('席替えを計算しています…');
     setTimeout(function () {
       var res;
@@ -492,7 +495,7 @@
       State.violations = res.violations;
       State.notices = res.notices;
       State.selectedSeat = null;
-        State.chartDirty = true;
+      State.chartDirty = true;
       hideLoading();
       renderAll();
       status(res.attempts + ' 通り試しました（' + (res.elapsedMs / 1000).toFixed(1) + ' 秒）。'
@@ -518,11 +521,6 @@
     if (editing) {
       $('exportOverwriteLabel').textContent = '「' + State.editingHistoryLabel + '」';
       document.querySelector('input[name="exportMode"][value="overwrite"]').checked = true;
-      if (!$('inputExportLabel').value.trim()) {
-        var cur = null;
-        State.history.forEach(function (h) { if (h.id === State.editingHistoryId) cur = h; });
-        $('inputExportLabel').value = (cur && cur.label) ? cur.label : '';
-      }
     }
     openModal('modalExport');
   }
