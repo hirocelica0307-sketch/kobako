@@ -9,7 +9,7 @@
  *  4. 違反が残っても案は出し、「何がどう守れなかったか」を日本語で返す。
  *
  * 前回・前々回との照合は出席番号ではなく「氏名」で行う。
- * 名簿を並べ替えると出席番号が振り直されるため、番号では別人になってしまうため。
+ * 出席番号は付け直されることがあるので、番号では別人になってしまうため。
  */
 var Solver = (function () {
   'use strict';
@@ -18,14 +18,66 @@ var Solver = (function () {
   var W = {
     rule: 1000,        // 前後・左右の指定
     adjacent: 500,     // 周囲のマスに入れない
+    near: 500,         // 周囲のマスに入れる（近くにする）
     pair: 400,         // 同じペアにしない
     group: 300,        // 同じ班にしない
     mode: 200,         // 男女別列・市松模様
     prevSeat1: 60,     // 前回と同じ席
     prevSeat2: 30,     // 前々回と同じ席
     prevPair1: 40,     // 前回と同じペア
-    prevPair2: 20      // 前々回と同じペア
+    prevPair2: 20,     // 前々回と同じペア
+    yearSeat: 12,      // 今年度、前のほう・後ろのほうの席になった回数 1 回あたり
+    yearPair: 10       // 今年度、同じペアになった回数 1 回あたり
   };
+
+  /** 組み合わせ 1 件が守れていないか（ia・ib は 2 人の席の番号） */
+  function sepHit(ctx, sp, ia, ib) {
+    if (sp.level === 'adjacent') return !!ctx.adj[ia * ctx.S + ib];
+    if (sp.level === 'near') return !ctx.adj[ia * ctx.S + ib];
+    if (sp.level === 'pair') return ctx.pairIdx[ia] >= 0 && ctx.pairIdx[ia] === ctx.pairIdx[ib];
+    if (sp.level === 'group') return ctx.groupIdx[ia] >= 0 && ctx.groupIdx[ia] === ctx.groupIdx[ib];
+    return false;
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 今年度の記録を数える（1 年を通して偏らないようにするため）
+   * 前のほう＝前から 2 列、後ろのほう＝後ろから 2 列（4 列以上あるときだけ数える）
+   * ---------------------------------------------------------------- */
+  function schoolYear(date) {
+    return date.getMonth() >= 3 ? date.getFullYear() : date.getFullYear() - 1;   // 4 月はじまり
+  }
+
+  function parseAt(at) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(at || ''));
+    return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+  }
+
+  function yearStats(history, settings, now) {
+    var thisYear = schoolYear(now || new Date());
+    var front = {}, back = {}, pairs = {}, records = 0;
+    (history || []).forEach(function (h) {
+      if (!h) return;
+      var d = parseAt(h.at);
+      if (!d || schoolYear(d) !== thisYear) return;
+      records++;
+      var rows = Core.clampInt(h.rows, 1, Core.MAX_ROWS, 6);
+      var names = Core.seatNameMap(h);
+      if (rows >= 4) {
+        Object.keys(names).forEach(function (seatId) {
+          var p = Core.parseSeat(seatId);
+          if (!p) return;
+          if (p.row <= 2) front[names[seatId]] = (front[names[seatId]] || 0) + 1;
+          if (p.row >= rows - 1) back[names[seatId]] = (back[names[seatId]] || 0) + 1;
+        });
+      }
+      var keys = Core.pairKeySet(h, settings);
+      Object.keys(keys).forEach(function (k) { pairs[k] = (pairs[k] || 0) + 1; });
+    });
+    return { front: front, back: back, pairs: pairs, records: records };
+  }
+
+  function inFront(row, rows) { return rows >= 4 && row <= 2; }
+  function inBack(row, rows) { return rows >= 4 && row >= rows - 1; }
 
   var DEFAULT_BUDGET_MS = 1500;
   var STEPS_PER_ATTEMPT = 3000;
@@ -81,6 +133,10 @@ var Solver = (function () {
     // 履歴（新しい順に 前回・前々回）
     var prevSeatName = [Core.seatNameMap(history[0]), Core.seatNameMap(history[1])];
     var prevPairKeys = [Core.pairKeySet(history[0], settings), Core.pairKeySet(history[1], settings)];
+    var rowsNow = Core.clampInt(settings.rows, 1, Core.MAX_ROWS, 6);
+    var year = settings.balanceYear !== false
+      ? yearStats(history, settings, input.now)
+      : { front: {}, back: {}, pairs: {}, records: 0 };
 
     /* 単項コスト行列 unary[児童 * S + 席]
        「この児童をこの席に座らせたときに 1 人分だけで決まる違反」をあらかじめ足しておく。
@@ -97,6 +153,8 @@ var Solver = (function () {
         if (tg && st.gender && st.gender !== tg) cost += W.mode;
         if (settings.avoidSameSeatPrev !== false && prevSeatName[0][seat.id] === st.name) cost += W.prevSeat1;
         if (settings.avoidSameSeatPrev2 !== false && prevSeatName[1][seat.id] === st.name) cost += W.prevSeat2;
+        if (inFront(seat.row, rowsNow)) cost += W.yearSeat * (year.front[st.name] || 0);
+        if (inBack(seat.row, rowsNow)) cost += W.yearSeat * (year.back[st.name] || 0);
         unary[si * S + k] = cost;
       }
     }
@@ -109,12 +167,13 @@ var Solver = (function () {
         var c = 0;
         if (settings.avoidSamePairPrev !== false && prevPairKeys[0][key]) c += W.prevPair1;
         if (settings.avoidSamePairPrev2 === true && prevPairKeys[1][key]) c += W.prevPair2;
+        c += W.yearPair * (year.pairs[key] || 0);
         pairPrev[a * N + b] = c;
         pairPrev[b * N + a] = c;
       }
     }
 
-    // 「近づけない」関係（名簿にいる児童どうしのみ）
+    // 「はなす」「近くにする」組み合わせ（名簿にいる児童どうしのみ）
     var noByIndex = {};
     students.forEach(function (s, i) { noByIndex[s.no] = i; });
     var seps = [];
@@ -128,7 +187,7 @@ var Solver = (function () {
       settings: settings, students: students, seats: seats, S: S, N: N,
       seatIndex: seatIndex, pairs: pairs,
       pairIdx: pairIdx, groupIdx: groupIdx, adj: adj, pairCouples: pairCouples,
-      prevSeatName: prevSeatName, prevPairKeys: prevPairKeys,
+      prevSeatName: prevSeatName, prevPairKeys: prevPairKeys, year: year, rowsNow: rowsNow,
       unary: unary, pairPrev: pairPrev, seps: seps
     };
   }
@@ -166,13 +225,7 @@ var Solver = (function () {
       var sp = ctx.seps[i];
       var ia = seatOf[sp.a], ib = seatOf[sp.b];
       if (ia < 0 || ib < 0) continue;
-      if (sp.level === 'adjacent') {
-        if (ctx.adj[ia * S + ib]) s += W.adjacent;
-      } else if (sp.level === 'pair') {
-        if (ctx.pairIdx[ia] >= 0 && ctx.pairIdx[ia] === ctx.pairIdx[ib]) s += W.pair;
-      } else {
-        if (ctx.groupIdx[ia] >= 0 && ctx.groupIdx[ia] === ctx.groupIdx[ib]) s += W.group;
-      }
+      if (sepHit(ctx, sp, ia, ib)) s += W[sp.level] || 0;
     }
     for (i = 0; i < ctx.pairCouples.length; i++) {
       var c = ctx.pairCouples[i];
@@ -226,6 +279,7 @@ var Solver = (function () {
     if (freeStudents.length > freeSeats.length) {
       notices.push('児童 ' + N + ' 人に対して使える席が ' + S + ' 席しかありません。座席数を増やすか、使わない席を減らしてください。');
     }
+    genderCheck(ctx, freeSeats, freeStudents).forEach(function (m) { notices.push(m); });
 
     var slots = freeSeats.length;
     var best = null, bestScore = Infinity;
@@ -253,10 +307,7 @@ var Solver = (function () {
         var sp2 = ctx.seps[q];
         var ia2 = seatOf[sp2.a], ib2 = seatOf[sp2.b];
         if (ia2 < 0 || ib2 < 0) continue;
-        var hit = (sp2.level === 'adjacent') ? ctx.adj[ia2 * S + ib2]
-          : (sp2.level === 'pair') ? (ctx.pairIdx[ia2] >= 0 && ctx.pairIdx[ia2] === ctx.pairIdx[ib2])
-          : (ctx.groupIdx[ia2] >= 0 && ctx.groupIdx[ia2] === ctx.groupIdx[ib2]);
-        if (!hit) continue;
+        if (!sepHit(ctx, sp2, ia2, ib2)) continue;
         sl = slotOfSeat[ia2]; if (sl >= 0) badSlots.push(sl);
         sl = slotOfSeat[ib2]; if (sl >= 0) badSlots.push(sl);
       }
@@ -320,6 +371,35 @@ var Solver = (function () {
       attempts: attempts,
       elapsedMs: Date.now() - start
     };
+  }
+
+  /**
+   * 男女別の列・市松模様のとき、男女の人数と席の数が合うかを先に調べる。
+   * 合わないときは、何人が反対の席に座ることになるかを知らせる。
+   */
+  function genderCheck(ctx, freeSeats, freeStudents) {
+    var settings = ctx.settings;
+    if (settings.mode !== 'genderColumn' && settings.mode !== 'checker') return [];
+    var seatM = 0, seatF = 0, stM = 0, stF = 0, unknown = [];
+    freeSeats.forEach(function (k) {
+      var t = Core.targetGender(settings, ctx.seats[k].col, ctx.seats[k].row);
+      if (t === 'M') seatM++; else if (t === 'F') seatF++;
+    });
+    freeStudents.forEach(function (si) {
+      var g = ctx.students[si].gender;
+      if (g === 'M') stM++; else if (g === 'F') stF++; else unknown.push(ctx.students[si].name);
+    });
+    var out = [];
+    if (stM > seatM) {
+      out.push('男子の席 ' + seatM + ' 席に対して、男子が ' + stM + ' 人います。' + (stM - seatM) + ' 人は女子の席に座ります。');
+    }
+    if (stF > seatF) {
+      out.push('女子の席 ' + seatF + ' 席に対して、女子が ' + stF + ' 人います。' + (stF - seatF) + ' 人は男子の席に座ります。');
+    }
+    if (unknown.length) {
+      out.push('性別が未設定の児童がいます（' + unknown.join('・') + '）。男女の並びとは関係なく席を決めました。');
+    }
+    return out;
   }
 
   function shuffle(arr) {
@@ -425,30 +505,37 @@ var Solver = (function () {
           message: st.name + 'さんは前々回と同じ ' + seatId + ' です。'
         });
       }
+      // 今年度、同じ前のほう／後ろのほうが 3 回目以上になるとき（2 回目まではよくあるので出さない）
+      var fc = ctx.year.front[st.name] || 0, bc = ctx.year.back[st.name] || 0;
+      if (inFront(p.row, ctx.rowsNow) && fc >= 2) {
+        violations.push({
+          weight: W.yearSeat, seats: [seatId],
+          message: st.name + 'さんは今年度、前のほう（前から 2 列）の席が ' + (fc + 1) + ' 回目です。'
+        });
+      }
+      if (inBack(p.row, ctx.rowsNow) && bc >= 2) {
+        violations.push({
+          weight: W.yearSeat, seats: [seatId],
+          message: st.name + 'さんは今年度、後ろのほう（後ろから 2 列）の席が ' + (bc + 1) + ' 回目です。'
+        });
+      }
     });
 
-    // 近づけない関係
+    // 「はなす」「近くにする」組み合わせ
     ctx.seps.forEach(function (sp) {
       var sa = ctx.students[sp.a], sb = ctx.students[sp.b];
       var ida = seatByNo[sa.no], idb = seatByNo[sb.no];
       if (!ida || !idb) return;
       var ia = ctx.seatIndex[ida], ib = ctx.seatIndex[idb];
-      if (sp.level === 'adjacent' && ctx.adj[ia * ctx.S + ib]) {
-        violations.push({
-          weight: W.adjacent, seats: [ida, idb],
-          message: sa.name + 'さんと' + sb.name + 'さんは近づけない設定ですが、' + ida + ' と ' + idb + ' で隣り合っています。'
-        });
-      } else if (sp.level === 'pair' && ctx.pairIdx[ia] >= 0 && ctx.pairIdx[ia] === ctx.pairIdx[ib]) {
-        violations.push({
-          weight: W.pair, seats: [ida, idb],
-          message: sa.name + 'さんと' + sb.name + 'さんは同じペアにしない設定ですが、同じペア（' + ctx.pairs[ctx.pairIdx[ia]].seats.join('・') + '）になっています。'
-        });
-      } else if (sp.level === 'group' && ctx.groupIdx[ia] >= 0 && ctx.groupIdx[ia] === ctx.groupIdx[ib]) {
-        violations.push({
-          weight: W.group, seats: [ida, idb],
-          message: sa.name + 'さんと' + sb.name + 'さんは同じ班にしない設定ですが、第' + (ctx.groupIdx[ia] + 1) + '班で一緒になっています。'
-        });
-      }
+      if (!sepHit(ctx, sp, ia, ib)) return;
+      var who = sa.name + 'さんと' + sb.name + 'さん';
+      var message = {
+        adjacent: who + 'ははなす設定ですが、' + ida + ' と ' + idb + ' で隣り合っています。',
+        near: who + 'は近くにする設定ですが、' + ida + ' と ' + idb + ' ではなれています。',
+        pair: who + 'は同じペアにしない設定ですが、同じペア（' + (ctx.pairs[ctx.pairIdx[ia]] || { seats: [] }).seats.join('・') + '）になっています。',
+        group: who + 'は同じ班にしない設定ですが、第' + (ctx.groupIdx[ia] + 1) + '班で一緒になっています。'
+      }[sp.level];
+      violations.push({ weight: W[sp.level] || 0, seats: [ida, idb], message: message });
     });
 
     // 前回・前々回と同じペア
@@ -468,6 +555,13 @@ var Solver = (function () {
             violations.push({
               weight: W.prevPair2, seats: [p.seats[i], p.seats[j]],
               message: a.name + 'さんと' + b.name + 'さんは前々回もペアでした。'
+            });
+          }
+          var pc = ctx.year.pairs[key] || 0;
+          if (pc >= 2) {
+            violations.push({
+              weight: W.yearPair, seats: [p.seats[i], p.seats[j]],
+              message: a.name + 'さんと' + b.name + 'さんは今年度 ' + (pc + 1) + ' 回目のペアです。'
             });
           }
         }
@@ -498,7 +592,8 @@ var Solver = (function () {
     solve: solve,
     evaluate: evaluate,
     rowRuleText: rowRuleText,
-    colRuleText: colRuleText
+    colRuleText: colRuleText,
+    yearStats: yearStats
   };
 })();
 </script>

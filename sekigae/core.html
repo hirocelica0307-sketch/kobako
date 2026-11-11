@@ -96,6 +96,30 @@ var Core = (function () {
     return normalizeSets(settings.groups || [], settings);
   }
 
+  /**
+   * 班を自動で作る。横 w 席 × 縦 h 席のかたまりごとに 1 班（4 人班＝2×2、6 人班＝2×3）。
+   * 端で余った席はそのぶん小さい班になる。使わない席は入れない。
+   */
+  function blockGroups(settings, w, h) {
+    var rows = clampInt(settings.rows, 1, MAX_ROWS, 6);
+    var cols = clampInt(settings.cols, 1, MAX_COLS, 6);
+    var unused = settings.unusedSeats || [];
+    var out = [];
+    for (var r = 1; r <= rows; r += h) {
+      for (var c = 1; c <= cols; c += w) {
+        var seats = [];
+        for (var rr = r; rr < r + h && rr <= rows; rr++) {
+          for (var cc = c; cc < c + w && cc <= cols; cc++) {
+            var id = seatId(cc, rr);
+            if (unused.indexOf(id) < 0) seats.push(id);
+          }
+        }
+        if (seats.length) out.push({ no: out.length + 1, seats: seats });
+      }
+    }
+    return out;
+  }
+
   /** 使わない席やレイアウト外の席を取り除き、通し番号を振り直す */
   function normalizeSets(sets, settings) {
     var rows = clampInt(settings.rows, 1, MAX_ROWS, 6);
@@ -186,6 +210,7 @@ var Core = (function () {
     effectivePairs: effectivePairs,
     effectiveGroups: effectiveGroups,
     normalizeSets: normalizeSets,
+    blockGroups: blockGroups,
     setIndexBySeat: setIndexBySeat,
     targetGender: targetGender,
     seatNameMap: seatNameMap,

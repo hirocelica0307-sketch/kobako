@@ -4,7 +4,7 @@
  * シート構成
  *   設定       … キー / 値 の 2 列。複雑なものは JSON 文字列で保存。
  *   名簿       … 児童 1 人 1 行。
- *   配慮_距離  … 「近づけない」関係を 1 件 1 行。
+ *   配慮_距離  … 「はなす」「近くにする」組み合わせを 1 件 1 行。
  *   履歴       … 書き出した席替えを 1 回 1 行（機械可読）。
  *   席替え_日付 … 書き出しのたびに作る、人が読むための座席表。
  */
@@ -41,12 +41,14 @@ const COL_RULE_LABELS = {
   leftWithin: '左からこの列数以内',
   rightWithin: '右からこの列数以内'
 };
-/** 「近づけない」の強さ。 */
+/** 組み合わせの種類（はなす 3 つと、近くにする 1 つ）。 */
 const SEPARATION_LABELS = {
   adjacent: '周囲のマスに入れない',
   pair: '同じペアにしない',
-  group: '同じ班にしない'
+  group: '同じ班にしない',
+  near: '周囲のマスに入れる（近くにする）'
 };
+const MAX_NO = 99;   // 出席番号の上限
 
 /* ------------------------------------------------------------------ *
  * シートの用意
@@ -103,6 +105,7 @@ function defaultSettings_() {
     avoidSameSeatPrev2: true,
     avoidSamePairPrev: true,
     avoidSamePairPrev2: false,
+    balanceYear: true,
     flipped: false,
     printNameStyle: 'kanji',
     printShowNumber: true
@@ -128,6 +131,7 @@ const SETTING_DESCRIPTIONS = {
   avoidSameSeatPrev2: '前々回と同じ席を避ける',
   avoidSamePairPrev: '前回と同じペアを避ける',
   avoidSamePairPrev2: '前々回と同じペアを避ける',
+  balanceYear: 'その年度の記録を数えて、前・後ろの席や同じペアが続かないようにする',
   flipped: '座席表を反転して表示する',
   printNameStyle: '印刷する名前 kanji / kana / both',
   printShowNumber: '印刷に出席番号を入れる'
@@ -161,6 +165,7 @@ function readSettings_(ss) {
     avoidSameSeatPrev2: parseBool_(raw.avoidSameSeatPrev2, d.avoidSameSeatPrev2),
     avoidSamePairPrev: parseBool_(raw.avoidSamePairPrev, d.avoidSamePairPrev),
     avoidSamePairPrev2: parseBool_(raw.avoidSamePairPrev2, d.avoidSamePairPrev2),
+    balanceYear: parseBool_(raw.balanceYear, d.balanceYear),
     flipped: parseBool_(raw.flipped, d.flipped),
     printNameStyle: ['kanji', 'kana', 'both'].indexOf(String(raw.printNameStyle)) >= 0
       ? String(raw.printNameStyle) : d.printNameStyle,
@@ -199,11 +204,17 @@ function readRoster_(ss) {
   if (last < 2) return [];
   const values = sh.getRange(2, 1, last - 1, ROSTER_HEADERS.length).getValues();
   const out = [];
+  const used = {};
+  const pending = [];   // 番号が空・重なり・範囲外の児童（あとで空いている番号を振る）
   values.forEach(function (r) {
     const name = String(r[1] || '').trim();
     if (!name) return;
-    out.push({
-      no: out.length + 1,
+    // 出席番号はシートに書いてあるものを使う（欠番があってもよい）
+    let no = parseInt(r[0], 10);
+    if (!(no >= 1 && no <= MAX_NO) || used[no]) no = 0;
+    if (no) used[no] = true;
+    const st = {
+      no: no,
       name: name,
       kana: String(r[2] || '').trim(),
       gender: normalizeGender_(r[3]),
@@ -211,8 +222,17 @@ function readRoster_(ss) {
       rowRule: { type: labelToCode_(ROW_RULE_LABELS, r[5]), value: clampInt_(r[6], 1, MAX_ROWS, 1) },
       colRule: { type: labelToCode_(COL_RULE_LABELS, r[7]), value: clampInt_(r[8], 1, MAX_COLS, 1) },
       note: String(r[9] || '').trim()
-    });
+    };
+    out.push(st);
+    if (!no) pending.push(st);
   });
+  let next = 1;
+  pending.forEach(function (st) {
+    while (used[next]) next++;
+    st.no = next;
+    used[next] = true;
+  });
+  out.sort(function (a, b) { return a.no - b.no; });
   return out.slice(0, MAX_STUDENTS);
 }
 
@@ -228,7 +248,7 @@ function writeRoster_(ss, roster) {
     const rr = s.rowRule || { type: 'none', value: 1 };
     const cr = s.colRule || { type: 'none', value: 1 };
     return [
-      i + 1,
+      s.no || (i + 1),
       s.name || '',
       s.kana || '',
       s.gender === 'M' ? '男' : (s.gender === 'F' ? '女' : ''),
@@ -257,7 +277,9 @@ function readSeparations_(ss) {
     const a = parseInt(r[0], 10);
     const b = parseInt(r[2], 10);
     if (!a || !b || a === b) return;
-    out.push({ a: a, b: b, level: labelToCode_(SEPARATION_LABELS, r[4]) || 'adjacent' });
+    // 種類が空・読めないときは「周囲のマスに入れない」とみなす（labelToCode_ は 'none' を返すため）
+    const level = labelToCode_(SEPARATION_LABELS, r[4]);
+    out.push({ a: a, b: b, level: level === 'none' ? 'adjacent' : level });
   });
   return out;
 }
@@ -331,7 +353,10 @@ function historyRowValues_(id, at, entry) {
 
 function appendHistory_(ss, entry) {
   const sh = ss.getSheetByName(SH_HISTORY);
-  const id = 'H' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMddHHmmss');
+  // 同じ 1 秒に 2 回書き出しても重ならないよう、ミリ秒まで入れ、それでも重なれば番号を足す
+  const base = 'H' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMddHHmmssSSS');
+  let id = base;
+  for (let n = 2; findHistoryRow_(sh, id); n++) id = base + '-' + n;
   sh.appendRow(historyRowValues_(id, nowString_(), entry));
 }
 
