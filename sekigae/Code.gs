@@ -3,7 +3,7 @@
  *
  * このファイルは Google Apps Script（コンテナバインド）用です。
  * スプレッドシートの「拡張機能 > Apps Script」から作成したプロジェクトに
- * src/ 以下のファイルをそのまま貼り付けて使います。
+ * このフォルダの .gs と .html をそのまま貼り付けて使います。
  */
 
 const APP_TITLE = '席替えアプリ';
@@ -76,8 +76,7 @@ function apiLoadAll() {
       settings: readSettings_(ss),
       roster: readRoster_(ss),
       separations: readSeparations_(ss),
-      history: readHistory_(ss, HISTORY_LIMIT),
-      spreadsheetUrl: ss.getUrl()
+      history: readHistory_(ss)
     };
   });
 }
@@ -85,17 +84,13 @@ function apiLoadAll() {
 /** 設定・名簿・配慮事項をまとめて保存する（席替え結果は保存しない） */
 function apiSaveMasters(payload) {
   return wrap_(function () {
-    const ss = getSpreadsheet_();
-    ensureAllSheets_(ss);
-    if (payload.settings) writeSettings_(ss, payload.settings);
-    if (payload.roster) writeRoster_(ss, payload.roster);
-    if (payload.separations) writeSeparations_(ss, payload.separations, payload.roster);
+    saveMasters_(getSpreadsheet_(), payload);
     return { savedAt: nowString_() };
   });
 }
 
 /**
- * 確定した座席表を書き出す。
+ * 座席表を書き出す。
  * ・履歴シートに 1 行追加（payload.overwriteId があれば、その行を書き換える）
  * ・「席替え_YYYY-MM-DD」シートに人が読める座席表を作成
  * ・あわせて設定・名簿・配慮事項も保存する
@@ -103,10 +98,7 @@ function apiSaveMasters(payload) {
 function apiCommitSeating(payload) {
   return wrap_(function () {
     const ss = getSpreadsheet_();
-    ensureAllSheets_(ss);
-    if (payload.settings) writeSettings_(ss, payload.settings);
-    if (payload.roster) writeRoster_(ss, payload.roster);
-    if (payload.separations) writeSeparations_(ss, payload.separations, payload.roster);
+    saveMasters_(ss, payload);
 
     const st = payload.settings || {};
     const overwriteId = payload.overwriteId || '';
@@ -120,7 +112,7 @@ function apiCommitSeating(payload) {
 
     const entry = {
       label: payload.label || '',
-      mode: payload.mode || '',
+      mode: st.mode || '',
       rows: st.rows,
       cols: st.cols,
       sheetName: sheetName,
@@ -135,7 +127,7 @@ function apiCommitSeating(payload) {
       savedAt: nowString_(),
       sheetName: sheetName,
       overwritten: overwritten,
-      history: readHistory_(ss, HISTORY_LIMIT)
+      history: readHistory_(ss)
     };
   });
 }
@@ -146,13 +138,21 @@ function apiDeleteHistory(historyId) {
     const ss = getSpreadsheet_();
     ensureAllSheets_(ss);
     deleteHistoryRow_(ss, historyId);
-    return { history: readHistory_(ss, HISTORY_LIMIT) };
+    return { history: readHistory_(ss) };
   });
 }
 
 /* ------------------------------------------------------------------ *
  * 内部ヘルパー
  * ------------------------------------------------------------------ */
+
+/** 設定・名簿・配慮事項を保存する（apiSaveMasters と apiCommitSeating の共通部分） */
+function saveMasters_(ss, payload) {
+  ensureAllSheets_(ss);
+  if (payload.settings) writeSettings_(ss, payload.settings);
+  if (payload.roster) writeRoster_(ss, payload.roster);
+  if (payload.separations) writeSeparations_(ss, payload.separations, payload.roster);
+}
 
 /** 例外を握って必ず {ok,...} を返す。クライアント側のエラー処理を単純にするため。 */
 function wrap_(fn) {

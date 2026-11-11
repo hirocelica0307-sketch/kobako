@@ -5,7 +5,7 @@
  *   設定       … キー / 値 の 2 列。複雑なものは JSON 文字列で保存。
  *   名簿       … 児童 1 人 1 行。
  *   配慮_距離  … 「近づけない」関係を 1 件 1 行。
- *   履歴       … 確定した席替えを 1 回 1 行（機械可読）。
+ *   履歴       … 書き出した席替えを 1 回 1 行（機械可読）。
  *   席替え_日付 … 書き出しのたびに作る、人が読むための座席表。
  */
 
@@ -50,6 +50,8 @@ const SEPARATION_LABELS = {
 
 /* ------------------------------------------------------------------ *
  * シートの用意
+ * API の入口で ensureAllSheets_() を 1 回だけ呼ぶ。
+ * そのあとの読み書きは getSheetByName() で取るだけにする（毎回の確認・書式設定はしない）。
  * ------------------------------------------------------------------ */
 
 function ensureAllSheets_(ss) {
@@ -64,14 +66,11 @@ function ensureTableSheet_(ss, name, headers) {
   if (!sh) {
     sh = ss.insertSheet(name);
   }
-  const first = sh.getRange(1, 1, 1, headers.length).getValues()[0];
-  const needsHeader = first.every(function (v) { return v === '' || v === null; });
-  if (needsHeader) {
-    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+  const head = sh.getRange(1, 1, 1, headers.length);
+  if (head.getValues()[0].every(function (v) { return v === '' || v === null; })) {
+    head.setValues([headers]).setFontWeight('bold').setBackground('#eef2f7');
+    sh.setFrozenRows(1);
   }
-  sh.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#eef2f7');
-  sh.setFrozenRows(1);
-  return sh;
 }
 
 function ensureSettingsSheet_(ss) {
@@ -86,7 +85,6 @@ function ensureSettingsSheet_(ss) {
     sh.setFrozenRows(1);
     writeSettings_(ss, defaultSettings_());
   }
-  return sh;
 }
 
 function defaultSettings_() {
@@ -134,7 +132,7 @@ const SETTING_DESCRIPTIONS = {
 };
 
 function readSettings_(ss) {
-  const sh = ensureSettingsSheet_(ss);
+  const sh = ss.getSheetByName(SH_SETTINGS);
   const last = sh.getLastRow();
   const raw = {};
   if (last >= 2) {
@@ -146,7 +144,7 @@ function readSettings_(ss) {
   }
 
   const d = defaultSettings_();
-  const s = {
+  return {
     className: raw.className !== undefined ? String(raw.className) : d.className,
     rows: clampInt_(raw.rows, 1, MAX_ROWS, d.rows),
     cols: clampInt_(raw.cols, 1, MAX_COLS, d.cols),
@@ -165,11 +163,10 @@ function readSettings_(ss) {
       ? String(raw.printNameStyle) : d.printNameStyle,
     printShowNumber: parseBool_(raw.printShowNumber, d.printShowNumber)
   };
-  return s;
 }
 
 function writeSettings_(ss, settings) {
-  const sh = ensureSettingsSheet_(ss);
+  const sh = ss.getSheetByName(SH_SETTINGS);
   const d = defaultSettings_();
   const merged = {};
   Object.keys(d).forEach(function (k) {
@@ -194,7 +191,7 @@ function writeSettings_(ss, settings) {
  * ------------------------------------------------------------------ */
 
 function readRoster_(ss) {
-  const sh = ensureTableSheet_(ss, SH_ROSTER, ROSTER_HEADERS);
+  const sh = ss.getSheetByName(SH_ROSTER);
   const last = sh.getLastRow();
   if (last < 2) return [];
   const values = sh.getRange(2, 1, last - 1, ROSTER_HEADERS.length).getValues();
@@ -217,7 +214,7 @@ function readRoster_(ss) {
 }
 
 function writeRoster_(ss, roster) {
-  const sh = ensureTableSheet_(ss, SH_ROSTER, ROSTER_HEADERS);
+  const sh = ss.getSheetByName(SH_ROSTER);
   const last = sh.getLastRow();
   if (last >= 2) sh.getRange(2, 1, last - 1, ROSTER_HEADERS.length).clearContent();
 
@@ -248,7 +245,7 @@ function writeRoster_(ss, roster) {
  * ------------------------------------------------------------------ */
 
 function readSeparations_(ss) {
-  const sh = ensureTableSheet_(ss, SH_SEPARATIONS, SEPARATION_HEADERS);
+  const sh = ss.getSheetByName(SH_SEPARATIONS);
   const last = sh.getLastRow();
   if (last < 2) return [];
   const values = sh.getRange(2, 1, last - 1, SEPARATION_HEADERS.length).getValues();
@@ -263,7 +260,7 @@ function readSeparations_(ss) {
 }
 
 function writeSeparations_(ss, separations, roster) {
-  const sh = ensureTableSheet_(ss, SH_SEPARATIONS, SEPARATION_HEADERS);
+  const sh = ss.getSheetByName(SH_SEPARATIONS);
   const last = sh.getLastRow();
   if (last >= 2) sh.getRange(2, 1, last - 1, SEPARATION_HEADERS.length).clearContent();
 
@@ -271,7 +268,7 @@ function writeSeparations_(ss, separations, roster) {
   if (!list.length) return;
 
   const names = {};
-  (roster || readRoster_(ss)).forEach(function (s) { names[s.no] = s.name; });
+  (roster || []).forEach(function (s) { names[s.no] = s.name; });
 
   const rows = list.map(function (s) {
     return [
@@ -287,8 +284,8 @@ function writeSeparations_(ss, separations, roster) {
  * 履歴
  * ------------------------------------------------------------------ */
 
-function readHistory_(ss, limit) {
-  const sh = ensureTableSheet_(ss, SH_HISTORY, HISTORY_HEADERS);
+function readHistory_(ss) {
+  const sh = ss.getSheetByName(SH_HISTORY);
   const last = sh.getLastRow();
   if (last < 2) return [];
   const values = sh.getRange(2, 1, last - 1, HISTORY_HEADERS.length).getValues();
@@ -308,12 +305,13 @@ function readHistory_(ss, limit) {
     });
   });
   out.reverse(); // 新しい順
-  return limit ? out.slice(0, limit) : out;
+  return out.slice(0, HISTORY_LIMIT);
 }
 
 function historyRowValues_(id, at, entry) {
+  // 呼び戻し・前回との照合に使うのは番号と氏名だけ
   const snapshot = (entry.roster || []).map(function (s) {
-    return { no: s.no, name: s.name, kana: s.kana || '', gender: s.gender || '' };
+    return { no: s.no, name: s.name };
   });
   return [
     id,
@@ -329,10 +327,9 @@ function historyRowValues_(id, at, entry) {
 }
 
 function appendHistory_(ss, entry) {
-  const sh = ensureTableSheet_(ss, SH_HISTORY, HISTORY_HEADERS);
+  const sh = ss.getSheetByName(SH_HISTORY);
   const id = 'H' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMddHHmmss');
   sh.appendRow(historyRowValues_(id, nowString_(), entry));
-  return id;
 }
 
 /** 履歴シートで ID の行番号を探す（見つからなければ 0） */
@@ -351,7 +348,7 @@ function findHistoryRow_(sh, id) {
  * 実施日時はそのまま残すので、前回・前々回の並び順は変わらない。
  */
 function updateHistory_(ss, id, entry) {
-  const sh = ensureTableSheet_(ss, SH_HISTORY, HISTORY_HEADERS);
+  const sh = ss.getSheetByName(SH_HISTORY);
   const row = findHistoryRow_(sh, id);
   if (!row) return false;
   const at = formatCell_(sh.getRange(row, 2).getValue()) || nowString_();
@@ -361,7 +358,7 @@ function updateHistory_(ss, id, entry) {
 
 /** その記録が作った座席表シートの名前 */
 function historySheetName_(ss, id) {
-  const sh = ensureTableSheet_(ss, SH_HISTORY, HISTORY_HEADERS);
+  const sh = ss.getSheetByName(SH_HISTORY);
   const row = findHistoryRow_(sh, id);
   return row ? String(sh.getRange(row, 7).getValue() || '') : '';
 }
@@ -374,7 +371,7 @@ function deleteChartSheet_(ss, name) {
 }
 
 function deleteHistoryRow_(ss, id) {
-  const sh = ensureTableSheet_(ss, SH_HISTORY, HISTORY_HEADERS);
+  const sh = ss.getSheetByName(SH_HISTORY);
   const row = findHistoryRow_(sh, id);
   if (!row) return;
   deleteChartSheet_(ss, String(sh.getRange(row, 7).getValue() || ''));

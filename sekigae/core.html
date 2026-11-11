@@ -126,16 +126,6 @@ var Core = (function () {
     return '';
   }
 
-  /** 印刷・表示用の名前。style は kanji / kana / both */
-  function displayName(student, style) {
-    if (!student) return '';
-    var kanji = student.name || '';
-    var kana = student.kana || '';
-    if (style === 'kana') return kana || kanji;
-    if (style === 'both') return kana ? (kanji + '\n' + kana) : kanji;
-    return kanji || kana;
-  }
-
   /** 履歴 1 件から「席 → 氏名」の対応を作る。名前で照合するので採番し直しても崩れない。 */
   function seatNameMap(historyEntry) {
     var map = {};
@@ -170,7 +160,6 @@ var Core = (function () {
   }
 
   return {
-    LETTERS: LETTERS,
     MAX_ROWS: MAX_ROWS,
     MAX_COLS: MAX_COLS,
     MAX_STUDENTS: MAX_STUDENTS,
@@ -185,7 +174,6 @@ var Core = (function () {
     normalizeSets: normalizeSets,
     setIndexBySeat: setIndexBySeat,
     targetGender: targetGender,
-    displayName: displayName,
     seatNameMap: seatNameMap,
     pairKeySet: pairKeySet,
     coupleKey: coupleKey

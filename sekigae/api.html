@@ -3,25 +3,13 @@
  * 席替えアプリ — サーバー（GAS）との受け渡し
  *
  * google.script.run はコールバック方式なので Promise に包み直す。
- * google が存在しない環境（ローカル確認用の preview.html）では
- * window.MockApi があればそちらを使う。
  */
 var Api = (function () {
   'use strict';
 
-  function isGas() {
-    return typeof google !== 'undefined' && google.script && google.script.run;
-  }
-
   function call(name, arg) {
     return new Promise(function (resolve, reject) {
-      if (!isGas()) {
-        if (window.MockApi) {
-          try {
-            Promise.resolve(window.MockApi.call(name, arg)).then(resolve, reject);
-          } catch (e) { reject(e); }
-          return;
-        }
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
         reject(new Error('サーバーに接続できません。スプレッドシートから開き直してください。'));
         return;
       }
@@ -39,7 +27,6 @@ var Api = (function () {
   }
 
   return {
-    isGas: isGas,
     loadAll: function () { return call('apiLoadAll'); },
     saveMasters: function (payload) { return call('apiSaveMasters', payload); },
     commit: function (payload) { return call('apiCommitSeating', payload); },

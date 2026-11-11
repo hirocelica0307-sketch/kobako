@@ -126,10 +126,10 @@ var Solver = (function () {
 
     return {
       settings: settings, students: students, seats: seats, S: S, N: N,
-      seatIndex: seatIndex, pairs: pairs, groups: groups,
+      seatIndex: seatIndex, pairs: pairs,
       pairIdx: pairIdx, groupIdx: groupIdx, adj: adj, pairCouples: pairCouples,
       prevSeatName: prevSeatName, prevPairKeys: prevPairKeys,
-      unary: unary, pairPrev: pairPrev, seps: seps, history: history
+      unary: unary, pairPrev: pairPrev, seps: seps
     };
   }
 
@@ -193,7 +193,7 @@ var Solver = (function () {
     var notices = [];
 
     if (N === 0) {
-      return { assign: {}, violations: [], notices: ['名簿がまだ空です。「名簿」から児童を登録してください。'], score: 0, attempts: 0, elapsedMs: 0 };
+      return { assign: {}, violations: [], notices: ['名簿がまだ空です。「名簿」から児童を登録してください。'], attempts: 0, elapsedMs: 0 };
     }
 
     // --- 固定席の割り当て -------------------------------------------------
@@ -286,8 +286,8 @@ var Solver = (function () {
         swapWork(owner, seatOf, freeSeats, work, x, y);
         var ns = score(ctx, owner, seatOf);
         if (ns <= cur) {
-          if (ns < cur) { cur = ns; refreshBad(); }
-          else { cur = ns; }
+          if (ns < cur) refreshBad();
+          cur = ns;
         } else {
           swapWork(owner, seatOf, freeSeats, work, x, y); // 元に戻す
         }
@@ -313,12 +313,10 @@ var Solver = (function () {
       if (owner[m] >= 0) assign[ctx.seats[m].id] = ctx.students[owner[m]].no;
     }
 
-    var described = describeWithContext(ctx, assign);
     return {
       assign: assign,
-      violations: described.violations,
-      notices: notices.concat(described.notices),
-      score: bestScore,
+      violations: describeWithContext(ctx, assign),
+      notices: notices,
       attempts: attempts,
       elapsedMs: Date.now() - start
     };
@@ -350,7 +348,7 @@ var Solver = (function () {
   }
 
   /* ---------------------------------------------------------------- *
-   * 違反の説明（手動で入れ替えたあとの再チェックにも使う）
+   * 違反の説明（手動で入れ替えたあとの再チェックにも使う）。違反の配列を返す。
    * ---------------------------------------------------------------- */
   function evaluate(input, assign) {
     var ctx = buildContext(input);
@@ -359,7 +357,6 @@ var Solver = (function () {
 
   function describeWithContext(ctx, assign) {
     var violations = [];
-    var notices = [];
     var settings = ctx.settings;
 
     var studentBySeat = {};   // seatId -> student
@@ -379,7 +376,7 @@ var Solver = (function () {
     ctx.students.forEach(function (st) {
       if (!seatByNo[st.no]) {
         violations.push({
-          kind: 'unplaced', weight: 9999, seats: [], students: [st.no],
+          weight: 9999, seats: [],
           message: st.name + 'さんの席がありません。'
         });
       }
@@ -393,38 +390,38 @@ var Solver = (function () {
       // 固定席そのものが使えない席のときは solve() 側で説明済みなので、ここでは重ねて出さない
       if (st.fixedSeat && st.fixedSeat !== seatId && ctx.seatIndex[st.fixedSeat] !== undefined) {
         violations.push({
-          kind: 'fixedSeat', weight: 9000, seats: [seatId], students: [st.no],
+          weight: 9000, seats: [seatId],
           message: st.name + 'さんは ' + st.fixedSeat + ' に固定の設定ですが、' + seatId + ' に座っています。'
         });
       }
       if (!matchesRowRule(st.rowRule, p.row, settings)) {
         violations.push({
-          kind: 'rowRule', weight: W.rule, seats: [seatId], students: [st.no],
+          weight: W.rule, seats: [seatId],
           message: st.name + 'さんは「' + rowRuleText(st.rowRule) + '」の指定ですが、' + seatId + '（前から' + p.row + '列目）に座っています。'
         });
       }
       if (!matchesColRule(st.colRule, p.col, settings)) {
         violations.push({
-          kind: 'colRule', weight: W.rule, seats: [seatId], students: [st.no],
+          weight: W.rule, seats: [seatId],
           message: st.name + 'さんは「' + colRuleText(st.colRule) + '」の指定ですが、' + seatId + '（左から' + p.col + '列目）に座っています。'
         });
       }
       var tg = Core.targetGender(settings, p.col, p.row);
       if (tg && st.gender && st.gender !== tg) {
         violations.push({
-          kind: 'mode', weight: W.mode, seats: [seatId], students: [st.no],
+          weight: W.mode, seats: [seatId],
           message: seatId + ' は' + (tg === 'M' ? '男子' : '女子') + 'の席ですが、' + st.name + 'さん（' + (st.gender === 'M' ? '男子' : '女子') + '）が座っています。'
         });
       }
       if (settings.avoidSameSeatPrev !== false && ctx.prevSeatName[0][seatId] === st.name) {
         violations.push({
-          kind: 'prevSeat', weight: W.prevSeat1, seats: [seatId], students: [st.no],
+          weight: W.prevSeat1, seats: [seatId],
           message: st.name + 'さんは前回と同じ ' + seatId + ' です。'
         });
       }
       if (settings.avoidSameSeatPrev2 !== false && ctx.prevSeatName[1][seatId] === st.name) {
         violations.push({
-          kind: 'prevSeat', weight: W.prevSeat2, seats: [seatId], students: [st.no],
+          weight: W.prevSeat2, seats: [seatId],
           message: st.name + 'さんは前々回と同じ ' + seatId + ' です。'
         });
       }
@@ -438,17 +435,17 @@ var Solver = (function () {
       var ia = ctx.seatIndex[ida], ib = ctx.seatIndex[idb];
       if (sp.level === 'adjacent' && ctx.adj[ia * ctx.S + ib]) {
         violations.push({
-          kind: 'adjacent', weight: W.adjacent, seats: [ida, idb], students: [sa.no, sb.no],
+          weight: W.adjacent, seats: [ida, idb],
           message: sa.name + 'さんと' + sb.name + 'さんは近づけない設定ですが、' + ida + ' と ' + idb + ' で隣り合っています。'
         });
       } else if (sp.level === 'pair' && ctx.pairIdx[ia] >= 0 && ctx.pairIdx[ia] === ctx.pairIdx[ib]) {
         violations.push({
-          kind: 'pair', weight: W.pair, seats: [ida, idb], students: [sa.no, sb.no],
+          weight: W.pair, seats: [ida, idb],
           message: sa.name + 'さんと' + sb.name + 'さんは同じペアにしない設定ですが、同じペア（' + ctx.pairs[ctx.pairIdx[ia]].seats.join('・') + '）になっています。'
         });
       } else if (sp.level === 'group' && ctx.groupIdx[ia] >= 0 && ctx.groupIdx[ia] === ctx.groupIdx[ib]) {
         violations.push({
-          kind: 'group', weight: W.group, seats: [ida, idb], students: [sa.no, sb.no],
+          weight: W.group, seats: [ida, idb],
           message: sa.name + 'さんと' + sb.name + 'さんは同じ班にしない設定ですが、第' + (ctx.groupIdx[ia] + 1) + '班で一緒になっています。'
         });
       }
@@ -463,13 +460,13 @@ var Solver = (function () {
           var key = Core.coupleKey(a.name, b.name);
           if (settings.avoidSamePairPrev !== false && ctx.prevPairKeys[0][key]) {
             violations.push({
-              kind: 'prevPair', weight: W.prevPair1, seats: [p.seats[i], p.seats[j]], students: [a.no, b.no],
+              weight: W.prevPair1, seats: [p.seats[i], p.seats[j]],
               message: a.name + 'さんと' + b.name + 'さんは前回もペアでした。'
             });
           }
           if (settings.avoidSamePairPrev2 === true && ctx.prevPairKeys[1][key]) {
             violations.push({
-              kind: 'prevPair', weight: W.prevPair2, seats: [p.seats[i], p.seats[j]], students: [a.no, b.no],
+              weight: W.prevPair2, seats: [p.seats[i], p.seats[j]],
               message: a.name + 'さんと' + b.name + 'さんは前々回もペアでした。'
             });
           }
@@ -478,7 +475,7 @@ var Solver = (function () {
     });
 
     violations.sort(function (x, y) { return y.weight - x.weight; });
-    return { violations: violations, notices: notices };
+    return violations;
   }
 
   function rowRuleText(rule) {
@@ -498,13 +495,10 @@ var Solver = (function () {
   }
 
   return {
-    W: W,
     solve: solve,
     evaluate: evaluate,
     rowRuleText: rowRuleText,
-    colRuleText: colRuleText,
-    matchesRowRule: matchesRowRule,
-    matchesColRule: matchesColRule
+    colRuleText: colRuleText
   };
 })();
 </script>

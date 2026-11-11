@@ -67,12 +67,10 @@ h2, h3 { margin: 0; font-weight: 700; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
 .btn-primary:hover { background: var(--primary-dark); }
-.btn-ok { background: var(--ok); border-color: var(--ok); color: #fff; }
-.btn-ok:hover { filter: brightness(.92); }
 .btn-danger { color: var(--warn); border-color: #f0b6b1; }
 .btn-sm { padding: 2px 7px; font-size: 12px; }
 
-select, input[type="text"], input[type="number"], textarea {
+select, input[type="text"], textarea {
   padding: 5px 7px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -123,7 +121,6 @@ textarea { width: 100%; resize: vertical; }
 .chart-meta { font-size: 12px; color: var(--muted); }
 .badge { font-size: 12px; padding: 2px 9px; border-radius: 999px; font-weight: 700; }
 .badge-draft { background: #fff3d6; color: #8a5a00; }
-.badge-done { background: #dff5e8; color: var(--ok); }
 .badge-edit { background: #e7e9fd; color: #3b3f9c; }
 
 .blackboard {
@@ -351,12 +348,4 @@ textarea { width: 100%; resize: vertical; }
 .loading { display: none; position: fixed; inset: 0; background: rgba(244,246,250,.75); z-index: 100; align-items: center; justify-content: center; }
 .loading.show { display: flex; }
 .loading-box { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 14px 24px; font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
-
-/* 画面から直接印刷しようとした場合の保険。実際の印刷は専用ウィンドウで行う。 */
-@media print {
-  .toolbar, .pane-history, .pane-warn, .modal, .toast, .loading, .chart-head { display: none !important; }
-  .layout { display: block; padding: 0; }
-  .pane-main { border: none; padding: 0; }
-  .seat-icons { display: none !important; }
-}
 </style>

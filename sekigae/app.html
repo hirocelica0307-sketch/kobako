@@ -14,7 +14,6 @@
     assign: {},        // 座席ID → 出席番号
     violations: [],
     notices: [],
-    confirmed: false,
     chartDirty: false, // 座席表がまだ書き出されていない
     mastersDirty: false,
     selectedSeat: null,
@@ -22,8 +21,6 @@
     editingHistoryLabel: '',
     ui: { pairSel: {}, groupSel: {}, pickIndex: -1 }
   };
-
-  var GENDER_LABEL = { M: '男子', F: '女子', '': '未設定' };
 
   var ROW_RULE_OPTIONS = [
     { v: 'none', t: '指定なし' },
@@ -117,8 +114,6 @@
     renderHistory();
     renderWarnings();
     $('classNameLabel').textContent = State.settings.className || '';
-    $('confirmBadge').textContent = State.confirmed ? '確定済み' : '未確定';
-    $('confirmBadge').className = 'badge ' + (State.confirmed ? 'badge-done' : 'badge-draft');
     var eb = $('editingBadge');
     if (State.editingHistoryId) {
       eb.style.display = '';
@@ -243,7 +238,6 @@
     if (va === undefined) delete State.assign[b]; else State.assign[b] = va;
 
     State.selectedSeat = null;
-    State.confirmed = false;
     State.chartDirty = true;
     reevaluate();
     renderAll();
@@ -251,8 +245,7 @@
   }
 
   function reevaluate() {
-    var r = Solver.evaluate(solverInput(), State.assign);
-    State.violations = r.violations;
+    State.violations = Solver.evaluate(solverInput(), State.assign);
   }
 
   /* ================= 確認事項 ================= */
@@ -308,7 +301,7 @@
   function renderHistory() {
     var el = $('historyList');
     if (!State.history.length) {
-      el.innerHTML = '<p class="hist-empty">まだ記録がありません。座席表を確定して「💾 書き出し」をすると、次回からここに前回・前々回の席が出ます。</p>';
+      el.innerHTML = '<p class="hist-empty">まだ記録がありません。「💾 書き出し」をすると、次回からここに前回・前々回の席が出ます。</p>';
       return;
     }
     var labels = ['前回', '前々回'];
@@ -418,7 +411,6 @@
 
     State.assign = assign;
     State.selectedSeat = null;
-    State.confirmed = false;
     State.chartDirty = true;
     State.editingHistoryId = entry.id;
     State.editingHistoryLabel = entry.label || entry.at;
@@ -479,7 +471,7 @@
     return t.length > 4 ? t.slice(0, 4) : t;
   }
 
-  /* ================= 席替え・反転・確定 ================= */
+  /* ================= 席替え・反転 ================= */
   function doShuffle() {
     if (!State.roster.length) { toast('先に名簿を登録してください。', true); return; }
     // ここからは新しい並びを作るので、呼び戻していた記録との結びつきを解く。
@@ -500,8 +492,7 @@
       State.violations = res.violations;
       State.notices = res.notices;
       State.selectedSeat = null;
-      State.confirmed = false;
-      State.chartDirty = true;
+        State.chartDirty = true;
       hideLoading();
       renderAll();
       status(res.attempts + ' 通り試しました（' + (res.elapsedMs / 1000).toFixed(1) + ' 秒）。'
@@ -515,14 +506,6 @@
     State.mastersDirty = true;
     renderAll();
     status(State.settings.flipped ? '反転して表示しています（黒板が下）。' : '通常の向きで表示しています（黒板が上）。');
-  }
-
-  function doConfirm() {
-    if (!Object.keys(State.assign).length) { toast('先に席替えをしてください。', true); return; }
-    State.confirmed = true;
-    renderAll();
-    toast('確定しました。「💾 書き出し」でスプレッドシートに記録できます。');
-    status('確定しました。変更したいときはそのまま入れ替えれば直せます（再度「確定」してください）。');
   }
 
   /* ================= 書き出し ================= */
@@ -541,14 +524,6 @@
         $('inputExportLabel').value = (cur && cur.label) ? cur.label : '';
       }
     }
-
-    var w = $('exportWarn');
-    if (!State.confirmed) {
-      w.style.display = '';
-      w.textContent = 'まだ「✅ 確定」を押していません。このまま書き出すこともできます。';
-    } else {
-      w.style.display = 'none';
-    }
     openModal('modalExport');
   }
 
@@ -562,7 +537,6 @@
       roster: State.roster,
       separations: State.separations,
       assign: State.assign,
-      mode: State.settings.mode,
       label: $('inputExportLabel').value.trim(),
       overwriteId: overwrite ? State.editingHistoryId : ''
     }).then(function (res) {
@@ -590,7 +564,7 @@
     });
   }
 
-  function saveMasters(quiet) {
+  function saveMasters() {
     if (!State.mastersDirty) return Promise.resolve();
     return Api.saveMasters({
       settings: State.settings,
@@ -598,7 +572,7 @@
       separations: State.separations
     }).then(function (res) {
       State.mastersDirty = false;
-      if (!quiet) status('設定・名簿を保存しました（' + res.savedAt + '）。');
+      status('設定・名簿を保存しました（' + res.savedAt + '）。');
     }).catch(function (err) {
       toast('保存に失敗しました：' + err.message, true);
     });
@@ -1207,7 +1181,6 @@
 
     $('btnShuffle').addEventListener('click', doShuffle);
     $('btnFlip').addEventListener('click', doFlip);
-    $('btnConfirm').addEventListener('click', doConfirm);
     $('btnExport').addEventListener('click', openExport);
     $('btnPrint').addEventListener('click', doPrint);
     $('btnExportRun').addEventListener('click', runExport);
@@ -1241,8 +1214,7 @@
 
     // 名簿
     var rt = $('rosterTable');
-    rt.addEventListener('input', onRosterInput);
-    rt.addEventListener('change', onRosterInput);
+    rt.addEventListener('input', onRosterInput);   // 文字入力も選択肢（性別）も input で拾える
     rt.addEventListener('click', onRosterClick);
     $('btnPasteApply').addEventListener('click', applyPaste);
     $('btnAddStudent').addEventListener('click', function () {
@@ -1255,11 +1227,8 @@
     });
 
     // 配慮事項
-    $('careTable').addEventListener('change', onCareChange);
-    // メモは打つそばから反映する（select は change 側で処理するので除く）
-    $('careTable').addEventListener('input', function (ev) {
-      if (ev.target.tagName === 'INPUT') onCareChange(ev);
-    });
+    // メモは打つそばから、前後・左右の指定は選んだときに反映する（どちらも input で拾える）
+    $('careTable').addEventListener('input', onCareChange);
     $('careTable').addEventListener('click', function (ev) {
       var pick = ev.target.closest('button[data-pick]');
       if (pick) { openSeatPicker(parseInt(pick.getAttribute('data-pick'), 10)); return; }

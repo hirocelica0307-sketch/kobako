@@ -30,7 +30,6 @@
   </div>
 
   <div class="tb-group">
-    <button id="btnConfirm" class="btn btn-ok">✅ 確定</button>
     <button id="btnExport" class="btn">💾 書き出し</button>
     <button id="btnPrint" class="btn">🖨 印刷</button>
   </div>
@@ -59,7 +58,6 @@
   <!-- 中央：座席表 -->
   <section class="pane-main">
     <div class="chart-head">
-      <span id="confirmBadge" class="badge badge-draft">未確定</span>
       <span id="editingBadge" class="badge badge-edit" style="display:none"></span>
       <span id="seatCount" class="chart-meta"></span>
       <span id="swapHint" class="chart-meta">児童を 2 人つづけてクリックすると入れ替わります</span>
@@ -323,7 +321,6 @@
             新しい記録として増やす</label>
         </div>
       </div>
-      <div id="exportWarn" class="notice notice-warn" style="display:none"></div>
     </div>
     <div class="modal-foot">
       <button class="btn" data-close="modalExport">やめる</button>
