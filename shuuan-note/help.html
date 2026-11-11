@@ -15,7 +15,7 @@
           <button onclick="helpJump('h-day')">1日まとめて</button>
           <button onclick="helpJump('h-todo')">ToDo</button>
           <button onclick="helpJump('h-month')">月の予定</button>
-          <button onclick="helpJump('h-nikka')">日課（短縮・特別）</button>
+          <button onclick="helpJump('h-nikka')">時程（短縮・特別）</button>
           <button onclick="helpJump('h-period')">〇〇週間（矢印）</button>
           <button onclick="helpJump('h-copy')">時間割を入れる・見る</button>
           <button onclick="helpJump('h-unit')">単元名と進み具合</button>
@@ -52,7 +52,7 @@
             <tr><th>印刷</th><td>1週間ぶんを A4 1枚に印刷します（ふだんは白黒） <button type="button" class="help-go" onclick="helpOpen('print')">開く ›</button></td></tr>
             <tr><th>時間割を表示</th><td>登録した基本の時間割を、週案の左に出します（見ながら週案を書けます）</td></tr>
             <tr><th>時間割を入れる</th><td>基本時間割か前の週の時間割を、今週の1〜6時間目に入れます</td></tr>
-            <tr><th>設定</th><td>学年・学期・日課・単元名などを決めます。年度の切り替えもここです</td></tr>
+            <tr><th>設定</th><td>学年・学期・時程・単元名などを決めます。年度の切り替えもここです</td></tr>
           </table>
           <p>ToDo・前の週と比べる・時間割を表示は、どれも週案の左に出すものなので、<b>出せるのは1つだけ</b>です（ほかを押すと入れかわります）。</p>
 
@@ -76,7 +76,7 @@
           <table class="help-tbl help-set">
             <tr><th>学級のこと</th><td><b>いちばん大事。</b>学年・組。年度の切り替えもここ <button type="button" class="help-go" onclick="helpGo('set-class')">開く ›</button></td></tr>
             <tr><th>学期</th><td>3学期制か2学期制か、それぞれの期間。時数を学期ごとに数えるのに使います <button type="button" class="help-go" onclick="helpGo('set-term')">開く ›</button></td></tr>
-            <tr><th>日課</th><td>通常・短縮・特別の時刻。週案に時刻が出ます <button type="button" class="help-go" onclick="helpGo('set-nikka')">開く ›</button></td></tr>
+            <tr><th>時程</th><td>通常・短縮・特別の時刻。週案に時刻が出ます <button type="button" class="help-go" onclick="helpGo('set-nikka')">開く ›</button></td></tr>
             <tr><th>休業期間</th><td>春・夏・冬の休み。その日は自動で「授業なし」になります <button type="button" class="help-go" onclick="helpGo('set-vac')">開く ›</button></td></tr>
             <tr><th>祝日の扱い</th><td>祝日の1〜6時間目を、自動で「授業なし」にするか <button type="button" class="help-go" onclick="helpGo('set-holiday')">開く ›</button></td></tr>
             <tr><th>単元名の登録</th><td>よく使う単元名と時数。授業を入れるときにえらべます <button type="button" class="help-go" onclick="helpGo('set-units')">開く ›</button></td></tr>
@@ -192,7 +192,7 @@
           <h4 id="h-day">1日をまとめて操作する</h4>
           <p>運動会や振替休業日など、1日まるごと動かしたいときは、<b>曜日の見出し（「月 8/10」などの部分）を押します</b>。次の操作が出ます。</p>
           <table class="help-tbl">
-            <tr><th>この日の日課</th><td>通常・短縮・特別をえらびます（「日課」の項）</td></tr>
+            <tr><th>この日の時程</th><td>通常・短縮・特別をえらびます（「時程」の項）</td></tr>
             <tr><th>しめきりのToDo</th><td>この日がしめきりのToDoを入れます（「ToDo」の項）</td></tr>
             <tr><th>期間の取り組み</th><td>この日から始まる〇〇週間などを、矢印で入れます（「〇〇週間（矢印）」の項）</td></tr>
             <tr><th>全部「授業なし」</th><td>1〜6時間目をまとめて灰色にします。行事・朝・連絡などの記入は残ります</td></tr>
@@ -222,7 +222,7 @@
           </div>
 
           <h4 id="h-month">月の予定</h4>
-          <p>上の <span class="help-key">月の予定</span> を押すと、<b>1か月ぶんの予定がカレンダーの形</b>で出ます。行事・メモ・〇〇週間の矢印・日課・ToDoのしめきり・祝日と休業日が見られます。</p>
+          <p>上の <span class="help-key">月の予定</span> を押すと、<b>1か月ぶんの予定がカレンダーの形</b>で出ます。行事・メモ・〇〇週間の矢印・時程・ToDoのしめきり・祝日と休業日が見られます。</p>
           <ul>
             <li><span class="help-key">◀ 前の月</span> <span class="help-key">次の月 ▶</span> で動きます（その年度の中）</li>
             <li>上の「出すもの」で、<span class="help-key">行事とメモ</span> <span class="help-key">行事だけ</span> <span class="help-key">メモだけ</span> をえらべます。メモには「メモ」の印が付きます（えらんだものは、この端末で覚えます）</li>
@@ -233,13 +233,13 @@
             <li><span class="help-key">印刷</span> で、A4横の月の予定表になります。「出すもの」でえらんだものが出ます（メモを人に見せたくないときは「行事だけ」にしてから印刷してください）。学年会などに使えます。行事の多い週は、その週の行が高くなります（文字は切れません）</li>
           </ul>
 
-          <h4 id="h-nikka">日課（通常・短縮・特別）</h4>
-          <p>設定の「日課」で、<b>通常・短縮・特別</b>の3つの日課の時刻を決めておけます。名前は変えられます（例：「参観」「B」）。</p>
+          <h4 id="h-nikka">時程（通常・短縮・特別）</h4>
+          <p>設定の「時程」で、<b>通常・短縮・特別</b>の3つの時程の時刻を決めておけます。名前は変えられます（例：「参観」「B」）。</p>
           <ul>
             <li><b>通常</b>の時刻は、週案の表の左はし（1〜6）に出ます</li>
-            <li>曜日の見出しを押し、メニューの「この日の日課」で <span class="help-key">短縮</span> や <span class="help-key">特別</span> をえらぶと、その日の見出しに「短縮日課 下校14:30」のように出て、<b>各時間のマスの右上に時刻</b>が出ます</li>
-            <li>その日課に時刻のない時間（例：短縮で6時間目がない）があるときは、あいているその時間を「授業なし」にするか聞きます</li>
-            <li>印刷にも、日課の名前と時刻が出ます。<span class="help-key">元に戻す</span> も使えます</li>
+            <li>曜日の見出しを押し、メニューの「この日の時程」で <span class="help-key">短縮</span> や <span class="help-key">特別</span> をえらぶと、その日の見出しに「短縮時程 下校14:30」のように出て、<b>各時間のマスの右上に時刻</b>が出ます</li>
+            <li>その時程に時刻のない時間（例：短縮で6時間目がない）があるときは、あいているその時間を「授業なし」にするか聞きます</li>
+            <li>印刷にも、時程の名前と時刻が出ます。<span class="help-key">元に戻す</span> も使えます</li>
           </ul>
 
           <h4 id="h-period">〇〇週間など、何日も続く取り組み（矢印）</h4>
@@ -487,7 +487,7 @@
             <li><span class="help-key">印刷画面へ</span> を押すと、<b>この画面の中に紙のイメージが出ます</b>。</li>
             <li>内容を確かめて、下の <span class="help-key">印刷する</span> を押します。</li>
           </ol>
-          <p><b>A4用紙1枚にぴったり収まる</b>ように自動で調整されます。日課の時刻や、単元の「5/12」も出ます。</p>
+          <p><b>A4用紙1枚にぴったり収まる</b>ように自動で調整されます。時程の時刻や、単元の「5/12」も出ます。</p>
           <ul>
             <li>行事・朝・業間・昼は、その週に書きこみがあるときだけ印刷されます</li>
             <li>「メモ」欄と各時間の「メモ・所感」は<b>印刷されません</b></li>

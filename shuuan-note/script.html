@@ -1506,7 +1506,7 @@
       document.getElementById('dayMenuHint').innerText =
         (holName ? holName + '。' : (vacName ? vacName + '。' : '')) +
         'この日の1日分をまとめて操作します。';
-      // 日課のボタン（いまの日課に印）
+      // 時程のボタン（いまの時程に印）
       const nk = getNikka();
       const cur = nikkaOfDate(fmtDate(d));
       document.getElementById('dayNikkaBtns').innerHTML = NIKKA_TYPES.map(function(t) {
@@ -2655,7 +2655,7 @@
         const col = mono ? '#000' : (isHol ? "#b8492f" : (isSat ? "#276f81" : "#5c4a35"));
         const holName = holidaysData[fmt(d)];
         const nkType = nikkaOfDate(fmt(d));
-        const nkHead = (nkType === 'normal') ? '' : '<span class="nkh">' + escapeHTML(printNikka[nkType].name) + '日課' +
+        const nkHead = (nkType === 'normal') ? '' : '<span class="nkh">' + escapeHTML(printNikka[nkType].name) + '時程' +
                        (printNikka[nkType].leave ? ' 下校' + hhmm(printNikka[nkType].leave) : '') + '</span>';
         head += '<th style="background:' + bg + '; color:' + col + ';">' +
                 '<span class="wd">' + mt(days[i]) + '</span><span class="dt">' + (d.getMonth()+1) + '/' + d.getDate() + '</span>' +
@@ -4218,8 +4218,8 @@
       return c ? '（' + fmtHour(c.n) + '/' + fmtHour(c.h) + '）' : '';
     }
 
-    // ===== 日課（通常・短縮・特別） =====
-    // 設定で日課ごとに各時間の時刻を決めておき、曜日の見出しから日ごとにえらぶ。
+    // ===== 時程（通常・短縮・特別） =====
+    // 設定で時程ごとに各時間の時刻を決めておき、曜日の見出しから日ごとにえらぶ。
     // えらんだ日は appData[日付-nikka] = { type } に入る（通常は何も入れない）。
 
     const NIKKA_TYPES = ['normal', 'short', 'special'];
@@ -4271,15 +4271,15 @@
       return (t && t.s) ? '<span class="nk-time">' + timeLabel(t) + '</span>' : '';
     }
 
-    // 曜日の見出しに出す日課の名前と下校時刻
+    // 曜日の見出しに出す時程の名前と下校時刻
     function nikkaHeadHTML(ds) {
       const type = nikkaOfDate(ds);
       if (type === 'normal') return '';
       const nk = getNikka()[type];
-      return '<span class="nk-badge">' + escapeHTML(nk.name) + '日課' + (nk.leave ? ' 下校' + hhmm(nk.leave) : '') + '</span>';
+      return '<span class="nk-badge">' + escapeHTML(nk.name) + '時程' + (nk.leave ? ' 下校' + hhmm(nk.leave) : '') + '</span>';
     }
 
-    // 左はしの見出しに、ふだんの日課の時刻を出す
+    // 左はしの見出しに、ふだんの時程の時刻を出す
     function renderPeriodHeads() {
       const normal = getNikka().normal;
       LESSON_PERIODS.forEach(function(p) {
@@ -4298,20 +4298,20 @@
       const key = ds + '-nikka';
       const nk = getNikka();
       closeDayMenu();
-      // その日課で時刻が決まっていない授業の時間（例：短縮で6時間目がない）
+      // その時程で時刻が決まっていない授業の時間（例：短縮で6時間目がない）
       const hasAnyTime = LESSON_PERIODS.some(function(p) { return nk[type].times[p].s; });
       const empties = (type !== 'normal' && hasAnyTime)
         ? LESSON_PERIODS.filter(function(p) { return !nk[type].times[p].s && !appData[getDataKey(dIdx, p)]; })
         : [];
       const apply = function(markOff) {
-        pushUndo('日課を変える', [key].concat(markOff ? empties.map(function(p) { return getDataKey(dIdx, p); }) : []));
+        pushUndo('時程を変える', [key].concat(markOff ? empties.map(function(p) { return getDataKey(dIdx, p); }) : []));
         if (type === 'normal') delete appData[key]; else appData[key] = { type: type };
         if (markOff) empties.forEach(function(p) { appData[getDataKey(dIdx, p)] = { disabled: true }; });
         updateView(); syncToServer();
-        showToast(mdw(ds) + 'を「' + nk[type].name + '日課」にしました', true);
+        showToast(mdw(ds) + 'を「' + nk[type].name + '時程」にしました', true);
       };
       if (empties.length) {
-        uiConfirm('「' + nk[type].name + '日課」には、' + empties.map(function(p) { return p + '時間目'; }).join('・') +
+        uiConfirm('「' + nk[type].name + '時程」には、' + empties.map(function(p) { return p + '時間目'; }).join('・') +
                   ' の時刻がありません。\n\nあいているこれらの時間を「授業なし」にしますか？\n（教科が入っている時間は、そのままです）',
                   function(ok) { apply(ok); }, '授業なしにする', 'そのままにする');
       } else {
@@ -4319,14 +4319,14 @@
       }
     }
 
-    // 設定画面：日課の時刻
+    // 設定画面：時程の時刻
     function renderNikkaSettings() {
       if (!nkWork) nkWork = getNikka();
       const tabs = document.getElementById('nkTabs');
       if (tabs) {
         tabs.innerHTML = NIKKA_TYPES.map(function(t) {
           return '<button type="button" class="bt-tab' + (t === nkTab ? ' on' : '') + '" data-t="' + t + '" onclick="switchNikkaTab(this.dataset.t)">' +
-                 escapeHTML(nkWork[t].name) + '日課</button>';
+                 escapeHTML(nkWork[t].name) + '時程</button>';
         }).join('');
       }
       const nameEl = document.getElementById('nkName');
@@ -4358,7 +4358,7 @@
       const tabs = document.getElementById('nkTabs');
       if (!tabs || !nkWork) return;
       Array.prototype.forEach.call(tabs.querySelectorAll('.bt-tab'), function(b) {
-        b.textContent = nkWork[b.dataset.t].name + '日課';
+        b.textContent = nkWork[b.dataset.t].name + '時程';
       });
     }
 
@@ -5061,7 +5061,7 @@
     }
 
     // ===== 月の予定 =====
-    // 1か月ぶんの行事・期間の取り組み・日課・ToDo のしめきりを、カレンダーの形で見る。
+    // 1か月ぶんの行事・期間の取り組み・時程・ToDo のしめきりを、カレンダーの形で見る。
 
     let monthCursor = null;   // 表示している月の1日
 
@@ -5113,7 +5113,7 @@
       const type = nikkaOfDate(ds);
       return {
         hol: hol, vac: getHolidayPeriodName(ds) || '', ev: ev, memo: memo,
-        nikka: type === 'normal' ? '' : getNikka()[type].name + '日課',
+        nikka: type === 'normal' ? '' : getNikka()[type].name + '時程',
         todo: openTodosDue(ds)
       };
     }
