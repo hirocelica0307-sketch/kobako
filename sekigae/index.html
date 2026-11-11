@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <base target="_top">
+  <?!= include('styles'); ?>
+</head>
+<body>
+
+<!-- ================= ツールバー ================= -->
+<header class="toolbar">
+  <div class="tb-title">席替えアプリ<span id="classNameLabel" class="tb-class"></span></div>
+
+  <div class="tb-group">
+    <label class="tb-label">方法</label>
+    <select id="modeSelect">
+      <option value="random">ランダム</option>
+      <option value="genderColumn">男女別の列</option>
+      <option value="checker">市松模様（男女交互）</option>
+    </select>
+    <select id="genderStartSelect" title="どちらの性別から始めるか">
+      <option value="M">男子から</option>
+      <option value="F">女子から</option>
+    </select>
+  </div>
+
+  <div class="tb-group">
+    <button id="btnShuffle" class="btn btn-primary">🎲 席替え</button>
+    <button id="btnFlip" class="btn">🔄 反転</button>
+  </div>
+
+  <div class="tb-group">
+    <button id="btnConfirm" class="btn btn-ok">✅ 確定</button>
+    <button id="btnExport" class="btn">💾 書き出し</button>
+    <button id="btnPrint" class="btn">🖨 印刷</button>
+  </div>
+
+  <div class="tb-group tb-right">
+    <button id="btnRoster" class="btn">👥 名簿</button>
+    <button id="btnCare" class="btn">⚠ 配慮事項</button>
+    <button id="btnSettings" class="btn">⚙ 設定</button>
+  </div>
+
+  <div id="statusBar" class="tb-status"></div>
+</header>
+
+<!-- ================= 本体 ================= -->
+<main class="layout">
+
+  <!-- 左：前回・前々回 -->
+  <aside class="pane-history" id="historyPane">
+    <div class="pane-head">
+      <h2 class="pane-title">これまでの席</h2>
+      <button id="btnHistoryAll" class="btn btn-sm">記録の一覧</button>
+    </div>
+    <div id="historyList"></div>
+  </aside>
+
+  <!-- 中央：座席表 -->
+  <section class="pane-main">
+    <div class="chart-head">
+      <span id="confirmBadge" class="badge badge-draft">未確定</span>
+      <span id="editingBadge" class="badge badge-edit" style="display:none"></span>
+      <span id="seatCount" class="chart-meta"></span>
+      <span id="swapHint" class="chart-meta">児童を 2 人つづけてクリックすると入れ替わります</span>
+    </div>
+    <div id="seatChart" class="seat-chart"></div>
+  </section>
+
+  <!-- 右：警告 -->
+  <aside class="pane-warn">
+    <h2 class="pane-title">確認事項</h2>
+    <div id="warnSummary" class="warn-summary"></div>
+    <div id="warnList" class="warn-list"></div>
+  </aside>
+</main>
+
+<!-- ================= 名簿モーダル ================= -->
+<div class="modal" id="modalRoster">
+  <div class="modal-box modal-lg">
+    <div class="modal-head">
+      <h2>名簿</h2>
+      <button class="modal-close" data-close="modalRoster">✕</button>
+    </div>
+    <div class="modal-body">
+      <details class="paste-box" id="pasteBox">
+        <summary>エクセルから貼り付けて一括登録する</summary>
+        <p class="hint">
+          1 行に 1 名で貼り付けてください。エクセルの列をそのままコピーできます。<br>
+          左から「氏名」「ひらがな」「性別（男／女）」の順に読み取ります（2 列目以降は無くても構いません）。<br>
+          最大 <b>42 名</b>。取り込むと出席番号が上から 1・2・3… と自動で振り直されます。
+        </p>
+        <textarea id="pasteArea" rows="8" placeholder="山田　太郎&#9;やまだ　たろう&#9;男&#10;鈴木　花子&#9;すずき　はなこ&#9;女"></textarea>
+        <div class="row">
+          <label><input type="radio" name="pasteMode" value="replace" checked> 置き換える</label>
+          <label><input type="radio" name="pasteMode" value="append"> 今の名簿に追加する</label>
+          <button id="btnPasteApply" class="btn btn-primary">取り込む</button>
+        </div>
+      </details>
+
+      <div class="table-wrap">
+        <table class="tbl" id="rosterTable">
+          <thead>
+            <tr><th style="width:56px">番号</th><th>氏名</th><th>ひらがな</th><th style="width:96px">性別</th><th style="width:120px">並べ替え</th><th style="width:64px"></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="row">
+        <button id="btnAddStudent" class="btn">＋ 1 行追加</button>
+        <span id="rosterCount" class="hint"></span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" data-close="modalRoster">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 配慮事項モーダル ================= -->
+<div class="modal" id="modalCare">
+  <div class="modal-box modal-lg">
+    <div class="modal-head">
+      <h2>配慮事項</h2>
+      <button class="modal-close" data-close="modalCare">✕</button>
+    </div>
+    <div class="modal-body">
+      <h3 class="sec-title">席の指定</h3>
+      <p class="hint">
+        「席を固定」のボタンを押すと座席表が開くので、座らせたい席をクリックしてください。<br>
+        前後は黒板側からの列数、左右はいちばん左（A 列）からの列数です。<br>
+        メモは先生の覚え書きです。座席表にマウスを乗せると出ますが、<b>印刷には出ません</b>。
+      </p>
+      <div class="table-wrap table-scroll">
+        <table class="tbl" id="careTable">
+          <thead>
+            <tr>
+              <th style="width:50px">番号</th><th style="width:130px">氏名</th>
+              <th style="width:120px">席を固定</th>
+              <th style="width:190px">前後の指定</th>
+              <th style="width:190px">左右の指定</th>
+              <th>メモ</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <h3 class="sec-title">近づけない組み合わせ</h3>
+      <div class="row row-wrap">
+        <select id="sepA"></select>
+        <span>と</span>
+        <select id="sepB"></select>
+        <label><input type="checkbox" id="sepAdjacent" checked> 周囲のマスに入れない</label>
+        <label><input type="checkbox" id="sepPair"> 同じペアにしない</label>
+        <label><input type="checkbox" id="sepGroup"> 同じ班にしない</label>
+        <button id="btnAddSep" class="btn btn-primary">追加</button>
+      </div>
+      <div class="table-wrap">
+        <table class="tbl" id="sepTable">
+          <thead><tr><th>児童</th><th>児童</th><th style="width:220px">種類</th><th style="width:64px"></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" data-close="modalCare">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 設定モーダル ================= -->
+<div class="modal" id="modalSettings">
+  <div class="modal-box modal-lg">
+    <div class="modal-head">
+      <h2>設定</h2>
+      <button class="modal-close" data-close="modalSettings">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tabs">
+        <button class="tab active" data-tab="tabLayout">座席</button>
+        <button class="tab" data-tab="tabUnused">使わない席</button>
+        <button class="tab" data-tab="tabPairs">ペア</button>
+        <button class="tab" data-tab="tabGroups">班</button>
+        <button class="tab" data-tab="tabAvoid">前回までの回避</button>
+        <button class="tab" data-tab="tabPrint">印刷</button>
+      </div>
+
+      <div class="tab-panel active" id="tabLayout">
+        <div class="row">
+          <label>クラス名</label>
+          <input type="text" id="inputClassName" placeholder="例）3年2組" style="width:220px">
+        </div>
+        <div class="row">
+          <label>左右（横）の席数</label>
+          <select id="selCols"></select>
+          <label>前後（縦）の席数</label>
+          <select id="selRows"></select>
+          <span class="hint">最大 横 6 席 × 縦 7 席</span>
+        </div>
+        <p class="hint">座席番号は左から A〜F、黒板側から 1〜7 です（例 C2、F5）。番号は席そのものに付いているので、反転して表示しても変わりません。</p>
+      </div>
+
+      <div class="tab-panel" id="tabUnused">
+        <p class="hint">人数が席数に合わないときなど、使わない席をクリックして選んでください。もう一度クリックすると戻ります。</p>
+        <div id="gridUnused" class="mini-grid"></div>
+      </div>
+
+      <div class="tab-panel" id="tabPairs">
+        <p class="hint">
+          ペアは既定で「横 2 席ずつの相方」（A1 と B1、C1 と D1 …）です。<br>
+          手で決めたいときは、下の座席表で席をクリックして選び「選んだ席をペアにする」を押してください。
+          3 人のペアや、隣どうしでない席のペアも作れます。
+        </p>
+        <div class="row">
+          <label><input type="radio" name="pairMode" value="auto"> 横 2 席ずつ（自動）</label>
+          <label><input type="radio" name="pairMode" value="manual"> 手で決める</label>
+        </div>
+        <div id="pairManualArea">
+          <div id="gridPairs" class="mini-grid"></div>
+          <div class="row">
+            <button id="btnMakePair" class="btn btn-primary">選んだ席をペアにする</button>
+            <button id="btnClearPairSel" class="btn">選択を解除</button>
+            <button id="btnResetPairs" class="btn">すべて消して自動に戻す</button>
+          </div>
+          <div id="pairList" class="chip-list"></div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tabGroups">
+        <p class="hint">座席表で席をクリックして選び「選んだ席を班にする」を押してください。4 人班・6 人班が混ざっていても構いません。</p>
+        <div id="gridGroups" class="mini-grid"></div>
+        <div class="row">
+          <button id="btnMakeGroup" class="btn btn-primary">選んだ席を班にする</button>
+          <button id="btnClearGroupSel" class="btn">選択を解除</button>
+          <button id="btnResetGroups" class="btn">班をすべて消す</button>
+        </div>
+        <div id="groupList" class="chip-list"></div>
+      </div>
+
+      <div class="tab-panel" id="tabAvoid">
+        <p class="hint">2 回目以降の席替えで、前回までと重ならないようにします。記録がまだ無いときは何も起きません。</p>
+        <div class="check-col">
+          <label><input type="checkbox" id="chkSeatPrev"> 前回と同じ席を避ける</label>
+          <label><input type="checkbox" id="chkSeatPrev2"> 前々回と同じ席を避ける</label>
+          <label><input type="checkbox" id="chkPairPrev"> 前回ペアだった児童と、またペアにしない</label>
+          <label><input type="checkbox" id="chkPairPrev2"> 前々回ペアだった児童と、またペアにしない</label>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tabPrint">
+        <div class="row">
+          <label>印刷する名前</label>
+          <select id="selPrintName">
+            <option value="kanji">漢字</option>
+            <option value="kana">ひらがな</option>
+            <option value="both">漢字＋ひらがな</option>
+          </select>
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="chkPrintNumber"> 出席番号も印刷する</label>
+        </div>
+        <p class="hint">印刷は A4 横 1 枚です。配慮事項のしるしや確認事項は印刷されません。反転して表示しているときは、その向きのまま印刷されます。</p>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" data-close="modalSettings">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 記録の一覧 ================= -->
+<div class="modal" id="modalHistory">
+  <div class="modal-box modal-lg">
+    <div class="modal-head">
+      <h2>これまでの席替えの記録</h2>
+      <button class="modal-close" data-close="modalHistory">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="hint">
+        「この席にもどす」を押すと、その日の座席表を画面に呼び戻して、続きから直せます。<br>
+        呼び戻しは<b>氏名で照合</b>するので、そのあと名簿の出席番号を振り直していても正しく並びます。
+      </p>
+      <div class="table-wrap table-scroll">
+        <table class="tbl" id="historyTable">
+          <thead>
+            <tr>
+              <th style="width:150px">実施日時</th>
+              <th>見出し</th>
+              <th style="width:110px">方法</th>
+              <th style="width:80px">人数</th>
+              <th style="width:210px"></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" data-close="modalHistory">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 書き出しモーダル ================= -->
+<div class="modal" id="modalExport">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2>スプレッドシートに書き出す</h2>
+      <button class="modal-close" data-close="modalExport">✕</button>
+    </div>
+    <div class="modal-body">
+      <p>この座席表を記録します。次回の席替えで「前回の席」として使われます。</p>
+      <div class="row">
+        <label>見出し（任意）</label>
+        <input type="text" id="inputExportLabel" placeholder="例）2学期 ①" style="width:260px">
+      </div>
+      <div id="exportModeBox" style="display:none">
+        <div class="check-col" style="gap:6px">
+          <label><input type="radio" name="exportMode" value="overwrite" checked>
+            <b id="exportOverwriteLabel"></b> を書き直す（記録は増えません）</label>
+          <label><input type="radio" name="exportMode" value="new">
+            新しい記録として増やす</label>
+        </div>
+      </div>
+      <div id="exportWarn" class="notice notice-warn" style="display:none"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="modalExport">やめる</button>
+      <button id="btnExportRun" class="btn btn-primary">書き出す</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 席をえらぶ（固定席の指定） ================= -->
+<div class="modal" id="modalSeatPick">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2>席をえらぶ</h2>
+      <button class="modal-close" data-close="modalSeatPick">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="seatPickWho" class="pick-who"></p>
+      <div id="gridSeatPick" class="mini-grid"></div>
+      <p class="hint">
+        ななめ線の席は「使わない席」です。名前が出ている席は、ほかの児童がすでに固定している席です。
+      </p>
+    </div>
+    <div class="modal-foot">
+      <button id="btnSeatPickClear" class="btn">固定しない</button>
+      <button class="btn" data-close="modalSeatPick">やめる</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="loading" class="loading"><div class="loading-box">読み込んでいます…</div></div>
+
+<?!= include('core'); ?>
+<?!= include('solver'); ?>
+<?!= include('api'); ?>
+<?!= include('app'); ?>
+</body>
+</html>

@@ -1,0 +1,510 @@
+<script>
+/**
+ * 席替えアプリ — 席替えアルゴリズム
+ *
+ * 考え方
+ *  1. 固定席の児童を先に確定する。
+ *  2. 残りをランダムに並べ、違反の重み合計（スコア）が下がる入れ替えを繰り返す（局所探索）。
+ *  3. 出発点を変えて何度もやり直し、制限時間内で最もスコアの小さい案を採用する。
+ *  4. 違反が残っても案は出し、「何がどう守れなかったか」を日本語で返す。
+ *
+ * 前回・前々回との照合は出席番号ではなく「氏名」で行う。
+ * 名簿を並べ替えると出席番号が振り直されるため、番号では別人になってしまうため。
+ */
+var Solver = (function () {
+  'use strict';
+
+  /* 違反の重み。大きいほど優先して守られる。 */
+  var W = {
+    rule: 1000,        // 前後・左右の指定
+    adjacent: 500,     // 周囲のマスに入れない
+    pair: 400,         // 同じペアにしない
+    group: 300,        // 同じ班にしない
+    mode: 200,         // 男女別列・市松模様
+    prevSeat1: 60,     // 前回と同じ席
+    prevSeat2: 30,     // 前々回と同じ席
+    prevPair1: 40,     // 前回と同じペア
+    prevPair2: 20      // 前々回と同じペア
+  };
+
+  var DEFAULT_BUDGET_MS = 1500;
+  var STEPS_PER_ATTEMPT = 3000;
+
+  /* ---------------------------------------------------------------- *
+   * 計算用のデータをまとめて作る
+   * ---------------------------------------------------------------- */
+  function buildContext(input) {
+    var settings = input.settings || {};
+    var students = (input.roster || []).filter(function (s) { return s && s.name; });
+    var history = input.history || [];
+
+    var seats = Core.usableSeats(settings);
+    var S = seats.length;
+    var N = students.length;
+
+    var seatIndex = {};
+    seats.forEach(function (s, i) { seatIndex[s.id] = i; });
+
+    var pairs = Core.effectivePairs(settings);
+    var groups = Core.effectiveGroups(settings);
+
+    // 席 → 所属するペア／班の番号（-1 は所属なし）
+    var pairIdx = new Int32Array(S).fill(-1);
+    var groupIdx = new Int32Array(S).fill(-1);
+    pairs.forEach(function (p, pi) {
+      p.seats.forEach(function (id) { if (seatIndex[id] !== undefined) pairIdx[seatIndex[id]] = pi; });
+    });
+    groups.forEach(function (g, gi) {
+      g.seats.forEach(function (id) { if (seatIndex[id] !== undefined) groupIdx[seatIndex[id]] = gi; });
+    });
+
+    // 周囲 8 マスの隣接表
+    var adj = new Uint8Array(S * S);
+    for (var i = 0; i < S; i++) {
+      for (var j = 0; j < S; j++) {
+        if (i === j) continue;
+        var a = seats[i], b = seats[j];
+        if (Math.abs(a.col - b.col) <= 1 && Math.abs(a.row - b.row) <= 1) adj[i * S + j] = 1;
+      }
+    }
+
+    // 同じペアの中の 2 人組（席の組）
+    var pairCouples = [];
+    pairs.forEach(function (p) {
+      var idxs = p.seats.map(function (id) { return seatIndex[id]; })
+        .filter(function (v) { return v !== undefined; });
+      for (var x = 0; x < idxs.length; x++) {
+        for (var y = x + 1; y < idxs.length; y++) pairCouples.push([idxs[x], idxs[y]]);
+      }
+    });
+
+    // 履歴（新しい順に 前回・前々回）
+    var prevSeatName = [Core.seatNameMap(history[0]), Core.seatNameMap(history[1])];
+    var prevPairKeys = [Core.pairKeySet(history[0], settings), Core.pairKeySet(history[1], settings)];
+
+    /* 単項コスト行列 unary[児童 * S + 席]
+       「この児童をこの席に座らせたときに 1 人分だけで決まる違反」をあらかじめ足しておく。
+       探索中はここを引くだけで済むので速い。 */
+    var unary = new Int32Array(N * S);
+    for (var si = 0; si < N; si++) {
+      var st = students[si];
+      for (var k = 0; k < S; k++) {
+        var seat = seats[k];
+        var cost = 0;
+        if (!matchesRowRule(st.rowRule, seat.row, settings)) cost += W.rule;
+        if (!matchesColRule(st.colRule, seat.col, settings)) cost += W.rule;
+        var tg = Core.targetGender(settings, seat.col, seat.row);
+        if (tg && st.gender && st.gender !== tg) cost += W.mode;
+        if (settings.avoidSameSeatPrev !== false && prevSeatName[0][seat.id] === st.name) cost += W.prevSeat1;
+        if (settings.avoidSameSeatPrev2 !== false && prevSeatName[1][seat.id] === st.name) cost += W.prevSeat2;
+        unary[si * S + k] = cost;
+      }
+    }
+
+    // 前回・前々回にペアだった 2 人（児童番号どうしの行列）
+    var pairPrev = new Int32Array(N * N);
+    for (var a = 0; a < N; a++) {
+      for (var b = a + 1; b < N; b++) {
+        var key = Core.coupleKey(students[a].name, students[b].name);
+        var c = 0;
+        if (settings.avoidSamePairPrev !== false && prevPairKeys[0][key]) c += W.prevPair1;
+        if (settings.avoidSamePairPrev2 === true && prevPairKeys[1][key]) c += W.prevPair2;
+        pairPrev[a * N + b] = c;
+        pairPrev[b * N + a] = c;
+      }
+    }
+
+    // 「近づけない」関係（名簿にいる児童どうしのみ）
+    var noByIndex = {};
+    students.forEach(function (s, i) { noByIndex[s.no] = i; });
+    var seps = [];
+    (input.separations || []).forEach(function (sp) {
+      var ia = noByIndex[sp.a], ib = noByIndex[sp.b];
+      if (ia === undefined || ib === undefined || ia === ib) return;
+      seps.push({ a: ia, b: ib, level: sp.level || 'adjacent' });
+    });
+
+    return {
+      settings: settings, students: students, seats: seats, S: S, N: N,
+      seatIndex: seatIndex, pairs: pairs, groups: groups,
+      pairIdx: pairIdx, groupIdx: groupIdx, adj: adj, pairCouples: pairCouples,
+      prevSeatName: prevSeatName, prevPairKeys: prevPairKeys,
+      unary: unary, pairPrev: pairPrev, seps: seps, history: history
+    };
+  }
+
+  function matchesRowRule(rule, row, settings) {
+    if (!rule || rule.type === 'none') return true;
+    var rows = Core.clampInt(settings.rows, 1, Core.MAX_ROWS, 6);
+    var v = Core.clampInt(rule.value, 1, Core.MAX_ROWS, 1);
+    if (rule.type === 'exact') return row === v;
+    if (rule.type === 'frontWithin') return row <= v;
+    if (rule.type === 'backWithin') return row >= rows - v + 1;
+    return true;
+  }
+
+  function matchesColRule(rule, col, settings) {
+    if (!rule || rule.type === 'none') return true;
+    var cols = Core.clampInt(settings.cols, 1, Core.MAX_COLS, 6);
+    var v = Core.clampInt(rule.value, 1, Core.MAX_COLS, 1);
+    if (rule.type === 'exact') return col === v;
+    if (rule.type === 'leftWithin') return col <= v;
+    if (rule.type === 'rightWithin') return col >= cols - v + 1;
+    return true;
+  }
+
+  /* ---------------------------------------------------------------- *
+   * スコア計算
+   * ---------------------------------------------------------------- */
+  function score(ctx, owner, seatOf) {
+    var s = 0, i, S = ctx.S, N = ctx.N;
+    for (i = 0; i < S; i++) {
+      var si = owner[i];
+      if (si >= 0) s += ctx.unary[si * S + i];
+    }
+    for (i = 0; i < ctx.seps.length; i++) {
+      var sp = ctx.seps[i];
+      var ia = seatOf[sp.a], ib = seatOf[sp.b];
+      if (ia < 0 || ib < 0) continue;
+      if (sp.level === 'adjacent') {
+        if (ctx.adj[ia * S + ib]) s += W.adjacent;
+      } else if (sp.level === 'pair') {
+        if (ctx.pairIdx[ia] >= 0 && ctx.pairIdx[ia] === ctx.pairIdx[ib]) s += W.pair;
+      } else {
+        if (ctx.groupIdx[ia] >= 0 && ctx.groupIdx[ia] === ctx.groupIdx[ib]) s += W.group;
+      }
+    }
+    for (i = 0; i < ctx.pairCouples.length; i++) {
+      var c = ctx.pairCouples[i];
+      var a = owner[c[0]], b = owner[c[1]];
+      if (a >= 0 && b >= 0) s += ctx.pairPrev[a * N + b];
+    }
+    return s;
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 席替えを解く
+   * ---------------------------------------------------------------- */
+  function solve(input, options) {
+    options = options || {};
+    var budget = options.budgetMs || DEFAULT_BUDGET_MS;
+    var ctx = buildContext(input);
+    var S = ctx.S, N = ctx.N;
+    var notices = [];
+
+    if (N === 0) {
+      return { assign: {}, violations: [], notices: ['名簿がまだ空です。「名簿」から児童を登録してください。'], score: 0, attempts: 0, elapsedMs: 0 };
+    }
+
+    // --- 固定席の割り当て -------------------------------------------------
+    var owner = new Int32Array(S).fill(-1);
+    var seatOf = new Int32Array(N).fill(-1);
+    var locked = new Uint8Array(S);
+
+    ctx.students.forEach(function (st, si) {
+      if (!st.fixedSeat) return;
+      var k = ctx.seatIndex[st.fixedSeat];
+      if (k === undefined) {
+        notices.push(st.name + 'さんの固定席 ' + st.fixedSeat + ' は、いまのレイアウトでは使えない席です。固定を外して席替えしました。');
+        return;
+      }
+      if (owner[k] >= 0) {
+        notices.push(st.name + 'さんの固定席 ' + st.fixedSeat + ' は ' + ctx.students[owner[k]].name + 'さんと重なっています。' + st.name + 'さんの固定を外して席替えしました。');
+        return;
+      }
+      owner[k] = si;
+      seatOf[si] = k;
+      locked[k] = 1;
+    });
+
+    // --- 自由に動かせる児童と席 -------------------------------------------
+    var freeSeats = [];
+    for (var k = 0; k < S; k++) if (!locked[k]) freeSeats.push(k);
+    var freeStudents = [];
+    for (var si = 0; si < N; si++) if (seatOf[si] < 0) freeStudents.push(si);
+
+    if (freeStudents.length > freeSeats.length) {
+      notices.push('児童 ' + N + ' 人に対して使える席が ' + S + ' 席しかありません。座席数を増やすか、使わない席を減らしてください。');
+    }
+
+    var slots = freeSeats.length;
+    var best = null, bestScore = Infinity;
+    var start = Date.now();
+    var attempts = 0;
+
+    var work = new Int32Array(slots);           // freeSeats の各枠に入る児童（-1 は空席）
+    for (var i = 0; i < slots; i++) work[i] = (i < freeStudents.length) ? freeStudents[i] : -1;
+
+    // 席番号 → work の何番目か（違反している席を選び直すために使う）
+    var slotOfSeat = new Int32Array(S).fill(-1);
+    for (var i = 0; i < slots; i++) slotOfSeat[freeSeats[i]] = i;
+
+    /* いま違反している席の一覧。ここを優先して入れ替えると、
+       やみくもに入れ替えるより格段に早く条件を満たせる。 */
+    var badSlots = [];
+    function refreshBad() {
+      badSlots.length = 0;
+      var q, sl;
+      for (q = 0; q < slots; q++) {
+        var seat = freeSeats[q], si2 = owner[seat];
+        if (si2 >= 0 && ctx.unary[si2 * S + seat] > 0) badSlots.push(q);
+      }
+      for (q = 0; q < ctx.seps.length; q++) {
+        var sp2 = ctx.seps[q];
+        var ia2 = seatOf[sp2.a], ib2 = seatOf[sp2.b];
+        if (ia2 < 0 || ib2 < 0) continue;
+        var hit = (sp2.level === 'adjacent') ? ctx.adj[ia2 * S + ib2]
+          : (sp2.level === 'pair') ? (ctx.pairIdx[ia2] >= 0 && ctx.pairIdx[ia2] === ctx.pairIdx[ib2])
+          : (ctx.groupIdx[ia2] >= 0 && ctx.groupIdx[ia2] === ctx.groupIdx[ib2]);
+        if (!hit) continue;
+        sl = slotOfSeat[ia2]; if (sl >= 0) badSlots.push(sl);
+        sl = slotOfSeat[ib2]; if (sl >= 0) badSlots.push(sl);
+      }
+      for (q = 0; q < ctx.pairCouples.length; q++) {
+        var cc = ctx.pairCouples[q];
+        var av = owner[cc[0]], bv = owner[cc[1]];
+        if (av < 0 || bv < 0 || ctx.pairPrev[av * N + bv] === 0) continue;
+        sl = slotOfSeat[cc[0]]; if (sl >= 0) badSlots.push(sl);
+        sl = slotOfSeat[cc[1]]; if (sl >= 0) badSlots.push(sl);
+      }
+    }
+
+    while (true) {
+      attempts++;
+      shuffle(work);
+      applyWork(owner, seatOf, freeSeats, work);
+      var cur = score(ctx, owner, seatOf);
+      refreshBad();
+
+      for (var step = 0; step < STEPS_PER_ATTEMPT && cur > 0; step++) {
+        // 8 割は「違反している席」から動かす
+        var x = (badSlots.length && Math.random() < 0.8)
+          ? badSlots[(Math.random() * badSlots.length) | 0]
+          : (Math.random() * slots) | 0;
+        var y = (Math.random() * slots) | 0;
+        if (x === y) continue;
+        swapWork(owner, seatOf, freeSeats, work, x, y);
+        var ns = score(ctx, owner, seatOf);
+        if (ns <= cur) {
+          if (ns < cur) { cur = ns; refreshBad(); }
+          else { cur = ns; }
+        } else {
+          swapWork(owner, seatOf, freeSeats, work, x, y); // 元に戻す
+        }
+        if ((step & 127) === 0) {
+          refreshBad();
+          if (Date.now() - start > budget) break;
+        }
+      }
+
+      if (cur < bestScore) {
+        bestScore = cur;
+        best = Int32Array.from(work);
+      }
+      if (bestScore === 0) break;
+      if (Date.now() - start > budget) break;
+      if (slots <= 1) break;
+    }
+
+    applyWork(owner, seatOf, freeSeats, best);
+
+    var assign = {};
+    for (var m = 0; m < S; m++) {
+      if (owner[m] >= 0) assign[ctx.seats[m].id] = ctx.students[owner[m]].no;
+    }
+
+    var described = describeWithContext(ctx, assign);
+    return {
+      assign: assign,
+      violations: described.violations,
+      notices: notices.concat(described.notices),
+      score: bestScore,
+      attempts: attempts,
+      elapsedMs: Date.now() - start
+    };
+  }
+
+  function shuffle(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = (Math.random() * (i + 1)) | 0;
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+  }
+
+  function applyWork(owner, seatOf, freeSeats, work) {
+    for (var i = 0; i < freeSeats.length; i++) {
+      var seat = freeSeats[i];
+      var si = work[i];
+      owner[seat] = si;
+      if (si >= 0) seatOf[si] = seat;
+    }
+  }
+
+  function swapWork(owner, seatOf, freeSeats, work, x, y) {
+    var t = work[x]; work[x] = work[y]; work[y] = t;
+    var sx = freeSeats[x], sy = freeSeats[y];
+    owner[sx] = work[x];
+    owner[sy] = work[y];
+    if (work[x] >= 0) seatOf[work[x]] = sx;
+    if (work[y] >= 0) seatOf[work[y]] = sy;
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 違反の説明（手動で入れ替えたあとの再チェックにも使う）
+   * ---------------------------------------------------------------- */
+  function evaluate(input, assign) {
+    var ctx = buildContext(input);
+    return describeWithContext(ctx, assign);
+  }
+
+  function describeWithContext(ctx, assign) {
+    var violations = [];
+    var notices = [];
+    var settings = ctx.settings;
+
+    var studentBySeat = {};   // seatId -> student
+    var seatByNo = {};        // 出席番号 -> seatId
+    var byNo = {};
+    ctx.students.forEach(function (s) { byNo[s.no] = s; });
+
+    Object.keys(assign || {}).forEach(function (seatId) {
+      var st = byNo[assign[seatId]];
+      if (!st) return;
+      if (ctx.seatIndex[seatId] === undefined) return;
+      studentBySeat[seatId] = st;
+      seatByNo[st.no] = seatId;
+    });
+
+    // 席がない児童
+    ctx.students.forEach(function (st) {
+      if (!seatByNo[st.no]) {
+        violations.push({
+          kind: 'unplaced', weight: 9999, seats: [], students: [st.no],
+          message: st.name + 'さんの席がありません。'
+        });
+      }
+    });
+
+    // 前後・左右の指定／モード／前回・前々回と同じ席
+    Object.keys(studentBySeat).forEach(function (seatId) {
+      var st = studentBySeat[seatId];
+      var p = Core.parseSeat(seatId);
+
+      // 固定席そのものが使えない席のときは solve() 側で説明済みなので、ここでは重ねて出さない
+      if (st.fixedSeat && st.fixedSeat !== seatId && ctx.seatIndex[st.fixedSeat] !== undefined) {
+        violations.push({
+          kind: 'fixedSeat', weight: 9000, seats: [seatId], students: [st.no],
+          message: st.name + 'さんは ' + st.fixedSeat + ' に固定の設定ですが、' + seatId + ' に座っています。'
+        });
+      }
+      if (!matchesRowRule(st.rowRule, p.row, settings)) {
+        violations.push({
+          kind: 'rowRule', weight: W.rule, seats: [seatId], students: [st.no],
+          message: st.name + 'さんは「' + rowRuleText(st.rowRule) + '」の指定ですが、' + seatId + '（前から' + p.row + '列目）に座っています。'
+        });
+      }
+      if (!matchesColRule(st.colRule, p.col, settings)) {
+        violations.push({
+          kind: 'colRule', weight: W.rule, seats: [seatId], students: [st.no],
+          message: st.name + 'さんは「' + colRuleText(st.colRule) + '」の指定ですが、' + seatId + '（左から' + p.col + '列目）に座っています。'
+        });
+      }
+      var tg = Core.targetGender(settings, p.col, p.row);
+      if (tg && st.gender && st.gender !== tg) {
+        violations.push({
+          kind: 'mode', weight: W.mode, seats: [seatId], students: [st.no],
+          message: seatId + ' は' + (tg === 'M' ? '男子' : '女子') + 'の席ですが、' + st.name + 'さん（' + (st.gender === 'M' ? '男子' : '女子') + '）が座っています。'
+        });
+      }
+      if (settings.avoidSameSeatPrev !== false && ctx.prevSeatName[0][seatId] === st.name) {
+        violations.push({
+          kind: 'prevSeat', weight: W.prevSeat1, seats: [seatId], students: [st.no],
+          message: st.name + 'さんは前回と同じ ' + seatId + ' です。'
+        });
+      }
+      if (settings.avoidSameSeatPrev2 !== false && ctx.prevSeatName[1][seatId] === st.name) {
+        violations.push({
+          kind: 'prevSeat', weight: W.prevSeat2, seats: [seatId], students: [st.no],
+          message: st.name + 'さんは前々回と同じ ' + seatId + ' です。'
+        });
+      }
+    });
+
+    // 近づけない関係
+    ctx.seps.forEach(function (sp) {
+      var sa = ctx.students[sp.a], sb = ctx.students[sp.b];
+      var ida = seatByNo[sa.no], idb = seatByNo[sb.no];
+      if (!ida || !idb) return;
+      var ia = ctx.seatIndex[ida], ib = ctx.seatIndex[idb];
+      if (sp.level === 'adjacent' && ctx.adj[ia * ctx.S + ib]) {
+        violations.push({
+          kind: 'adjacent', weight: W.adjacent, seats: [ida, idb], students: [sa.no, sb.no],
+          message: sa.name + 'さんと' + sb.name + 'さんは近づけない設定ですが、' + ida + ' と ' + idb + ' で隣り合っています。'
+        });
+      } else if (sp.level === 'pair' && ctx.pairIdx[ia] >= 0 && ctx.pairIdx[ia] === ctx.pairIdx[ib]) {
+        violations.push({
+          kind: 'pair', weight: W.pair, seats: [ida, idb], students: [sa.no, sb.no],
+          message: sa.name + 'さんと' + sb.name + 'さんは同じペアにしない設定ですが、同じペア（' + ctx.pairs[ctx.pairIdx[ia]].seats.join('・') + '）になっています。'
+        });
+      } else if (sp.level === 'group' && ctx.groupIdx[ia] >= 0 && ctx.groupIdx[ia] === ctx.groupIdx[ib]) {
+        violations.push({
+          kind: 'group', weight: W.group, seats: [ida, idb], students: [sa.no, sb.no],
+          message: sa.name + 'さんと' + sb.name + 'さんは同じ班にしない設定ですが、第' + (ctx.groupIdx[ia] + 1) + '班で一緒になっています。'
+        });
+      }
+    });
+
+    // 前回・前々回と同じペア
+    ctx.pairs.forEach(function (p) {
+      for (var i = 0; i < p.seats.length; i++) {
+        for (var j = i + 1; j < p.seats.length; j++) {
+          var a = studentBySeat[p.seats[i]], b = studentBySeat[p.seats[j]];
+          if (!a || !b) continue;
+          var key = Core.coupleKey(a.name, b.name);
+          if (settings.avoidSamePairPrev !== false && ctx.prevPairKeys[0][key]) {
+            violations.push({
+              kind: 'prevPair', weight: W.prevPair1, seats: [p.seats[i], p.seats[j]], students: [a.no, b.no],
+              message: a.name + 'さんと' + b.name + 'さんは前回もペアでした。'
+            });
+          }
+          if (settings.avoidSamePairPrev2 === true && ctx.prevPairKeys[1][key]) {
+            violations.push({
+              kind: 'prevPair', weight: W.prevPair2, seats: [p.seats[i], p.seats[j]], students: [a.no, b.no],
+              message: a.name + 'さんと' + b.name + 'さんは前々回もペアでした。'
+            });
+          }
+        }
+      }
+    });
+
+    violations.sort(function (x, y) { return y.weight - x.weight; });
+    return { violations: violations, notices: notices };
+  }
+
+  function rowRuleText(rule) {
+    if (!rule || rule.type === 'none') return '指定なし';
+    if (rule.type === 'exact') return '前から' + rule.value + '列目';
+    if (rule.type === 'frontWithin') return '前から' + rule.value + '列目以内';
+    if (rule.type === 'backWithin') return '後ろから' + rule.value + '列目以内';
+    return '指定なし';
+  }
+
+  function colRuleText(rule) {
+    if (!rule || rule.type === 'none') return '指定なし';
+    if (rule.type === 'exact') return '左から' + rule.value + '列目';
+    if (rule.type === 'leftWithin') return '左から' + rule.value + '列目以内';
+    if (rule.type === 'rightWithin') return '右から' + rule.value + '列目以内';
+    return '指定なし';
+  }
+
+  return {
+    W: W,
+    solve: solve,
+    evaluate: evaluate,
+    rowRuleText: rowRuleText,
+    colRuleText: colRuleText,
+    matchesRowRule: matchesRowRule,
+    matchesColRule: matchesColRule
+  };
+})();
+</script>
