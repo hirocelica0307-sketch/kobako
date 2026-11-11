@@ -25,6 +25,14 @@
   </div>
 
   <div class="tb-group">
+    <label class="tb-label" for="seatStyleSelect">席の形</label>
+    <select id="seatStyleSelect">
+      <option value="pair">ペア（2人1組）</option>
+      <option value="single">1人ずつ</option>
+    </select>
+  </div>
+
+  <div class="tb-group">
     <button id="btnShuffle" class="btn btn-primary">🎲 席替え</button>
     <button id="btnFlip" class="btn">🔄 反転</button>
   </div>
@@ -150,7 +158,7 @@
         <span>と</span>
         <select id="sepB"></select>
         <label><input type="checkbox" id="sepAdjacent" checked> 周囲のマスに入れない</label>
-        <label><input type="checkbox" id="sepPair"> 同じペアにしない</label>
+        <label id="sepPairLabel"><input type="checkbox" id="sepPair"> 同じペアにしない</label>
         <label><input type="checkbox" id="sepGroup"> 同じ班にしない</label>
         <button id="btnAddSep" class="btn btn-primary">追加</button>
       </div>
@@ -205,6 +213,11 @@
       </div>
 
       <div class="tab-panel" id="tabPairs">
+        <p id="pairSingleNote" class="notice notice-warn" style="display:none">
+          いまは席の形が「1人ずつ」なので、ペアは使いません。<br>
+          ペアを使うときは、上のツールバーの「席の形」を「ペア（2人1組）」にしてください。ここで決めたペアはそのまま残っています。
+        </p>
+        <div id="pairStyleArea">
         <p class="hint">
           ペアは既定で「横 2 席ずつの相方」（A1 と B1、C1 と D1 …）です。<br>
           手で決めたいときは、下の座席表で席をクリックして選び「選んだ席をペアにする」を押してください。
@@ -222,6 +235,7 @@
             <button id="btnResetPairs" class="btn">すべて消して自動に戻す</button>
           </div>
           <div id="pairList" class="chip-list"></div>
+        </div>
         </div>
       </div>
 
@@ -244,6 +258,7 @@
           <label><input type="checkbox" id="chkPairPrev"> 前回ペアだった児童と、またペアにしない</label>
           <label><input type="checkbox" id="chkPairPrev2"> 前々回ペアだった児童と、またペアにしない</label>
         </div>
+        <p id="avoidPairNote" class="hint" style="display:none">席の形が「1人ずつ」のあいだは、ペアについての 2 つは使いません。</p>
       </div>
 
       <div class="tab-panel" id="tabPrint">

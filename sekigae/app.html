@@ -133,7 +133,7 @@
     var groups = Core.effectiveGroups(s);
     var pairBySeat = Core.setIndexBySeat(pairs);
     var groupBySeat = Core.setIndexBySeat(groups);
-    var manualPairs = (s.pairsAuto === false && s.pairs && s.pairs.length > 0);
+    var manualPairs = Core.isManualPairs(s);
     var byNo = rosterByNo();
     var unused = s.unusedSeats || [];
 
@@ -150,7 +150,8 @@
 
     var board = '<div class="blackboard' + (flipped ? ' bottom' : '') + '">黒 板</div>';
     var html = flipped ? '' : board;
-    html += '<div class="seat-rows">';
+    // ペアのときは相方どうしを寄せて組の間をあけ、1人ずつのときはどの席も同じ間隔にする
+    html += '<div class="seat-rows' + (Core.isPairStyle(s) ? '' : ' single') + '">';
 
     rowOrder.forEach(function (r) {
       html += '<div class="seat-row">';
@@ -599,7 +600,8 @@
     var pairs = Core.effectivePairs(s);
     var pairBySeat = Core.setIndexBySeat(pairs);
     var groupBySeat = Core.setIndexBySeat(Core.effectiveGroups(s));
-    var manualPairs = (s.pairsAuto === false && s.pairs && s.pairs.length > 0);
+    var manualPairs = Core.isManualPairs(s);
+    var single = !Core.isPairStyle(s);
 
     var rowOrder = range(1, s.rows);
     var colOrder = range(1, s.cols);
@@ -662,6 +664,7 @@
       + '.p-board{height:8mm;line-height:8mm;background:#333;color:#fff;text-align:center;letter-spacing:.6em;font-size:11pt;border-radius:1.5mm;}'
       + '.p-grid{flex:1;display:flex;flex-direction:column;gap:2mm;padding:2mm 0;min-height:0;}'
       + '.p-row{flex:1;display:flex;gap:1.5mm;min-height:0;}'
+      + '.p-grid.single{gap:4mm;}.p-grid.single .p-row{gap:4mm;}'
       + '.p-cell{flex:1 1 0;min-width:0;border:0.35mm solid #333;border-radius:1.5mm;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;padding:1mm;}'
       + '.p-cell.gap{margin-right:5mm;}'
       + '.p-cell.unused{border-style:dashed;border-color:#aaa;background:#f2f2f2;}'
@@ -673,7 +676,7 @@
       + '</style></head><body><div class="sheet">'
       + '<div class="p-head"><div class="p-title">' + title + '</div><div class="p-date">' + dateText + '</div></div>'
       + (flipped ? '' : board)
-      + '<div class="p-grid">' + body + '</div>'
+      + '<div class="p-grid' + (single ? ' single' : '') + '">' + body + '</div>'
       + (flipped ? board : '')
       + '</div></body></html>';
   }
@@ -856,6 +859,12 @@
     $('sepA').innerHTML = studentOptions;
     $('sepB').innerHTML = studentOptions;
 
+    // 1人ずつの席では「同じペアにしない」は使わない（登録は残しておく）
+    var single = !Core.isPairStyle(s);
+    $('sepPair').disabled = single;
+    $('sepPairLabel').title = single ? '席の形が「1人ずつ」のあいだは使いません' : '';
+    $('sepPairLabel').style.opacity = single ? '.45' : '';
+
     var byNo = rosterByNo();
     var stb = $('sepTable').querySelector('tbody');
     var shtml = '';
@@ -864,7 +873,8 @@
       shtml += '<tr>'
         + '<td>' + (a ? sp.a + '　' + esc(a.name) : '（不明）') + '</td>'
         + '<td>' + (b ? sp.b + '　' + esc(b.name) : '（不明）') + '</td>'
-        + '<td>' + (SEP_LABEL[sp.level] || sp.level) + '</td>'
+        + '<td>' + (SEP_LABEL[sp.level] || sp.level)
+        + (single && sp.level === 'pair' ? '<br><span class="hint">（1人ずつの席では使いません）</span>' : '') + '</td>'
         + '<td><button class="btn btn-sm btn-danger" data-sepdel="' + i + '">削除</button></td>'
         + '</tr>';
     });
@@ -976,7 +986,7 @@
 
     var levels = [];
     if ($('sepAdjacent').checked) levels.push('adjacent');
-    if ($('sepPair').checked) levels.push('pair');
+    if ($('sepPair').checked && !$('sepPair').disabled) levels.push('pair');
     if ($('sepGroup').checked) levels.push('group');
     if (!levels.length) { toast('種類を 1 つ以上選んでください。', true); return; }
 
@@ -1016,6 +1026,14 @@
     $('chkSeatPrev2').checked = s.avoidSameSeatPrev2 !== false;
     $('chkPairPrev').checked = s.avoidSamePairPrev !== false;
     $('chkPairPrev2').checked = s.avoidSamePairPrev2 === true;
+
+    // 1人ずつの席ではペアを使わないので、ペアのタブと、ペアについての回避を止めておく
+    var single = !Core.isPairStyle(s);
+    $('pairSingleNote').style.display = single ? '' : 'none';
+    $('pairStyleArea').style.display = single ? 'none' : '';
+    $('chkPairPrev').disabled = single;
+    $('chkPairPrev2').disabled = single;
+    $('avoidPairNote').style.display = single ? '' : 'none';
 
     $('selPrintName').value = s.printNameStyle || 'kanji';
     $('chkPrintNumber').checked = s.printShowNumber !== false;
@@ -1164,6 +1182,7 @@
     $('modeSelect').value = State.settings.mode || 'random';
     $('genderStartSelect').value = State.settings.genderStart || 'M';
     $('genderStartSelect').style.display = (State.settings.mode === 'random') ? 'none' : '';
+    $('seatStyleSelect').value = Core.isPairStyle(State.settings) ? 'pair' : 'single';
   }
 
   /* ================= イベント登録 ================= */
@@ -1189,6 +1208,15 @@
       syncToolbarFromSettings();
       reevaluateIfPlaced();
       renderAll();
+    });
+    $('seatStyleSelect').addEventListener('change', function () {
+      State.settings.seatStyle = this.value;
+      State.mastersDirty = true;
+      reevaluateIfPlaced();
+      renderAll();
+      status(this.value === 'single'
+        ? '1人ずつの席にしました。ペアについての条件は使いません（ペアの設定はそのまま残っています）。'
+        : 'ペア（2人1組）の席にしました。');
     });
     $('genderStartSelect').addEventListener('change', function () {
       State.settings.genderStart = this.value;

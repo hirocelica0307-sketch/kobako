@@ -72,11 +72,23 @@ var Core = (function () {
     return pairs;
   }
 
-  /** 実際に使うペア定義。手動設定があればそれを、なければ横 2 席区切りを使う。 */
+  /** 席の形が「ペア（2人1組）」か。「1人ずつ」のときはペアの考え方を使わない。 */
+  function isPairStyle(settings) {
+    return settings.seatStyle !== 'single';
+  }
+
+  /** ペアを手で決めているか（間隔では表せないので、番号で示す） */
+  function isManualPairs(settings) {
+    return isPairStyle(settings) && settings.pairsAuto === false && !!(settings.pairs && settings.pairs.length);
+  }
+
+  /**
+   * 実際に使うペア定義。1人ずつの席ではペアなし。
+   * 手動設定があればそれを、なければ横 2 席区切りを使う。
+   */
   function effectivePairs(settings) {
-    if (settings.pairsAuto === false && settings.pairs && settings.pairs.length) {
-      return normalizeSets(settings.pairs, settings);
-    }
+    if (!isPairStyle(settings)) return [];
+    if (isManualPairs(settings)) return normalizeSets(settings.pairs, settings);
     return autoPairs(settings);
   }
 
@@ -169,6 +181,8 @@ var Core = (function () {
     allSeats: allSeats,
     usableSeats: usableSeats,
     autoPairs: autoPairs,
+    isPairStyle: isPairStyle,
+    isManualPairs: isManualPairs,
     effectivePairs: effectivePairs,
     effectiveGroups: effectiveGroups,
     normalizeSets: normalizeSets,

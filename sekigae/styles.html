@@ -136,6 +136,9 @@ textarea { width: 100%; resize: vertical; }
 .blackboard.bottom { margin-bottom: 0; margin-top: 12px; }
 
 .seat-rows { display: flex; flex-direction: column; gap: 8px; }
+/* 1人ずつの席：どの席も同じ間隔であける */
+.seat-rows.single { gap: 12px; }
+.seat-rows.single .seat-row { gap: 14px; }
 .seat-row { display: flex; gap: 6px; justify-content: center; }
 .seat-cell.gap-after { margin-right: 22px; }
 
