@@ -21,7 +21,8 @@ var Solver = (function () {
     near: 500,         // 周囲のマスに入れる（近くにする）
     pair: 400,         // 同じペアにしない
     group: 300,        // 同じ班にしない
-    mode: 200,         // 男女別列・市松模様
+    mode: 200,         // 列ごとに男女・となりも前後も男女交互（席替えのときの重み）
+    modeSoft: 50,      // 人数の都合で避けられない数より多く、反対の席に座っているとき（確認事項では「できれば」）
     prevSeat1: 60,     // 前回と同じ席
     prevSeat2: 30,     // 前々回と同じ席
     prevPair1: 40,     // 前回と同じペア
@@ -279,7 +280,6 @@ var Solver = (function () {
     if (freeStudents.length > freeSeats.length) {
       notices.push('児童 ' + N + ' 人に対して使える席が ' + S + ' 席しかありません。座席数を増やすか、使わない席を減らしてください。');
     }
-    genderCheck(ctx, freeSeats, freeStudents).forEach(function (m) { notices.push(m); });
 
     var slots = freeSeats.length;
     var best = null, bestScore = Infinity;
@@ -374,32 +374,25 @@ var Solver = (function () {
   }
 
   /**
-   * 男女別の列・市松模様のとき、男女の人数と席の数が合うかを先に調べる。
-   * 合わないときは、何人が反対の席に座ることになるかを知らせる。
+   * 男女で分ける決め方のとき、男女の人数と席の数をくらべる。
+   * 男子が男子の席より多ければ、多いぶんの人数は女子の席に座るしかない（逆も同じ）。
+   * これは人数の都合なので、確認事項（守れなかったこと）にはしない。
+   * 返り値 … null（ランダムのとき）または { seatM, seatF, stM, stF, overM, overF, unknown: [氏名] }
    */
-  function genderCheck(ctx, freeSeats, freeStudents) {
-    var settings = ctx.settings;
-    if (settings.mode !== 'genderColumn' && settings.mode !== 'checker') return [];
-    var seatM = 0, seatF = 0, stM = 0, stF = 0, unknown = [];
-    freeSeats.forEach(function (k) {
-      var t = Core.targetGender(settings, ctx.seats[k].col, ctx.seats[k].row);
-      if (t === 'M') seatM++; else if (t === 'F') seatF++;
+  function genderBalance(settings, roster) {
+    if (settings.mode !== 'genderColumn' && settings.mode !== 'checker') return null;
+    var b = { seatM: 0, seatF: 0, stM: 0, stF: 0, overM: 0, overF: 0, unknown: [] };
+    Core.usableSeats(settings).forEach(function (seat) {
+      var t = Core.targetGender(settings, seat.col, seat.row);
+      if (t === 'M') b.seatM++; else if (t === 'F') b.seatF++;
     });
-    freeStudents.forEach(function (si) {
-      var g = ctx.students[si].gender;
-      if (g === 'M') stM++; else if (g === 'F') stF++; else unknown.push(ctx.students[si].name);
+    (roster || []).forEach(function (st) {
+      if (!st || !st.name) return;
+      if (st.gender === 'M') b.stM++; else if (st.gender === 'F') b.stF++; else b.unknown.push(st.name);
     });
-    var out = [];
-    if (stM > seatM) {
-      out.push('男子の席 ' + seatM + ' 席に対して、男子が ' + stM + ' 人います。' + (stM - seatM) + ' 人は女子の席に座ります。');
-    }
-    if (stF > seatF) {
-      out.push('女子の席 ' + seatF + ' 席に対して、女子が ' + stF + ' 人います。' + (stF - seatF) + ' 人は男子の席に座ります。');
-    }
-    if (unknown.length) {
-      out.push('性別が未設定の児童がいます（' + unknown.join('・') + '）。男女の並びとは関係なく席を決めました。');
-    }
-    return out;
+    b.overM = Math.max(0, b.stM - b.seatM);
+    b.overF = Math.max(0, b.stF - b.seatF);
+    return b;
   }
 
   function shuffle(arr) {
@@ -462,7 +455,8 @@ var Solver = (function () {
       }
     });
 
-    // 前後・左右の指定／モード／前回・前々回と同じ席
+    // 前後・左右の指定／男女の並び／前回・前々回と同じ席
+    var modeMiss = [];
     Object.keys(studentBySeat).forEach(function (seatId) {
       var st = studentBySeat[seatId];
       var p = Core.parseSeat(seatId);
@@ -488,8 +482,8 @@ var Solver = (function () {
       }
       var tg = Core.targetGender(settings, p.col, p.row);
       if (tg && st.gender && st.gender !== tg) {
-        violations.push({
-          weight: W.mode, seats: [seatId],
+        modeMiss.push({
+          weight: W.modeSoft, seats: [seatId],
           message: seatId + ' は' + (tg === 'M' ? '男子' : '女子') + 'の席ですが、' + st.name + 'さん（' + (st.gender === 'M' ? '男子' : '女子') + '）が座っています。'
         });
       }
@@ -520,6 +514,13 @@ var Solver = (function () {
         });
       }
     });
+
+    // 男女の並び：人数の都合で避けられない人数までは出さない。
+    // それより多い（手で入れ替えたときなど）ときだけ「できれば避けたいこと」に出す。
+    var bal = genderBalance(settings, ctx.students);
+    if (bal && modeMiss.length > bal.overM + bal.overF) {
+      modeMiss.forEach(function (v) { violations.push(v); });
+    }
 
     // 「はなす」「近くにする」組み合わせ
     ctx.seps.forEach(function (sp) {
@@ -593,7 +594,8 @@ var Solver = (function () {
     evaluate: evaluate,
     rowRuleText: rowRuleText,
     colRuleText: colRuleText,
-    yearStats: yearStats
+    yearStats: yearStats,
+    genderBalance: genderBalance
   };
 })();
 </script>

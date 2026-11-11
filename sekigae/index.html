@@ -40,13 +40,18 @@
       <span class="opt-label">決め方</span>
       <div class="seg" data-seg="mode" role="group" aria-label="決め方">
         <button type="button" data-v="random">ランダム</button>
-        <button type="button" data-v="genderColumn">男女別の列</button>
-        <button type="button" data-v="checker">男女交互（市松）</button>
+        <button type="button" data-v="genderColumn">列ごとに男女</button>
+        <button type="button" data-v="checker">となりも前後も男女交互</button>
       </div>
-      <div class="seg seg-sm" data-seg="genderStart" id="genderStartSeg" role="group" aria-label="左はしの列・左前の席">
-        <button type="button" data-v="M">左は男子から</button>
-        <button type="button" data-v="F">左は女子から</button>
+    </div>
+    <div class="opt-row" id="genderStartRow">
+      <span class="opt-label">はじめ</span>
+      <div class="seg" data-seg="genderStart" role="group" aria-label="はじめの性別">
+        <button type="button" data-v="M">男子から</button>
+        <button type="button" data-v="F">女子から</button>
       </div>
+      <div class="gender-preview" id="genderPreview" aria-hidden="true"></div>
+      <span class="opt-note" id="genderStartNote"></span>
     </div>
     <div class="opt-row">
       <span class="opt-label">席の形</span>
@@ -293,11 +298,16 @@
       </div>
 
       <div class="tab-panel" id="tabGroups">
-        <p class="hint">ボタン 1 つで班を作れます。自分で決めるときは、下の座席表で席をクリックして選び「選んだ席を班にする」を押してください。4 人班と 6 人班が混ざっていても構いません。</p>
+        <p class="hint">
+          ボタン 1 つで、いまの席の並びから班を作れます。横 2 列ずつ（ペアの並び）を前から順に区切ります。<br>
+          席の数がちょうど割り切れないときは、3 人の班と 4 人の班がまざります。自分で決めるときは、下の座席表で席をクリックして選び「選んだ席を班にする」を押してください。
+        </p>
         <div class="row row-wrap">
-          <button id="btnAutoGroup4" class="btn btn-primary" type="button">4 人班を作る（横 2 × 縦 2）</button>
-          <button id="btnAutoGroup6" class="btn btn-primary" type="button">6 人班を作る（横 2 × 縦 3）</button>
+          <button id="btnAutoGroup3" class="btn btn-primary" type="button">3 人班を作る</button>
+          <button id="btnAutoGroup4" class="btn btn-primary" type="button">4 人班を作る</button>
+          <button id="btnAutoGroup6" class="btn" type="button">6 人班を作る（横 2 × 縦 3）</button>
         </div>
+        <p class="notice notice-info" id="groupInfo"></p>
         <div id="gridGroups" class="mini-grid"></div>
         <div class="row row-wrap">
           <button id="btnMakeGroup" class="btn" type="button">選んだ席を班にする</button>
@@ -443,9 +453,10 @@
         <li><b>名簿</b>　児童を登録します。エクセルの表を貼り付けると、まとめて登録できます。</li>
         <li><b>配慮事項</b>（なくてもよい）　「この子は前のほう」「この 2 人ははなす」「この 2 人は近くに」などを決めます。</li>
         <li><b>席替え</b>　決め方と席の形を選んで「席替えする」を押します。気に入らなければ何度でも押せます。<br>
+          「列ごとに男女」「となりも前後も男女交互」のときは、「はじめ」で左はしを男子・女子のどちらから始めるかを選べます（見本の図が出ます）。男女の人数が席の数と合わないときは、多いほうの何人かが反対の席に座ります。人数の都合なので、警告にはなりません。<br>
           座席表で児童を 2 人つづけてクリックすると、席を入れ替えられます。まちがえたら「元に戻す」。</li>
         <li><b>記録・印刷</b>　「記録する」でスプレッドシートに残すと、次の席替えで同じ席・同じペアを避けます。
-          「印刷する」で A4 横 1 枚、「子どもに見せる」でテレビ用の大きな表示になります。</li>
+          「印刷する」で A4 横 1 枚、「子どもに見せる」でテレビ用の大きな表示になります（班ごとの色分けや、班の一覧も出せます）。</li>
       </ol>
       <h3 class="sec-title">知っておくと安心なこと</h3>
       <ul class="hint-list">
@@ -467,11 +478,16 @@
   <div class="show-bar">
     <div class="show-title" id="showTitle"></div>
     <div class="show-tools">
+      <label id="showGroupColorLabel"><input type="checkbox" id="chkShowGroupColor" checked> 班で色分けする</label>
+      <label id="showGroupListLabel"><input type="checkbox" id="chkShowGroupList"> 班の一覧を出す</label>
       <label><input type="checkbox" id="chkShowKana"> ふりがなを出す</label>
       <button id="btnShowClose" class="btn" type="button">とじる（Esc）</button>
     </div>
   </div>
-  <div id="showChart" class="show-chart"></div>
+  <div class="show-body">
+    <div id="showChart" class="show-chart"></div>
+    <aside id="showGroups" class="show-groups"></aside>
+  </div>
 </div>
 
 <div id="toast" class="toast" role="status"></div>

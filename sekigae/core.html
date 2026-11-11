@@ -120,6 +120,46 @@ var Core = (function () {
     return out;
   }
 
+  /**
+   * 3〜4 人の班を、席の並びから自動で作る。
+   * 横 2 列ずつ（ペアの並び）を縦にたどり、前から順に 3 人か 4 人ずつ区切る。
+   *   例）A1・B1・A2・B2 で 4 人班、A1・B1・A2 で 3 人班
+   * target … 3（3 人班を中心に）または 4（4 人班を中心に）。割り切れないときは 3 人と 4 人がまざる。
+   * 使わない席は入れないので、空く席を「使わない席」にしておくと人数がそろう。
+   */
+  function partitionGroups(settings, target) {
+    var rows = clampInt(settings.rows, 1, MAX_ROWS, 6);
+    var cols = clampInt(settings.cols, 1, MAX_COLS, 6);
+    var unused = settings.unusedSeats || [];
+    var out = [];
+    for (var c = 1; c <= cols; c += 2) {
+      var seq = [];
+      for (var r = 1; r <= rows; r++) {
+        for (var cc = c; cc <= Math.min(c + 1, cols); cc++) {
+          var id = seatId(cc, r);
+          if (unused.indexOf(id) < 0) seq.push(id);
+        }
+      }
+      var k = 0;
+      groupSizes(seq.length, target).forEach(function (n) {
+        out.push({ no: out.length + 1, seats: seq.slice(k, k + n) });
+        k += n;
+      });
+    }
+    return out;
+  }
+
+  /** u 席を 3 人か 4 人の班に分けたときの、班ごとの人数（4 人の班を前に） */
+  function groupSizes(u, target) {
+    if (u <= 0) return [];
+    if (u <= 5) return [u];                 // 3〜4 人に分けられない（5 席は 1 つの班にする）
+    var g = target === 3 ? Math.floor(u / 3) : Math.ceil(u / 4);
+    var fours = u - 3 * g;                  // 4 人にする班の数（0〜g）
+    var sizes = [];
+    for (var i = 0; i < g; i++) sizes.push(i < fours ? 4 : 3);
+    return sizes;
+  }
+
   /** 使わない席やレイアウト外の席を取り除き、通し番号を振り直す */
   function normalizeSets(sets, settings) {
     var rows = clampInt(settings.rows, 1, MAX_ROWS, 6);
@@ -147,8 +187,8 @@ var Core = (function () {
 
   /**
    * 席替えモードごとの、その席に座るべき性別。
-   * genderColumn … 縦の列ごとに男女交互（A列が男なら B列は女 …）
-   * checker      … 市松模様（隣り合うマスが必ず違う性別）
+   * genderColumn … 列ごとに男女（A 列が男子なら B 列は女子 …）
+   * checker      … となりも前後も男女交互（となり合う席が必ず違う性別）
    */
   function targetGender(settings, col, row) {
     var start = settings.genderStart === 'F' ? 'F' : 'M';
@@ -211,6 +251,7 @@ var Core = (function () {
     effectiveGroups: effectiveGroups,
     normalizeSets: normalizeSets,
     blockGroups: blockGroups,
+    partitionGroups: partitionGroups,
     setIndexBySeat: setIndexBySeat,
     targetGender: targetGender,
     seatNameMap: seatNameMap,

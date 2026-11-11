@@ -49,7 +49,7 @@
     group: 'はなす（同じ班にしない）',
     near: '近くにする（周囲のマスに入れる）'
   };
-  var MODE_TEXT = { random: 'ランダム', genderColumn: '男女別の列', checker: '男女交互（市松）' };
+  var MODE_TEXT = { random: 'ランダム', genderColumn: '列ごとに男女', checker: 'となりも前後も男女交互' };
 
   /* ================= 小道具 ================= */
   function $(id) { return document.getElementById(id); }
@@ -272,7 +272,28 @@
         b.setAttribute('aria-pressed', String(b.getAttribute('data-v') === v));
       });
     });
-    $('genderStartSeg').style.display = (s.mode === 'random') ? 'none' : '';
+    renderGenderStart();
+  }
+
+  /** 男女で分けるときだけ「はじめ」の行を出し、並び方の見本（子ども目線・黒板が上）を描く */
+  function renderGenderStart() {
+    var s = State.settings;
+    var on = s.mode === 'genderColumn' || s.mode === 'checker';
+    $('genderStartRow').style.display = on ? '' : 'none';
+    if (!on) return;
+    var html = '<span class="gp-board"></span>';
+    for (var r = 1; r <= 3; r++) {
+      for (var c = 1; c <= 4; c++) {
+        var g = Core.targetGender(s, c, r);
+        html += '<span class="gp ' + (g === 'M' ? 'gp-m' : 'gp-f') + '">' + (g === 'M' ? '男' : '女') + '</span>';
+      }
+    }
+    $('genderPreview').innerHTML = html;
+    $('genderPreview').style.gridTemplateColumns = 'repeat(4, auto)';
+    var first = s.genderStart === 'F' ? '女子' : '男子';
+    $('genderStartNote').textContent = s.mode === 'genderColumn'
+      ? 'いちばん左の列（A 列）が' + first + 'です'
+      : 'いちばん左前の席（A1）が' + first + 'です';
   }
 
   function onSegClick(ev) {
@@ -294,6 +315,8 @@
       status('決め方を「' + MODE_TEXT[v] + '」にしました。' + (hasAssign() ? '「席替えする」を押すと、この決め方で作り直します。' : ''));
     } else if (key === 'genderStart') {
       s.genderStart = v;
+      status((s.mode === 'genderColumn' ? 'いちばん左の列' : 'いちばん左前の席') + 'を' + (v === 'F' ? '女子' : '男子') + 'からにしました。'
+        + (hasAssign() ? '「席替えする」を押すと、この並びで作り直します。' : ''));
     } else {
       return;
     }
@@ -319,12 +342,13 @@
     var byNo = rosterByNo();
     var unused = s.unusedSeats || [];
 
-    var violSeats = {};
+    var violSeats = {}, softSeats = {};
     if (!show) {
       State.violations.forEach(function (v) {
-        (v.seats || []).forEach(function (id) { violSeats[id] = true; });
+        (v.seats || []).forEach(function (id) { (v.weight >= 200 ? violSeats : softSeats)[id] = true; });
       });
     }
+    var groupColor = show && opts.groupColor;
     var sepOf = {};
     State.separations.forEach(function (sp) {
       [sp.a, sp.b].forEach(function (no) {
@@ -350,27 +374,34 @@
         var inner = show ? '' : '<span class="seat-id">' + id + '</span>';
         var tip = '';
 
-        if (!manualPairs && i < colOrder.length - 1) {
-          var nextId = Core.seatId(colOrder[i + 1], r);
-          if (pairBySeat[id] !== pairBySeat[nextId]) cls.push('gap-after');
-        }
+        if (pairGapAfter(s, colOrder, i)) cls.push('gap-after');
 
         if (unused.indexOf(id) >= 0) {
           cls.push('unused');
           inner += show ? '' : '<div class="seat-empty-text">使わない席</div>';
         } else {
-          var sets = [];
-          if (groupBySeat[id] !== undefined) sets.push((groupBySeat[id] + 1) + '班');
-          if (manualPairs && pairBySeat[id] !== undefined) sets.push('ペア' + (pairBySeat[id] + 1));
-          if (sets.length) inner += '<span class="seat-set">' + sets.join('・') + '</span>';
+          var gi = groupBySeat[id];
+          var cellStyle = '';
+          if (groupColor && gi !== undefined) {
+            var gc = groupColors(gi);
+            cellStyle = 'background:' + gc.bg + ';border-color:' + gc.bd + ';';
+            inner += '<span class="seat-set group-badge" style="background:' + gc.badge + '">' + (gi + 1) + '班</span>';
+          } else {
+            var sets = [];
+            if (gi !== undefined) sets.push((gi + 1) + '班');
+            if (manualPairs && pairBySeat[id] !== undefined) sets.push('ペア' + (pairBySeat[id] + 1));
+            if (sets.length) inner += '<span class="seat-set">' + sets.join('・') + '</span>';
+          }
 
           var st = byNo[State.assign[id]];
           if (!st) {
             cls.push('empty');
             inner += show ? '' : '<div class="seat-empty-text">空席</div>';
           } else {
-            if (st.gender === 'M') cls.push('male');
-            else if (st.gender === 'F') cls.push('female');
+            if (!cellStyle) {
+              if (st.gender === 'M') cls.push('male');
+              else if (st.gender === 'F') cls.push('female');
+            }
             if (!show) inner += '<div class="seat-no">' + st.no + '</div>';
             inner += '<div class="seat-name">' + esc(st.name) + '</div>';
             if (st.kana && (!show || opts.kana)) inner += '<div class="seat-kana">' + esc(st.kana) + '</div>';
@@ -391,8 +422,10 @@
           }
           if (!show && State.selectedSeat === id) cls.push('selected');
           if (violSeats[id]) cls.push('violating');
+          else if (softSeats[id]) cls.push('soft-violating');
         }
         html += '<div class="' + cls.join(' ') + '" data-seat="' + id + '"'
+          + (cellStyle ? ' style="' + cellStyle + '"' : '')
           + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + inner + '</div>';
       });
       html += '</div>';
@@ -401,6 +434,26 @@
     html += '</div>';
     if (flipped) html += board;
     return html;
+  }
+
+  /**
+   * ペア（横 2 席ずつ）のとき、この列のあとに組の区切りの空きを入れるか。
+   * 列の位置（A・B ／ C・D ／ E・F）で決めるので、使わない席があっても段ごとにずれない。
+   * 1人ずつの席・ペアを自分で決めているときは空きを入れない。
+   */
+  function pairGapAfter(s, colOrder, i) {
+    if (!Core.isPairStyle(s) || Core.isManualPairs(s) || i >= colOrder.length - 1) return false;
+    return Math.ceil(colOrder[i] / 2) !== Math.ceil(colOrder[i + 1] / 2);
+  }
+
+  /** 班ごとの色（となりの班が似た色にならないよう、色相を黄金角ずつずらす） */
+  function groupColors(i) {
+    var h = Math.round((i * 137.508 + 210) % 360);
+    return {
+      bg: 'hsl(' + h + ', 75%, 91%)',
+      bd: 'hsl(' + h + ', 55%, 50%)',
+      badge: 'hsl(' + h + ', 60%, 34%)'
+    };
   }
 
   function renderChart() {
@@ -539,6 +592,9 @@
     }
 
     var html = '';
+    genderInfo().forEach(function (msg) {
+      html += '<div class="notice notice-info">' + esc(msg) + '</div>';
+    });
     State.notices.forEach(function (msg) {
       html += '<div class="notice notice-warn">' + esc(msg) + '</div>';
     });
@@ -553,6 +609,23 @@
       html += '<div class="warn-item soft" data-viol="' + i + '">' + esc(v.message) + '</div>';
     });
     list.innerHTML = html;
+  }
+
+  /** 男女で分けるとき、人数の都合で反対の席に座る人数を知らせる（守れなかったことではない） */
+  function genderInfo() {
+    var b = Solver.genderBalance(State.settings, State.roster);
+    if (!b) return [];
+    var out = [];
+    if (b.overM) {
+      out.push('男子が ' + b.stM + ' 人、男子の席が ' + b.seatM + ' 席なので、男子のうち ' + b.overM + ' 人は女子の席に座ります。人数の都合なので、このままで大丈夫です。');
+    }
+    if (b.overF) {
+      out.push('女子が ' + b.stF + ' 人、女子の席が ' + b.seatF + ' 席なので、女子のうち ' + b.overF + ' 人は男子の席に座ります。人数の都合なので、このままで大丈夫です。');
+    }
+    if (b.unknown.length) {
+      out.push('性別が未設定の児童（' + b.unknown.join('・') + '）は、男女の並びとは関係なく座ります。');
+    }
+    return out;
   }
 
   function onWarnClick(ev) {
@@ -873,10 +946,7 @@
       colOrder.forEach(function (c, i) {
         var id = Core.seatId(c, r);
         var cls = ['p-cell'];
-        if (!manualPairs && i < colOrder.length - 1) {
-          var nextId = Core.seatId(colOrder[i + 1], r);
-          if (pairBySeat[id] !== pairBySeat[nextId]) cls.push('gap');
-        }
+        if (pairGapAfter(s, colOrder, i)) cls.push('gap');
         var inner = '';
         if (unused.indexOf(id) >= 0) {
           cls.push('unused');
@@ -948,7 +1018,27 @@
     $('btnShowClose').focus();
   }
   function renderShow() {
-    $('showChart').innerHTML = buildChartHtml({ show: true, kana: $('chkShowKana').checked });
+    var groups = Core.effectiveGroups(State.settings);
+    var hasGroups = groups.length > 0;
+    $('showGroupColorLabel').style.display = hasGroups ? '' : 'none';
+    $('showGroupListLabel').style.display = hasGroups ? '' : 'none';
+    var colorOn = hasGroups && $('chkShowGroupColor').checked;
+    $('showChart').innerHTML = buildChartHtml({ show: true, kana: $('chkShowKana').checked, groupColor: colorOn });
+
+    // 班の一覧（班ごとに、座っている児童の名前を並べる）
+    var listOn = hasGroups && $('chkShowGroupList').checked;
+    var el = $('showGroups');
+    el.classList.toggle('open', listOn);
+    if (!listOn) { el.innerHTML = ''; return; }
+    var byNo = rosterByNo();
+    el.innerHTML = groups.map(function (g, i) {
+      var gc = groupColors(i);
+      var names = g.seats.map(function (id) { var st = byNo[State.assign[id]]; return st ? esc(st.name) : ''; })
+        .filter(Boolean);
+      return '<div class="show-group" style="border-color:' + gc.bd + ';background:' + (colorOn ? gc.bg : '#fff') + '">'
+        + '<h3>' + (i + 1) + '班<span class="hint">（' + names.length + ' 人）</span></h3>'
+        + '<p>' + (names.join('、') || '（まだいません）') + '</p></div>';
+    }).join('');
   }
   function closeShow() {
     $('showView').classList.remove('open');
@@ -1436,6 +1526,7 @@
     renderMiniGrid('gridPairs', 'pairs');
     renderMiniGrid('gridGroups', 'groups');
     renderSetChips();
+    renderGroupInfo();
   }
 
   /** mode: unused（使わない席の切り替え）／pairs・groups（複数選択） */
@@ -1520,15 +1611,39 @@
     toast((kind === 'pairs' ? 'ペア' : '班') + 'を作りました（' + seats.join('・') + '）。');
   }
 
-  function autoGroups(h) {
+  /** size … 3・4（席の並びから 3〜4 人ずつ）または 6（横 2 × 縦 3） */
+  function autoGroups(size) {
     if ((State.settings.groups || []).length
       && !window.confirm('いまの班を消して、作り直します。よろしいですか？')) return;
-    State.settings.groups = Core.blockGroups(State.settings, 2, h);
+    State.settings.groups = size === 6
+      ? Core.blockGroups(State.settings, 2, 3)
+      : Core.partitionGroups(State.settings, size);
     State.ui.groupSel = {};
     markDirty();
     renderSettings();
     renderAll();
-    toast(State.settings.groups.length + ' の班を作りました。');
+    toast(State.settings.groups.length + ' の班を作りました（' + groupSizeText(State.settings.groups) + '）。');
+  }
+
+  /** 例）「4 人班 × 6・3 人班 × 2」 */
+  function groupSizeText(groups) {
+    var count = {};
+    groups.forEach(function (g) { count[g.seats.length] = (count[g.seats.length] || 0) + 1; });
+    return Object.keys(count).sort(function (a, b) { return b - a; })
+      .map(function (n) { return n + ' 人班 × ' + count[n]; }).join('・');
+  }
+
+  /** 班のタブの説明：いまの班の人数と、空く席があるときの案内 */
+  function renderGroupInfo() {
+    var groups = Core.effectiveGroups(State.settings);
+    var used = Core.usableSeats(State.settings).length;
+    var n = State.roster.length;
+    var msg = '使える席 ' + used + ' 席／児童 ' + n + ' 人。';
+    msg += groups.length ? 'いまの班：' + groupSizeText(groups) + '。' : 'まだ班はありません。';
+    if (used > n && n > 0) {
+      msg += '空く席が ' + (used - n) + ' 席あります。空く席を「使わない席」にしてから班を作ると、班の人数がそろいます。';
+    }
+    $('groupInfo').textContent = msg;
   }
 
   function renderSetChips() {
@@ -1603,6 +1718,8 @@
     on('btnShow', 'click', openShow);
     on('btnShowClose', 'click', closeShow);
     on('chkShowKana', 'change', renderShow);
+    on('chkShowGroupColor', 'change', renderShow);
+    on('chkShowGroupList', 'change', renderShow);
 
     on('btnHelp', 'click', function () { openModal('modalHelp'); });
     on('btnRoster', 'click', openRoster);
@@ -1706,8 +1823,9 @@
     on('gridGroups', 'click', onMiniClick);
     on('btnMakePair', 'click', function () { makeSet('pairs'); });
     on('btnMakeGroup', 'click', function () { makeSet('groups'); });
-    on('btnAutoGroup4', 'click', function () { autoGroups(2); });
-    on('btnAutoGroup6', 'click', function () { autoGroups(3); });
+    on('btnAutoGroup3', 'click', function () { autoGroups(3); });
+    on('btnAutoGroup4', 'click', function () { autoGroups(4); });
+    on('btnAutoGroup6', 'click', function () { autoGroups(6); });
     on('btnClearPairSel', 'click', function () { State.ui.pairSel = {}; renderMiniGrid('gridPairs', 'pairs'); });
     on('btnClearGroupSel', 'click', function () { State.ui.groupSel = {}; renderMiniGrid('gridGroups', 'groups'); });
     on('btnResetPairs', 'click', function () {

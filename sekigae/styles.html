@@ -141,6 +141,14 @@ textarea { width: 100%; resize: vertical; }
 .step-sum b { color: var(--text); }
 .opt-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .opt-label { font-size: 13px; color: var(--muted); width: 3.6em; flex: none; }
+.opt-note { font-size: 13px; color: var(--muted); }
+
+/* はじめの性別の見本（子ども目線・黒板が上） */
+.gender-preview { display: inline-grid; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.gender-preview .gp-board { grid-column: 1 / -1; height: 5px; background: #2f3a46; border-radius: 2px; margin-bottom: 1px; }
+.gender-preview .gp { width: 18px; height: 14px; border-radius: 3px; font-size: 9px; line-height: 14px; text-align: center; font-weight: 700; }
+.gender-preview .gp-m { background: var(--male); border: 1px solid var(--male-line); color: #1f4c9a; }
+.gender-preview .gp-f { background: var(--female); border: 1px solid var(--female-line); color: #a3375c; }
 
 @media (max-width: 1180px) {
   .steps { grid-template-columns: 1fr 1fr; }
@@ -229,6 +237,7 @@ textarea { width: 100%; resize: vertical; }
 }
 .seat-cell.selected { box-shadow: 0 0 0 3px var(--primary); transform: translateY(-2px); }
 .seat-cell.violating { border-color: var(--warn); box-shadow: inset 0 0 0 2px var(--warn); }
+.seat-cell.soft-violating { box-shadow: inset 0 0 0 2px #e0a800; }
 .seat-cell.selected.violating { box-shadow: 0 0 0 3px var(--primary), inset 0 0 0 2px var(--warn); }
 .seat-cell.highlight { animation: pulse 1.1s ease-in-out 2; }
 @keyframes pulse {
@@ -405,7 +414,16 @@ textarea { width: 100%; resize: vertical; }
 .show-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .show-title { font-size: 26px; font-weight: 700; }
 .show-tools { display: flex; align-items: center; gap: 14px; font-size: 14px; }
-.show-chart { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.show-body { flex: 1; display: flex; gap: 16px; min-height: 0; }
+.show-chart { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.show-groups { display: none; width: 23%; min-width: 220px; overflow: auto; }
+.show-groups.open { display: block; }
+.show-group { border: 2px solid; border-radius: 10px; padding: 6px 10px; margin-bottom: 8px; }
+.show-group h3 { font-size: clamp(16px, 1.6vw, 24px); margin: 0 0 2px; }
+.show-group p { margin: 0; font-size: clamp(14px, 1.3vw, 20px); line-height: 1.5; }
+.show-chart .seat-set.group-badge {
+  font-size: clamp(12px, 1.3vw, 20px); font-weight: 700; padding: 0 8px; border-radius: 999px; color: #fff;
+}
 .show-chart .blackboard { font-size: 22px; padding: 8px; }
 .show-chart .seat-rows { flex: 1; min-height: 0; }
 .show-chart .seat-row { flex: 1; min-height: 0; }
