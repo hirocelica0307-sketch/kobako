@@ -15,8 +15,8 @@
   </div>
   <div class="appbar-right">
     <span id="saveState" class="save-state" role="status"></span>
-    <button id="btnHelp" class="btn btn-ghost" type="button">使い方</button>
-    <button id="btnSettings" class="btn btn-ghost" type="button">設定</button>
+    <button id="btnHelp" class="btn btn-ghost" type="button"><span class="ic" data-icon="help-circle" aria-hidden="true"></span>使い方</button>
+    <button id="btnSettings" class="btn btn-ghost" type="button"><span class="ic" data-icon="settings" aria-hidden="true"></span>設定</button>
   </div>
 </header>
 
@@ -25,13 +25,13 @@
   <section class="step" id="step1">
     <div class="step-head"><span class="step-no">1</span><h2>名簿</h2><span class="step-check" id="step1Check"></span></div>
     <p class="step-sum" id="step1Sum"></p>
-    <button id="btnRoster" class="btn btn-block" type="button">名簿をひらく</button>
+    <button id="btnRoster" class="btn btn-block" type="button"><span class="ic" data-icon="users" aria-hidden="true"></span>名簿をひらく</button>
   </section>
 
   <section class="step" id="step2">
     <div class="step-head"><span class="step-no">2</span><h2>配慮事項</h2><span class="step-opt">なくてもよい</span></div>
     <p class="step-sum" id="step2Sum"></p>
-    <button id="btnCare" class="btn btn-block" type="button">配慮事項をひらく</button>
+    <button id="btnCare" class="btn btn-block" type="button"><span class="ic" data-icon="heart-handshake" aria-hidden="true"></span>配慮事項をひらく</button>
   </section>
 
   <section class="step step-wide" id="step3">
@@ -61,8 +61,8 @@
       </div>
     </div>
     <div class="opt-row">
-      <button id="btnShuffle" class="btn btn-primary btn-lg" type="button">席替えする</button>
-      <button id="btnUndo" class="btn" type="button" disabled>元に戻す</button>
+      <button id="btnShuffle" class="btn btn-primary btn-lg" type="button"><span class="ic" data-icon="arrows-shuffle" aria-hidden="true"></span>席替えする</button>
+      <button id="btnUndo" class="btn" type="button" disabled><span class="ic" data-icon="arrow-back-up" aria-hidden="true"></span>元に戻す</button>
     </div>
   </section>
 
@@ -70,10 +70,10 @@
     <div class="step-head"><span class="step-no">4</span><h2>記録・印刷</h2><span class="step-check" id="step4Check"></span></div>
     <p class="step-sum" id="step4Sum"></p>
     <div class="btn-col">
-      <button id="btnExport" class="btn btn-ok" type="button">記録する</button>
+      <button id="btnExport" class="btn btn-ok" type="button"><span class="ic" data-icon="device-floppy" aria-hidden="true"></span>記録する</button>
       <div class="btn-pair">
-        <button id="btnPrint" class="btn" type="button">印刷する</button>
-        <button id="btnShow" class="btn" type="button">子どもに見せる</button>
+        <button id="btnPrint" class="btn" type="button"><span class="ic" data-icon="printer" aria-hidden="true"></span>印刷する</button>
+        <button id="btnShow" class="btn" type="button"><span class="ic" data-icon="presentation" aria-hidden="true"></span>子どもに見せる</button>
       </div>
     </div>
   </section>
@@ -88,7 +88,7 @@
   <aside class="pane pane-history">
     <div class="pane-head">
       <h2 class="pane-title">前回・前々回</h2>
-      <button id="btnHistoryAll" class="btn btn-sm" type="button">記録の一覧</button>
+      <button id="btnHistoryAll" class="btn btn-sm" type="button"><span class="ic" data-icon="history" aria-hidden="true"></span>記録の一覧</button>
     </div>
     <div id="historyList"></div>
   </aside>
@@ -416,7 +416,7 @@
     </div>
     <div class="modal-foot">
       <button class="btn" data-close="modalExport" type="button">やめる</button>
-      <button id="btnExportRun" class="btn btn-ok" type="button">記録する</button>
+      <button id="btnExportRun" class="btn btn-ok" type="button"><span class="ic" data-icon="device-floppy" aria-hidden="true"></span>記録する</button>
     </div>
   </div>
 </div>
@@ -493,6 +493,7 @@
 <div id="toast" class="toast" role="status"></div>
 <div id="loading" class="loading"><div class="loading-box">読み込んでいます…</div></div>
 
+<?!= include('icons'); ?>
 <?!= include('core'); ?>
 <?!= include('solver'); ?>
 <?!= include('api'); ?>

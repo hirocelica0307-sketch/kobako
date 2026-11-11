@@ -59,6 +59,13 @@
     });
   }
   function range(a, b) { var out = []; for (var i = a; i <= b; i++) out.push(i); return out; }
+  /** data-icon の場所に、icons.html のアイコンを入れる（icons がなくても文字だけで動く） */
+  function paintIcons(root) {
+    if (typeof Icons === 'undefined') return;
+    Array.prototype.forEach.call((root || document).querySelectorAll('[data-icon]'), function (el) {
+      if (!el.firstChild && Icons[el.getAttribute('data-icon')]) el.innerHTML = Icons[el.getAttribute('data-icon')];
+    });
+  }
   function hasAssign() { return Object.keys(State.assign).length > 0; }
   function copyObj(o) { var c = {}; Object.keys(o).forEach(function (k) { c[k] = o[k]; }); return c; }
 
@@ -167,6 +174,7 @@
 
   /* ================= 起動 ================= */
   function init() {
+    paintIcons();
     bindEvents();
     showLoading('データを読み込んでいます…');
     Api.loadAll().then(function (data) {
@@ -461,9 +469,10 @@
       $('seatChart').innerHTML = '<div class="chart-empty">'
         + '<h3>はじめに、名簿を登録しましょう</h3>'
         + '<p>エクセルの名簿を貼り付けると、まとめて登録できます。</p>'
-        + '<button class="btn btn-primary btn-lg" type="button" data-act="roster">名簿をひらく</button>'
-        + '<button class="btn" type="button" data-act="help">使い方を見る</button>'
+        + '<button class="btn btn-primary btn-lg" type="button" data-act="roster"><span class="ic" data-icon="users" aria-hidden="true"></span>名簿をひらく</button>'
+        + '<button class="btn" type="button" data-act="help"><span class="ic" data-icon="help-circle" aria-hidden="true"></span>使い方を見る</button>'
         + '</div>';
+      paintIcons($('seatChart'));
       $('swapBanner').style.display = 'none';
       return;
     }
