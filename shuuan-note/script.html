@@ -1506,7 +1506,7 @@
       document.getElementById('dayMenuHint').innerText =
         (holName ? holName + '。' : (vacName ? vacName + '。' : '')) +
         'この日の1日分をまとめて操作します。';
-      // 日課のボタン（いまの日課に印）
+      // 時程のボタン（いまの時程に印）
       const nk = getNikka();
       const cur = nikkaOfDate(fmtDate(d));
       document.getElementById('dayNikkaBtns').innerHTML = NIKKA_TYPES.map(function(t) {
@@ -1575,7 +1575,7 @@
       openPeriodModal('', fmtDate(d));
     }
 
-    // ===== 時間割を週に入れる（基本時間割・先週から） =====
+    // ===== 時間割を週に入れる（基本時間割・前の週から） =====
     // どちらも「1〜6時間目」だけを入れる。行事・メモ・連絡・朝・業間・昼の欄にはさわらない。
     // 入れかたは2つ：空いているコマだけに入れる（すでに書いたコマはそのまま）／すべて上書きする。
 
@@ -1654,7 +1654,7 @@
       showToast(plan.doneLabel + '（' + (mode === 'all' ? 'すべて上書き' : '空いているコマだけ') + '・' + changes.length + 'コマ）', true);
     }
 
-    // 先週の時間割（1〜6時間目）を今週に写す
+    // 前の週の時間割（1〜6時間目）を今週に写す
     function copyLastWeek() {
       const last = new Date(currentMonday); last.setDate(last.getDate() - 7);
       const srcOf = function(d, p) {
@@ -1664,14 +1664,14 @@
       const days = visibleDayIndexes();
       let found = 0;
       days.forEach(function(d) { LESSON_PERIODS.forEach(function(p) { if (!lessonCellEmpty(srcOf(d, p))) found++; }); });
-      if (found === 0) { uiAlert("先週の1〜6時間目には、何も入っていません。"); return; }
+      if (found === 0) { uiAlert("前の週の1〜6時間目には、何も入っていません。"); return; }
       closeBaseChooser();
       openFillModal({
-        title: '先週から写す',
-        lead: '先週（' + (last.getMonth()+1) + '/' + last.getDate() + 'の週）の<b>1〜6時間目</b>の教科・単元名・分けかた・「授業なし」を、今週に写します。<br>' +
+        title: '前の週から写す',
+        lead: '前の週（' + (last.getMonth()+1) + '/' + last.getDate() + 'の週）の<b>1〜6時間目</b>の教科・単元名・分けかた・「授業なし」を、今週に写します。<br>' +
               '<b>行事・メモ・連絡・朝・業間・昼の欄は、変えません。</b>コマの中の連絡・メモ・所感・添付も写しません。',
         days: days,
-        undoLabel: '先週から写す', doneLabel: '先週から写しました',
+        undoLabel: '前の週から写す', doneLabel: '前の週から写しました',
         cells: function(d, p) {
           const src = srcOf(d, p);
           if (lessonCellEmpty(src)) return null;
@@ -1683,14 +1683,14 @@
       });
     }
 
-    // ===== 先週を横にならべる =====
+    // ===== 前の週を横にならべる =====
     // 左に前の週を出し、右はいつもの週案の表そのもの。
     // 右はふだんどおり書きかえられるので、前の週を見ながら今週を組める。
 
     let compareOn = false;
     let prevOffset = 1;   // 何週前を左に出すか
 
-    // 左側には ToDo か「先週と比べる」のどちらか片方を出す（setSidePanel）
+    // 左側には ToDo か「前の週と比べる」のどちらか片方を出す（setSidePanel）
     function toggleCompare() { setSidePanel('compare'); }
 
     function prevShift(delta) {
@@ -2283,11 +2283,11 @@
       renderBtTabs();
     }
 
-    // 「時間割を入れる」：基本時間割から入れるか、先週から入れるかをえらぶ
+    // 「時間割を入れる」：基本時間割から入れるか、前の週から入れるかをえらぶ
     function openBaseChooser() {
       const last = new Date(currentMonday); last.setDate(last.getDate() - 7);
       const lw = document.getElementById('fillLastWeekBtn');
-      if (lw) lw.innerText = '先週（' + weekLabel(last) + '）から入れる';
+      if (lw) lw.innerText = '前の週（' + weekLabel(last) + '）から入れる';
       const sets = getBaseSets(getConfig());
       const list = document.getElementById('basePickList');
       // 登録してあるものだけを出す（空の枠は出さない）
@@ -2655,7 +2655,7 @@
         const col = mono ? '#000' : (isHol ? "#b8492f" : (isSat ? "#276f81" : "#5c4a35"));
         const holName = holidaysData[fmt(d)];
         const nkType = nikkaOfDate(fmt(d));
-        const nkHead = (nkType === 'normal') ? '' : '<span class="nkh">' + escapeHTML(printNikka[nkType].name) + '日課' +
+        const nkHead = (nkType === 'normal') ? '' : '<span class="nkh">' + escapeHTML(printNikka[nkType].name) + '時程' +
                        (printNikka[nkType].leave ? ' 下校' + hhmm(printNikka[nkType].leave) : '') + '</span>';
         head += '<th style="background:' + bg + '; color:' + col + ';">' +
                 '<span class="wd">' + mt(days[i]) + '</span><span class="dt">' + (d.getMonth()+1) + '/' + d.getDate() + '</span>' +
@@ -3642,6 +3642,8 @@
       const d = new Date(dateStr.replace(/-/g, '/'));
       const idx = (d.getDay() + 6) % 7;
       if (idx > 4 && !showWeekend) { showWeekend = true; applyColumnDisplay(); updateView(); }
+      // 畳んである行（メモ・連絡）は、開いてから書く画面を出す
+      if (rowFolded[String(period)]) toggleFold(String(period));
       openInputModal(idx, period);
     }
 
@@ -3941,7 +3943,7 @@
       return out;
     }
 
-    // 画面の行事のマスに出す矢印。mini は「先週と比べる」の小さい表用。
+    // 画面の行事のマスに出す矢印。mini は「前の週と比べる」の小さい表用。
     function periodBarsHTML(layout, dIdx, mini) {
       if (!layout || !layout.lanes) return '';
       const segs = layout.byDay[dIdx] || [];
@@ -4216,8 +4218,8 @@
       return c ? '（' + fmtHour(c.n) + '/' + fmtHour(c.h) + '）' : '';
     }
 
-    // ===== 日課（通常・短縮・特別） =====
-    // 設定で日課ごとに各時間の時刻を決めておき、曜日の見出しから日ごとにえらぶ。
+    // ===== 時程（通常・短縮・特別） =====
+    // 設定で時程ごとに各時間の時刻を決めておき、曜日の見出しから日ごとにえらぶ。
     // えらんだ日は appData[日付-nikka] = { type } に入る（通常は何も入れない）。
 
     const NIKKA_TYPES = ['normal', 'short', 'special'];
@@ -4269,15 +4271,15 @@
       return (t && t.s) ? '<span class="nk-time">' + timeLabel(t) + '</span>' : '';
     }
 
-    // 曜日の見出しに出す日課の名前と下校時刻
+    // 曜日の見出しに出す時程の名前と下校時刻
     function nikkaHeadHTML(ds) {
       const type = nikkaOfDate(ds);
       if (type === 'normal') return '';
       const nk = getNikka()[type];
-      return '<span class="nk-badge">' + escapeHTML(nk.name) + '日課' + (nk.leave ? ' 下校' + hhmm(nk.leave) : '') + '</span>';
+      return '<span class="nk-badge">' + escapeHTML(nk.name) + '時程' + (nk.leave ? ' 下校' + hhmm(nk.leave) : '') + '</span>';
     }
 
-    // 左はしの見出しに、ふだんの日課の時刻を出す
+    // 左はしの見出しに、ふだんの時程の時刻を出す
     function renderPeriodHeads() {
       const normal = getNikka().normal;
       LESSON_PERIODS.forEach(function(p) {
@@ -4296,20 +4298,20 @@
       const key = ds + '-nikka';
       const nk = getNikka();
       closeDayMenu();
-      // その日課で時刻が決まっていない授業の時間（例：短縮で6時間目がない）
+      // その時程で時刻が決まっていない授業の時間（例：短縮で6時間目がない）
       const hasAnyTime = LESSON_PERIODS.some(function(p) { return nk[type].times[p].s; });
       const empties = (type !== 'normal' && hasAnyTime)
         ? LESSON_PERIODS.filter(function(p) { return !nk[type].times[p].s && !appData[getDataKey(dIdx, p)]; })
         : [];
       const apply = function(markOff) {
-        pushUndo('日課を変える', [key].concat(markOff ? empties.map(function(p) { return getDataKey(dIdx, p); }) : []));
+        pushUndo('時程を変える', [key].concat(markOff ? empties.map(function(p) { return getDataKey(dIdx, p); }) : []));
         if (type === 'normal') delete appData[key]; else appData[key] = { type: type };
         if (markOff) empties.forEach(function(p) { appData[getDataKey(dIdx, p)] = { disabled: true }; });
         updateView(); syncToServer();
-        showToast(mdw(ds) + 'を「' + nk[type].name + '日課」にしました', true);
+        showToast(mdw(ds) + 'を「' + nk[type].name + '時程」にしました', true);
       };
       if (empties.length) {
-        uiConfirm('「' + nk[type].name + '日課」には、' + empties.map(function(p) { return p + '時間目'; }).join('・') +
+        uiConfirm('「' + nk[type].name + '時程」には、' + empties.map(function(p) { return p + '時間目'; }).join('・') +
                   ' の時刻がありません。\n\nあいているこれらの時間を「授業なし」にしますか？\n（教科が入っている時間は、そのままです）',
                   function(ok) { apply(ok); }, '授業なしにする', 'そのままにする');
       } else {
@@ -4317,14 +4319,14 @@
       }
     }
 
-    // 設定画面：日課の時刻
+    // 設定画面：時程の時刻
     function renderNikkaSettings() {
       if (!nkWork) nkWork = getNikka();
       const tabs = document.getElementById('nkTabs');
       if (tabs) {
         tabs.innerHTML = NIKKA_TYPES.map(function(t) {
           return '<button type="button" class="bt-tab' + (t === nkTab ? ' on' : '') + '" data-t="' + t + '" onclick="switchNikkaTab(this.dataset.t)">' +
-                 escapeHTML(nkWork[t].name) + '日課</button>';
+                 escapeHTML(nkWork[t].name) + '時程</button>';
         }).join('');
       }
       const nameEl = document.getElementById('nkName');
@@ -4356,7 +4358,7 @@
       const tabs = document.getElementById('nkTabs');
       if (!tabs || !nkWork) return;
       Array.prototype.forEach.call(tabs.querySelectorAll('.bt-tab'), function(b) {
-        b.textContent = nkWork[b.dataset.t].name + '日課';
+        b.textContent = nkWork[b.dataset.t].name + '時程';
       });
     }
 
@@ -4947,7 +4949,7 @@
       if (el) el.focus();
     }
 
-    // ===== 左側に出すもの（ToDo か「先週と比べる」のどちらか片方） =====
+    // ===== 左側に出すもの（ToDo か「前の週と比べる」のどちらか片方） =====
     function setSidePanel(name) {
       sidePanel = (sidePanel === name) ? '' : name;
       compareOn = (sidePanel === 'compare');
@@ -4959,7 +4961,7 @@
       }
       document.body.classList.toggle('compare-on', sidePanel !== '');
       const cb = document.getElementById('compareBtn');
-      if (cb) cb.innerText = compareOn ? '先週を隠す' : '先週と比べる';
+      if (cb) cb.innerText = compareOn ? '前の週を隠す' : '前の週と比べる';
       const tb = document.getElementById('todoBtn');
       if (tb) tb.classList.toggle('on', sidePanel === 'todo');
       const bb = document.getElementById('baseViewBtn');
@@ -5059,7 +5061,7 @@
     }
 
     // ===== 月の予定 =====
-    // 1か月ぶんの行事・期間の取り組み・日課・ToDo のしめきりを、カレンダーの形で見る。
+    // 1か月ぶんの行事・期間の取り組み・時程・ToDo のしめきりを、カレンダーの形で見る。
 
     let monthCursor = null;   // 表示している月の1日
 
@@ -5090,14 +5092,28 @@
       return weeks;
     }
 
+    // 月の予定に出すもの：'both' = 行事とメモ ／ 'gyoji' = 行事だけ ／ 'memo' = メモだけ（この端末で覚える）
+    const MONTH_SHOW_KEY = 'shuuan_month_show';
+    function monthShow() {
+      let v = '';
+      try { v = localStorage.getItem(MONTH_SHOW_KEY) || ''; } catch (e) {}
+      return (v === 'gyoji' || v === 'memo') ? v : 'both';
+    }
+    function setMonthShow(v) {
+      try { localStorage.setItem(MONTH_SHOW_KEY, v); } catch (e) {}
+      renderMonthView();
+    }
+
     // 1日ぶんの中身（画面と印刷で同じものを使う）
     function monthDayInfo(ds) {
       const hol = holidaysData[ds] || '';
-      const ev = existingEventLines(ds).filter(function(x) { return x !== hol; });
+      const show = monthShow();
+      const ev = show === 'memo' ? [] : existingEventLines(ds).filter(function(x) { return x !== hol; });
+      const memo = show === 'gyoji' ? [] : existingEventLines(ds, 'memo');
       const type = nikkaOfDate(ds);
       return {
-        hol: hol, vac: getHolidayPeriodName(ds) || '', ev: ev,
-        nikka: type === 'normal' ? '' : getNikka()[type].name + '日課',
+        hol: hol, vac: getHolidayPeriodName(ds) || '', ev: ev, memo: memo,
+        nikka: type === 'normal' ? '' : getNikka()[type].name + '時程',
         todo: openTodosDue(ds)
       };
     }
@@ -5108,6 +5124,15 @@
       const days = ['月', '火', '水', '木', '金', '土', '日'];
       const today = fmtDate(new Date());
       document.getElementById('monthTitle').innerText = monthCursor.getFullYear() + '年' + (monthCursor.getMonth() + 1) + '月の予定';
+      const show = monthShow();
+      const pick = document.getElementById('monthShowPick');
+      if (pick) Array.prototype.forEach.call(pick.querySelectorAll('button'), function(b) {
+        b.classList.toggle('on', b.dataset.v === show);
+        b.setAttribute('aria-pressed', b.dataset.v === show ? 'true' : 'false');
+      });
+      const hint = document.getElementById('monthHint');
+      if (hint) hint.innerHTML = '日を押すと、その日の' + (show === 'memo' ? '<b>メモ</b>' : '<b>行事</b>') + 'を入れる・直す・消すことができます。' +
+        (show === 'both' ? '「メモ」の印の付いた行を押すと、メモの欄が開きます。' : '') + '右上の「週へ」で、その週の週案が開きます。印刷にも、ここで出しているものが出ます。';
 
       let h = '<table class="mv"><thead><tr>' + idx.map(function(i) {
         return '<th class="' + (i === 5 ? 'sat' : (i === 6 ? 'sun' : '')) + '">' + days[i] + '</th>';
@@ -5123,7 +5148,8 @@
           const info = monthDayInfo(ds);
           const cls = 'mv-cell' + (other ? ' other' : '') + (out ? ' out' : '') + (ds === today ? ' today' : '') +
                       ((info.hol || i === 6) ? ' hol' : (i === 5 ? ' sat' : '')) + (info.vac ? ' vac' : '');
-          h += '<td class="' + cls + '" data-d="' + ds + '" onclick="monthEditDay(this.dataset.d)" title="押すと、この日の行事を書きこめます">' +
+          const editWhat = monthShow() === 'memo' ? 'メモ' : '行事';
+          h += '<td class="' + cls + '" data-d="' + ds + '" onclick="monthEditDay(this.dataset.d)" title="押すと、この日の' + editWhat + 'を書きこめます">' +
                '<div class="mv-date"><b>' + d.getDate() + '</b>' + (info.hol ? '<span class="mv-hol">' + escapeHTML(info.hol) + '</span>' : '') +
                (out ? '' : '<button type="button" class="mv-week" data-d="' + ds + '" onclick="event.stopPropagation(); monthJump(this.dataset.d)" title="この週の週案を開く">週へ</button>') +
                '</div>' +
@@ -5131,6 +5157,11 @@
                (info.nikka ? '<span class="nk-badge">' + escapeHTML(info.nikka) + '</span>' : '') +
                (info.vac && !info.hol ? '<div class="mv-vac">' + escapeHTML(info.vac) + '</div>' : '') +
                info.ev.map(function(x) { return '<div class="mv-ev">' + escapeHTML(x) + '</div>'; }).join('') +
+               // メモは、押すとメモの欄が開く（行事と見分けられるよう、印を付ける）
+               info.memo.map(function(x) {
+                 return '<div class="mv-memo" data-d="' + ds + '" onclick="event.stopPropagation(); monthEditDay(this.dataset.d, \'memo\')" title="押すと、この日のメモを書きこめます">' +
+                        '<span class="mv-mk">メモ</span>' + escapeHTML(x) + '</div>';
+               }).join('') +
                todoDueBadge(ds, true) +
                '</td>';
         });
@@ -5140,12 +5171,16 @@
     }
 
     // 月の予定のまま、その日の行事の欄を開く（入れる・直す・消す）
-    function monthEditDay(ds) {
+    // row を省くと、「メモだけ」を出しているときはメモ、それ以外は行事の欄を開く
+    function monthEditDay(ds, row) {
       if (isOutsideFiscalYear(ds)) { showToast('この日は ' + fiscalYearOf(ds) + '年度です。設定の「年度の切り替え」で移ってから入れてください'); return; }
       const d = new Date(ds.replace(/-/g, '/'));
       currentMonday = clampMonday(d).monday;
       updateView();
-      openInputModal((d.getDay() + 6) % 7, 'gyoji');
+      const r = row || (monthShow() === 'memo' ? 'memo' : 'gyoji');
+      // 畳んである行（メモ・連絡）は、開いてから書く画面を出す（畳んだままだと、開くだけで終わるため）
+      if (rowFolded[r]) toggleFold(r);
+      openInputModal((d.getDay() + 6) % 7, r);
     }
 
     function monthJump(ds) {
@@ -5175,6 +5210,7 @@
                   (info.nikka ? '<div class="nk">' + escapeHTML(info.nikka) + '</div>' : '') +
                   (info.vac && !info.hol ? '<div class="vac">' + escapeHTML(info.vac) + '</div>' : '') +
                   info.ev.map(function(x) { return '<div class="ev">' + escapeHTML(x) + '</div>'; }).join('') +
+                  info.memo.map(function(x) { return '<div class="ev mm"><b>メモ</b>' + escapeHTML(x) + '</div>'; }).join('') +
                   '</td>';
         });
         rows += '</tr>';
@@ -5190,6 +5226,7 @@
         'td.other { color: #555; } td.other .dt { font-weight: 400; } td.hol .dt { text-decoration: underline; }' +
         '.dt { font-weight: 800; font-size: 9pt; } .dt span { font-size: 6.5pt; }' +
         '.ev { line-height: 1.3; } .vac { font-size: 6.5pt; } .nk { font-weight: 800; font-size: 6.5pt; }' +
+        '.mm b { font-size: 6pt; border: 0.6pt solid #000; border-radius: 1mm; padding: 0 0.6mm; margin-right: 0.8mm; font-weight: 800; }' +
         '.pd.m { position: relative; background: #fff !important; color: #000 !important; border-top: 0.8pt solid #000; border-bottom: 0.8pt solid #000; line-height: 3.2mm; }' +
         '.pd.m.s { border-left: 0.8pt solid #000; } .pd.m.e { clip-path: none; padding-right: 3mm; } .pd.m .tip { position: absolute; right: 0.2mm; top: 0; }' +
         '.pd { height: 3.6mm; margin: 0.5mm -1.2mm 0; padding-left: 1.2mm; font-size: 6.5pt; font-weight: 800; line-height: 3.6mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' +
@@ -5438,6 +5475,7 @@
         return;
       }
       cell.classList.toggle('off-cell', !!(data && data.disabled));
+      cell.classList.remove('is-empty');
 
       const dragAttrs = ' draggable="true" ondragstart="handleDragStart(event, \'' + key + '\')"';
       const badge = (data && data.attachments && data.attachments.length > 0)
@@ -5453,6 +5491,7 @@
         const bars = (p === 'gyoji') ? periodBarsHTML(weekPeriods, dIdx, false) : '';
         if (!data || rtEmpty(data.record)) {
           cell.innerHTML = bars + '<div class="cell-content"' + dragAttrs + '><div class="empty-tag">＋</div></div>';
+          if (!bars) cell.classList.add('is-empty');
           return;
         }
         cell.innerHTML = bars + '<div class="cell-content"' + dragAttrs + '><div class="long-memo">' + rtRender(data.record) + '</div>' + badge + '</div>';
@@ -5466,6 +5505,7 @@
       const hasSubject = data && getSlots(data).some(function(s) { return s.subject; });
       if (!data || (!hasSubject && rtEmpty(data.record) && rtEmpty(data.contact))) {
         cell.innerHTML = nkTime + '<div class="cell-content"' + dragAttrs + '><div class="empty-tag">＋</div></div>';
+        cell.classList.add('is-empty');
         return;
       }
 
@@ -5698,7 +5738,7 @@
       const allSubs = displaySubs.concat(extraSubs);
 
       // ===== 見通しのもとになる週数 =====
-      // 経過 = 年度のはじめから今週まで／残り = 来週から最後の学期の終わりまで
+      // 経過 = 年度のはじめから今週まで／残り = 次の週から最後の学期の終わりまで
       const yStart = toDateOrNull(conf.t1Start) || new Date(yearNum, 3, 1);
       const yEnd   = toDateOrNull(conf[lastTermKey(conf) === 'term2' ? 't2End' : 't3End']) || new Date(yearNum + 1, 2, 31);
       const startMon = new Date(yStart);
@@ -5819,7 +5859,7 @@
               'さらに先の週に入力ずみの分は、着地見込みには入れていません' +
               '（「今日の時点でどうか」を見るための数だからです）。' +
               '「調整」の数は着地見込みにそのまま足しますが、週あたりのペースには入れていません。' +
-              'ここまでの授業のある週を' + weeksDone + '週、来週から' + termName(lastTermKey(conf), conf) + 'の終わりまでを' + weeksLeft + '週として計算しています' +
+              'ここまでの授業のある週を' + weeksDone + '週、次の週から' + termName(lastTermKey(conf), conf) + 'の終わりまでを' + weeksLeft + '週として計算しています' +
               '（休業期間だけの週と祝日しかない週は数えていません）。' +
               'かっこの中は標準時数との差で、足りない見込みのときは橙色になります。' +
               '</td></tr></tfoot>';

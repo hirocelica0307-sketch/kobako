@@ -171,10 +171,9 @@
     .split-part .memo.ruled { padding-top: 2px; margin-top: 1px; }
     .long-memo { font-size: 0.7rem; color: #4a4237; line-height: 1.4; text-align: left; width: 100%; padding: 2px 4px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; font-weight: 400; }
     .empty-tag {
-      width: 92%; margin-top: clamp(3px, calc((var(--lesson-h, 70px) - 34px) / 2), 36px); border: 1px dashed var(--brown-3); border-radius: 5px;
+      width: 92%; margin: 0 auto; border: 1px dashed var(--brown-3); border-radius: 5px;
       color: var(--brown-2); font-size: 0.72rem; font-weight: 700; padding: 3px 0; background: transparent;
     }
-    .row-event .empty-tag, .row-note .empty-tag, .row-memo .empty-tag { margin-top: 4px; }
 
     .split-part { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; width: 100%; min-width: 0; }
     .split-part .subject-tag { font-size: 0.66rem; padding: 1px 0; }
@@ -400,7 +399,7 @@
     th .td-day-badge:not(.mini) { display: table; margin: 3px auto 0; }
     .td-day-badge.mini { display: block; margin-top: 2px; font-size: 0.6rem; padding: 0 4px; }
 
-    /* ===== 日課 ===== */
+    /* ===== 時程 ===== */
     .nk-badge {
       display: inline-block; margin-top: 2px; background: #e6f2f4; color: var(--sky-dk); border: 1px solid #c3dde2;
       border-radius: 4px; padding: 0 5px; font-size: 0.6rem; font-weight: 800; line-height: 1.5;
@@ -464,6 +463,19 @@
     .mv-hol { font-size: 0.6rem; font-weight: 700; color: var(--coral-dk); }
     .mv-vac { font-size: 0.62rem; color: var(--sky-dk); font-weight: 700; }
     .mv-ev { word-break: break-word; }
+    /* メモの行：行事と見分けられるよう、印と色を変える。押すとメモの欄が開く */
+    .mv-memo { word-break: break-word; color: var(--brown-2); cursor: pointer; border-radius: 3px; }
+    .mv-memo:hover { background: var(--hover-2); }
+    .mv-mk { display: inline-block; font-size: 0.56rem; font-weight: 800; border: 1px solid currentColor; border-radius: 3px; padding: 0 3px; margin-right: 3px; line-height: 1.3; }
+    .mv-show { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; font-size: 0.8rem; font-weight: 700; color: var(--brown-2); }
+    .mv-show-btns { display: inline-flex; border: 1px solid var(--line-2); border-radius: 6px; overflow: hidden; }
+    .mv-show-btns button {
+      border: none; border-left: 1px solid var(--line-2); background: var(--paper); color: var(--brown-2); cursor: pointer;
+      font-family: var(--font-ui); font-size: 0.78rem; font-weight: 800; padding: 6px 12px; line-height: 1.2;
+    }
+    .mv-show-btns button:first-child { border-left: none; }
+    .mv-show-btns button.on { background: var(--leaf); color: #fff; }
+    .mv-show-btns button:focus-visible { outline: 2px solid var(--leaf); outline-offset: -2px; }
 
     /* 授業なしのコマ */
     .timetable tbody td.off-cell {
@@ -472,8 +484,11 @@
       border-color: #d8ccb4;
     }
     .timetable tbody td.off-cell:hover { border-color: #9c8f76; box-shadow: none; }
-    .off-tag { color: #6d6151; font-weight: 800; font-size: 0.72rem; letter-spacing: 1px; margin-top: 20%; }
-    .row-break .off-tag, .row-event .off-tag { margin-top: 2px; font-size: 0.6rem; }
+    .off-tag { color: #6d6151; font-weight: 800; font-size: 0.72rem; letter-spacing: 1px; }
+    .row-break .off-tag, .row-event .off-tag { font-size: 0.6rem; }
+    /* 「授業なし」と、空欄の点線の＋は、枠のまん中に出す */
+    .timetable tbody td.off-cell, .timetable tbody td.is-empty { vertical-align: middle; }
+    .timetable tbody td.off-cell > .cell-content, .timetable tbody td.is-empty > .cell-content { justify-content: center; min-height: 0; }
 
     /* 文字かざり付きの入力欄 */
     .rt-bar {
