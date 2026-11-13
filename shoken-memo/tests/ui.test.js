@@ -122,7 +122,7 @@ test('要修正・注意の指摘は「確認した」で消せて、仕上げ�
   const { page, errors, ctx } = await openLocal();
   await page.click('nav [data-tab="pick"]');
   /* 字数が少ない（注意）＋「上手に」（要修正） */
-  await page.fill('.draftbox textarea', '国語科の学習では、上手に音読することができました。掃除の時間には、床をふきました。');
+  await page.fill('.draftbox textarea', '国語科「音読」の学習では、上手に音読することができました。掃除の時間には、床をふきました。');
   await page.waitForTimeout(100);
   assert.equal(await page.textContent('.draftbox [data-lv]'), '要修正');
   const n0 = await page.locator('.draftbox .issue').count();
@@ -299,7 +299,7 @@ test('クラス全体の書き分け：プロンプト・案の話題・偏り�
     const st = JSON.parse(localStorage.getItem(key));
     for (let n = 1; n <= 6; n++) {
       const k = `国語科「ごんぎつね」の学習では、${n}番は文章の言葉をもとに考えを書きました。掃除の時間には、床をふきました。`;
-      const s = `算数科のわり算では、${n}番は図に表して考え方を説明しました。給食の時間には、配ぜんを手伝いました。`;
+      const s = `算数科「わり算」では、${n}番は図に表して考え方を説明しました。給食の時間には、配ぜんを手伝いました。`;
       st.write = { 1: ['shoken'], 2: ['shoken'], 3: ['shoken'] };
       st.variety = { share: 0.25 };
       st.data['2'][n] = { memos: { subject: '国語科「ごんぎつね」で考えを書いた。算数科のわり算', life: '掃除と給食' },
@@ -380,6 +380,57 @@ test('道徳・総合・外国語：ほかの学期に書いたメモも案づ�
   await page.fill('#memo-subject', '3学期の国語のメモ');
   await page.click('#term-seg button[data-term="2"]');
   assert.equal(await page.inputValue('#memo-subject'), '');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('所見のプロンプト：書き出しの形を必ず守らせる・チェック済みの子は外せる・前の学期の所見を見られる', async () => {
+  const { page, errors, ctx } = await openLocal({ count: 3 });
+  await page.fill('#memo-subject', '国語科「ごんぎつね」で、ごんの気持ちを考えた');
+  await page.fill('#memo-life', '掃除をだまって行った');
+  await page.click('.rbtn[data-no="2"]');
+  await page.fill('#memo-subject', '算数のわり算で図を使って説明した');
+  await page.click('.rbtn[data-no="3"]');
+  await page.fill('#memo-subject', '体育科「ハードル走」でリズムよく跳んだ');
+  /* 3番は全部チェック済みにする */
+  for (const ck of ['subject', 'life', 'sogo']) await page.click(`#kid-checks [data-ck="${ck}"]`);
+  await page.waitForTimeout(300);
+
+  await page.click('nav [data-tab="ai"]');
+  await page.click('#btn-build');
+  let prompt = await page.textContent('#promptout');
+  assert.match(prompt, /書き出し：どの案も必ず「〇〇科「単元名」では、」で始める/);
+  assert.match(prompt, /# 所見の形（厳守/);
+  assert.match(prompt, /1\) 国語科「ごんぎつね」では、/);
+  assert.match(prompt, /単元名：「ごんぎつね」（書き出しは「〇〇科「ごんぎつね」では、」の形にする）/);
+  assert.match(prompt, /## #2\n[^\n]*\n単元名：メモにありません/);
+  assert.match(prompt, /# 出力する前の確認/);
+  assert.match(prompt, /もう一度：どの案も、必ず「〇〇科「単元名」では、」で書き始めてください。/);
+  assert.ok(!/学期のはじめは〜でしたが/.test(prompt), '所見に、書き出しを変える例が入っている');
+  assert.ok(!/同じ書き出しは、クラス全体で/.test(prompt), '所見に、書き出しを変えるお願いが入っている');
+  assert.match(prompt, /出席番号 1・2・3/);
+
+  /* 名簿のチェックが済んでいない子だけ */
+  await page.selectOption('#p-scope', 'unchecked');
+  await page.click('#btn-build');
+  prompt = await page.textContent('#promptout');
+  assert.match(prompt, /人数：2人（出席番号 1・2）/);
+
+  /* 書き出しの形が違う案は要修正 */
+  await page.click('nav [data-tab="pick"]');
+  await page.click('.rbtn[data-no="1"]');
+  await page.fill('.draftbox textarea', '音読に進んで取り組み、気持ちを考えることができました。掃除の時間には、床をふきました。');
+  await page.waitForTimeout(100);
+  assert.match(await page.textContent('.draftbox .issues'), /「〇〇科「単元名」では、」の形で書き始めます/);
+  await page.fill('.draftbox textarea', DRAFT_OK);
+  await page.waitForTimeout(100);
+  assert.ok(!/形で書き始めます/.test(await page.textContent('.draftbox .issues')));
+
+  /* 3学期にすると、2学期の所見が並んで見える */
+  await page.click('#term-seg button[data-term="3"]');
+  await page.click('.rbtn[data-no="1"]');
+  assert.match(await page.textContent('.draftbox .pastterm'), /2学期.*国語科.*ごんぎつね/);
+  await shot(page, '14-past-term');
   assert.deepEqual(errors, []);
   await ctx.close();
 });

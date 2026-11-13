@@ -205,3 +205,27 @@ test('「確認した」の見分けは、字数が変わっても同じ', () =>
   const b = E.checkText('もう少しだけ短い。', 'shoken', {}).find(i => i.kind === '字数');
   assert.equal(E.issueSig(a), E.issueSig(b));
 });
+
+test('所見の書き出し「〇〇科「単元名」では、」を見る', () => {
+  const k = t => E.checkText(t, 'shoken', { memoUnits: ['ごんぎつね'] }).filter(i => i.kind === '書き出し');
+  assert.equal(k('国語科「ごんぎつね」では、考えました。').length, 0);
+  assert.equal(k('国語科「ごんぎつね」の学習では、考えました。').length, 0);
+  assert.ok(!E.checkText('総合的な学習の時間「福祉」では、調べました。', 'shoken', {}).some(i => i.kind === '書き出し'));
+  for (const bad of ['音読に進んで取り組み、考えました。', '国語の「ごんぎつね」では、', '国語科のごんぎつねでは、',
+                     '国語科では、考えました。', '掃除の時間には、床をふきました。国語科「ごんぎつね」では、']) {
+    const list = k(bad);
+    assert.ok(list.length === 1 && list[0].level === 'error', bad);
+  }
+  /* メモの単元名と違えば知らせる（判断は先生に任せる） */
+  const diff = k('国語科「スイミー」では、考えました。');
+  assert.equal(diff.length, 1);
+  assert.equal(diff[0].level, 'info');
+  /* 道徳所見などには使わない */
+  assert.ok(!E.checkText('考えることができました。', 'doutoku', {}).some(i => i.kind === '書き出し'));
+});
+
+test('所見は書き出しが決まっているので、書き出しの重なりとして数えない', () => {
+  const keys = E.keysOf('国語科「ごんぎつね」では、考えました。掃除の時間には、ふきました。', 'shoken');
+  assert.ok(!keys.some(x => x.startsWith('書き出し|')));
+  assert.ok(keys.includes('単元|ごんぎつね'));
+});

@@ -71,6 +71,14 @@
       return s.indexOf(kind) >= 0;
     }
 
+    /* 所見の書き出し「〇〇科「単元名」では、」を見分ける。2番目の（ ）が単元名 */
+    var openingRe = null;
+    if (R.shokenOpening) {
+      var subjAlt = R.subjects.list.slice().sort(function (a, b) { return b.length - a.length; }).map(escRe).join('|');
+      var afterAlt = (R.shokenOpening.after || ['では、']).slice().sort(function (a, b) { return b.length - a.length; }).map(escRe).join('|');
+      openingRe = new RegExp('^(' + subjAlt + ')「([^「」]{1,30})」(?:' + afterAlt + ')');
+    }
+
     /* ---------- 学年段階 ---------- */
     function stageOf(grade) { return CS ? (CS.stageOf[String(grade)] || '中') : '中'; }
 
@@ -78,7 +86,8 @@
        校正
        1つの指摘 = {level, kind, msg, ng, ok, index, length, hit, fixable}
        ctx = { stage:'低'|'中'|'高', others:[{label, text}],
-               lifeHints:[その子の生活・行事のメモに出てくる語], names:[名簿の名前] }
+               lifeHints:[その子の生活・行事のメモに出てくる語], names:[名簿の名前],
+               memoUnits:[その子の教科のメモにある単元名] }
        ====================================================================== */
     function checkText(text, typeKey, ctx) {
       ctx = ctx || {};
@@ -167,6 +176,21 @@
         scan(text, f.re, function (m) { return { level: f.level, kind: '数字', msg: f.msg, ng: m[0], ok: '' }; })
           .forEach(function (i) { issues.push(i); });
       });
+
+      /* --- 所見の書き出しの形：「〇〇科「単元名」では、」 --- */
+      if (typeKey === 'shoken' && R.shokenOpening && openingRe) {
+        var SO = R.shokenOpening;
+        var head = text.replace(/^[\s　]+/, '');
+        var mo = head.match(openingRe);
+        if (!mo) {
+          var cut = head.search(/[、。]/);
+          issues.push({ level: SO.level, kind: '書き出し', msg: SO.msg, index: text.length - head.length,
+            length: cut > 0 ? cut : Math.min(head.length, 10) });
+        } else if (ctx.memoUnits && ctx.memoUnits.length && ctx.memoUnits.indexOf(mo[2]) < 0) {
+          issues.push({ level: 'info', kind: '書き出し', msg: SO.unitMsg.replace('{unit}', ctx.memoUnits.map(function (u) { return '「' + u + '」'; }).join('・')),
+            index: text.indexOf('「'), length: mo[2].length + 2 });
+        }
+      }
 
       /* --- 構成：教科の所見1つ＋教科以外1つ／順序 --- */
       if (typeKey === 'shoken') {
@@ -271,7 +295,8 @@
       ctx = ctx || {};
       var key = typeKey + '\u0001' + (ctx.stage || '') + '\u0001' +
         (ctx.others || []).map(function (o) { return o.label + '\u0002' + o.text; }).join('\u0003') + '\u0001' +
-        (ctx.lifeHints || []).join('\u0002') + '\u0001' + (ctx.names || []).join('\u0002') + '\u0001' + text;
+        (ctx.lifeHints || []).join('\u0002') + '\u0001' + (ctx.names || []).join('\u0002') + '\u0001' +
+        (ctx.memoUnits || []).join('\u0002') + '\u0001' + text;
       var hit = memo.get(key);
       if (hit) return hit;
       var res = checkText(text, typeKey, ctx);
@@ -433,6 +458,8 @@
         tp.subjects.forEach(function (x) { keys.push('教科|' + x); });
         tp.units.forEach(function (x) { keys.push('単元|' + x); });
         tp.life.forEach(function (x) { keys.push('生活・行事|' + x); });
+        /* 所見の書き出しは「〇〇科「単元名」では、」に決まっているので、重なりとして数えない */
+        return keys;
       }
       if (tp.opening) keys.push('書き出し|' + tp.opening);
       return keys;

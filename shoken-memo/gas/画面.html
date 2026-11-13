@@ -3,7 +3,7 @@
      直すのは index.html / engine.js / rules/shoken-rules.js /
      rules/course-of-study.js のほうです。
      直したら  node build-gas.js  を実行して作り直します。
-     生成日時: 2026/11/13 12:15:11
+     生成日時: 2026/11/13 15:53:44
      ============================================================ -->
 <!DOCTYPE html>
 <html lang="ja">
@@ -1914,6 +1914,20 @@ window.SHOKEN_RULES = {
   /* ------------------------------------------------------------------
      書く順序（前半＝教科の評価／後半＝生活面）
      ------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------
+     所見の書き出しの形（必ず「〇〇科「単元名」では、」で始める）
+     ------------------------------------------------------------------
+     教科名は subjects.list のどれか（必ず「科」が付いたもの）、そのすぐ後に「単元名」、
+     そのあとに「では、」または「の学習では、」。
+     単元名がメモに無いときは、メモにある学習の内容を短く「」に入れる（新しい単元名は作らない）。 */
+  shokenOpening: {
+    level: 'error',
+    form: '〇〇科「単元名」では、',
+    after: ['では、', 'の学習では、'],
+    msg: '所見の1文目は「〇〇科「単元名」では、」の形で書き始めます。（例：国語科「ごんぎつね」では、）',
+    unitMsg: 'メモにある単元名（{unit}）と、書き出しの単元名が違います。'
+  },
+
   structure: {
     level: 'error',
     order: ['教科の評価', '生活面'],
@@ -1938,8 +1952,8 @@ window.SHOKEN_RULES = {
     /* 5案の切り口。同じ文の言い換えではなく、取り上げる場面や組み立てを変える */
     angles: [
       "教科の学びの深まりを中心にする（何がどう分かるようになったか）",
-      "生活面・当番・係・友達との関わりを中心にする",
-      "行事や特別活動での姿を中心にする",
+      "後半の生活面（当番・係・友達との関わり）を詳しく書く",
+      "後半に行事や特別活動での姿を書く",
       "学期を通した伸び（はじめと終わりの違い）を中心にする",
       "本人の工夫や粘り強さ、取り組み方を中心にする"
     ],
@@ -1977,11 +1991,11 @@ window.SHOKEN_RULES = {
     },
     {
       bad: "体育のハードル走では、上手にハードルを跳ぶことができました。",
-      good: "体育科のハードル走では、足をまっすぐ前に出してリズムよくハードルを跳び越えることができました。"
+      good: "体育科「ハードル走」では、足をまっすぐ前に出してリズムよくハードルを跳び越えることができました。"
     },
     {
       bad: "体育のハードル走をがんばりました。",
-      good: "体育科のハードル走では、何度もくり返し練習し、記録を伸ばすことができました。"
+      good: "体育科「ハードル走」では、何度もくり返し練習し、記録を伸ばすことができました。"
     },
     {
       bad: "曲紹介が立派でした。",
@@ -2082,6 +2096,14 @@ window.SHOKEN_RULES = {
       return s.indexOf(kind) >= 0;
     }
 
+    /* 所見の書き出し「〇〇科「単元名」では、」を見分ける。2番目の（ ）が単元名 */
+    var openingRe = null;
+    if (R.shokenOpening) {
+      var subjAlt = R.subjects.list.slice().sort(function (a, b) { return b.length - a.length; }).map(escRe).join('|');
+      var afterAlt = (R.shokenOpening.after || ['では、']).slice().sort(function (a, b) { return b.length - a.length; }).map(escRe).join('|');
+      openingRe = new RegExp('^(' + subjAlt + ')「([^「」]{1,30})」(?:' + afterAlt + ')');
+    }
+
     /* ---------- 学年段階 ---------- */
     function stageOf(grade) { return CS ? (CS.stageOf[String(grade)] || '中') : '中'; }
 
@@ -2089,7 +2111,8 @@ window.SHOKEN_RULES = {
        校正
        1つの指摘 = {level, kind, msg, ng, ok, index, length, hit, fixable}
        ctx = { stage:'低'|'中'|'高', others:[{label, text}],
-               lifeHints:[その子の生活・行事のメモに出てくる語], names:[名簿の名前] }
+               lifeHints:[その子の生活・行事のメモに出てくる語], names:[名簿の名前],
+               memoUnits:[その子の教科のメモにある単元名] }
        ====================================================================== */
     function checkText(text, typeKey, ctx) {
       ctx = ctx || {};
@@ -2178,6 +2201,21 @@ window.SHOKEN_RULES = {
         scan(text, f.re, function (m) { return { level: f.level, kind: '数字', msg: f.msg, ng: m[0], ok: '' }; })
           .forEach(function (i) { issues.push(i); });
       });
+
+      /* --- 所見の書き出しの形：「〇〇科「単元名」では、」 --- */
+      if (typeKey === 'shoken' && R.shokenOpening && openingRe) {
+        var SO = R.shokenOpening;
+        var head = text.replace(/^[\s　]+/, '');
+        var mo = head.match(openingRe);
+        if (!mo) {
+          var cut = head.search(/[、。]/);
+          issues.push({ level: SO.level, kind: '書き出し', msg: SO.msg, index: text.length - head.length,
+            length: cut > 0 ? cut : Math.min(head.length, 10) });
+        } else if (ctx.memoUnits && ctx.memoUnits.length && ctx.memoUnits.indexOf(mo[2]) < 0) {
+          issues.push({ level: 'info', kind: '書き出し', msg: SO.unitMsg.replace('{unit}', ctx.memoUnits.map(function (u) { return '「' + u + '」'; }).join('・')),
+            index: text.indexOf('「'), length: mo[2].length + 2 });
+        }
+      }
 
       /* --- 構成：教科の所見1つ＋教科以外1つ／順序 --- */
       if (typeKey === 'shoken') {
@@ -2282,7 +2320,8 @@ window.SHOKEN_RULES = {
       ctx = ctx || {};
       var key = typeKey + '\u0001' + (ctx.stage || '') + '\u0001' +
         (ctx.others || []).map(function (o) { return o.label + '\u0002' + o.text; }).join('\u0003') + '\u0001' +
-        (ctx.lifeHints || []).join('\u0002') + '\u0001' + (ctx.names || []).join('\u0002') + '\u0001' + text;
+        (ctx.lifeHints || []).join('\u0002') + '\u0001' + (ctx.names || []).join('\u0002') + '\u0001' +
+        (ctx.memoUnits || []).join('\u0002') + '\u0001' + text;
       var hit = memo.get(key);
       if (hit) return hit;
       var res = checkText(text, typeKey, ctx);
@@ -2444,6 +2483,8 @@ window.SHOKEN_RULES = {
         tp.subjects.forEach(function (x) { keys.push('教科|' + x); });
         tp.units.forEach(function (x) { keys.push('単元|' + x); });
         tp.life.forEach(function (x) { keys.push('生活・行事|' + x); });
+        /* 所見の書き出しは「〇〇科「単元名」では、」に決まっているので、重なりとして数えない */
+        return keys;
       }
       if (tp.opening) keys.push('書き出し|' + tp.opening);
       return keys;
@@ -2924,8 +2965,12 @@ function scrubNames(text){
 
 /* 校正に渡す、その子の情報 */
 function lifeHintsFor(no){ return E.lifeHintsOf([memoOf(S.term, no, 'life'), memoOf(S.term, no, 'event')].join('\n')); }
+/* その子の「教科での姿」のメモにある単元名（「 」で書いたもの） */
+function memoUnitsFor(no){ return E.topicsOf(memoOf(S.term, no, 'subject'), 'shoken').units; }
 function ctxFor(no, k){
-  return { stage: stageNow(), others: otherTerms(no, k), lifeHints: k === 'shoken' ? lifeHintsFor(no) : [], names: nameParts() };
+  const sh = k === 'shoken';
+  return { stage: stageNow(), others: otherTerms(no, k), lifeHints: sh ? lifeHintsFor(no) : [], names: nameParts(),
+           memoUnits: sh ? memoUnitsFor(no) : [] };
 }
 function check(text, k, no){ return E.checkCached(text, k, ctxFor(no, k)); }
 
@@ -3353,8 +3398,13 @@ function varietyBlock(typeKey, nums){
   }else{
     L.push('- 各児童の「案1」は、この回のほかの児童と、書き出しと文の組み立てがいちばん重ならないものにする。');
   }
-  if(sLim !== Infinity) L.push(`- 同じ書き出しは、クラス全体で${sLim}人までを目安にする。`);
-  L.push('- 同じ単元・同じ項目・似たメモの子は、取り上げる場面・文の組み立て・書き出し・文末の言い方・ほめる言葉をすべて変える。');
+  if(isShoken){
+    L.push(`- 書き出しの形「${R.shokenOpening.form}」は全員同じでよい（変えてはいけない）。書き分けるのは「では、」より後ろ。`);
+    L.push('- 同じ単元・同じ項目・似たメモの子は、取り上げる場面・「では、」の後の文の組み立て・文末の言い方・ほめる言葉をすべて変える。');
+  }else{
+    if(sLim !== Infinity) L.push(`- 同じ書き出しは、クラス全体で${sLim}人までを目安にする。`);
+    L.push('- 同じ単元・同じ項目・似たメモの子は、取り上げる場面・文の組み立て・書き出し・文末の言い方・ほめる言葉をすべて変える。');
+  }
   L.push('  同じ語句を続けて使う「〜することができました」のような締め方も、子どもごとに変える（「〜を身に付けました」「〜するようになりました」「〜を伸ばしました」など）。');
   L.push('- ただし、メモに無い教科・話題は、配分のためでも持ち出さない。メモの材料が1つしかない子は、その材料のまま言い方を変える。');
   L.push('- 「※」の行の最初に、取り上げた教科・単元・項目を【 】で書く。（例：※【算数科「わり算」・給食】…）');
@@ -3375,7 +3425,7 @@ function varietyBlock(typeKey, nums){
     });
     const reps = E.repeatedPhrases(others.map(o => o.text));
     if(reps.length) L.push('- 何人もの所見に出てくる言い回し（そのまま使わない）：' + reps.slice(0, 10).map(r => `「${r.phrase}」${r.count}人`).join('、'));
-    if((V.openingIdeas || []).length) L.push('- 書き出しを変えるときの例：' + V.openingIdeas.join('／'));
+    if(!isShoken && (V.openingIdeas || []).length) L.push('- 書き出しを変えるときの例：' + V.openingIdeas.join('／'));
     L.push('');
   }
 
@@ -3392,7 +3442,9 @@ function varietyBlock(typeKey, nums){
   if(refs.length){
     L.push('## メモが似ている子の、採用済みの文（この文と同じ表現にしない）');
     refs.slice(0, 20).forEach(l => L.push(l));
-    L.push('上の文と、書き出し・言い回し・文の組み立て・文末を変える。同じ語句を3つ以上続けて使わない。');
+    L.push(isShoken
+      ? `上の文と、「では、」より後ろの言い回し・文の組み立て・文末を変える（書き出しの形「${R.shokenOpening.form}」はそのまま）。同じ語句を3つ以上続けて使わない。`
+      : '上の文と、書き出し・言い回し・文の組み立て・文末を変える。同じ語句を3つ以上続けて使わない。');
     L.push('');
   }
 
@@ -3415,7 +3467,9 @@ function varietyBlock(typeKey, nums){
     if(lines.length){
       L.push('## この回で、メモの材料が重なっている児童');
       lines.forEach(l => L.push(l));
-      L.push('上の子どうしは、案1で取り上げる単元・項目（メモにほかの材料があれば）と、書き出し・言い回し・文末をすべて変える。');
+      L.push(isShoken
+        ? '上の子どうしは、案1で取り上げる単元・項目（メモにほかの材料があれば）と、「では、」より後ろの言い回し・文末をすべて変える。'
+        : '上の子どうしは、案1で取り上げる単元・項目（メモにほかの材料があれば）と、書き出し・言い回し・文末をすべて変える。');
       L.push('');
     }
   }
@@ -3431,6 +3485,7 @@ function targetNums(typeKey, scope){
     if(scope === 'one' && n !== cur) continue;
     if(!memoBlock(n, typeKey)) continue;
     if(scope === 'todo' && draftOf(n, typeKey)) continue;
+    if(scope === 'unchecked' && statusOf(n) === 'done') continue;
     nums.push(n);
   }
   return nums;
@@ -3516,6 +3571,7 @@ function buildPrompt(typeKey, nums, opt){
     L.push(`- メモ：1学期〜3学期に書いたメモを合わせて載せています。（〇学期）は、そのメモを書いた学期です。`);
     L.push(`  今回は${S.term}学期の${t.label}です。ほかの学期のメモも、その子の姿として使ってよい。学期をまたいだ伸びが分かれば書き添えてよい。`);
   }
+  if(typeKey === 'shoken') L.push(`- 書き出し：どの案も必ず「${R.shokenOpening.form}」で始める（下の「所見の形」を必ず守る）`);
   L.push('');
   L.push('# 出力形式（厳守）');
   L.push('- 児童ごとに、行頭が「#出席番号」だけの行を置く。');
@@ -3524,7 +3580,11 @@ function buildPrompt(typeKey, nums, opt){
   L.push('- 各案のすぐ下に「※」で始まる行を1行だけ置き、どこを工夫したかを短く書く。');
   L.push('- これ以外の前置き・見出し・字数の注記・解説は一切書かない。');
   L.push('- 出力例：');
-  L.push('#1'); L.push('1) （1番の所見案1）'); L.push('※ （案1で工夫したこと）');
+  if(typeKey === 'shoken'){
+    L.push('#1'); L.push('1) 国語科「ごんぎつね」では、……ことができました。掃除の時間には、……ことができました。'); L.push('※ 【国語科「ごんぎつね」・掃除】（案1で工夫したこと）');
+  }else{
+    L.push('#1'); L.push('1) （1番の所見案1）'); L.push('※ （案1で工夫したこと）');
+  }
   L.push('2) （1番の所見案2）'); L.push('※ （案2で工夫したこと）'); L.push(`…（${NC}まで）`);
   L.push(''); L.push('#2'); L.push('1) （2番の所見案1）'); L.push('※ …'); L.push('');
 
@@ -3547,15 +3607,30 @@ function buildPrompt(typeKey, nums, opt){
     L.push('');
   }
   if(typeKey === 'shoken' && R.structure){
-    L.push('# 書く順序（厳守）');
-    L.push('- **前半に教科の評価を書き、後半に生活面のことを書く。** この順序を必ず守る。');
-    L.push('- どの案も同じ順序にする。生活面から書き始めてはいけない。');
-    L.push('- 例：「国語科〜では、…することができました。掃除の時間には、…することができました。」');
+    L.push('# 所見の形（厳守。1案でも外れたら書き直す）');
+    L.push(`1. **1文目は、必ず「${R.shokenOpening.form}」で書き始める。**`);
+    L.push('   - 教科名は「〜〜科」（国語科・算数科・社会科・理科・音楽科・図画工作科・体育科 など）。「科」を落とさない。');
+    L.push('   - 教科名のすぐ後に、単元名を「 」で入れる。そのあとは「では、」または「の学習では、」。');
+    L.push('   - 単元名は、その子のメモに「 」で書いてあるものを使う（下の「児童ごとのメモ」の「単元名」の行）。');
+    L.push('   - メモに単元名が無いときは、メモにある学習の内容を短く「 」に入れる（例：算数科「わり算の筆算」では、）。メモに無い単元名を作らない。');
+    L.push('2. **前半に教科の評価、後半に生活面を書く。** 2文目以降が生活面。生活面や行事から書き始めない。');
+    L.push(`3. ${R.generation ? R.generation.candidates : 5}案すべて、この形にする。案ごとに変えるのは「では、」より後ろの言い回し・取り上げる場面・生活面の内容。`);
+    L.push('## 書き出しの例');
+    L.push('○ 国語科「ごんぎつね」では、');
+    L.push('○ 算数科「わり算の筆算」の学習では、');
+    L.push('○ 体育科「ハードル走」では、');
+    L.push('× 音読に進んで取り組み、……（教科名から始まっていない）');
+    L.push('× 掃除の時間には、……。国語科「ごんぎつね」では、……（生活面から始まっている）');
+    L.push('× 国語の「ごんぎつね」では、（「科」が無い）');
+    L.push('× 国語科のごんぎつねでは、（単元名に「 」が無い）');
+    L.push('× 国語科では、（単元名が無い）');
     L.push('');
   }
   L.push(`# ${NC}つの案の作り分け`);
   L.push(`- ${NC}案は「同じ文の言い換え」にしない。取り上げる場面・切り口・文の組み立てを変える。`);
-  L.push('- 切り口の目安（どの案も「教科の評価 → 生活面」の順序は変えない）：');
+  L.push(typeKey === 'shoken'
+    ? `- 切り口の目安（どの案も「${R.shokenOpening.form}」で始め、「教科の評価 → 生活面」の順序は変えない）：`
+    : '- 切り口の目安：');
   ((R.generation && R.generation.angles) || []).forEach((a, i) => L.push(`  ${i+1}. ${a}`));
   L.push('- ただし、メモに材料が無い切り口は無理に作らない。その場合は近い切り口で書き分ける。');
   L.push('- どの案も字数の範囲に収め、上のきまりをすべて満たすこと。');
@@ -3619,6 +3694,12 @@ function buildPrompt(typeKey, nums, opt){
   nums.forEach(n => {
     L.push(`## #${n}`);
     L.push(memoBlock(n, typeKey));
+    if(typeKey === 'shoken'){
+      const units = memoUnitsFor(n);
+      L.push(units.length
+        ? `単元名：${units.map(u => `「${u}」`).join('・')}（書き出しは「〇〇科「${units[0]}」では、」の形にする）`
+        : '単元名：メモにありません（メモにある学習の内容を短く「 」に入れる。新しい単元名は作らない）');
+    }
     otherTerms(n, typeKey, opt.avoidTerms).forEach(o => {
       const used = R.subjects.list.filter(s => o.text.indexOf(s) >= 0);
       if(used.length) L.push(`※ ${o.label}は「${used.join('・')}」で書いたので、今回は違う教科で書く。`);
@@ -3626,7 +3707,18 @@ function buildPrompt(typeKey, nums, opt){
     L.push('');
   });
   L.push('---');
+  L.push('# 出力する前の確認（すべての案で確かめ、1つでも外れていたら書き直してから出力する）');
+  if(typeKey === 'shoken'){
+    L.push(`- 1文目が「${R.shokenOpening.form}」で始まっている（教科名に「科」、単元名に「 」）。`);
+    L.push('- 前半が教科、後半が生活面。');
+  }
+  if(typeKey === 'doutoku') L.push('- 2文で、2文目が「特に「内容項目」の学習では、」で始まっている。');
+  L.push(`- 字数が${rg.min}〜${rg.max}字。`);
+  L.push('- 文末が過去形。性格の記述・名前・メモに無い事実が無い。');
+  L.push('- 「※」の行がある。');
+  L.push('');
   L.push(`上のメモをもとに、#${nums.join('、#')} の${t.label}を、1人につき${NC}案ずつ、指定の出力形式で書いてください。`);
+  if(typeKey === 'shoken') L.push(`もう一度：どの案も、必ず「${R.shokenOpening.form}」で書き始めてください。`);
   /* 名簿の名前は、AIに渡す前に必ず消す */
   return scrubNames(L.join('\n'));
 }
@@ -3656,6 +3748,7 @@ function viewAI(root){
         <select id="p-scope">
           <option value="all">メモのある児童すべて</option>
           <option value="todo">メモがあり、まだ本文が無い児童</option>
+          <option value="unchecked">名簿のチェックがまだ済んでいない児童</option>
           <option value="one">選択中の1人だけ（${cur}番）</option>
         </select>
         <span>1回の人数</span>
@@ -3840,6 +3933,17 @@ function draftBox(k){
     ? `<summary>メモを見る</summary>${mb.split('\n').map(l => `<div>${esc(l)}</div>`).join('')}`
     : `<summary>メモがありません</summary><div>「1 メモを書く」で入れると、案づくりに使えます。</div>`;
   d.appendChild(ref);
+
+  /* ほかの学期に採用した、同じ種類の所見（同じ教科を避ける・伸びを書くための参考） */
+  const past = ['1','2','3'].filter(tm => tm !== S.term).map(tm => ({ tm, text:draftOf(cur, k, tm) })).filter(x => x.text);
+  if(past.length){
+    const pv0 = document.createElement('details'); pv0.className = 'memoref pastterm'; pv0.open = true;
+    pv0.innerHTML = `<summary>ほかの学期の${esc(t.label)}</summary>` + past.map(x => {
+      const subs = k === 'shoken' ? E.topicsOf(x.text, k).subjects : [];
+      return `<div><span class="tchip">${x.tm}学期</span>${subs.length ? ` <span class="tchip">${esc(subs.join('・'))}</span>` : ''} ${esc(x.text)}</div>`;
+    }).join('');
+    d.appendChild(pv0);
+  }
 
   const cl = document.createElement('div'); cl.className = 'cands'; d.appendChild(cl);
   const note = document.createElement('div'); note.className = 'candnote'; d.appendChild(note);
