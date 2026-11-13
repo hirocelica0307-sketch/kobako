@@ -1,0 +1,262 @@
+<script>
+/**
+ * 席替えアプリ — 共通モデル（画面とソルバーの両方から使う）
+ *
+ * 座席 ID … 左から A〜F、黒板側から 1〜7。例: C2, F5
+ *            番号は実際の席に固定されていて、表示を反転しても変わらない。
+ */
+var Core = (function () {
+  'use strict';
+
+  var LETTERS = 'ABCDEF';
+  var MAX_ROWS = 7;
+  var MAX_COLS = 6;
+  var MAX_STUDENTS = 42;
+
+  function seatId(col, row) {
+    return LETTERS.charAt(col - 1) + row;
+  }
+
+  function parseSeat(id) {
+    var s = String(id || '').trim().toUpperCase();
+    if (!/^[A-F][1-7]$/.test(s)) return null;
+    return { col: LETTERS.indexOf(s.charAt(0)) + 1, row: parseInt(s.charAt(1), 10) };
+  }
+
+  function clampInt(v, min, max, fallback) {
+    var n = parseInt(v, 10);
+    if (isNaN(n)) return fallback;
+    return Math.min(max, Math.max(min, n));
+  }
+
+  /** レイアウト上のすべての席（使わない席も含む）。行優先＝黒板側から順。 */
+  function allSeats(settings) {
+    var rows = clampInt(settings.rows, 1, MAX_ROWS, 6);
+    var cols = clampInt(settings.cols, 1, MAX_COLS, 6);
+    var unused = settings.unusedSeats || [];
+    var out = [];
+    for (var r = 1; r <= rows; r++) {
+      for (var c = 1; c <= cols; c++) {
+        var id = seatId(c, r);
+        out.push({ id: id, col: c, row: r, unused: unused.indexOf(id) >= 0 });
+      }
+    }
+    return out;
+  }
+
+  /** 実際に児童を座らせる席だけ */
+  function usableSeats(settings) {
+    return allSeats(settings).filter(function (s) { return !s.unused; });
+  }
+
+  /**
+   * 既定のペア＝横 2 席ずつの区切り（A1とB1、C1とD1 …）。
+   * 使わない席は外すので、片方だけ残った場合は 1 人だけのペアになる。
+   */
+  function autoPairs(settings) {
+    var rows = clampInt(settings.rows, 1, MAX_ROWS, 6);
+    var cols = clampInt(settings.cols, 1, MAX_COLS, 6);
+    var unused = settings.unusedSeats || [];
+    var pairs = [];
+    var no = 1;
+    for (var r = 1; r <= rows; r++) {
+      for (var c = 1; c <= cols; c += 2) {
+        var seats = [];
+        for (var k = c; k <= Math.min(c + 1, cols); k++) {
+          var id = seatId(k, r);
+          if (unused.indexOf(id) < 0) seats.push(id);
+        }
+        if (seats.length) pairs.push({ no: no++, seats: seats });
+      }
+    }
+    return pairs;
+  }
+
+  /** 席の形が「ペア（2人1組）」か。「1人ずつ」のときはペアの考え方を使わない。 */
+  function isPairStyle(settings) {
+    return settings.seatStyle !== 'single';
+  }
+
+  /** ペアを手で決めているか（間隔では表せないので、番号で示す） */
+  function isManualPairs(settings) {
+    return isPairStyle(settings) && settings.pairsAuto === false && !!(settings.pairs && settings.pairs.length);
+  }
+
+  /**
+   * 実際に使うペア定義。1人ずつの席ではペアなし。
+   * 手動設定があればそれを、なければ横 2 席区切りを使う。
+   */
+  function effectivePairs(settings) {
+    if (!isPairStyle(settings)) return [];
+    if (isManualPairs(settings)) return normalizeSets(settings.pairs, settings);
+    return autoPairs(settings);
+  }
+
+  function effectiveGroups(settings) {
+    return normalizeSets(settings.groups || [], settings);
+  }
+
+  /**
+   * 班を自動で作る。横 w 席 × 縦 h 席のかたまりごとに 1 班（4 人班＝2×2、6 人班＝2×3）。
+   * 端で余った席はそのぶん小さい班になる。使わない席は入れない。
+   */
+  function blockGroups(settings, w, h) {
+    var rows = clampInt(settings.rows, 1, MAX_ROWS, 6);
+    var cols = clampInt(settings.cols, 1, MAX_COLS, 6);
+    var unused = settings.unusedSeats || [];
+    var out = [];
+    for (var r = 1; r <= rows; r += h) {
+      for (var c = 1; c <= cols; c += w) {
+        var seats = [];
+        for (var rr = r; rr < r + h && rr <= rows; rr++) {
+          for (var cc = c; cc < c + w && cc <= cols; cc++) {
+            var id = seatId(cc, rr);
+            if (unused.indexOf(id) < 0) seats.push(id);
+          }
+        }
+        if (seats.length) out.push({ no: out.length + 1, seats: seats });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * 3〜4 人の班を、席の並びから自動で作る。
+   * 横 2 列ずつ（ペアの並び）を縦にたどり、前から順に 3 人か 4 人ずつ区切る。
+   *   例）A1・B1・A2・B2 で 4 人班、A1・B1・A2 で 3 人班
+   * target … 3（3 人班を中心に）または 4（4 人班を中心に）。割り切れないときは 3 人と 4 人がまざる。
+   * 使わない席は入れないので、空く席を「使わない席」にしておくと人数がそろう。
+   */
+  function partitionGroups(settings, target) {
+    var rows = clampInt(settings.rows, 1, MAX_ROWS, 6);
+    var cols = clampInt(settings.cols, 1, MAX_COLS, 6);
+    var unused = settings.unusedSeats || [];
+    var out = [];
+    for (var c = 1; c <= cols; c += 2) {
+      var seq = [];
+      for (var r = 1; r <= rows; r++) {
+        for (var cc = c; cc <= Math.min(c + 1, cols); cc++) {
+          var id = seatId(cc, r);
+          if (unused.indexOf(id) < 0) seq.push(id);
+        }
+      }
+      var k = 0;
+      groupSizes(seq.length, target).forEach(function (n) {
+        out.push({ no: out.length + 1, seats: seq.slice(k, k + n) });
+        k += n;
+      });
+    }
+    return out;
+  }
+
+  /** u 席を 3 人か 4 人の班に分けたときの、班ごとの人数（4 人の班を前に） */
+  function groupSizes(u, target) {
+    if (u <= 0) return [];
+    if (u <= 5) return [u];                 // 3〜4 人に分けられない（5 席は 1 つの班にする）
+    var g = target === 3 ? Math.floor(u / 3) : Math.ceil(u / 4);
+    var fours = u - 3 * g;                  // 4 人にする班の数（0〜g）
+    var sizes = [];
+    for (var i = 0; i < g; i++) sizes.push(i < fours ? 4 : 3);
+    return sizes;
+  }
+
+  /** 使わない席やレイアウト外の席を取り除き、通し番号を振り直す */
+  function normalizeSets(sets, settings) {
+    var rows = clampInt(settings.rows, 1, MAX_ROWS, 6);
+    var cols = clampInt(settings.cols, 1, MAX_COLS, 6);
+    var unused = settings.unusedSeats || [];
+    var out = [];
+    (sets || []).forEach(function (set) {
+      var seats = (set.seats || []).filter(function (id) {
+        var p = parseSeat(id);
+        return p && p.row <= rows && p.col <= cols && unused.indexOf(id) < 0;
+      });
+      if (seats.length) out.push({ no: out.length + 1, seats: seats });
+    });
+    return out;
+  }
+
+  /** ある席が属するペア／班の通し番号を引くための辞書 */
+  function setIndexBySeat(sets) {
+    var map = {};
+    sets.forEach(function (set, i) {
+      set.seats.forEach(function (id) { map[id] = i; });
+    });
+    return map;
+  }
+
+  /**
+   * 席替えモードごとの、その席に座るべき性別。
+   * genderColumn … 列ごとに男女（A 列が男子なら B 列は女子 …）
+   * checker      … となりも前後も男女交互（となり合う席が必ず違う性別）
+   */
+  function targetGender(settings, col, row) {
+    var start = settings.genderStart === 'F' ? 'F' : 'M';
+    var other = start === 'M' ? 'F' : 'M';
+    if (settings.mode === 'genderColumn') {
+      return (col % 2 === 1) ? start : other;
+    }
+    if (settings.mode === 'checker') {
+      return ((col + row) % 2 === 0) ? start : other;
+    }
+    return '';
+  }
+
+  /** 履歴 1 件から「席 → 氏名」の対応を作る。名前で照合するので採番し直しても崩れない。 */
+  function seatNameMap(historyEntry) {
+    var map = {};
+    if (!historyEntry) return map;
+    var byNo = {};
+    (historyEntry.roster || []).forEach(function (s) { byNo[s.no] = s.name; });
+    Object.keys(historyEntry.assign || {}).forEach(function (seat) {
+      var name = byNo[historyEntry.assign[seat]];
+      if (name) map[seat] = name;
+    });
+    return map;
+  }
+
+  /** 履歴 1 件から「同じペアだった 2 人」の組を作る（氏名で保持）。 */
+  function pairKeySet(historyEntry, settings) {
+    var set = {};
+    if (!historyEntry) return set;
+    var names = seatNameMap(historyEntry);
+    effectivePairs(settings).forEach(function (p) {
+      for (var i = 0; i < p.seats.length; i++) {
+        for (var j = i + 1; j < p.seats.length; j++) {
+          var a = names[p.seats[i]], b = names[p.seats[j]];
+          if (a && b) set[coupleKey(a, b)] = true;
+        }
+      }
+    });
+    return set;
+  }
+
+  function coupleKey(a, b) {
+    return a < b ? (a + ' ' + b) : (b + ' ' + a);
+  }
+
+  return {
+    MAX_ROWS: MAX_ROWS,
+    MAX_COLS: MAX_COLS,
+    MAX_STUDENTS: MAX_STUDENTS,
+    seatId: seatId,
+    parseSeat: parseSeat,
+    clampInt: clampInt,
+    allSeats: allSeats,
+    usableSeats: usableSeats,
+    autoPairs: autoPairs,
+    isPairStyle: isPairStyle,
+    isManualPairs: isManualPairs,
+    effectivePairs: effectivePairs,
+    effectiveGroups: effectiveGroups,
+    normalizeSets: normalizeSets,
+    blockGroups: blockGroups,
+    partitionGroups: partitionGroups,
+    setIndexBySeat: setIndexBySeat,
+    targetGender: targetGender,
+    seatNameMap: seatNameMap,
+    pairKeySet: pairKeySet,
+    coupleKey: coupleKey
+  };
+})();
+</script>
