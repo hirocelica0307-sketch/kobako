@@ -231,7 +231,7 @@ test('所見は書き出しが決まっているので、書き出しの重な�
 });
 
 test('メモから教科と生活の材料を取り出す', () => {
-  const m = E.materialsOf('国語科「ごんぎつね」で考えた。発表もした。算数のわり算で図を使った', '掃除をだまって行った。給食当番を最後まで行った');
+  const m = E.materialsOf('国語科「ごんぎつね」で考えた。発表もした\n算数のわり算で図を使った', '掃除をだまって行った。給食当番を最後まで行った');
   assert.deepEqual([...m.subjects.map(x => x.subject + '|' + x.unit)], ['国語科|ごんぎつね', '算数科|']);
   assert.match(m.subjects[0].text, /発表もした/, '教科名の無い文は前の教科の続き');
   assert.deepEqual([...m.life.map(x => x.label)], ['掃除', '給食・当番・日直']);
@@ -252,4 +252,43 @@ test('案ごとの組み合わせ：なるべく違う組み合わせにし、�
   /* 材料が1つずつなら同じ組み合わせになる */
   const one = E.planCombos(E.materialsOf('国語科「ごんぎつね」で考えた', '掃除をした'), 5);
   assert.equal(new Set(one.map(label)).size, 1);
+});
+
+test('教科での姿：1行に1教科で読み、教科名が無い行は内容から教科を見分ける', () => {
+  const r = E.analyzeSubjectMemo('国語科「ごんぎつね」で考えた。発表もした\nわり算で図を使った\n「ハードル走」でリズムよく跳んだ\nリコーダーをくり返し練習した', { grade: 3 });
+  assert.deepEqual([...r.items.map(i => i.subject + '|' + i.unit + '|' + i.inferred)],
+    ['国語科|ごんぎつね|false', '算数科||true', '体育科|ハードル走|true', '音楽科||true']);
+  assert.ok(r.notes.some(n => n.line === 2 && /内容から「算数科」/.test(n.msg)));
+  assert.ok(r.notes.some(n => n.line === 2 && /単元名がありません/.test(n.msg)));
+});
+
+test('教科での姿：「科」の無い外国語・道徳・家庭・生活も教科として読む', () => {
+  const kinds = (t, g) => [...E.analyzeSubjectMemo(t, { grade: g }).items.map(i => i.subject)];
+  assert.deepEqual(kinds('外国語「Hello」でALTに話しかけた', 3), ['外国語活動']);
+  assert.deepEqual(kinds('外国語「What do you want?」でやり取りした', 6), ['外国語科']);
+  assert.deepEqual(kinds('道徳「バスの中で」で考えを書いた', 4), ['道徳科']);
+  assert.deepEqual(kinds('家庭「ミシンにチャレンジ」でエプロンを作った', 5), ['家庭科']);
+  assert.deepEqual(kinds('生活「あさがお」で水やりを続けた', 1), ['生活科']);
+  /* 「家庭で」「生活の」は教科として読まない */
+  assert.deepEqual(kinds('国語科「音読」：家庭で毎日音読した。生活のリズムも整った', 3), ['国語科']);
+});
+
+test('教科での姿：同じ行の途中で教科を切りかえるのは「〇〇科」か「 」が続くときだけ', () => {
+  const r = E.analyzeSubjectMemo('体育科「ハードル走」で跳んだ。音楽に合わせてリズムよく走った', { grade: 3 });
+  assert.deepEqual([...r.items.map(i => i.subject)], ['体育科']);
+  const r2 = E.analyzeSubjectMemo('国語科「ごんぎつね」で考えた。算数科「わり算」で説明した。音楽「とんび」で歌った', { grade: 3 });
+  assert.deepEqual([...r2.items.map(i => i.subject)], ['国語科', '算数科', '音楽科']);
+  /* 続きの文がほかの教科の内容に見えるときは知らせる */
+  const r3 = E.analyzeSubjectMemo('国語科「ごんぎつね」で考えた。わり算で図を使った', { grade: 3 });
+  assert.equal(r3.items.length, 1);
+  assert.ok(r3.notes.some(n => /算数科の内容にも見えます/.test(n.msg)));
+  /* 1つの文に2教科 */
+  const r4 = E.analyzeSubjectMemo('国語科「ごんぎつね」で考え、算数科「わり算」でも説明した', { grade: 3 });
+  assert.ok(r4.notes.some(n => /1つの文に/.test(n.msg)));
+});
+
+test('生活：1文に2つ以上の場面があれば知らせる', () => {
+  const r = E.analyzeLifeMemo('掃除や給食当番を最後まで行った\n廊下を静かに歩いた');
+  assert.equal(r.items.length, 2);
+  assert.ok(r.notes.some(n => n.line === 1 && /1行に1場面/.test(n.msg)));
 });

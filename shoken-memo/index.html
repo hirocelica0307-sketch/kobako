@@ -258,6 +258,33 @@ mark.info{background:var(--info-w);box-shadow:0 2px 0 var(--info)}
 .material{font-size:12.5px;background:#f6f4ef;border-radius:8px;padding:7px 11px;margin-bottom:12px}
 .material b{color:var(--accent)}
 
+[hidden]{display:none !important}
+/* ---- メモの書き方のガイドと読み取り結果 ---- */
+.guide{border:1px solid var(--line2);background:#fbfaf6;border-radius:10px;padding:8px 14px;margin-bottom:14px}
+.guide > summary{cursor:pointer;font-weight:700;color:var(--accent)}
+.guide[open] > summary{margin-bottom:8px}
+.guidegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:6px 20px;font-size:13px}
+.guidegrid h3{font-size:13.5px;margin:4px 0 2px}
+.guidegrid ol,.guidegrid ul{margin:0;padding-left:1.3em}
+.guidegrid li{margin-bottom:1px}
+.guide pre.ex{white-space:pre-wrap;word-break:break-all;background:#fff;border:1px dashed var(--line2);border-radius:6px;padding:6px 9px;margin:6px 0 4px;font-family:inherit;font-size:12.5px;line-height:1.7}
+.parsed{margin-top:5px;display:flex;flex-direction:column;gap:3px}
+.prow{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.pchip{font-size:12px;border-radius:6px;padding:1px 8px;background:var(--accent-w);color:var(--accent);border:1px solid #cfe2d7}
+.pchip.warn{background:var(--part-w);color:var(--part);border-color:#efd3ad}
+.pchip small{margin-left:4px;font-size:10.5px;opacity:.8}
+.pnote{font-size:12px;border-radius:6px;padding:2px 8px;border-left:3px solid}
+.pnote.warn{background:var(--warn-w);border-color:var(--warn)}
+.pnote.info{background:var(--info-w);border-color:var(--info)}
+/* ---- AIで見直す ---- */
+.rvrow{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fff}
+.rvrow.st-used{background:var(--accent-w)}
+.rvrow.st-same,.rvrow.st-skipped{opacity:.75}
+.rvtext{line-height:2;margin:6px 0 2px;word-break:break-all}
+.rvtext del{background:var(--err-w);color:var(--err);text-decoration:line-through}
+.rvtext ins{background:var(--accent-w);color:var(--accent);text-decoration:none;font-weight:700;border-bottom:2px solid var(--accent)}
+.mini del{background:var(--err-w);color:var(--err)}
+.mini ins{background:var(--accent-w);color:var(--accent);text-decoration:none}
 /* ---- クラス全体の偏り ---- */
 .vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px 18px}
 .vcat h3{font-size:13px;margin:0 0 6px;color:var(--muted)}
@@ -362,7 +389,9 @@ ul.plain li{margin-bottom:3px}
     <span class="arrow">›</span>
     <button data-tab="pick"><span class="no">3</span>案を選ぶ・直す<span class="badge" data-badge="pick"></span></button>
     <span class="arrow">›</span>
-    <button data-tab="finish"><span class="no">4</span>仕上げ・書き出し<span class="badge" data-badge="finish"></span></button>
+    <button data-tab="review"><span class="no">4</span>AIで見直す</button>
+    <span class="arrow">›</span>
+    <button data-tab="finish"><span class="no">5</span>仕上げ・書き出し<span class="badge" data-badge="finish"></span></button>
     <span class="spacer"></span>
     <span class="sep"></span>
     <button data-tab="stock" class="sub">記録メモ帳</button>
@@ -849,7 +878,7 @@ function showTab(name){
 }
 function renderView(){
   const m = $('#main');
-  const fn = { memo:viewMemo, ai:viewAI, pick:viewPick, finish:viewFinish, stock:viewStock, rules:viewRules }[view] || viewMemo;
+  const fn = { memo:viewMemo, ai:viewAI, pick:viewPick, review:viewReview, finish:viewFinish, stock:viewStock, rules:viewRules }[view] || viewMemo;
   m.innerHTML = '';
   fn(m);
 }
@@ -993,8 +1022,13 @@ function viewMemo(root){
     ta.placeholder = f.placeholder || '';
     ta.value = (r.memos || {})[f.key] || '';
     ta.addEventListener('focus', () => lastField = { key:f.key, el:ta });
-    ta.addEventListener('input', () => { rec(S.term, cur).memos[f.key] = ta.value; saveSoon(); refreshKid(cur); showMaterial(); });
+    ta.addEventListener('input', () => { rec(S.term, cur).memos[f.key] = ta.value; saveSoon(); refreshKid(cur); showMaterial(); showParsed(f.key); });
     d.appendChild(ta);
+    /* 打ちながら、アプリがどう読み取ったかを見せる */
+    if(PARSED_FIELDS.includes(f.key)){
+      const pr = document.createElement('div'); pr.className = 'parsed'; pr.id = 'parsed-' + f.key;
+      d.appendChild(pr);
+    }
     /* 学期をまたいで使う欄は、ほかの学期に書いたメモも見せる */
     if(f.allTerms){
       const others = ['1','2','3'].filter(t => t !== S.term).map(t => ({ t, v:memoOf(t, cur, f.key) })).filter(x => x.v);
@@ -1015,6 +1049,9 @@ function viewMemo(root){
     parent.appendChild(h);
     fields.forEach(f => parent.appendChild(field(f)));
   };
+
+  /* メモの書き方のきまり（いつでも見られるように、メモ欄の上に置く） */
+  if(types.includes('shoken')) box.appendChild(memoGuide());
 
   /* 所見の材料（教科・生活の話題）がいくつあるかを見せる */
   if(types.includes('shoken')){
@@ -1040,11 +1077,74 @@ function viewMemo(root){
     lastField = first ? { key:first.id.replace('memo-',''), el:first } : null;
   }
   showMaterial();
+  PARSED_FIELDS.forEach(showParsed);
   renderChips();
+}
+
+/* ---------- メモの書き方のガイド ---------- */
+const PARSED_FIELDS = ['subject', 'life', 'event'];
+function memoGuide(){
+  const det = document.createElement('details');
+  det.className = 'guide';
+  let open = true;
+  try{ open = localStorage.getItem('ashiato.guide') !== 'closed'; }catch(e){}
+  det.open = open;
+  det.addEventListener('toggle', () => { try{ localStorage.setItem('ashiato.guide', det.open ? 'open' : 'closed'); }catch(e){} });
+  det.innerHTML = `<summary>メモの書き方のきまり <span class="mini">（このとおりに書くと、AIが迷わず、5つの案が違う教科・場面になります）</span></summary>
+    <div class="guidegrid">
+      <div>
+        <h3>教科での姿</h3>
+        <ol>
+          <li><b>1行に1教科。</b>別の教科は、改行して書く。</li>
+          <li><b>行の始めに教科名</b>（国語科・算数科 など）。</li>
+          <li>教科名のすぐ後に、<b>単元名を「 」で囲む</b>。</li>
+          <li>同じ教科の続きは「。」でつないで、<b>同じ行</b>に書く（教科名は書かなくてよい）。</li>
+          <li>続きの文に、ほかの教科名（音楽・社会 など）を書かない。</li>
+        </ol>
+        <pre class="ex">国語科「ごんぎつね」：ごんの気持ちを叙述をもとに考えた。理由を示して発表した
+算数科「わり算」：図を使って考え方を説明した
+体育科「ハードル走」：リズムよく跳べるようになった</pre>
+      </div>
+      <div>
+        <h3>生活・当番・係／行事</h3>
+        <ol>
+          <li><b>1行に1場面</b>（掃除、給食当番、廊下歩行、運動会 など）。</li>
+          <li>場面の名前から書き始めると、読み取りやすい。</li>
+        </ol>
+        <pre class="ex">掃除：だまって隅々まで床をふいた
+給食当番：最後まで片付けをした
+廊下：静かに右側を歩いていた</pre>
+        <h3>そのほか</h3>
+        <ul>
+          <li>子どもの言葉は「 」の最後に「。」まで入れる（例：「困っている人に声をかけたい。」と書いた）。</li>
+          <li>名前は書かなくてよい（書いても、AIには「（名前）」で渡します）。</li>
+          <li>何をして、どうなったか（どう伸びたか）を、事実で短く書く。</li>
+        </ul>
+      </div>
+    </div>`;
+  return det;
+}
+/* 「教科での姿」「生活・当番・係」「行事」の読み取り結果 */
+function showParsed(key){
+  const el = $('#parsed-' + key); if(!el) return;
+  const text = memoOf(S.term, cur, key);
+  if(!text){ el.innerHTML = ''; return; }
+  let chips = '', notes = [];
+  if(key === 'subject'){
+    const r = E.analyzeSubjectMemo(text, { grade:S.meta.grade });
+    chips = r.items.map(it => `<span class="pchip ${it.unit ? '' : 'warn'}" title="${esc(it.text)}">${it.line}行目 ${esc(it.subject)}${it.unit ? `「${esc(it.unit)}」` : '（単元名なし）'}${it.inferred ? '<small>内容から</small>' : ''}</span>`).join('');
+    notes = r.notes;
+  }else{
+    const r = E.analyzeLifeMemo(text);
+    chips = r.items.map(it => `<span class="pchip" title="${esc(it.text)}">${it.line}行目 ${esc(it.label)}</span>`).join('');
+    notes = r.notes;
+  }
+  el.innerHTML = `<div class="prow"><span class="mini">アプリの読み取り</span>${chips || '<span class="mini">（まだ読み取れるものがありません）</span>'}</div>` +
+    notes.map(n => `<div class="pnote ${n.level}">${n.line}行目：${esc(n.msg)}</div>`).join('');
 }
 /* 所見の材料：「教科での姿」から教科ごと、「生活・当番・係」「行事」から1文ごと */
 function materialsFor(no){
-  return E.materialsOf(memoOf(S.term, no, 'subject'), [memoOf(S.term, no, 'life'), memoOf(S.term, no, 'event')].join('\n'));
+  return E.materialsOf(memoOf(S.term, no, 'subject'), [memoOf(S.term, no, 'life'), memoOf(S.term, no, 'event')].join('\n'), { grade:S.meta.grade });
 }
 function subjLabel(m){ return m ? `${m.subject}${m.unit ? `「${m.unit}」` : ''}` : ''; }
 /* プロンプトの児童たちに、案ごとの組み合わせを割り当てる。
@@ -1092,7 +1192,8 @@ function renderChips(){
         const s = ta.selectionStart ?? ta.value.length, e2 = ta.selectionEnd ?? ta.value.length;
         ta.value = ta.value.slice(0, s) + w + ta.value.slice(e2);
         ta.focus();
-        ta.selectionStart = ta.selectionEnd = s + w.length;
+        /* 「」は、かっこの間にカーソルを置く */
+        ta.selectionStart = ta.selectionEnd = s + (w === '「」' ? 1 : w.length);
         ta.dispatchEvent(new Event('input'));
       };
       wrap.appendChild(c);
@@ -1892,7 +1993,7 @@ function draftBox(k){
 }
 
 /* =========================================================================
-   4 仕上げ・書き出し（クラス全体の確認と一覧）
+   5 仕上げ・書き出し（クラス全体の確認と一覧）
    ========================================================================= */
 let FIN = { type:null, filter:'all', withName:false };
 
@@ -2104,6 +2205,274 @@ function drawVariety(k){
 }
 
 /* =========================================================================
+   4 AIで見直す（全員分の本文をコピー → AIが日本語を見直す → 1人ずつ使うか決める）
+   ========================================================================= */
+let RV = { type:null, scope:'all', size:15, chunks:[], at:0, copied:{}, results:[], info:'' };
+
+function reviewNums(k, scope){
+  const nums = [];
+  for(let n = 1; n <= S.meta.count; n++){
+    if(!draftOf(n, k)) continue;
+    if(scope === 'one' && n !== cur) continue;
+    if(scope === 'unchecked' && statusOf(n) === 'done') continue;
+    nums.push(n);
+  }
+  return nums;
+}
+
+/* 見直しのプロンプト。直してよいことと、変えてはいけないことをはっきり分けて伝える */
+function buildReviewPrompt(k, nums){
+  const t = R.types[k], rg = E.lenRange(k);
+  const L = [];
+  L.push('あなたは小学校で長く担任を務め、校内で通知表の所見の点検を任されているベテラン教師です。');
+  L.push(`下の${t.label}を、保護者が読む通知表の文章として一文ずつ読み、日本語として誤っているところ・不自然なところ・分かりにくいところを、プロの教師の目で直してください。`);
+  L.push('');
+  L.push('# 今回見直すもの');
+  L.push(`- 対象：${S.meta.grade}年 ${S.term}学期`);
+  L.push(`- 種別：${t.label}（${rg.min}〜${rg.max}字）`);
+  L.push(`- 人数：${nums.length}人（出席番号 ${nums.join('・')}）`);
+  L.push('');
+  L.push('# 直すこと');
+  L.push('- 誤字・脱字、助詞の誤り（「を」「に」「が」「で」など）、主語と述語のねじれ、係り受けの分かりにくさ。');
+  L.push('- 同じ言葉のくり返し、回りくどい言い方、意味の重なり（例：「様々な体験や活動」）。');
+  L.push('- 一文が長すぎて読みにくいところ、読点の位置。');
+  L.push('- 保護者が読んで誤解しそうな表現、子どもを低く見ているように読める表現。');
+  L.push('- 下の「勤務校のきまり」に合っていないところ。');
+  L.push('');
+  L.push('# 変えてはいけないこと（厳守）');
+  L.push('- 内容・事実（何をしたか、どう伸びたか）を変えない。新しい事実やほめ言葉を足さない。');
+  L.push('- 取り上げている教科・単元・生活の場面を、別のものに変えない。');
+  if(k === 'shoken') L.push(`- 書き出しの形「${R.shokenOpening.form}」は変えない。教科名と「単元名」もそのまま。`);
+  if(k === 'doutoku') L.push('- 2文の形と、2文目の書き出し「特に「内容項目」の学習では、」は変えない。');
+  L.push('- 子どもの言葉を引用した「 」の中は、そのままにする。');
+  L.push('- 問題の無い文は直さない。直すのは、必要なところだけにする。全部を書き直さない。');
+  L.push(`- 直したあとも、字数を${rg.min}〜${rg.max}字（句読点を含む）に収める。`);
+  L.push('');
+  L.push('# 勤務校のきまり');
+  R.commonRules.forEach(p => L.push('- ' + p));
+  L.push('- 文末は過去形（「〜しました。」「〜できました。」）。可能動詞は使わない（「書けるようになりました」→「書くことができました」）。');
+  L.push('- ' + R.numberFormat.note);
+  L.push('- 読点は「、」。感嘆符・疑問符・三点リーダは使わない。');
+  L.push('## 避ける表現 → 言い換え');
+  R.vague.filter(v => v.level !== 'info').forEach(v => L.push(`- ${v.ng} → ${v.ok}`));
+  L.push('## 表記（左の表記を使う）');
+  L.push(R.hyoki.filter(h => h.level !== 'info' && !/^（/.test(h.ok)).map(h => `${h.ok}（×${h.ng}）`).join('、'));
+  L.push('## 教科名');
+  L.push('必ず「科」を付ける：' + R.subjects.list.join('、'));
+  L.push('');
+  L.push('# 出力形式（厳守）');
+  L.push('- 児童ごとに、行頭が「#出席番号」だけの行を置く。');
+  L.push('- 次の行に、直したあとの本文を改行のない1段落で書く。直すところが無ければ、元の本文をそのまま書く。');
+  L.push('- その次の行に「※」で始まる行を1行だけ置き、直した点を短く書く。直しが無ければ「※ 直しなし」と書く。');
+  L.push('- これ以外の前置き・見出し・解説は一切書かない。');
+  L.push('- 出力例：');
+  L.push('#1'); L.push('（直したあとの本文）'); L.push('※ 「〜」の助詞を直し、長い一文を二つに分けました。');
+  L.push(''); L.push('#2'); L.push('（元の本文のまま）'); L.push('※ 直しなし');
+  L.push('');
+  L.push(`# 見直す${t.label}`);
+  nums.forEach(n => { L.push(`#${n}`); L.push(draftOf(n, k)); L.push(''); });
+  L.push('---');
+  L.push(`上の#${nums.join('、#')} の${t.label}を見直し、指定の出力形式で返してください。内容と事実は変えず、日本語と表現だけを直してください。`);
+  return scrubNames(L.join('\n'));
+}
+
+/* 文字ごとの違い（消したところ・足したところ）を色で見せる */
+function diffHTML(a, b){
+  const A = Array.from(a || ''), B = Array.from(b || '');
+  const n = A.length, m = B.length;
+  const dp = Array.from({ length:n + 1 }, () => new Uint16Array(m + 1));
+  for(let i = n - 1; i >= 0; i--) for(let j = m - 1; j >= 0; j--)
+    dp[i][j] = A[i] === B[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  let i = 0, j = 0, out = '', mode = '', buf = '';
+  const flush = () => { if(buf) out += mode === 'del' ? `<del>${esc(buf)}</del>` : mode === 'ins' ? `<ins>${esc(buf)}</ins>` : esc(buf); buf = ''; };
+  const put = (md, ch) => { if(md !== mode){ flush(); mode = md; } buf += ch; };
+  while(i < n && j < m){
+    if(A[i] === B[j]){ put('', A[i]); i++; j++; }
+    else if(dp[i + 1][j] >= dp[i][j + 1]){ put('del', A[i]); i++; }
+    else { put('ins', B[j]); j++; }
+  }
+  while(i < n){ put('del', A[i]); i++; }
+  while(j < m){ put('ins', B[j]); j++; }
+  flush();
+  return out;
+}
+
+function viewReview(root){
+  const types = activeTypes();
+  if(!types.includes(RV.type)) RV.type = types[0] || null;
+  if(!types.length){ root.innerHTML = noTypesCard(); wireNoTypes(root); return; }
+  const k = RV.type;
+  root.innerHTML = `
+  <section class="card">
+    <h2>AIで見直す <span class="mini" style="font-weight:400">3で選んで直した全員分の本文を、AIにもう一度、日本語と表現の面から見直してもらいます</span></h2>
+    <div class="row">
+      <label class="inline">種類 <select id="r-type">${typeOptions(k)}</select></label>
+      <span class="mini">本文がある児童：${reviewNums(k, 'all').length} / ${S.meta.count}人</span>
+    </div>
+  </section>
+  <div class="aigrid">
+    <section class="card">
+      <h2><span class="step">A</span>見直しのプロンプトを作ってコピーする</h2>
+      <p class="lead">採用している本文をまとめて、見直しのお願いと一緒にコピーします。Claude に貼り付けてください。</p>
+      <div class="notice warn">AI に渡るのは<b>出席番号と本文だけ</b>です。名簿の名前は「（名前）」に置きかえます。</div>
+      <div class="opts">
+        <span>対象</span>
+        <select id="r-scope">
+          <option value="all">本文がある児童すべて</option>
+          <option value="unchecked">名簿のチェックがまだ済んでいない児童</option>
+          <option value="one">選択中の1人だけ（${cur}番）</option>
+        </select>
+        <span>1回の人数</span>
+        <select id="r-size">${[10,15,20,45].map(n=>`<option value="${n}">${n===45?'全員まとめて':n+'人ずつ'}</option>`).join('')}</select>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="r-build">見直しのプロンプトを作る</button>
+        <button class="btn" id="r-copy" disabled>このプロンプトをコピー</button>
+        <span class="mini" id="r-info"></span>
+      </div>
+      <div class="chunks" id="r-chunks"></div>
+      <pre class="prompt" id="r-out">（「見直しのプロンプトを作る」を押してください）</pre>
+    </section>
+    <section class="card">
+      <h2><span class="step">B</span>直した文を貼り付けて取り込む</h2>
+      <p class="lead">Claude の返事をそのまま貼り付けて「取り込む」を押すと、1人ずつ「元の文」と「直した文」を並べて見せます。使うかどうかは、1人ずつ決められます。</p>
+      <textarea id="r-paste" rows="12" placeholder="#1&#10;（直したあとの本文）&#10;※ 直した点&#10;&#10;#2&#10;…"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="btn primary" id="r-parse">取り込む</button>
+        <button class="btn" id="r-clear">貼り付け欄を消す</button>
+      </div>
+      <div id="r-msg" style="margin-top:10px">${RV.info}</div>
+    </section>
+  </div>
+  <section class="card" id="r-results-card" ${RV.results.length ? '' : 'hidden'}>
+    <h2>直しの確認</h2>
+    <div id="r-results"></div>
+  </section>`;
+
+  $('#r-scope').value = RV.scope; $('#r-size').value = String(RV.size);
+  $('#r-type').onchange = e => { RV.type = e.target.value; RV.chunks = []; RV.results = []; RV.info = ''; renderView(); };
+  $('#r-scope').onchange = e => { RV.scope = e.target.value; RV.chunks = []; drawReviewChunks(); };
+  $('#r-size').onchange = e => { RV.size = +e.target.value; RV.chunks = []; drawReviewChunks(); };
+  $('#r-build').onclick = () => {
+    const nums = reviewNums(k, RV.scope);
+    RV.chunks = []; RV.at = 0; RV.copied = {};
+    if(!nums.length){ drawReviewChunks('見直す本文がありません。先に「3 案を選ぶ・直す」で本文を決めてください。'); return; }
+    for(let i = 0; i < nums.length; i += RV.size){
+      const part = nums.slice(i, i + RV.size);
+      RV.chunks.push({ nums:part, text:buildReviewPrompt(k, part) });
+    }
+    drawReviewChunks();
+  };
+  $('#r-copy').onclick = async () => {
+    const c = RV.chunks[RV.at]; if(!c) return;
+    await copyText(c.text);
+    RV.copied[RV.at] = true; drawReviewChunks();
+    toast(RV.chunks.length > 1 ? `#${c.nums[0]}〜#${c.nums[c.nums.length-1]} をコピーしました` : 'コピーしました');
+  };
+  $('#r-parse').onclick = () => importReview(k);
+  $('#r-clear').onclick = () => { $('#r-paste').value = ''; };
+  drawReviewChunks();
+  drawReviewResults(k);
+}
+function drawReviewChunks(msg){
+  const out = $('#r-out'), box = $('#r-chunks'), info = $('#r-info'), copy = $('#r-copy');
+  if(!out) return;
+  box.innerHTML = '';
+  if(!RV.chunks.length){ out.textContent = msg || '（「見直しのプロンプトを作る」を押してください）'; info.textContent = ''; copy.disabled = true; return; }
+  if(RV.chunks.length > 1){
+    RV.chunks.forEach((c, i) => {
+      const b = document.createElement('button');
+      b.className = (i === RV.at ? 'on ' : '') + (RV.copied[i] ? 'done' : '');
+      b.textContent = `${i+1}回目 #${c.nums[0]}〜#${c.nums[c.nums.length-1]}`;
+      b.onclick = () => { RV.at = i; drawReviewChunks(); };
+      box.appendChild(b);
+    });
+  }
+  const c = RV.chunks[RV.at];
+  out.textContent = c.text; copy.disabled = false;
+  info.textContent = `${c.nums.length}人分・約${c.text.length}字`;
+}
+function importReview(k){
+  const raw = $('#r-paste').value;
+  if(!raw.trim()) return toast('貼り付け欄が空です');
+  const res = E.parsePasted(raw);
+  const got = res.order.filter(n => n >= 1 && n <= S.meta.count && draftOf(n, k));
+  if(!got.length){
+    RV.info = '<div class="notice warn">「#番号」の行が見つからないか、その番号の本文がありません。返ってきた文の形を確かめてください。</div>';
+    $('#r-msg').innerHTML = RV.info; return;
+  }
+  const keep = RV.results.filter(x => got.indexOf(x.no) < 0);
+  const fresh = got.map(n => {
+    const c = res.blocks[n][0];
+    const before = draftOf(n, k), after = c.text.trim();
+    const same = after === before || /^直しなし/.test(after);
+    return { no:n, before, after: same ? before : after, note:(c.note || '').replace(/^直しなし$/, ''), status: same ? 'same' : 'pending' };
+  });
+  RV.results = keep.concat(fresh).sort((a, b) => a.no - b.no);
+  const changed = fresh.filter(x => x.status === 'pending').length;
+  RV.info = `<div class="notice ok">${fresh.length}人分を取り込みました。直しがあるのは${changed}人です。下の「直しの確認」で、使うかどうかを決めてください。</div>`;
+  $('#r-msg').innerHTML = RV.info;
+  $('#r-results-card').hidden = false;
+  drawReviewResults(k);
+  $('#r-results-card').scrollIntoView({ block:'start' });
+  toast(`${fresh.length}人分を取り込みました（直し${changed}人）`);
+}
+function drawReviewResults(k){
+  const box = $('#r-results'); if(!box) return;
+  if(!RV.results.length){ box.innerHTML = ''; return; }
+  const pending = RV.results.filter(x => x.status === 'pending');
+  const used = RV.results.filter(x => x.status === 'used').length;
+  const st = { pending:'まだ決めていない', used:'使った', skipped:'使わない', same:'直しなし' };
+  let html = `<div class="row" style="margin-bottom:10px">
+      <span class="mini">直しあり ${RV.results.filter(x => x.status !== 'same').length}人（使った ${used}人・まだ ${pending.length}人）／ 直しなし ${RV.results.filter(x => x.status === 'same').length}人</span>
+      <span class="spacer"></span>
+      ${pending.length ? `<button class="btn primary sm" id="r-use-all">まだの直しをすべて使う（${pending.length}人）</button>` : ''}
+      <button class="btn sm ghost" id="r-go-finish">5 仕上げ・書き出し へ ›</button>
+    </div>
+    <p class="mini" style="margin:0 0 10px"><del>赤い取り消し線</del>が消したところ、<ins>緑</ins>が足したところです。直した文の校正結果も確かめてから使ってください。</p>`;
+  html += RV.results.map((x, i) => {
+    const nm = nameOf(x.no);
+    const iss = x.status === 'same' ? [] : visibleIssues(x.after, k, x.no);
+    const lv = x.status === 'same' ? 'ok' : E.worst(iss);
+    const n = E.countChars(x.after), rg = E.lenRange(k);
+    const btns = x.status === 'pending'
+      ? `<button class="btn sm primary" data-ruse="${i}">この直しを使う</button><button class="btn sm" data-rskip="${i}">使わない</button>`
+      : x.status === 'used' ? `<button class="btn sm" data-rundo="${i}">元の文に戻す</button>`
+      : x.status === 'skipped' ? `<button class="btn sm" data-ruse="${i}">やはり使う</button>` : '';
+    return `<div class="rvrow st-${x.status}">
+      <div class="row"><b>#${x.no}${nm ? ' ' + esc(nm) : ''}</b>
+        <span class="stbadge ${x.status === 'used' ? 'ok' : x.status === 'pending' ? 'part' : ''}">${st[x.status]}</span>
+        ${x.status !== 'same' ? `<span class="count ${n >= rg.min && n <= rg.max ? 'ok' : 'ng'}">${n}字</span>
+        <span class="badge ${lv === 'error' ? 'error' : lv === 'warn' ? 'warn' : 'ok'}">${lv === 'error' ? '要修正' : lv === 'warn' ? '注意' : 'OK'}</span>` : ''}
+        <span class="spacer"></span>${btns}
+        <button class="btn sm" data-rlook="${x.no}">3で開く</button></div>
+      <div class="rvtext">${x.status === 'same' ? esc(x.before) : diffHTML(x.before, x.after)}</div>
+      ${x.note ? `<div class="mini">※ ${esc(x.note)}</div>` : ''}
+      ${iss.filter(j => j.level !== 'info').length ? `<div class="issues">${iss.filter(j => j.level !== 'info').map(j =>
+        `<div class="issue ${j.level}"><span class="tag">${esc(j.kind)}</span><span>${esc(j.msg)}</span></div>`).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+  box.innerHTML = html;
+  const use = list => {
+    list.forEach(x => {
+      if(draftOf(x.no, k) !== x.before && draftOf(x.no, k) !== x.after){ x.status = 'skipped'; return; }
+      editDraft(x.no, k, x.after); x.status = 'used';
+    });
+    save(); renderSteps(); drawReviewResults(k);
+  };
+  $$('[data-ruse]', box).forEach(b => b.onclick = () => { use([RV.results[+b.dataset.ruse]]); toast('直した文を使いました'); });
+  $$('[data-rskip]', box).forEach(b => b.onclick = () => { RV.results[+b.dataset.rskip].status = 'skipped'; drawReviewResults(k); });
+  $$('[data-rundo]', box).forEach(b => b.onclick = () => {
+    const x = RV.results[+b.dataset.rundo];
+    editDraft(x.no, k, x.before); x.status = 'pending'; save(); renderSteps(); drawReviewResults(k); toast('元の文に戻しました');
+  });
+  $$('[data-rlook]', box).forEach(b => b.onclick = () => { cur = +b.dataset.rlook; showTab('pick'); });
+  const all = $('#r-use-all', box);
+  if(all) all.onclick = () => { const p = RV.results.filter(x => x.status === 'pending'); use(p); toast(`${p.length}人の直しを使いました`); };
+  $('#r-go-finish', box).onclick = () => { FIN.type = k; showTab('finish'); };
+}
+
+/* =========================================================================
    記録メモ帳（名簿とは別。書き出しにも一覧にも出ない）
    ========================================================================= */
 function viewStock(root){
@@ -2205,7 +2574,7 @@ function openSettings(){
         <div class="mini">同じ単元や、同じ生活の項目（廊下歩行・あいさつなど）を所見で取り上げてよい人数です。</div></div>
       <span>同じ教科・書き出し</span><div><select id="s-share">${(R.variety ? R.variety.shareOptions : []).map(o =>
         `<option value="${o.value}" ${Math.abs(o.value - S.variety.share) < 0.001 ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select>
-        <div class="mini">AIへのお願いと「4 仕上げ」の偏りの表に使います。</div></div>
+        <div class="mini">AIへのお願いと「5 仕上げ」の偏りの表に使います。</div></div>
       <span>名前</span><div><button class="btn sm" id="s-names">${hasNames() ? '名前を直す' : '名前を入れる（入れなくてもよい）'}</button>
         <div class="mini">名前は、この画面と保存先の中だけで使います。AIへのプロンプトには入れません。</div></div>
     </div>

@@ -465,6 +465,79 @@ test('所見のプロンプト：メモの教科と生活を、案ごとに違�
   await ctx.close();
 });
 
+test('メモ画面：書き方のきまりと、アプリの読み取り結果が見える', async () => {
+  const { page, errors, ctx } = await openLocal();
+  assert.ok(await page.isVisible('details.guide[open]'));
+  assert.match(await page.textContent('details.guide'), /1行に1教科/);
+  await page.fill('#memo-subject', '国語科「ごんぎつね」：ごんの気持ちを考えた\nわり算で図を使った');
+  await page.fill('#memo-life', '掃除や給食当番を最後まで行った');
+  await page.waitForTimeout(50);
+  const parsed = await page.textContent('#parsed-subject');
+  assert.match(parsed, /1行目 国語科「ごんぎつね」/);
+  assert.match(parsed, /2行目 算数科（単元名なし）内容から/);
+  assert.match(parsed, /2行目：教科名が無いので、内容から「算数科」と読みました/);
+  assert.match(await page.textContent('#parsed-life'), /1行に1場面/);
+  await shot(page, '15-memo-guide');
+  /* ガイドを閉じると、次に開いたときも閉じたまま */
+  await page.click('details.guide > summary');
+  await page.waitForTimeout(100);
+  await page.reload(); await page.waitForSelector('.rbtn');
+  assert.ok(!(await page.isVisible('details.guide[open]')));
+  /* 入力補助の「」はかっこの間にカーソルが入る */
+  await page.click('details.guide > summary');
+  await page.fill('#memo-event', '学習発表会');
+  await page.click('#memo-event');
+  await page.keyboard.press('End');
+  await page.click('.chip:text-is("「」")');
+  await page.keyboard.type('リコーダー');
+  assert.equal(await page.inputValue('#memo-event'), '学習発表会「リコーダー」');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('4 AIで見直す：全員分をコピーし、直した文を1人ずつ確かめて使い、仕上げへ進む', async () => {
+  const { page, errors, ctx } = await openLocal({ count: 3 });
+  /* 1番と2番に本文を入れる */
+  await page.click('nav [data-tab="pick"]');
+  await page.fill('.draftbox textarea', DRAFT_OK);
+  await page.click('.rbtn[data-no="2"]');
+  await page.fill('.draftbox textarea', DRAFT_OK.replace('掃除の時間', '給食の時間'));
+  await page.waitForTimeout(500);
+  await page.click('nav [data-tab="review"]');
+  await page.click('#r-build');
+  const prompt = await page.textContent('#r-out');
+  assert.match(prompt, /ベテラン教師/);
+  assert.match(prompt, /# 変えてはいけないこと（厳守）/);
+  assert.match(prompt, /書き出しの形「〇〇科「単元名」では、」は変えない/);
+  assert.match(prompt, /人数：2人（出席番号 1・2）/);
+  assert.match(prompt, new RegExp('#1\\n' + DRAFT_OK.slice(0, 10)));
+  /* 直した文を貼り戻す（1番は直しあり、2番は直しなし） */
+  const fixed = DRAFT_OK.replace('理由を示して自分の考えを発表する', '理由を示しながら自分の考えを発表する');
+  await page.fill('#r-paste', `#1\n${fixed}\n※ 「示して」を「示しながら」に直しました。\n\n#2\n${DRAFT_OK.replace('掃除の時間', '給食の時間')}\n※ 直しなし`);
+  await page.click('#r-parse');
+  assert.match(await page.textContent('#r-msg'), /2人分を取り込みました。直しがあるのは1人/);
+  assert.match(await page.innerHTML('.rvrow'), /<ins>ながら<\/ins>/);
+  await shot(page, '16-review');
+  await page.click('[data-ruse="0"]');
+  assert.match(await page.textContent('.rvrow'), /使った/);
+  /* 3 で見ると直した文になっている */
+  await page.click('[data-rlook="1"]');
+  assert.equal(await page.inputValue('.draftbox textarea'), fixed);
+  /* 元に戻せる */
+  await page.click('nav [data-tab="review"]');
+  await page.click('[data-rundo="0"]');
+  await page.click('nav [data-tab="pick"]');
+  assert.equal(await page.inputValue('.draftbox textarea'), DRAFT_OK);
+  /* まとめて使って、仕上げへ */
+  await page.click('nav [data-tab="review"]');
+  await page.click('#r-use-all');
+  await page.click('#r-go-finish');
+  assert.equal(await page.getAttribute('nav [data-tab="finish"]', 'class'), 'on');
+  assert.match(await page.textContent('#listbody'), /示しながら/);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('スマホの幅でも横にはみ出さない', async () => {
   const { page, errors, ctx } = await openLocal({ viewport: { width: 390, height: 800 } });
   const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

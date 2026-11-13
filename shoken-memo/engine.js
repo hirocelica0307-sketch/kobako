@@ -559,35 +559,163 @@
     function sentencesOf(t) {
       return String(t || '').split(/[。\n]+/).map(function (x) { return x.trim(); }).filter(Boolean);
     }
-    /* メモから材料を取り出す。
-       subjectMemo … 「教科での姿」 / lifeMemo … 「生活・当番・係」「行事」
-       戻り値 { subjects:[{subject, unit, text}], life:[{label, labels, text}] }
-       生活の材料は1文で1つ（「給食当番」なら labels は 給食・当番・日直 の2つ） */
-    function materialsOf(subjectMemo, lifeMemo) {
-      var subjects = [], life = [];
-      var lastSubj = null;
-      sentencesOf(subjectMemo).forEach(function (sen) {
-        var tp = topicsOf(sen, 'shoken');
-        if (!tp.subjects.length) {
-          /* 教科名の無い文は、前の文の続きとみなす */
-          if (lastSubj) lastSubj.forEach(function (m) { m.text += '。' + sen; });
-          return;
+
+    /* ---------- 「教科での姿」の読み取り ---------- */
+    /* 文の中の教科名。「科」の無い言い方（国語・外国語・道徳・家庭・生活 など）も読む。
+       戻り値 [{name, at}]（出てくる順） */
+    var memoAliasRes = ((R.subjects && R.subjects.memoAliases) || []).map(function (a) { return { re: new RegExp(a.re, 'g'), ok: a.ok }; });
+    function foreignName(grade) { return (+grade >= 5) ? '外国語科' : '外国語活動'; }
+    function subjectsIn(sen, grade) {
+      var hits = [];
+      var add = function (name, at) {
+        if (name === '外国語') name = foreignName(grade);
+        if (!hits.some(function (h) { return h.name === name; })) hits.push({ name: name, at: at });
+        else hits.forEach(function (h) { if (h.name === name && at < h.at) h.at = at; });
+      };
+      var masked = maskQuotes(sen);
+      R.subjects.list.forEach(function (sname) { var at = masked.indexOf(sname); if (at >= 0) add(sname, at); });
+      var covered = function (at, len) { return hits.some(function (h) { return at >= h.at && at < h.at + h.name.length; }); };
+      subjChecks.concat(memoAliasRes.map(function (a) { return { re: a.re, ok: a.ok, alias: true }; })).forEach(function (c) {
+        var re = c.alias ? c.re : reOf(c.re || escRe(c.ng));
+        if (!re) return;
+        re.lastIndex = 0;
+        var m;
+        while ((m = re.exec(masked))) {
+          if (!covered(m.index)) add(c.ok, m.index);
+          if (m[0] === '') re.lastIndex++;
         }
-        lastSubj = [];
-        tp.subjects.forEach(function (sb, i) {
-          var unit = tp.subjects.length === 1 ? (tp.units[0] || '') : (tp.units[i] || '');
-          var same = subjects.filter(function (m) { return m.subject === sb && m.unit === unit; })[0];
-          if (same) { same.text += '。' + sen; lastSubj.push(same); return; }
-          var m = { subject: sb, unit: unit, text: sen };
-          subjects.push(m); lastSubj.push(m);
+      });
+      return hits.sort(function (a, b) { return a.at - b.at; });
+    }
+    /* 文の始めが教科名か（「・」「-」などの記号や空白は飛ばす） */
+    function leadSubject(sen, grade) {
+      var lead = (String(sen).match(/^[\s　・\-－*＊●○◎]*/) || [''])[0].length;
+      var hits = subjectsIn(sen, grade).filter(function (h) { return h.at === lead; });
+      return hits.length ? hits[0].name : null;
+    }
+    /* 同じ行の途中で教科を切りかえるのは、「〇〇科」と書いたときか、「音楽「…」」のように単元名が続くときだけ */
+    function strictLead(sen, grade) {
+      var name = leadSubject(sen, grade);
+      if (!name) return null;
+      var t = String(sen).replace(/^[\s　・\-－*＊●○◎]*/, '');
+      if (R.subjects.list.some(function (n) { return t.indexOf(n) === 0; })) return name;
+      var q = t.indexOf('「');
+      return (q > 0 && q <= 8 && !/[をにでがはと、]/.test(t.slice(0, q))) ? name : null;
+    }
+    /* 教科名が無いときに、学習指導要領の手がかり語から教科を見分ける。
+       2文字以上の手がかり語の文字数を足して、いちばん多い教科（同点なら決めない） */
+    function inferSubject(text, grade) {
+      if (!CS) return null;
+      var stage = stageOf(grade || 3);
+      /* 「 」の中（単元名）も手がかりにする */
+      var masked = String(text || '');
+      var best = null, second = 0;
+      Object.keys(CS.subjects).forEach(function (key) {
+        if (key === 'tokkatsu') return;
+        var sub = CS.subjects[key];
+        if (sub.stages && sub.stages.indexOf(stage) < 0) return;
+        var sc = 0;
+        (sub.match || []).forEach(function (w) { if (Array.from(w).length >= 2 && masked.indexOf(w) >= 0) sc += Array.from(w).length; });
+        if (!sc) return;
+        var name = key === 'gaikokugo' ? foreignName(grade) : sub.label;
+        if (!best || sc > best.sc) { second = best ? best.sc : 0; best = { name: name, sc: sc }; }
+        else if (sc > second) second = sc;
+      });
+      return best && best.sc > second ? best.name : null;
+    }
+    function unitIn(text) {
+      var ur = /「([^「」『』]+)」/g, m;
+      while ((m = ur.exec(String(text || '')))) {
+        var u = m[1].trim();
+        if (u && Array.from(u).length <= (V.unitMaxLength || 15) && u.indexOf('。') < 0) return u;
+      }
+      return '';
+    }
+    /* 「教科での姿」を1行ずつ読む。
+         1行に1教科。行の始めに教科名（無ければ内容から見分ける）。
+         同じ行で「。」のあとが教科名で始まっていれば、そこから別の教科。
+       戻り値 { items:[{subject, unit, text, line, inferred}], notes:[{line, level, msg}] } */
+    function analyzeSubjectMemo(text, opt) {
+      opt = opt || {};
+      var grade = opt.grade || 3;
+      var items = [], notes = [];
+      var note = function (line, level, msg) { notes.push({ line: line, level: level, msg: msg }); };
+      String(text || '').split('\n').forEach(function (raw, li) {
+        var line = li + 1;
+        var sens = raw.split('。').map(function (x) { return x.trim(); }).filter(Boolean);
+        if (!sens.length) return;
+        var cur = null;
+        sens.forEach(function (sen, si) {
+          var head = si === 0 ? leadSubject(sen, grade) : strictLead(sen, grade);
+          var inSen = subjectsIn(sen, grade);
+          var start = function (name, inferred) {
+            cur = { subject: name, unit: unitIn(sen), text: sen, line: line, inferred: !!inferred };
+            items.push(cur);
+          };
+          if (si === 0) {
+            if (inSen.length) {
+              start(inSen[0].name, false);
+              if (inSen.length > 1) note(line, 'warn', '1つの文に、' + inSen.map(function (h) { return h.name; }).join('と') + 'が入っています。教科ごとに行を分けると、案ごとに別の教科を取り上げられます。');
+            } else {
+              var guess = inferSubject(sen + '。' + sens.slice(1).join('。'), grade);
+              if (guess) {
+                start(guess, true);
+                note(line, 'info', '教科名が無いので、内容から「' + guess + '」と読みました。違うときは、行の始めに教科名を書いてください。');
+              } else if (items.length) {
+                var prev = items[items.length - 1];
+                prev.text += '。' + sen; cur = prev;
+                note(line, 'warn', '教科名が無く、内容からも教科が分からないので、前の行（' + prev.subject + '）の続きとして読んでいます。別の教科なら、行の始めに教科名を書いてください。');
+              } else {
+                note(line, 'warn', '教科が分かりません。行の始めに教科名を書いてください（例：国語科「ごんぎつね」：…）。');
+              }
+            }
+          } else if (head) {
+            start(head, false);
+          } else if (cur) {
+            cur.text += '。' + sen;
+            if (!cur.unit) cur.unit = unitIn(sen);
+            var other = inferSubject(sen, grade);
+            if (other && other !== cur.subject && !subjectsIn(sen, grade).length) {
+              note(line, 'info', '「' + Array.from(sen).slice(0, 12).join('') + '…」は' + other + 'の内容にも見えます。別の教科なら、改行して教科名から書いてください。');
+            }
+          }
+        });
+        items.filter(function (it) { return it.line === line && !it.unit; }).forEach(function (it) {
+          note(line, 'warn', it.subject + 'の単元名がありません。教科名のすぐ後に、単元名を「 」で囲んで書いてください（例：' + it.subject + '「〇〇」）。');
         });
       });
-      sentencesOf(lifeMemo).forEach(function (sen) {
-        var labels = topicsOf(sen, 'shoken').life;
-        var label = labels.length ? labels.join('・') : Array.from(sen).slice(0, 14).join('');
-        var same = life.filter(function (m) { return m.label === label; })[0];
-        if (same) { if (same.text.indexOf(sen) < 0) same.text += '。' + sen; return; }
-        life.push({ label: label, labels: labels, text: sen });
+      return { items: items, notes: notes };
+    }
+    /* 「生活・当番・係」「行事」を1文ずつ読む。戻り値 { items:[{label, labels, text, line}], notes } */
+    function analyzeLifeMemo(text) {
+      var items = [], notes = [];
+      String(text || '').split('\n').forEach(function (raw, li) {
+        raw.split('。').map(function (x) { return x.trim(); }).filter(Boolean).forEach(function (sen) {
+          var labels = topicsOf(sen, 'shoken').life;
+          var label = labels.length ? labels.join('・') : Array.from(sen).slice(0, 14).join('');
+          items.push({ label: label, labels: labels, text: sen, line: li + 1 });
+          if (labels.length >= 2 && /[やと、]/.test(sen)) {
+            notes.push({ line: li + 1, level: 'info', msg: '1つの文に、' + labels.join('・') + 'が入っています。1行に1場面にすると、案ごとの組み合わせが増えます。' });
+          }
+        });
+      });
+      return { items: items, notes: notes };
+    }
+    /* メモから材料を取り出す。
+       subjectMemo … 「教科での姿」 / lifeMemo … 「生活・当番・係」「行事」 / opt.grade … 学年
+       戻り値 { subjects:[{subject, unit, text}], life:[{label, labels, text}] }
+       生活の材料は1文で1つ（「給食当番」なら labels は 給食・当番・日直 の2つ） */
+    function materialsOf(subjectMemo, lifeMemo, opt) {
+      var subjects = [], life = [];
+      analyzeSubjectMemo(subjectMemo, opt).items.forEach(function (it) {
+        var same = subjects.filter(function (m) { return m.subject === it.subject && m.unit === it.unit; })[0];
+        if (same) { same.text += '。' + it.text; return; }
+        subjects.push({ subject: it.subject, unit: it.unit, text: it.text, inferred: it.inferred });
+      });
+      analyzeLifeMemo(lifeMemo).items.forEach(function (it) {
+        var same = life.filter(function (m) { return m.label === it.label; })[0];
+        if (same) { if (same.text.indexOf(it.text) < 0) same.text += '。' + it.text; return; }
+        life.push({ label: it.label, labels: it.labels, text: it.text });
       });
       return { subjects: subjects, life: life };
     }
@@ -682,6 +810,7 @@
       MASK: MASK,
       lifeHintsOf: lifeHintsOf, mostSimilar: mostSimilar, issueSig: issueSig,
       materialsOf: materialsOf, planCombos: planCombos, comboKeys: comboKeys,
+      analyzeSubjectMemo: analyzeSubjectMemo, analyzeLifeMemo: analyzeLifeMemo, inferSubject: inferSubject, subjectsIn: subjectsIn,
       topicsOf: topicsOf, openingOf: openingOf, keysOf: keysOf, limitOf: limitOf, tallyKeys: tallyKeys,
       groupSimilar: groupSimilar, repeatedPhrases: repeatedPhrases, planSwaps: planSwaps,
       countChars: countChars, lenRange: lenRange, stageOf: stageOf,
