@@ -77,7 +77,8 @@
     /* ======================================================================
        校正
        1つの指摘 = {level, kind, msg, ng, ok, index, length, hit, fixable}
-       ctx = { stage:'低'|'中'|'高', others:[{label, text}] }
+       ctx = { stage:'低'|'中'|'高', others:[{label, text}],
+               lifeHints:[その子の生活・行事のメモに出てくる語], names:[名簿の名前] }
        ====================================================================== */
     function checkText(text, typeKey, ctx) {
       ctx = ctx || {};
@@ -102,6 +103,12 @@
           });
         })
         .forEach(function (i) { issues.push(i); });
+
+      /* --- 個人情報：名簿に入れた名前 --- */
+      (ctx.names || []).forEach(function (nm) {
+        scan(text, escRe(nm), function () { return { level: 'error', kind: '個人情報', msg: pv.nameMsg || '名簿の名前が入っています。', ng: nm, ok: '（削る）' }; })
+          .forEach(function (i) { issues.push(i); });
+      });
 
       /* --- 個人情報：知らないカタカナ語（固有名詞の疑い） --- */
       scan(src('katakana'), '[ァ-ヴー]{2,}', function (m) {
@@ -168,9 +175,10 @@
            （「科」を付ける指摘は教科名チェックが別に出しているので、二重に言わない） */
         var subjNames = R.subjects.list.concat(R.subjects.checks.filter(function (c) { return c.level === 'error'; }).map(function (c) { return c.ng; }));
         var hasSubject = subjNames.some(has);
-        var outWords = ['掃除', '給食', '当番', '係', '委員会', 'クラブ', '休憩時間', '運動会', '学習発表会',
-          'あいさつ', '整とん', '友達', '行事', '遠足', '宿泊', '集会', '片付け', 'なわとび', '班'];
-        var hasOut = outWords.some(has);
+        /* 教科以外の記述があるか：生活の語・生活や行事の項目・その子の生活のメモの語のどれか */
+        var hasOut = (R.structure ? R.structure.lifeWords : []).some(has) ||
+          lifeRes.some(function (x) { return x.re.test(masked); }) ||
+          (ctx.lifeHints || []).some(has);
         if (!hasSubject) issues.push({ level: 'warn', kind: '構成', msg: '教科に関する所見が見あたりません。教科名（〜〜科）を挙げて1つ書きます。' });
         if (!hasOut) issues.push({ level: 'warn', kind: '構成', msg: '教科以外（生活・行事など）の所見が見あたりません。原則として1つ書きます。' });
 
@@ -262,7 +270,8 @@
     function checkCached(text, typeKey, ctx) {
       ctx = ctx || {};
       var key = typeKey + '\u0001' + (ctx.stage || '') + '\u0001' +
-        (ctx.others || []).map(function (o) { return o.label + '\u0002' + o.text; }).join('\u0003') + '\u0001' + text;
+        (ctx.others || []).map(function (o) { return o.label + '\u0002' + o.text; }).join('\u0003') + '\u0001' +
+        (ctx.lifeHints || []).join('\u0002') + '\u0001' + (ctx.names || []).join('\u0002') + '\u0001' + text;
       var hit = memo.get(key);
       if (hit) return hit;
       var res = checkText(text, typeKey, ctx);
@@ -483,21 +492,22 @@
        entries = [{no, pick, text, cands:[{text, usable}]}]
        目安を超えている鍵が減るように、1人ずつ「いちばん偏りが減る案」を選ぶ。
        usable が false の案（要修正など）は選ばない。 */
-    function planSwaps(entries, typeKey, limit) {
+    function planSwaps(entries, typeKey, limits) {
+      var lim = typeof limits === 'function' ? limits : function () { return limits; };
       var counts = {};
       var keyCache = new Map();
       var kOf = function (t) { if (!keyCache.has(t)) keyCache.set(t, keysOf(t, typeKey)); return keyCache.get(t); };
       entries.forEach(function (e) { if (e.text) kOf(e.text).forEach(function (k) { counts[k] = (counts[k] || 0) + 1; }); });
-      var over = function (c) { var s = 0; for (var k in c) if (c[k] > limit) s += c[k] - limit; return s; };
+      var over = function (c) { var s = 0; for (var k in c) if (c[k] > lim(k)) s += c[k] - lim(k); return s; };
       var out = [];
       var order = entries.filter(function (e) { return e.text && e.cands && e.cands.length > 1; })
-        .map(function (e) { return { e: e, n: kOf(e.text).filter(function (k) { return counts[k] > limit; }).length }; })
+        .map(function (e) { return { e: e, n: kOf(e.text).filter(function (k) { return counts[k] > lim(k); }).length }; })
         .filter(function (x) { return x.n > 0; })
         .sort(function (a, b) { return b.n - a.n || a.e.no - b.e.no; });
       order.forEach(function (x) {
         var e = x.e;
         var curKeys = kOf(e.text);
-        if (!curKeys.some(function (k) { return counts[k] > limit; })) return;
+        if (!curKeys.some(function (k) { return counts[k] > lim(k); })) return;
         var base = over(counts), best = null;
         e.cands.forEach(function (c, i) {
           if (i === e.pick || !c.usable || !c.text) return;
@@ -516,8 +526,37 @@
       return { swaps: out, counts: counts };
     }
 
+    /* その子の「生活・当番・係」「行事」のメモから、所見に出てきそうな語を取り出す。
+       ここにある語が所見に入っていれば「教科以外の記述がある」とみなす */
+    var HINT_STOP = ['時間', '学習', '自分', '友達', '毎日', '学期', '最後', '様子', '活動', '一緒', '全員', '学校', '教室', '仕事'];
+    function lifeHintsOf(memo) {
+      var out = [];
+      var subj = R.subjects.list.concat(subjChecks.map(function (c) { return c.ng; }));
+      (String(memo || '').match(/[一-龥々ァ-ヴー]{2,}/g) || []).forEach(function (w) {
+        if (HINT_STOP.indexOf(w) >= 0 || out.indexOf(w) >= 0) return;
+        if (subj.some(function (x) { return w.indexOf(x) >= 0 || x.indexOf(w) >= 0; })) return;
+        out.push(w);
+      });
+      return out;
+    }
+
+    /* text といちばん似ている文。list = [{no, text}] → {no, sim}（なければ null） */
+    function mostSimilar(text, list) {
+      var g = bigrams(text), best = null;
+      list.forEach(function (x) {
+        if (!(x.text || '').trim()) return;
+        var sim = jaccard(g, bigrams(x.text));
+        if (!best || sim > best.sim) best = { no: x.no, sim: sim };
+      });
+      return best;
+    }
+
+    /* 指摘の見分け（先生が「確認した」にしたものを覚えておくため）。字数は数が変わっても同じ指摘とみなす */
+    function issueSig(i) { return i.kind + '|' + (i.ng || '') + '|' + (i.kind === '字数' ? i.level : i.msg); }
+
     return {
       MASK: MASK,
+      lifeHintsOf: lifeHintsOf, mostSimilar: mostSimilar, issueSig: issueSig,
       topicsOf: topicsOf, openingOf: openingOf, keysOf: keysOf, limitOf: limitOf, tallyKeys: tallyKeys,
       groupSimilar: groupSimilar, repeatedPhrases: repeatedPhrases, planSwaps: planSwaps,
       countChars: countChars, lenRange: lenRange, stageOf: stageOf,

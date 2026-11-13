@@ -1,17 +1,19 @@
 /* ==========================================================================
-   所見メモ作成 ─ サーバー側（Google Apps Script）
+   学習の足跡 ─ サーバー側（Google Apps Script）
    --------------------------------------------------------------------------
    このスクリプトは1つのスプレッドシートに結び付いています。
    スプレッドシート1つ ＝ 1学年分（1年度）です。
 
    シート構成（なければ自動で作ります）
-     設定       … 年度・学年・人数・学期・今回書く種類・書き分けの目安・保存番号
-     所見データ … 学期 × 出席番号 の1行ずつ。メモと所見文。
+     設定       … 年度・学年・人数・学期・今回書く種類・書き分けの目安・チェック項目・保存番号
+     名簿       … 出席番号と名前（入れなくてもよい）
+     所見データ … 学期 × 出席番号 の1行ずつ。メモと所見文、チェック、確認済みの指摘。
      案         … Claude が作った案（採用しなかった案も残す）
      記録メモ帳 … 学期ごとの自由メモ
      書き出し_… … 「書き出しシートに出す」を押したときに作られる
 
-   ※ 児童の氏名は保存しません。出席番号だけで扱います。
+   ※ 名前は、先生が入れたときだけ「名簿」シートに保存します。
+     AI へのプロンプトには、画面の側で必ず消してから渡します。
 
    保存のしくみ
      画面は、いま持っている「保存番号」を添えて保存を頼みます。
@@ -24,6 +26,7 @@ var SHEET_SETTING = '設定';
 var SHEET_DATA    = '所見データ';
 var SHEET_CAND    = '案';
 var SHEET_STOCK   = '記録メモ帳';
+var SHEET_NAMES   = '名簿';
 
 var CAND_HEADERS = ['学期', '出席番号', '種別', '案', '採用', '本文', '工夫した点'];
 
@@ -34,7 +37,9 @@ var MEMO_HEAD  = ['教科での姿', '生活・当番・係', '行事・特別�
 var DRAFT_KEYS = ['shoken', 'doutoku', 'sogo', 'gaikokugo'];
 var DRAFT_HEAD = ['所見', '道徳所見', '総合的な学習の記録', '外国語活動の記録'];
 
-var HEADERS = ['学期', '出席番号'].concat(MEMO_HEAD).concat(DRAFT_HEAD).concat(['更新']);
+/* 「更新」より後ろの列は、あとから足したもの（前の版のシートでも、右に足すだけで読める） */
+var HEADERS = ['学期', '出席番号'].concat(MEMO_HEAD).concat(DRAFT_HEAD).concat(['更新', 'チェック', '確認済みの指摘']);
+var COL_UPDATED = 2 + MEMO_KEYS.length + DRAFT_KEYS.length;   // 0 から数えた「更新」の列
 
 /* 出席番号の上限。人数を減らしても、この番号までのデータは消さずに残す */
 var MAX_NO = 45;
@@ -44,7 +49,7 @@ var MAX_NO = 45;
    ------------------------------------------------------------------------- */
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('画面')
-    .setTitle('所見メモ作成')
+    .setTitle('学習の足跡')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -52,8 +57,8 @@ function doGet() {
 /* スプレッドシートを開いたときのメニュー */
 function onOpen() {
   SpreadsheetApp.getUi()
-    .createMenu('所見')
-    .addItem('所見作成の画面を開く', 'showSidebarHint')
+    .createMenu('学習の足跡')
+    .addItem('学習の足跡の画面を開く', 'showSidebarHint')
     .addItem('シートを準備する（足りないシートを作る）', 'setupSheets')
     .addToUi();
 }
@@ -62,11 +67,11 @@ function showSidebarHint() {
   var url = ScriptApp.getService().getUrl();
   var html = url
     ? '<p style="font-family:sans-serif;line-height:1.8">' +
-      '<a href="' + url + '" target="_blank">所見作成の画面を開く</a></p>'
+      '<a href="' + url + '" target="_blank">学習の足跡の画面を開く</a></p>'
     : '<p style="font-family:sans-serif;line-height:1.8">' +
       'まだデプロイされていません。<br>エディタの「デプロイ」→「新しいデプロイ」→種類「ウェブアプリ」で公開してください。</p>';
   SpreadsheetApp.getUi().showModalDialog(
-    HtmlService.createHtmlOutput(html).setWidth(360).setHeight(120), '所見作成');
+    HtmlService.createHtmlOutput(html).setWidth(360).setHeight(120), '学習の足跡');
 }
 
 /* -------------------------------------------------------------------------
@@ -86,7 +91,7 @@ function setupSheets() {
     ]);
     st.getRange('A1:B1').setFontWeight('bold');
     st.setColumnWidth(1, 120);
-    st.getRange('A10').setValue('※ この画面で直接直しても、所見作成の画面を開き直せば反映されます。');
+    st.getRange('A13').setValue('※ この画面で直接直しても、学習の足跡の画面を開き直せば反映されます。');
   }
 
   var dt = ss.getSheetByName(SHEET_DATA);
@@ -98,6 +103,20 @@ function setupSheets() {
     dt.setColumnWidth(2, 75);
     for (var i = 0; i < MEMO_HEAD.length; i++) dt.setColumnWidth(3 + i, 200);
     for (var j = 0; j < DRAFT_HEAD.length; j++) dt.setColumnWidth(3 + MEMO_HEAD.length + j, 320);
+  }
+  /* 前の版のシートには、右の列（チェック・確認済みの指摘）の見出しが無いので足す */
+  var head = dt.getRange(1, 1, 1, HEADERS.length).getValues()[0];
+  if (String(head[HEADERS.length - 1]) !== HEADERS[HEADERS.length - 1]) {
+    dt.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]).setFontWeight('bold');
+  }
+
+  var nm = ss.getSheetByName(SHEET_NAMES);
+  if (!nm) {
+    nm = ss.insertSheet(SHEET_NAMES);
+    nm.getRange(1, 1, 1, 2).setValues([['出席番号', '名前']]).setFontWeight('bold');
+    nm.setFrozenRows(1);
+    nm.setColumnWidth(1, 80);
+    nm.setColumnWidth(2, 200);
   }
 
   var cd = ss.getSheetByName(SHEET_CAND);
@@ -150,6 +169,12 @@ function readConf_(st) {
   return conf;
 }
 function revOf_(conf) { return Number(conf['保存番号'] || 0) || 0; }
+function parseJson_(v, def) {
+  var t = String(v == null ? '' : v).trim();
+  if (!t) return def;
+  try { var o = JSON.parse(t); return (o && typeof o === 'object') ? o : def; } catch (e) { return def; }
+}
+function isEmptyObj_(o) { for (var k in o) if (o.hasOwnProperty(k)) return false; return true; }
 
 /* -------------------------------------------------------------------------
    読み込み
@@ -169,6 +194,13 @@ function getState() {
   try { write = conf['書く種類'] ? JSON.parse(String(conf['書く種類'])) : null; } catch (e) { write = null; }
 
   var share = Number(conf['書き分けの目安']);
+  var itemLimit = Number(conf['単元・項目の上限']);
+  var checkUse = null;
+  try { checkUse = conf['チェック項目'] ? JSON.parse(String(conf['チェック項目'])) : null; } catch (e) { checkUse = null; }
+  var has = function (k) { return conf[k] !== undefined && conf[k] !== ''; };
+  var variety = null;
+  if (has('書き分けの目安') && !isNaN(share)) variety = { share: share };
+  if (has('単元・項目の上限') && !isNaN(itemLimit)) { variety = variety || {}; variety.itemLimit = itemLimit; }
 
   var state = {
     version: 2,
@@ -180,10 +212,23 @@ function getState() {
     },
     term: String(conf['学期'] || '2'),
     write: write,
-    variety: (conf['書き分けの目安'] !== undefined && conf['書き分けの目安'] !== '' && !isNaN(share)) ? { share: share } : null,
+    variety: variety,
+    checkUse: checkUse,
+    names: {},
     data: { '1': {}, '2': {}, '3': {} },
     stock: { '1': '', '2': '', '3': '' }
   };
+
+  /* --- 名簿（名前） --- */
+  var nm = ss.getSheetByName(SHEET_NAMES);
+  var nmlast = nm.getLastRow();
+  if (nmlast > 1) {
+    var nmrows = nm.getRange(2, 1, nmlast - 1, 2).getValues();
+    for (var q = 0; q < nmrows.length; q++) {
+      var nno = Number(nmrows[q][0]), nname = String(nmrows[q][1] || '').trim();
+      if (nno && nname) state.names[nno] = nname;
+    }
+  }
 
   /* --- 記録メモ帳 --- */
   var sk = ss.getSheetByName(SHEET_STOCK);
@@ -215,6 +260,8 @@ function getState() {
         var dv = String(row[2 + MEMO_KEYS.length + d] || '');
         if (dv) recd.drafts[DRAFT_KEYS[d]] = dv;
       }
+      recd.checks  = parseJson_(row[COL_UPDATED + 1], {});
+      recd.dismiss = parseJson_(row[COL_UPDATED + 2], {});
       state.data[term][no] = recd;
     }
   }
@@ -301,7 +348,7 @@ function putState(state, baseRev, force) {
     var next = cur + 1;
 
     /* --- 設定 --- */
-    st.getRange('A1:B8').setNumberFormat('@').setValues([
+    st.getRange('A1:B10').setNumberFormat('@').setValues([
       ['項目', '値'],
       ['年度', String(state.meta.year)],
       ['学年', String(state.meta.grade)],
@@ -309,6 +356,8 @@ function putState(state, baseRev, force) {
       ['学期', String(state.term)],
       ['書く種類', JSON.stringify(state.write || {})],
       ['書き分けの目安', String(state.variety && typeof state.variety.share === 'number' ? state.variety.share : '')],
+      ['単元・項目の上限', String(state.variety && typeof state.variety.itemLimit === 'number' ? state.variety.itemLimit : '')],
+      ['チェック項目', state.checkUse ? JSON.stringify(state.checkUse) : ''],
       ['保存番号', String(next)]
     ]);
     st.getRange('A1:B1').setFontWeight('bold');
@@ -341,7 +390,12 @@ function putState(state, baseRev, force) {
           if (dv) any = true;
           line.push(String(dv));
         }
+        var checks  = recd.checks  || {};
+        var dismiss = recd.dismiss || {};
+        if (!isEmptyObj_(checks) || !isEmptyObj_(dismiss)) any = true;
         line.push(now);
+        line.push(isEmptyObj_(checks) ? '' : JSON.stringify(checks));
+        line.push(isEmptyObj_(dismiss) ? '' : JSON.stringify(dismiss));
         if (any) out.push(line);
 
         /* 採用しなかった案も含めて全部残す */
@@ -364,9 +418,9 @@ function putState(state, baseRev, force) {
     var last = dt.getLastRow();
     if (last > 1) dt.getRange(2, 1, last - 1, HEADERS.length).clearContent();
     if (out.length) {
-      dt.getRange(2, 1, out.length, HEADERS.length - 1).setNumberFormat('@');
+      dt.getRange(2, 1, out.length, HEADERS.length).setNumberFormat('@');
+      dt.getRange(2, COL_UPDATED + 1, out.length, 1).setNumberFormat('yyyy/MM/dd HH:mm');
       dt.getRange(2, 1, out.length, HEADERS.length).setValues(out);
-      dt.getRange(2, HEADERS.length, out.length, 1).setNumberFormat('yyyy/MM/dd HH:mm');
     }
 
     var cd = ss.getSheetByName(SHEET_CAND);
@@ -375,6 +429,18 @@ function putState(state, baseRev, force) {
     if (cout.length) {
       cd.getRange(2, 1, cout.length, CAND_HEADERS.length).setNumberFormat('@').setValues(cout);
     }
+
+    /* --- 名簿（名前） --- */
+    var names = state.names || {};
+    var nrows = [];
+    for (var nn = 1; nn <= MAX_NO; nn++) {
+      var nv = String(names[nn] || names[String(nn)] || '').trim();
+      if (nv) nrows.push([String(nn), nv]);
+    }
+    var nmSh = ss.getSheetByName(SHEET_NAMES);
+    var nmLast = nmSh.getLastRow();
+    if (nmLast > 1) nmSh.getRange(2, 1, nmLast - 1, 2).clearContent();
+    if (nrows.length) nmSh.getRange(2, 1, nrows.length, 2).setNumberFormat('@').setValues(nrows);
 
     /* --- 記録メモ帳 --- */
     var stock = state.stock || {};
@@ -394,25 +460,32 @@ function putState(state, baseRev, force) {
 
 /* -------------------------------------------------------------------------
    書き出しシート
-   rows は [[番号, 本文, 字数], ...]
+   headers は ['出席番号', ('名前',) '所見', '字数']、rows はその並びの行
+   （前の版の呼び方 exportToSheet(名前, 見出しの文字, [[番号, 本文, 字数], …]) も受け付ける）
    ------------------------------------------------------------------------- */
-function exportToSheet(sheetName, label, rows) {
+function exportToSheet(sheetName, headers, rows) {
+  if (typeof headers === 'string') headers = ['出席番号', headers, '字数'];
   var ss = SpreadsheetApp.getActive();
   var name = ('書き出し_' + sheetName).slice(0, 90);
   var sh = ss.getSheetByName(name);
   if (sh) sh.clear(); else sh = ss.insertSheet(name);
 
-  var values = [['出席番号', label, '字数']].concat(rows);
-  sh.getRange(2, 2, Math.max(1, values.length - 1), 1).setNumberFormat('@');
-  sh.getRange(1, 1, values.length, 3).setValues(values);
-  sh.getRange(1, 1, 1, 3).setFontWeight('bold');
+  var w = headers.length;
+  var textCol = w - 1;   // 本文の列（1 から数える）。最後の列が字数
+  var values = [headers].concat(rows.map(function (r) {
+    return r.map(function (v, i) { return (i === 0 || i === w - 1) ? v : String(v == null ? '' : v); });
+  }));
+  sh.getRange(2, 2, Math.max(1, values.length - 1), w - 2).setNumberFormat('@');
+  sh.getRange(1, 1, values.length, w).setValues(values);
+  sh.getRange(1, 1, 1, w).setFontWeight('bold');
   sh.setFrozenRows(1);
   sh.setColumnWidth(1, 80);
-  sh.setColumnWidth(2, 520);
-  sh.setColumnWidth(3, 70);
-  sh.getRange(2, 2, Math.max(1, values.length - 1), 1).setWrap(true);
+  if (w === 4) sh.setColumnWidth(2, 140);
+  sh.setColumnWidth(textCol, 520);
+  sh.setColumnWidth(w, 70);
+  sh.getRange(2, textCol, Math.max(1, values.length - 1), 1).setWrap(true);
   ss.setActiveSheet(sh);
   return name;
 }
 
-// ===== ここが最終行です(貼り付け確認用: SHOKEN-GS-END) =====
+// ===== ここが最終行です(貼り付け確認用: ASHIATO-GS-END) =====

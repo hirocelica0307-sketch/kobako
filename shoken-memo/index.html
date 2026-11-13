@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>所見メモ作成</title>
+<title>学習の足跡</title>
 <style>
 /* ===========================================================
-   所見メモ作成アプリ
-   - 児童の氏名は扱いません。出席番号のみで運用します。
+   学習の足跡（通知表の所見づくりを手伝うアプリ）
+   - 児童の名前は入れなくても使えます。入れた名前は画面と保存先の中だけで使い、
+     AI へのプロンプトには入れません。
    - 保存先は「このPCのブラウザ」か「Googleスプレッドシート」です。
    - AI（Claude）には、先生がコピーして貼り付けたときだけ、
      出席番号とメモが渡ります。このアプリが自分で送ることはありません。
@@ -128,15 +129,30 @@ select,input[type=text],input[type=number]{border:1px solid var(--line2);border-
 }
 .rbtn:hover{border-color:var(--accent)}
 .rbtn.on{outline:2px solid var(--accent);outline-offset:1px;font-weight:700}
-.rbtn.st-memo{border-bottom-color:var(--info)}
+.rbtn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:2px 0;height:auto;min-height:40px}
 .rbtn.st-part{border-bottom-color:var(--part);background:var(--part-w)}
-.rbtn.st-err{border-bottom-color:var(--err);background:var(--err-w)}
-.rbtn.st-warn{border-bottom-color:var(--warn);background:#fffaf0}
-.rbtn.st-ok{border-bottom-color:var(--ok);background:var(--accent-w)}
+.rbtn.st-done{border-bottom-color:var(--ok);background:var(--accent-w)}
+.pips{display:flex;gap:2px;justify-content:center}
+.pips i{width:6px;height:6px;border-radius:50%;background:#e2ddd4;display:block}
+.pips i.on{background:var(--ok)}
+.roster.list{grid-template-columns:1fr;max-height:calc(100vh - 330px);overflow-y:auto;padding-right:2px}
+.roster.list .rbtn{flex-direction:row;justify-content:flex-start;gap:8px;padding:4px 8px;min-height:34px;text-align:left}
+.roster.list .rno{font-weight:700;min-width:1.6em;text-align:right}
+.roster.list .rname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.checks{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:-4px 0 14px;padding:8px 10px;background:#faf8f4;border-radius:8px}
+.ck{border:1px solid var(--line2);background:#fff;border-radius:999px;padding:3px 12px;font-size:13px}
+.ck.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.kid .kname{font-size:16px;font-weight:700;margin-left:10px}
+.tname{font-size:11.5px;font-weight:400;color:var(--muted);white-space:nowrap}
+.dismissed{margin-top:4px;display:flex;align-items:center;gap:8px}
+.namegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px 12px}
+.namegrid label{display:flex;align-items:center;gap:6px}
+.namegrid span{min-width:1.8em;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.namegrid input{flex:1;min-width:0}
+.dlg.wide{max-width:820px}
 .legend{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:10px;font-size:11.5px;color:var(--muted)}
 .legend i{display:inline-block;width:12px;height:4px;border-radius:2px;margin-right:4px;vertical-align:middle;background:var(--line2)}
-.legend .memo i{background:var(--info)} .legend .part i{background:var(--part)}
-.legend .err i{background:var(--err)} .legend .warn i{background:var(--warn)} .legend .ok i{background:var(--ok)}
+.legend .part i{background:var(--part)} .legend .ok i{background:var(--ok)}
 .progress{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
 .bar{height:8px;border-radius:4px;background:#ece8e1;overflow:hidden;display:flex;margin:4px 0 6px}
 .bar span{display:block;height:100%}
@@ -326,8 +342,8 @@ ul.plain li{margin-bottom:3px}
 <div class="topbar">
   <header class="appbar">
     <div class="brand">
-      <b>所見メモ作成</b>
-      <small id="storeinfo">氏名は扱いません</small>
+      <b>学習の足跡</b>
+      <small id="storeinfo">名前はAIに渡しません</small>
     </div>
     <div class="ctx">
       <button class="ctxchip" id="ctx-btn" title="年度・学年・人数・今回書く種類を変える"></button>
@@ -366,9 +382,8 @@ ul.plain li{margin-bottom:3px}
 /* =========================================================================
    状態
    -------------------------------------------------------------------------
-   氏名フィールドは意図的に持ちません。個人が特定できる情報をこのアプリに
-   入れない運用のため、後から「便利だから」と追加しないでください。
-   氏名と番号の対応は、先生の手元の名簿で行います。
+   名前（S.names）は先生が入れたときだけ持ちます。プロンプトを作るときは
+   scrubNames() で必ず消してから渡します。この約束は崩さないでください。
    ========================================================================= */
 let R = window.SHOKEN_RULES;
 const CS = window.COURSE_OF_STUDY || null;
@@ -573,11 +588,16 @@ function defaultWrite(grade){
   });
   return out;
 }
+function defaultVariety(){
+  const V = R.variety || {};
+  return { share: V.defaultShare || 1, itemLimit: V.defaultItemLimit != null ? V.defaultItemLimit : 5 };
+}
+function defaultCheckUse(){ return (R.checkItems || []).filter(i => !i.optional).map(i => i.key); }
 function blankState(meta){
   const m = Object.assign({ year:R.meta.year, grade:'3', count:32 }, meta || {});
   return { version:2, rev:0, meta:m, term:'2', write:defaultWrite(m.grade),
            data:{ "1":{}, "2":{}, "3":{} }, stock:{ "1":'', "2":'', "3":'' },
-           variety:{ share:(R.variety && R.variety.defaultShare) || 1 } };
+           variety:defaultVariety(), names:{}, checkUse:defaultCheckUse() };
 }
 function normalize(o){
   o.version = 2;
@@ -587,13 +607,19 @@ function normalize(o){
   o.term = o.term || '2';
   o.data = Object.assign({ "1":{}, "2":{}, "3":{} }, o.data || {});
   o.stock = Object.assign({ "1":'', "2":'', "3":'' }, o.stock || {});
-  if(!o.variety || typeof o.variety.share !== 'number') o.variety = { share:(R.variety && R.variety.defaultShare) || 1 };
+  o.variety = Object.assign(defaultVariety(), o.variety || {});
+  if(typeof o.variety.share !== 'number') o.variety.share = defaultVariety().share;
+  if(typeof o.variety.itemLimit !== 'number') o.variety.itemLimit = defaultVariety().itemLimit;
+  if(!o.names || typeof o.names !== 'object') o.names = {};
+  if(!Array.isArray(o.checkUse)) o.checkUse = defaultCheckUse();
   if(!o.write || typeof o.write !== 'object') o.write = defaultWrite(o.meta.grade);
   ['1','2','3'].forEach(t => { if(!Array.isArray(o.write[t])) o.write[t] = defaultWrite(o.meta.grade)[t]; });
   return o;
 }
 
 /* 1人分の記録
+     checks … 先生がつけたチェック（項目ごと）
+     dismiss… 先生が「確認した」にした指摘（種類ごと）
      memos  … 先生が書いたメモ
      cands  … Claude が作った案（種別ごとに最大5つ）[{text, note}, …]
      pick   … 採用中の案の番号（種別ごと）
@@ -648,7 +674,7 @@ function hasData(r){
 /* =========================================================================
    学期・種類・学年段階
    ========================================================================= */
-/* 今回書く種類（設定で選んだもの）。進み具合はこれだけで数える */
+/* 今回書く種類（設定で選んだもの） */
 function activeTypes(term){
   const t = term || S.term;
   const can = (R.termMatrix[S.meta.grade] || {})[t] || R.allTypes;
@@ -669,18 +695,49 @@ function otherTerms(no, typeKey, avoid){
   });
   return out;
 }
-function ctxFor(no, k){ return { stage: stageNow(), others: otherTerms(no, k) }; }
+
+/* ---------- 名前（入れなくてもよい。AIへのプロンプトには入れない） ---------- */
+function nameOf(no){ return ((S.names || {})[no] || '').trim(); }
+function hasNames(){ return Object.values(S.names || {}).some(v => (v || '').trim()); }
+/* 校正と置きかえに使う名前の部分（姓・名・続けて書いたもの。1文字の部分は使わない） */
+function nameParts(){
+  const out = [];
+  Object.values(S.names || {}).forEach(v => {
+    const full = String(v || '').trim(); if(!full) return;
+    const parts = full.split(/[\s　]+/).filter(Boolean);
+    [parts.join('')].concat(parts).forEach(p => { if(Array.from(p).length >= 2 && out.indexOf(p) < 0) out.push(p); });
+  });
+  return out.sort((a, b) => b.length - a.length);
+}
+/* AIに渡す文から名前を消す */
+function scrubNames(text){
+  let t = String(text || '');
+  nameParts().forEach(p => { t = t.split(p).join('（名前）'); });
+  return t;
+}
+
+/* 校正に渡す、その子の情報 */
+function lifeHintsFor(no){ return E.lifeHintsOf([memoOf(S.term, no, 'life'), memoOf(S.term, no, 'event')].join('\n')); }
+function ctxFor(no, k){
+  return { stage: stageNow(), others: otherTerms(no, k), lifeHints: k === 'shoken' ? lifeHintsFor(no) : [], names: nameParts() };
+}
 function check(text, k, no){ return E.checkCached(text, k, ctxFor(no, k)); }
 
-/* =========================================================================
-   進み具合
-     none 未入力 / memo メモだけ / part 書きかけ（今回書く種類のうち、まだ無いものがある）
-     err 要修正 / warn 注意あり / ok 完成
-   ========================================================================= */
-const ST = {
-  none:{ label:'未入力' }, memo:{ label:'メモあり' }, part:{ label:'書きかけ' },
-  err:{ label:'要修正' }, warn:{ label:'注意あり' }, ok:{ label:'完成' }
-};
+/* ---------- 先生が「確認した」にした指摘 ---------- */
+function dismissedOf(no, k){ const r = peek(S.term, no); return (r && r.dismiss && r.dismiss[k]) || []; }
+/* 画面に出す指摘（確認済みのものを除く） */
+function visibleIssues(text, k, no){
+  const all = check(text, k, no), d = dismissedOf(no, k);
+  return d.length ? all.filter(i => d.indexOf(E.issueSig(i)) < 0) : all;
+}
+function setDismiss(no, k, sigs, on){
+  const r = rec(S.term, no);
+  r.dismiss = r.dismiss || {};
+  const cur0 = r.dismiss[k] || [];
+  r.dismiss[k] = on ? Array.from(new Set(cur0.concat(sigs))) : cur0.filter(x => sigs.indexOf(x) < 0);
+  if(!r.dismiss[k].length) delete r.dismiss[k];
+}
+
 /* その種類の案づくりに使うメモ。[{label, text, key, term}]
    allTerms の欄（道徳・総合・外国語）は、1〜3学期のメモをすべて集め、学期を添える。
    それ以外の欄（所見のもと・その他メモ）は、いまの学期のメモだけ。 */
@@ -706,27 +763,53 @@ function usesAllTerms(typeKey){
   const keys = (R.memoFor && R.memoFor[typeKey]) || [];
   return R.memoFields.some(f => f.allTerms && keys.indexOf(f.key) >= 0);
 }
-
-function statusOf(no){
+function hasMemoAny(no){
   const r = peek(S.term, no);
+  return !!((r && Object.values(r.memos || {}).some(v => (v || '').trim())) || activeTypes().some(k => memoLines(no, k).length));
+}
+
+/* =========================================================================
+   チェック（左の名簿）
+   -------------------------------------------------------------------------
+   所見ができたかどうかは自動で決めず、先生が項目ごとにチェックする。
+     none 未チェック / part チェック途中 / done すべてチェック済み
+   ========================================================================= */
+const ST = { none:{ label:'未チェック' }, part:{ label:'チェック途中' }, done:{ label:'チェック済み' } };
+function checkItemsNow(){
   const types = activeTypes();
-  const hasMemo = (r && Object.values(r.memos || {}).some(v => (v || '').trim())) || types.some(k => memoLines(no, k).length);
-  if(!r) return hasMemo ? 'memo' : 'none';
-  const drafted = types.filter(k => draftOf(no, k));
-  if(!drafted.length) return hasMemo ? 'memo' : 'none';
-  let lv = 'ok';
-  for(const k of drafted){
-    const w = E.worst(check(draftOf(no, k), k, no));
-    if(w === 'error') return 'err';
-    if(w === 'warn') lv = 'warn';
-  }
-  if(drafted.length < types.length) return 'part';
-  return lv;
+  return (R.checkItems || []).filter(i => types.includes(i.type) && (S.checkUse || []).includes(i.key));
+}
+function checksOf(no){ const r = peek(S.term, no); return (r && r.checks) || {}; }
+function toggleCheck(no, key){
+  const r = rec(S.term, no);
+  r.checks = r.checks || {};
+  if(r.checks[key]) delete r.checks[key]; else r.checks[key] = true;
+  save();
+}
+function statusOf(no){
+  const items = checkItemsNow();
+  if(!items.length) return 'none';
+  const c = checksOf(no), n = items.filter(i => c[i.key]).length;
+  return n === 0 ? 'none' : n === items.length ? 'done' : 'part';
 }
 function tally(){
-  const c = { none:0, memo:0, part:0, err:0, warn:0, ok:0 };
-  for(let n = 1; n <= S.meta.count; n++) c[statusOf(n)]++;
-  return c;
+  const c = { none:0, part:0, done:0 }, per = {};
+  const items = checkItemsNow();
+  items.forEach(i => per[i.key] = 0);
+  for(let n = 1; n <= S.meta.count; n++){
+    c[statusOf(n)]++;
+    const ck = checksOf(n);
+    items.forEach(i => { if(ck[i.key]) per[i.key]++; });
+  }
+  return { c, per, items };
+}
+/* 校正で要修正が残っている子の数（確認済みにした指摘は数えない） */
+function errorKids(){
+  let n = 0;
+  for(let no = 1; no <= S.meta.count; no++){
+    if(activeTypes().some(k => { const t = draftOf(no, k); return t && E.worst(visibleIssues(t, k, no)) === 'error'; })) n++;
+  }
+  return n;
 }
 
 /* =========================================================================
@@ -741,17 +824,18 @@ function renderHeader(){
   const types = activeTypes().map(k => R.types[k].label).join('・') || '書く種類なし';
   $('#ctx-btn').innerHTML = `${esc(S.meta.year)}年度 ${esc(S.meta.grade)}年 · ${S.meta.count}人 · <span class="mini">${esc(types)}</span>`;
   $$('#term-seg button').forEach(b => b.classList.toggle('on', b.dataset.term === S.term));
-  $('#storeinfo').textContent = '氏名は扱いません · 保存先：' + (Store.kind === 'sheet' ? 'スプレッドシート' : 'このPCのブラウザ');
+  $('#storeinfo').textContent = '名前はAIに渡しません · 保存先：' + (Store.kind === 'sheet' ? 'スプレッドシート' : 'このPCのブラウザ');
 }
 function renderSteps(){
-  const c = tally(), N = S.meta.count;
+  const N = S.meta.count, t = tally();
+  let memo = 0;
+  for(let n = 1; n <= N; n++) if(hasMemoAny(n)) memo++;
   $$('nav.steps button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === view));
-  const memo = N - c.none, done = c.ok + c.warn;
   $('[data-badge="memo"]').textContent = `${memo}/${N}`;
-  $('[data-badge="pick"]').textContent = `完成 ${done}/${N}`;
-  const fb = $('[data-badge="finish"]');
-  fb.textContent = c.err ? `要修正 ${c.err}` : '';
-  fb.style.color = c.err ? 'var(--err)' : '';
+  $('[data-badge="pick"]').textContent = t.items.length ? `チェック ${t.c.done}/${N}` : '';
+  const err = errorKids(), fb = $('[data-badge="finish"]');
+  fb.textContent = err ? `要修正 ${err}` : '';
+  fb.style.color = err ? 'var(--err)' : '';
 }
 function showTab(name){
   view = name;
@@ -771,70 +855,99 @@ function goKid(n){
 }
 
 /* ---------- 名簿（左の列） ---------- */
+function pipsHTML(no){
+  const items = checkItemsNow(), c = checksOf(no);
+  return items.length ? `<span class="pips">${items.map(i => `<i class="${c[i.key] ? 'on' : ''}" title="${esc(i.label)}"></i>`).join('')}</span>` : '';
+}
+function rosterBtnHTML(no){
+  const nm = nameOf(no);
+  return hasNames()
+    ? `<span class="rno">${no}</span><span class="rname">${esc(nm) || '<span class="mini">—</span>'}</span>${pipsHTML(no)}`
+    : `<span class="rno">${no}</span>${pipsHTML(no)}`;
+}
+function rosterTitle(no){
+  const items = checkItemsNow(), c = checksOf(no);
+  const nm = nameOf(no);
+  return `${no}番${nm ? ' ' + nm : ''}：${ST[statusOf(no)].label}` +
+    (items.length ? '（' + items.map(i => (c[i.key] ? '✓' : '・') + i.label).join(' ') + '）' : '');
+}
 function rosterCard(){
   const box = document.createElement('div');
   box.className = 'card side';
   const N = S.meta.count;
+  const items = checkItemsNow();
   box.innerHTML =
-    `<h2>出席番号</h2><div class="roster" role="listbox" aria-label="出席番号"></div>
+    `<h2>出席番号 <button class="btn sm" id="btn-names" style="margin-left:auto">${hasNames() ? '名前を直す' : '名前を入れる'}</button></h2>
+     <div class="roster ${hasNames() ? 'list' : ''}" role="listbox" aria-label="出席番号"></div>
      <div class="legend">
-       <span><i></i>未入力</span><span class="memo"><i></i>メモあり</span><span class="part"><i></i>書きかけ</span>
-       <span class="err"><i></i>要修正</span><span class="warn"><i></i>注意あり</span><span class="ok"><i></i>完成</span>
+       ${items.length ? `<span>点＝チェック項目（${esc(items.map(i => i.label).join('・'))}）</span>
+       <span class="part"><i></i>チェック途中</span><span class="ok"><i></i>すべてチェック済み</span>` : '<span>チェックする項目がありません（設定で選べます）</span>'}
      </div>
      <div class="progress">${progressHTML()}</div>`;
   const el = $('.roster', box);
   for(let n = 1; n <= N; n++){
     const b = document.createElement('button');
-    const st = statusOf(n);
-    b.className = 'rbtn st-' + st + (n === cur ? ' on' : '');
-    b.textContent = n;
-    b.title = `${n}番：${ST[st].label}`;
+    b.className = 'rbtn st-' + statusOf(n) + (n === cur ? ' on' : '');
+    b.innerHTML = rosterBtnHTML(n);
+    b.title = rosterTitle(n);
     b.dataset.no = n;
     b.onclick = () => goKid(n);
     el.appendChild(b);
   }
+  $('#btn-names', box).onclick = openNames;
   return box;
 }
 function progressHTML(){
-  const c = tally(), N = S.meta.count;
-  const seg = (k, color) => c[k] ? `<span style="width:${c[k]/N*100}%;background:${color}"></span>` : '';
+  const t = tally(), N = S.meta.count;
+  if(!t.items.length) return `<div class="mini">今回書く：${esc(activeTypes().map(k => R.types[k].label).join('・') || 'なし')}</div>`;
+  const seg = (n, color) => n ? `<span style="width:${n/N*100}%;background:${color}"></span>` : '';
   return `<div class="mini">今回書く：${esc(activeTypes().map(k => R.types[k].label).join('・') || 'なし')}</div>
-    <div class="bar">${seg('ok','var(--ok)')}${seg('warn','var(--warn)')}${seg('err','var(--err)')}${seg('part','var(--part)')}${seg('memo','var(--info)')}</div>
+    <div class="bar">${seg(t.c.done,'var(--ok)')}${seg(t.c.part,'var(--part)')}</div>
     <div class="counts">
-      <span>完成</span><b>${c.ok + c.warn} / ${N}</b>
-      <span>要修正</span><b style="color:${c.err?'var(--err)':'inherit'}">${c.err}</b>
-      <span>書きかけ</span><b>${c.part}</b>
-      <span>メモだけ</span><b>${c.memo}</b>
-      <span>未入力</span><b>${c.none}</b>
+      <span>すべてチェック済み</span><b>${t.c.done} / ${N}</b>
+      ${t.items.map(i => `<span>　${esc(i.label)}</span><b>${t.per[i.key]} / ${N}</b>`).join('')}
+      <span>まだの子</span><b>${t.c.none + t.c.part}</b>
     </div>`;
 }
-/* 入力のたびに名簿全体を描き直さず、その子のボタンと集計だけ直す */
+/* その子のボタン・見出しのチェック・集計だけ直す */
 function refreshKid(no){
   const b = $(`.rbtn[data-no="${no}"]`);
   if(b){
-    const st = statusOf(no);
-    b.className = 'rbtn st-' + st + (no === cur ? ' on' : '');
-    b.title = `${no}番：${ST[st].label}`;
+    b.className = 'rbtn st-' + statusOf(no) + (no === cur ? ' on' : '');
+    b.innerHTML = rosterBtnHTML(no);
+    b.title = rosterTitle(no);
   }
-  const sb = $('#kid-status');
-  if(sb){ const st = statusOf(no); sb.className = 'stbadge ' + st; sb.textContent = ST[st].label; }
+  const ck = $('#kid-checks');
+  if(ck) ck.innerHTML = checksHTML(no);
   const pg = $('.side .progress');
   if(pg) pg.innerHTML = progressHTML();
   renderSteps();
 }
+function checksHTML(no){
+  const items = checkItemsNow(), c = checksOf(no);
+  if(!items.length) return '';
+  return `<span class="mini">チェック</span>` + items.map(i =>
+    `<button class="ck ${c[i.key] ? 'on' : ''}" data-ck="${i.key}" aria-pressed="${c[i.key] ? 'true' : 'false'}">${c[i.key] ? '✓' : '□'} ${esc(i.label)}</button>`).join('');
+}
 function kidHeader(title){
-  const st = statusOf(cur);
+  const nm = nameOf(cur);
   return `<div class="kid">
     <button class="btn sm" data-go="-1" ${cur<=1?'disabled':''} aria-label="前の子">‹ 前</button>
-    <span class="num"><small>出席番号</small>${cur}</span>
+    <span class="num"><small>出席番号</small>${cur}${nm ? `<span class="kname">${esc(nm)}</span>` : ''}</span>
     <button class="btn sm" data-go="1" ${cur>=S.meta.count?'disabled':''} aria-label="次の子">次 ›</button>
-    <span id="kid-status" class="stbadge ${st}">${ST[st].label}</span>
     <span class="spacer"></span>
     <span class="mini">${esc(title)}</span>
-  </div>`;
+  </div>
+  <div class="checks" id="kid-checks">${checksHTML(cur)}</div>`;
 }
 function wireKidNav(root){
   $$('[data-go]', root).forEach(b => b.onclick = () => goKid(cur + (+b.dataset.go)));
+  const ck = $('#kid-checks', root);
+  if(ck) ck.onclick = e => {
+    const b = e.target.closest('[data-ck]'); if(!b) return;
+    toggleCheck(cur, b.dataset.ck);
+    refreshKid(cur);
+  };
 }
 
 /* =========================================================================
@@ -966,7 +1079,13 @@ function renderChips(){
 let AI = { type:null, scope:'all', size:10, avoid1:true, avoid2:true, chunks:[], at:0, copied:{}, importType:null, info:'' };
 
 /* ---------- クラス全体の書き分け ---------- */
-function limitNow(){ return E.limitOf(S.meta.count, S.variety ? S.variety.share : 1); }
+/* 同じ単元・同じ生活の項目は「何人まで」、同じ教科・同じ書き出しは「クラスの何分の1まで」 */
+function itemLimitNow(){ const v = S.variety ? S.variety.itemLimit : 0; return v > 0 ? v : Infinity; }
+function subjLimitNow(){ return E.limitOf(S.meta.count, S.variety ? S.variety.share : 1); }
+function limitFor(key){
+  const cat = key.slice(0, key.indexOf('|'));
+  return (cat === '単元' || cat === '生活・行事') ? itemLimitNow() : subjLimitNow();
+}
 /* 採用済みの本文（exclude の番号は除く） */
 function classEntries(k, exclude){
   const out = [];
@@ -987,17 +1106,21 @@ function keyLabel(key){
   return (cat === '単元' || cat === '書き出し') ? `「${name}」` : name;
 }
 /* 文の話題を小さな札で見せる。others = その子以外のクラスの数（鍵→番号の配列） */
-function topicChips(text, k, others){
-  const limit = limitNow();
+function topicChips(text, k, others, simTo){
   const keys = E.keysOf(text, k);
-  const html = keys.map(key => {
-    const n = ((others && others[key]) || []).length + 1;
+  let html = keys.map(key => {
+    const n = ((others && others[key]) || []).length + 1, limit = limitFor(key);
     const hot = n > limit;
     const isOpen = key.startsWith('書き出し|');
     if(isOpen && !hot) return '';
     const label = isOpen ? '書き出しが重なる' : keyLabel(key);
-    return `<span class="tchip ${hot ? 'hot' : ''}" title="${hot ? `クラスで${n}人になります（目安${limit}人）` : ''}">${esc(label)}${hot ? ` ${n}人` : ''}</span>`;
+    return `<span class="tchip ${hot ? 'hot' : ''}" title="${hot ? `クラスで${n}人になります（${limit}人まで）` : ''}">${esc(label)}${hot ? ` ${n}人目` : ''}</span>`;
   }).join('');
+  /* ほかの子の採用済みの文と似ているか */
+  if(simTo){
+    const m = E.mostSimilar(text, simTo);
+    if(m && m.sim >= R.duplication.warnThreshold) html += `<span class="tchip hot" title="言い回しが似ています">#${m.no}と似ている ${Math.round(m.sim * 100)}%</span>`;
+  }
   return html ? `<span class="tchips">${html}</span>` : '';
 }
 
@@ -1005,7 +1128,7 @@ function topicChips(text, k, others){
 function varietyBlock(typeKey, nums){
   const V = R.variety; if(!V) return [];
   const L = [];
-  const limit = limitNow(), hasLimit = limit !== Infinity;
+  const iLim = itemLimitNow(), sLim = subjLimitNow();
   const isShoken = typeKey === 'shoken';
   const others = classEntries(typeKey, nums);
   const tally = E.tallyKeys(others, typeKey);
@@ -1013,17 +1136,22 @@ function varietyBlock(typeKey, nums){
   L.push('# クラス全体での書き分け（大切）');
   L.push('通知表は、保護者どうしで見比べられることがあります。クラスの中で同じような文が並ばないようにしてください。');
   L.push('## 書き分けのきまり');
-  L.push('- 同じ単元・同じ話題・似たメモの子は、取り上げる場面・文の組み立て・書き出し・文末の言い方を変える。');
   if(isShoken){
-    if(hasLimit) L.push(`- 同じ教科・同じ単元・同じ生活の話題は、クラス全体（${S.meta.count}人）で${limit}人までを目安にする。`);
-    L.push('- 各児童の「案1」は、下の配分を見て、クラス全体で教科・単元・生活の話題がバラけるように選んだ組み合わせにする。案2〜5は、これまでどおり切り口を変えて書く。');
-    L.push('- この回の児童どうしでも、案1で取り上げる教科・話題がなるべく重ならないようにする。');
+    if(iLim !== Infinity){
+      L.push(`- **同じ単元・同じ生活の項目（廊下歩行・あいさつ・掃除など）を取り上げるのは、クラス全体（${S.meta.count}人）で${iLim}人まで。必ず守る。**`);
+      L.push(`  下の配分で${iLim}人に達している単元・項目は、どの案でも取り上げない（メモにほかの材料が無い子だけは例外。その場合は「※」の行でそのことを伝える）。`);
+    }
+    if(sLim !== Infinity) L.push(`- 同じ教科は、クラス全体で${sLim}人までを目安にする。`);
+    L.push('- 各児童の「案1」は、下の配分を見て、クラス全体で教科・単元・生活の項目がバラけるように選んだ組み合わせにする。案2〜5は、これまでどおり切り口を変えて書く。');
+    L.push('- この回の児童どうしでも、案1で取り上げる単元・項目がなるべく重ならないようにする。');
   }else{
     L.push('- 各児童の「案1」は、この回のほかの児童と、書き出しと文の組み立てがいちばん重ならないものにする。');
   }
-  if(hasLimit) L.push(`- 同じ書き出しも、クラス全体で${limit}人までを目安にする。`);
+  if(sLim !== Infinity) L.push(`- 同じ書き出しは、クラス全体で${sLim}人までを目安にする。`);
+  L.push('- 同じ単元・同じ項目・似たメモの子は、取り上げる場面・文の組み立て・書き出し・文末の言い方・ほめる言葉をすべて変える。');
+  L.push('  同じ語句を続けて使う「〜することができました」のような締め方も、子どもごとに変える（「〜を身に付けました」「〜するようになりました」「〜を伸ばしました」など）。');
   L.push('- ただし、メモに無い教科・話題は、配分のためでも持ち出さない。メモの材料が1つしかない子は、その材料のまま言い方を変える。');
-  L.push('- 「※」の行の最初に、取り上げた教科・話題を【 】で書く。（例：※【算数科・給食】…）');
+  L.push('- 「※」の行の最初に、取り上げた教科・単元・項目を【 】で書く。（例：※【算数科「わり算」・給食】…）');
   L.push('');
 
   if(others.length){
@@ -1032,12 +1160,33 @@ function varietyBlock(typeKey, nums){
       const items = Object.entries(tally).filter(([key]) => key.startsWith(cat + '|'))
         .map(([key, v]) => [key, v.length]).sort((a, b) => b[1] - a[1]);
       if(!items.length) return;
-      L.push(`- ${cat}：` + items.slice(0, 10).map(([key, c]) =>
-        `${keyLabel(key)} ${c}人${hasLimit && c >= limit ? '（目安に達しています。なるべく避ける）' : ''}`).join('、'));
+      const strict = cat === '単元' || cat === '生活・行事';
+      L.push(`- ${cat}：` + items.slice(0, 12).map(([key, c]) => {
+        const lim = limitFor(key);
+        const tag = lim === Infinity ? '' : c >= lim ? (strict ? '（上限に達しています。取り上げない）' : '（目安に達しています。なるべく避ける）') : '';
+        return `${keyLabel(key)} ${c}人${tag}`;
+      }).join('、'));
     });
     const reps = E.repeatedPhrases(others.map(o => o.text));
     if(reps.length) L.push('- 何人もの所見に出てくる言い回し（そのまま使わない）：' + reps.slice(0, 10).map(r => `「${r.phrase}」${r.count}人`).join('、'));
     if((V.openingIdeas || []).length) L.push('- 書き出しを変えるときの例：' + V.openingIdeas.join('／'));
+    L.push('');
+  }
+
+  /* この回の児童と、メモが似ている子の採用済みの文（同じ表現にしないため） */
+  const adoptedMemo = others.map(o => ({ no:o.no, text:memoRaw(o.no, typeKey) })).filter(o => o.text);
+  const refs = [];
+  nums.forEach(n => {
+    const mine = memoRaw(n, typeKey); if(!mine) return;
+    const g = E.bigrams(mine);
+    adoptedMemo.map(o => ({ no:o.no, sim:E.jaccard(g, E.bigrams(o.text)) }))
+      .filter(x => x.sim >= V.memoSimilarity).sort((a, b) => b.sim - a.sim).slice(0, 2)
+      .forEach(x => refs.push(`- #${n} のメモは #${x.no} と似ています。#${x.no} で採用した文：「${draftOf(x.no, typeKey)}」`));
+  });
+  if(refs.length){
+    L.push('## メモが似ている子の、採用済みの文（この文と同じ表現にしない）');
+    refs.slice(0, 20).forEach(l => L.push(l));
+    L.push('上の文と、書き出し・言い回し・文の組み立て・文末を変える。同じ語句を3つ以上続けて使わない。');
     L.push('');
   }
 
@@ -1050,7 +1199,7 @@ function varietyBlock(typeKey, nums){
       tp.units.forEach(u => add(`同じ単元・教材「${u}」`, m.no));
       if(isShoken){
         tp.subjects.forEach(x => add(`同じ教科（${x}）`, m.no));
-        tp.life.forEach(x => add(`同じ話題（${x}）`, m.no));
+        tp.life.forEach(x => add(`同じ生活の項目（${x}）`, m.no));
       }
     });
     const lines = Object.entries(groups).filter(([, v]) => v.length > 1)
@@ -1060,7 +1209,7 @@ function varietyBlock(typeKey, nums){
     if(lines.length){
       L.push('## この回で、メモの材料が重なっている児童');
       lines.forEach(l => L.push(l));
-      L.push('上の子どうしは、案1で取り上げる話題（メモにほかの材料があれば）と、書き出し・文末の言い方を変える。');
+      L.push('上の子どうしは、案1で取り上げる単元・項目（メモにほかの材料があれば）と、書き出し・言い回し・文末をすべて変える。');
       L.push('');
     }
   }
@@ -1272,7 +1421,8 @@ function buildPrompt(typeKey, nums, opt){
   });
   L.push('---');
   L.push(`上のメモをもとに、#${nums.join('、#')} の${t.label}を、1人につき${NC}案ずつ、指定の出力形式で書いてください。`);
-  return L.join('\n');
+  /* 名簿の名前は、AIに渡す前に必ず消す */
+  return scrubNames(L.join('\n'));
 }
 
 function typeOptions(sel){
@@ -1290,7 +1440,9 @@ function viewAI(root){
     <section class="card">
       <h2><span class="step">A</span>プロンプトを作ってコピーする</h2>
       <p class="lead">できたプロンプトを Claude（チャット／Cowork）に貼り付けます。人数が多いと返事が途中で切れることがあるので、何人かずつに分けて作れます。</p>
-      <div class="notice warn">AI に渡るのは<b>出席番号とメモだけ</b>です。メモに、本人が分かる事情（家庭・健康・転出入など）や友達の名前が入っていないか、貼り付ける前に確かめてください。</div>
+      <div class="notice warn">AI に渡るのは<b>出席番号とメモだけ</b>です。名簿に入れた名前は、メモに入っていても「（名前）」に置きかえます。
+        メモに、本人が分かる事情（家庭・健康・転出入など）や、名簿に無い友達の名前が入っていないか、貼り付ける前に確かめてください。</div>
+      <div id="p-names"></div>
       <div class="opts">
         <span>種類</span><div><select id="p-type">${typeOptions(AI.type)}</select>
           <div class="mini">道徳所見・総合・外国語は、1〜3学期に書いたメモをすべて使います。</div></div>
@@ -1353,6 +1505,11 @@ function viewAI(root){
       const part = nums.slice(i, i + AI.size);
       AI.chunks.push({ nums:part, text:buildPrompt(AI.type, part, { avoidTerms }) });
     }
+    /* メモに名簿の名前が入っていた子を知らせる（プロンプトでは置きかえ済み） */
+    const parts = nameParts();
+    const hit = parts.length ? nums.filter(n => { const m = memoBlock(n, AI.type); return parts.some(p => m.indexOf(p) >= 0); }) : [];
+    $('#p-names').innerHTML = hit.length
+      ? `<div class="notice info">${hit.map(n => '#' + n).join('・')} のメモに名簿の名前が入っていたので、プロンプトでは「（名前）」に置きかえました。</div>` : '';
     drawChunks();
   };
   $('#btn-copy').onclick = async () => {
@@ -1480,8 +1637,9 @@ function draftBox(k){
 
   const cl = document.createElement('div'); cl.className = 'cands'; d.appendChild(cl);
   const note = document.createElement('div'); note.className = 'candnote'; d.appendChild(note);
-  /* この子を除いたクラスの話題の数（各案の話題が多すぎないかを見るため） */
-  const others = E.tallyKeys(classEntries(k, [cur]), k);
+  /* この子を除いたクラスの話題の数と、ほかの子の採用済みの文（各案が多すぎないか・似ていないかを見るため） */
+  const otherEntries = classEntries(k, [cur]);
+  const others = E.tallyKeys(otherEntries, k);
   const ta = document.createElement('textarea');
   ta.rows = 4; ta.value = draftOf(cur, k);
   ta.placeholder = '案を選ぶか、ここに直接書いてください。' + (t.note ? '（' + t.note + '）' : '');
@@ -1514,7 +1672,7 @@ function draftBox(k){
 
     list.forEach((c, i) => {
       const n = E.countChars(c.text);
-      const lv = E.worst(check(c.text, k, cur));
+      const lv = E.worst(visibleIssues(c.text, k, cur));
       const row = document.createElement('button');
       row.className = 'cand' + (i === sel ? ' on' : '');
       row.setAttribute('aria-pressed', i === sel ? 'true' : 'false');
@@ -1523,11 +1681,14 @@ function draftBox(k){
         `<span class="cbody"><span class="chead">案${i+1}` +
         `<span class="count ${n>=rg.min&&n<=rg.max?'ok':'ng'}">${n}字</span>` +
         `<span class="badge ${lv==='error'?'error':lv==='warn'?'warn':'ok'}">${lv==='error'?'要修正':lv==='warn'?'注意':'OK'}</span></span>` +
-        `<span class="ctext">${esc(c.text)}</span>${topicChips(c.text, k, others)}</span>`;
+        `<span class="ctext">${esc(c.text)}</span>${topicChips(c.text, k, others, otherEntries)}</span>`;
       row.onclick = () => {
         pickCand(cur, k, i);
         ta.value = draftOf(cur, k);
         save(); renderCands(); refresh(); refreshKid(cur);
+        /* 上限を超える単元・項目があれば知らせる */
+        const over = E.keysOf(c.text, k).filter(key => !key.startsWith('書き出し|') && ((others[key] || []).length + 1) > limitFor(key));
+        if(over.length) toast(`${over.map(keyLabel).join('・')} は、この子で${limitFor(over[0])}人をこえます`);
       };
       const del = document.createElement('span');
       del.className = 'canddel'; del.title = `案${i+1}を削除`; del.textContent = '×'; del.setAttribute('role', 'button');
@@ -1566,29 +1727,55 @@ function draftBox(k){
     const cEl = $('[data-c]', top), lvEl = $('[data-lv]', top);
     cEl.textContent = n + '字';
     cEl.className = 'count ' + (!text.trim() ? '' : (n >= rg.min && n <= rg.max ? 'ok' : 'ng'));
-    const issues = check(text, k, cur);
+    const all = check(text, k, cur);
+    const issues = visibleIssues(text, k, cur);
+    const hidden = all.filter(i => issues.indexOf(i) < 0);
     const lv = text.trim() ? E.worst(issues) : 'none';
     lvEl.className = 'badge ' + (lv === 'error' ? 'error' : lv);
     lvEl.textContent = { error:'要修正', warn:'注意', ok:'OK', none:'未作成' }[lv];
     pv.innerHTML = text.trim() ? E.highlight(text, issues) : '<span class="mini">（ここに校正結果が色付きで出ます）</span>';
     iss.innerHTML = '';
     if(text.trim() && !issues.length){
-      iss.innerHTML = '<div class="noissue">ルール上の問題は見つかりませんでした。内容が事実と合っているか、最後にご自身で確かめてください。</div>';
+      iss.innerHTML = '<div class="noissue">' + (hidden.length ? '残っている指摘はありません（確認済みにしたものを除く）。' :
+        'ルール上の問題は見つかりませんでした。') + '内容が事実と合っているか、最後にご自身で確かめてください。</div>';
+    }
+    /* 先生が確かめて「このままでよい」とした指摘は、確認済みにして表示を消せる */
+    if(issues.length > 1){
+      const allBtn = document.createElement('div'); allBtn.className = 'row'; allBtn.style.justifyContent = 'flex-end';
+      allBtn.innerHTML = `<button class="btn sm" data-dismiss-all>この文の指摘をすべて確認済みにする</button>`;
+      $('[data-dismiss-all]', allBtn).onclick = () => {
+        setDismiss(cur, k, issues.map(E.issueSig), true); save(); refresh(); renderCands(); refreshKid(cur);
+      };
+      iss.appendChild(allBtn);
     }
     issues.forEach(i => {
       const e = document.createElement('div'); e.className = 'issue ' + i.level;
       e.innerHTML = `<span class="tag">${esc(i.kind)}</span><span>${esc(i.msg)}${
         i.ng && i.ok ? ` <s style="color:var(--muted)">${esc(i.ng)}</s> → <b>${esc(i.ok)}</b>` : ''}</span>`;
+      const tools = document.createElement('span'); tools.className = 'fix'; tools.style.display = 'flex'; tools.style.gap = '4px';
       if(i.fixable){
-        const fx = document.createElement('button'); fx.className = 'btn sm fix'; fx.textContent = '直す';
+        const fx = document.createElement('button'); fx.className = 'btn sm'; fx.textContent = '直す';
         fx.onclick = () => {
           ta.value = ta.value.slice(0, i.index) + i.ok + ta.value.slice(i.index + i.length);
           editDraft(cur, k, ta.value); save(); refresh(); renderCands(); refreshKid(cur);
         };
-        e.appendChild(fx);
+        tools.appendChild(fx);
       }
+      const ok = document.createElement('button'); ok.className = 'btn sm'; ok.textContent = '確認した';
+      ok.title = '確かめて、このままでよいときに押します。この指摘の表示が消えます';
+      ok.onclick = () => { setDismiss(cur, k, [E.issueSig(i)], true); save(); refresh(); renderCands(); refreshKid(cur); };
+      tools.appendChild(ok);
+      e.appendChild(tools);
       iss.appendChild(e);
     });
+    if(hidden.length){
+      const h = document.createElement('div'); h.className = 'mini dismissed';
+      h.innerHTML = `確認済みにした指摘：${hidden.length}件 <button class="btn sm" data-undo-dismiss>表示に戻す</button>`;
+      $('[data-undo-dismiss]', h).onclick = () => {
+        setDismiss(cur, k, hidden.map(E.issueSig), false); save(); refresh(); renderCands(); refreshKid(cur);
+      };
+      iss.appendChild(h);
+    }
   };
   ta.addEventListener('input', () => { editDraft(cur, k, ta.value); saveSoon(); refresh(); refreshKid(cur); });
   ta.addEventListener('blur', renderCands);
@@ -1599,7 +1786,7 @@ function draftBox(k){
 /* =========================================================================
    4 仕上げ・書き出し（クラス全体の確認と一覧）
    ========================================================================= */
-let FIN = { type:null, filter:'all' };
+let FIN = { type:null, filter:'all', withName:false };
 
 function viewFinish(root){
   const types = activeTypes();
@@ -1611,7 +1798,7 @@ function viewFinish(root){
   const c = { error:0, warn:0, ok:0, none:0 };
   for(let n = 1; n <= S.meta.count; n++){
     const text = draftOf(n, k);
-    const issues = text ? check(text, k, n) : [];
+    const issues = text ? visibleIssues(text, k, n) : [];
     const lv = text ? E.worst(issues) : 'none';
     c[lv]++;
     rows.push({ n, text, issues, lv });
@@ -1633,6 +1820,7 @@ function viewFinish(root){
       <button class="btn sheet-only" id="btn-sheet">書き出しシートに出す</button>
       <button class="btn" id="btn-print">印刷</button>
     </div>
+    ${hasNames() ? `<label class="inline mini" style="margin:-4px 0 10px"><input type="checkbox" id="l-name" ${FIN.withName ? 'checked' : ''}> 書き出し・印刷に名前を入れる</label>` : ''}
     <div class="summary">
       <button class="sumbox ${FIN.filter==='all'?'on':''}" data-f="all"><b>${S.meta.count}</b><span>すべて</span></button>
       <button class="sumbox err ${FIN.filter==='fix'?'on':''}" data-f="fix"><b>${c.error}</b><span>要修正</span></button>
@@ -1642,7 +1830,7 @@ function viewFinish(root){
     </div>
     <p class="mini" style="margin:0"><span class="local-only">CSVはBOM付きUTF-8です。Excelでそのまま開けます。</span>
       <span class="sheet-only">同じスプレッドシートに書き出しシートを作ります。そこから校務システムへコピーできます。</span>
-      数字の箱を押すと、その児童だけを表示します。</p>
+      数字の箱を押すと、その児童だけを表示します。「確認済み」にした指摘は数えません。</p>
   </section>
 
   <section class="card noprint">
@@ -1675,7 +1863,8 @@ function viewFinish(root){
     const issues = r.issues.filter(i => i.level !== 'info').map(i =>
       `<div class="issue ${i.level}"><span class="tag">${esc(i.kind)}</span><span>${esc(i.msg)}${
         i.ng && i.ok ? ` <s style="color:var(--muted)">${esc(i.ng)}</s> → <b>${esc(i.ok)}</b>` : ''}</span></div>`).join('');
-    tr.innerHTML = `<td class="no">${r.n}</td>
+    const nm = nameOf(r.n);
+    tr.innerHTML = `<td class="no">${r.n}${nm ? `<div class="tname ${FIN.withName ? '' : 'noprint'}">${esc(nm)}</div>` : ''}</td>
       <td>${r.text ? E.highlight(r.text, r.issues) : '<span class="mini">（まだありません）</span>'}${issues ? `<div class="issues">${issues}</div>` : ''}</td>
       <td class="len">${r.text ? E.countChars(r.text) : ''}</td>
       <td class="st">${badge}${which}</td>
@@ -1685,6 +1874,7 @@ function viewFinish(root){
   $$('[data-open]', root).forEach(b => b.onclick = () => { cur = +b.dataset.open; showTab(b.textContent.indexOf('書く') >= 0 && !memoBlock(cur, k) ? 'memo' : 'pick'); });
   $$('[data-f]', root).forEach(b => b.onclick = () => { FIN.filter = FIN.filter === b.dataset.f ? 'all' : b.dataset.f; renderView(); });
   $('#l-type').onchange = e => { FIN.type = e.target.value; renderView(); };
+  if($('#l-name')) $('#l-name').onchange = e => { FIN.withName = e.target.checked; renderView(); };
 
   drawVariety(k);
 
@@ -1702,24 +1892,33 @@ function viewFinish(root){
     $$('[data-dup]', dv).forEach(b => b.onclick = () => { cur = +b.dataset.dup; showTab('pick'); });
   }
 
+  /* 書き出しの表。名前は「名前を入れる」にしたときだけ */
+  const withName = hasNames() && FIN.withName;
+  const exportHead = ['出席番号'].concat(withName ? ['名前'] : [], [R.types[k].label, '字数']);
   const exportRows = () => {
     const out = [];
-    for(let n = 1; n <= S.meta.count; n++){ const t = draftOf(n, k); out.push([n, t, t ? E.countChars(t) : '']); }
+    for(let n = 1; n <= S.meta.count; n++){
+      const t = draftOf(n, k);
+      out.push([n].concat(withName ? [nameOf(n)] : [], [t, t ? E.countChars(t) : '']));
+    }
     return out;
   };
   $('#btn-csv').onclick = () => {
-    const rows2 = [['出席番号', R.types[k].label, '字数']].concat(exportRows());
+    const rows2 = [exportHead].concat(exportRows());
     const csv = '﻿' + rows2.map(r => r.map(csvCell).join(',')).join('\r\n');
     download(`所見_${S.meta.year}_${S.meta.grade}年_${S.term}学期_${R.types[k].label}.csv`, csv, 'text/csv;charset=utf-8');
   };
   $('#btn-txt').onclick = () => {
     let out = `${S.meta.year} ${S.meta.grade}年 ${S.term}学期 ${R.types[k].label}\n\n`;
-    exportRows().forEach(([n, t, len]) => { out += `#${n}（${len || 0}字）\n${t || '（未作成）'}\n\n`; });
+    exportRows().forEach(r => {
+      const [n, t, len] = withName ? [r[0], r[2], r[3]] : r;
+      out += `#${n}${withName && r[1] ? ' ' + r[1] : ''}（${len || 0}字）\n${t || '（未作成）'}\n\n`;
+    });
     download(`所見_${S.meta.grade}年_${S.term}学期_${R.types[k].label}.txt`, out);
   };
   $('#btn-sheet').onclick = () => {
     const b = $('#btn-sheet'); b.disabled = true; toast('書き出しています…');
-    gasCall('exportToSheet', `${S.term}学期_${R.types[k].label}`, R.types[k].label, exportRows())
+    gasCall('exportToSheet', `${S.term}学期_${R.types[k].label}`, exportHead, exportRows())
       .then(name => { b.disabled = false; toast(`シート「${name}」に書き出しました`); })
       .catch(e => { b.disabled = false; alert('書き出せませんでした：' + e.message); });
   };
@@ -1732,9 +1931,12 @@ function viewFinish(root){
 /* クラス全体の偏り：教科・単元・生活の話題・書き出しの人数と、案の切りかえの提案 */
 function drawVariety(k){
   const box = $('#variety'); if(!box) return;
-  const limit = limitNow(), hasLimit = limit !== Infinity;
+  const iLim = itemLimitNow(), sLim = subjLimitNow();
+  const hasLimit = iLim !== Infinity || sLim !== Infinity;
   const entries = classEntries(k);
-  $('#v-limit').textContent = hasLimit ? `目安：同じものは${limit}人まで（設定で変えられます）` : '目安を使わない設定です';
+  $('#v-limit').textContent = (k === 'shoken'
+    ? `同じ単元・同じ生活の項目は${iLim === Infinity ? '人数をしぼらない' : iLim + '人まで'}／同じ教科・書き出しは${sLim === Infinity ? '目安なし' : sLim + '人まで'}`
+    : `同じ書き出しは${sLim === Infinity ? '目安なし' : sLim + '人まで'}`) + '（設定で変えられます）';
   if(!entries.length){ box.innerHTML = '<p class="mini" style="margin:0">本文がまだありません。</p>'; return; }
   const tally = E.tallyKeys(entries, k);
   const cats = k === 'shoken' ? KEY_CATS : ['書き出し'];
@@ -1746,7 +1948,7 @@ function drawVariety(k){
     if(cat === '書き出し' && !items.some(x => x.n > 1)) return;
     const shown = items.slice(0, 8);
     html += `<div class="vcat"><h3>${esc(cat)}</h3>` + shown.map(x =>
-      `<div class="vrow ${hasLimit && x.n > limit ? 'over' : ''}" title="${x.nos.map(n => '#' + n).join('・')}">
+      `<div class="vrow ${x.n > limitFor(x.key) ? 'over' : ''}" title="${x.nos.map(n => '#' + n).join('・')}">
         <span class="nm">${esc(keyLabel(x.key))}</span>
         <span class="vb"><span style="width:${Math.min(100, x.n / entries.length * 100)}%"></span></span>
         <b>${x.n}人</b></div>`).join('') +
@@ -1755,18 +1957,18 @@ function drawVariety(k){
   html += '</div>';
   if(k !== 'shoken') html += '<p class="mini">道徳所見などは、内容項目を学年でそろえるきまりがあるため、書き出しの重なりだけを数えます。</p>';
 
-  const overKeys = Object.keys(tally).filter(key => tally[key].length > limit);
+  const overKeys = Object.keys(tally).filter(key => tally[key].length > limitFor(key));
   if(!hasLimit){ box.innerHTML = html; return; }
   if(!overKeys.length){
-    box.innerHTML = html + `<div class="notice ok" style="margin:12px 0 0">目安（${limit}人まで）を超えている教科・話題・書き出しはありません。</div>`;
+    box.innerHTML = html + `<div class="notice ok" style="margin:12px 0 0">上限・目安を超えている単元・項目・教科・書き出しはありません。</div>`;
     return;
   }
   const plan = E.planSwaps(entries.map(e => ({
     no:e.no, text:e.text, pick:pickOf(e.no, k),
-    cands:candsOf(e.no, k).map(c => ({ text:c.text, usable:E.worst(check(c.text, k, e.no)) !== 'error' }))
-  })), k, limit);
-  html += `<div class="notice warn" style="margin:12px 0 10px">目安を超えているもの：${overKeys.map(key =>
-    `<b>${esc(keyLabel(key))}</b> ${tally[key].length}人`).join('、')}</div>`;
+    cands:candsOf(e.no, k).map(c => ({ text:c.text, usable:E.worst(visibleIssues(c.text, k, e.no)) !== 'error' }))
+  })), k, limitFor);
+  html += `<div class="notice warn" style="margin:12px 0 10px">上限・目安を超えているもの：${overKeys.map(key =>
+    `<b>${esc(keyLabel(key))}</b> ${tally[key].length}人（${limitFor(key)}人まで）`).join('、')}</div>`;
   if(plan.swaps.length){
     html += `<div class="row" style="margin-bottom:8px"><b style="font-size:13.5px">案を切りかえると減らせます</b>
       <span class="spacer"></span><button class="btn primary sm" id="swap-all">提案をまとめて切りかえる（${plan.swaps.length}人）</button></div>`;
@@ -1780,7 +1982,7 @@ function drawVariety(k){
         <button class="btn sm ghost" data-swap="${i}">案${w.to + 1}にする</button></div>`;
     }).join('');
   }else{
-    html += '<p class="mini">選べる案の中には、偏りを減らせるものがありません。「2 AIで案を作る」で、目安を超えている子だけを作り直すと、クラスの配分を見た案が出ます。</p>';
+    html += '<p class="mini">選べる案の中には、偏りを減らせるものがありません。「2 AIで案を作る」で、上限を超えている子だけを作り直すと、クラスの配分を見た案が出ます（対象を「選択中の1人だけ」にすると1人ずつ作れます）。</p>';
   }
   box.innerHTML = html;
   const apply = list => {
@@ -1890,15 +2092,26 @@ function openSettings(){
       <span>年度</span><input type="text" id="s-year" value="${esc(S.meta.year)}" style="width:90px">
       <span>学年</span><select id="s-grade">${[1,2,3,4,5,6].map(g=>`<option ${String(g)===String(S.meta.grade)?'selected':''}>${g}</option>`).join('')}</select>
       <span>人数</span><div><input type="number" id="s-count" min="1" max="45" value="${S.meta.count}" style="width:80px"> 人</div>
-      <span>書き分けの目安</span><div><select id="s-share">${(R.variety ? R.variety.shareOptions : []).map(o =>
+      <span>同じ単元・項目</span><div><select id="s-item">${(R.variety ? R.variety.itemLimitOptions : []).map(o =>
+        `<option value="${o.value}" ${o.value === S.variety.itemLimit ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select>
+        <div class="mini">同じ単元や、同じ生活の項目（廊下歩行・あいさつなど）を所見で取り上げてよい人数です。</div></div>
+      <span>同じ教科・書き出し</span><div><select id="s-share">${(R.variety ? R.variety.shareOptions : []).map(o =>
         `<option value="${o.value}" ${Math.abs(o.value - S.variety.share) < 0.001 ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select>
-        <div class="mini">同じ教科・単元・生活の話題・書き出しを、何人までにするかの目安です。AIへのお願いと「4 仕上げ」の偏りの表に使います。</div></div>
+        <div class="mini">AIへのお願いと「4 仕上げ」の偏りの表に使います。</div></div>
+      <span>名前</span><div><button class="btn sm" id="s-names">${hasNames() ? '名前を直す' : '名前を入れる（入れなくてもよい）'}</button>
+        <div class="mini">名前は、この画面と保存先の中だけで使います。AIへのプロンプトには入れません。</div></div>
+    </div>
+    <div style="margin-top:16px">
+      <b>名簿でチェックする項目</b>
+      <div class="row" id="s-checks" style="margin-top:4px">${(R.checkItems || []).map(i =>
+        `<label class="inline"><input type="checkbox" data-ck="${i.key}" ${S.checkUse.includes(i.key) ? 'checked' : ''}> ${esc(i.label)}</label>`).join('')}</div>
+      <p class="mini" style="margin:4px 0 0">道徳・総合・外国語は、その学期にその種類を書くときだけ出ます。</p>
     </div>
     <div style="margin-top:16px">
       <div class="row" style="margin-bottom:6px"><b>今回書く種類</b>
         <div class="seg" id="s-term">${['1','2','3'].map(t=>`<button data-t="${t}" class="${t===term?'on':''}">${t}学期</button>`).join('')}</div></div>
       <div class="typechecks" id="s-types"></div>
-      <p class="mini" style="margin:6px 0 0">進み具合（完成・書きかけ）と、プロンプト・一覧・書き出しの種類は、ここで選んだものだけになります。
+      <p class="mini" style="margin:6px 0 0">名簿のチェック項目と、プロンプト・一覧・書き出しの種類は、ここで選んだものだけになります。
         選んでいない種類の欄も、メモ画面の「ほかの欄」から入力できます。</p>
     </div>
     <div class="notice info" style="margin:14px 0 0">保存先：<b>${Store.kind==='sheet' ? 'このスプレッドシート' : 'このPCのブラウザ'}</b>。
@@ -1928,9 +2141,10 @@ function openSettings(){
   };
   drawTypes();
   $('#btn-export-json', box).onclick = () => {
-    download(`所見データ_${S.meta.year}_${S.meta.grade}年.json`, JSON.stringify(S, null, 2), 'application/json');
+    download(`学習の足跡_${S.meta.year}_${S.meta.grade}年.json`, JSON.stringify(S, null, 2), 'application/json');
   };
   $('#btn-import-json', box).onclick = () => $('#file-json').click();
+  $('#s-names', box).onclick = () => { closeDialogs(); openNames(); };
 
   dlg({ title:'設定', node:box, buttons:[{ label:'キャンセル', value:false }, { label:'決定', value:true, kind:'primary' }] })
     .then(ok => {
@@ -1939,9 +2153,50 @@ function openSettings(){
       const grade = $('#s-grade', box).value;
       const count = Math.min(45, Math.max(1, +$('#s-count', box).value || S.meta.count));
       const share = +($('#s-share', box) ? $('#s-share', box).value : S.variety.share);
-      applySettings({ year, grade, count, write:draftWrite, share });
+      const itemLimit = +($('#s-item', box) ? $('#s-item', box).value : S.variety.itemLimit);
+      const checkUse = $$('#s-checks input', box).filter(cb => cb.checked).map(cb => cb.dataset.ck);
+      applySettings({ year, grade, count, write:draftWrite, share, itemLimit, checkUse });
     });
 }
+
+/* 名前を入れる（入れなくてもよい）。1行に1人で貼り付けることもできる */
+function openNames(){
+  const box = document.createElement('div');
+  const N = S.meta.count;
+  box.innerHTML = `
+    <p class="mini" style="margin-top:0">名前は、この画面（名簿・見出し・一覧）と保存先の中だけで使います。
+      <b>AIへのプロンプトには入れません</b>。メモに名前が入っていても「（名前）」に置きかえます。
+      所見の文に名簿の名前が入ると、校正で「要修正」になります。</p>
+    <details class="more" style="margin-bottom:10px"><summary>名簿からまとめて貼り付ける</summary>
+      <p class="mini">1行に1人、出席番号の順に貼り付けて「入れる」を押します（Excelの名前の列をコピーして貼り付けられます）。</p>
+      <textarea id="nm-paste" rows="5" placeholder="山田 花子&#10;佐藤 太郎&#10;…"></textarea>
+      <div class="row" style="margin-top:6px"><button class="btn sm" id="nm-fill">入れる</button></div>
+    </details>
+    <div class="namegrid">${Array.from({ length:N }, (_, i) => i + 1).map(n =>
+      `<label><span>${n}</span><input type="text" data-no="${n}" value="${esc(nameOf(n))}" maxlength="30"></label>`).join('')}</div>`;
+  $('#nm-fill', box).onclick = () => {
+    const lines = $('#nm-paste', box).value.split(/\r?\n/).map(x => x.replace(/^\s*\d+[\s.．、,，)）]*/, '').trim());
+    lines.forEach((v, i) => { const el = $(`input[data-no="${i + 1}"]`, box); if(el && v) el.value = v; });
+    toast(`${Math.min(lines.filter(Boolean).length, N)}人分を入れました。「保存」で決まります`);
+  };
+  dlg({ title:'名前（入れなくてもよい）', node:box, wide:true,
+        buttons:[{ label:'キャンセル', value:false }, { label:'全部消す', value:'clear', kind:'danger' }, { label:'保存', value:true, kind:'primary' }] })
+    .then(v => {
+      if(!v) return;
+      if(v === 'clear'){ S.names = {}; }
+      else{
+        const names = {};
+        $$('input[data-no]', box).forEach(el => { const t = el.value.trim(); if(t) names[el.dataset.no] = t; });
+        /* 人数より大きい番号の名前は残しておく */
+        Object.keys(S.names || {}).forEach(k => { if(+k > N) names[k] = S.names[k]; });
+        S.names = names;
+      }
+      save(); renderAll();
+      toast(v === 'clear' ? '名前を消しました' : '名前を保存しました');
+    });
+}
+/* 開いている小窓を閉じる */
+function closeDialogs(){ $$('.dlgwrap').forEach(w => w.parentNode.removeChild(w)); }
 
 async function applySettings(o){
   /* ローカル保存で年度・学年を変えたら、その学年のデータに切り替える */
@@ -1952,7 +2207,8 @@ async function applySettings(o){
     try{ next = await Store.load(meta); }catch(e){ next = null; }
     S = normalize(next || blankState(Object.assign({ count:o.count }, meta)));
     if(!next) S.write = o.write;
-    if(!next && o.share) S.variety = { share:o.share };
+    if(!next) Object.assign(S.variety, { share:o.share, itemLimit:o.itemLimit });
+    if(!next) S.checkUse = o.checkUse;
     cur = 1; renderAll(); save();
     toast(next ? `${o.year}年度 ${o.grade}年のデータに切り替えました` : `${o.year}年度 ${o.grade}年を新しく始めます`);
     return;
@@ -1973,7 +2229,8 @@ async function applySettings(o){
   }
   S.meta.year = o.year; S.meta.grade = String(o.grade); S.meta.count = o.count;
   S.write = o.write;
-  if(o.share) S.variety = { share:o.share };
+  S.variety = Object.assign({}, S.variety, { share:o.share, itemLimit:o.itemLimit });
+  S.checkUse = o.checkUse;
   if(cur > S.meta.count) cur = S.meta.count;
   renderAll(); save();
   toast('設定を変えました');
@@ -1986,7 +2243,7 @@ async function applySettings(o){
 function dlg(opt){
   return new Promise(resolve => {
     const wrap = document.createElement('div'); wrap.className = 'dlgwrap';
-    const box = document.createElement('div'); box.className = 'dlg';
+    const box = document.createElement('div'); box.className = 'dlg' + (opt.wide ? ' wide' : '');
     box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
     box.innerHTML = `<h3>${esc(opt.title || '')}</h3><div class="body"></div><div class="btns"></div>`;
     if(opt.node) $('.body', box).appendChild(opt.node); else $('.body', box).innerHTML = opt.body || '';
@@ -2099,4 +2356,4 @@ if(R && window.ShokenEngine) boot(); else showRulesRecovery();
 </script>
 </body>
 </html>
-<!-- ここが最終行です(貼り付け確認用: SHOKEN-HTML-END) -->
+<!-- ここが最終行です(貼り付け確認用: ASHIATO-HTML-END) -->

@@ -83,28 +83,103 @@ async function openSheet(world, opt) {
 
 const DRAFT_OK = '国語科「ごんぎつね」の学習では、文章の言葉をもとに登場人物の気持ちを考え、理由を示して自分の考えを発表することができました。掃除の時間には、だまって隅々まで床をふき、最後まで当番の仕事をやりとげることができました。';
 
-test('ブラウザ保存版：今回書く種類だけで「完成」を数える', async () => {
+test('名簿のチェックは先生がつける（教科・生活などの項目ごと）', async () => {
   const { page, errors, ctx } = await openLocal();
   await shot(page, '01-memo');
-  /* 3年2学期の初期値は「所見・総合」 */
+  /* 3年2学期の初期値は「所見・総合」→ チェック項目は 教科・生活・総合 */
   assert.match(await page.textContent('#ctx-btn'), /所見・総合的な学習の記録/);
+  assert.deepEqual(await page.$$eval('#kid-checks [data-ck]', els => els.map(e => e.dataset.ck)), ['subject', 'life', 'sogo']);
+  /* 本文を書いても、名簿の状態は自動では変わらない */
   await page.click('nav [data-tab="pick"]');
   await page.fill('.draftbox textarea', DRAFT_OK);
   await page.waitForTimeout(100);
-  assert.match(await page.getAttribute('.rbtn[data-no="1"]', 'class'), /st-part/, '総合がまだなので書きかけ');
+  assert.match(await page.getAttribute('.rbtn[data-no="1"]', 'class'), /st-none/);
+  /* 教科と生活にチェック → チェック途中 */
+  await page.click('#kid-checks [data-ck="subject"]');
+  await page.click('#kid-checks [data-ck="life"]');
+  assert.match(await page.getAttribute('.rbtn[data-no="1"]', 'class'), /st-part/);
+  assert.equal(await page.locator('.rbtn[data-no="1"] .pips i.on').count(), 2);
   await shot(page, '02-pick');
-  /* 設定で「所見」だけにすると完成になる */
+  /* 総合も付ける → すべてチェック済み */
+  await page.click('#kid-checks [data-ck="sogo"]');
+  assert.match(await page.getAttribute('.rbtn[data-no="1"]', 'class'), /st-done/);
+  assert.match(await page.textContent('[data-badge="pick"]'), /チェック 1\/32/);
+  /* 設定で「行事」もチェック項目にすると、まだの項目が増えてチェック途中に戻る */
   await page.click('#btn-settings');
-  await page.uncheck('#s-types input[data-type="sogo"]');
+  await page.check('#s-checks input[data-ck="event"]');
   await page.click('.dlg .btn.primary');
   await page.waitForTimeout(100);
-  const cls = await page.getAttribute('.rbtn[data-no="1"]', 'class');
-  assert.match(cls, /st-(ok|warn)/, cls);
-  assert.match(await page.textContent('[data-badge="pick"]'), /完成 1\/32/);
-  /* 読み込み直しても設定と本文が残っている */
+  assert.match(await page.getAttribute('.rbtn[data-no="1"]', 'class'), /st-part/);
+  /* 読み込み直してもチェックが残っている */
   await page.reload();
   await page.waitForSelector('.rbtn');
-  assert.match(await page.getAttribute('.rbtn[data-no="1"]', 'class'), /st-(ok|warn)/);
+  assert.equal(await page.locator('.rbtn[data-no="1"] .pips i.on').count(), 3);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('要修正・注意の指摘は「確認した」で消せて、仕上げの数にも入らない', async () => {
+  const { page, errors, ctx } = await openLocal();
+  await page.click('nav [data-tab="pick"]');
+  /* 字数が少ない（注意）＋「上手に」（要修正） */
+  await page.fill('.draftbox textarea', '国語科の学習では、上手に音読することができました。掃除の時間には、床をふきました。');
+  await page.waitForTimeout(100);
+  assert.equal(await page.textContent('.draftbox [data-lv]'), '要修正');
+  const n0 = await page.locator('.draftbox .issue').count();
+  await page.locator('.draftbox .issue', { hasText: '上手に' }).locator('button:has-text("確認した")').click();
+  assert.equal(await page.locator('.draftbox .issue').count(), n0 - 1);
+  assert.notEqual(await page.textContent('.draftbox [data-lv]'), '要修正');
+  assert.match(await page.textContent('.draftbox .dismissed'), /確認済みにした指摘：1件/);
+  /* すべて確認済みにする → 残りなし */
+  if (await page.locator('[data-dismiss-all]').count()) await page.click('[data-dismiss-all]');
+  else await page.locator('.draftbox .issue button:has-text("確認した")').first().click();
+  await page.waitForTimeout(50);
+  assert.equal(await page.locator('.draftbox .issue').count(), 0);
+  assert.equal(await page.textContent('.draftbox [data-lv]'), 'OK');
+  await shot(page, '12-dismiss');
+  /* 仕上げでも数えない */
+  await page.click('nav [data-tab="finish"]');
+  assert.match(await page.textContent('.sumbox.err'), /^0/);
+  assert.match(await page.textContent('.sumbox.ok'), /^1/);
+  /* 表示に戻せる */
+  await page.click('nav [data-tab="pick"]');
+  await page.click('[data-undo-dismiss]');
+  assert.equal(await page.textContent('.draftbox [data-lv]'), '要修正');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('名前を入れられる（AIへのプロンプトには入らない）', async () => {
+  const { page, errors, ctx } = await openLocal({ count: 4 });
+  await page.click('#btn-names');
+  await page.click('.dlg details.more > summary');
+  await page.fill('#nm-paste', '山田 花子\n佐藤 太郎\n\n鈴木 一郎');
+  await page.click('#nm-fill');
+  await page.click('.dlg .btn.primary');
+  await page.waitForTimeout(100);
+  /* 名簿に名前が出る（3番は空のまま） */
+  assert.match(await page.textContent('.rbtn[data-no="1"]'), /山田 花子/);
+  assert.match(await page.textContent('.rbtn[data-no="4"]'), /鈴木 一郎/);
+  assert.match(await page.textContent('.kid'), /山田 花子/);
+  await shot(page, '13-names');
+  /* メモに名前が入っていても、プロンプトでは消える */
+  await page.fill('#memo-subject', '国語科で山田さんが佐藤と音読を練習した');
+  await page.click('nav [data-tab="ai"]');
+  await page.click('#btn-build');
+  const prompt = await page.textContent('#promptout');
+  assert.ok(!/山田|佐藤|花子|太郎/.test(prompt), '名前がプロンプトに入っている');
+  assert.match(prompt, /（名前）さんが（名前）と音読/);
+  assert.match(await page.textContent('#p-names'), /#1 のメモに名簿の名前/);
+  /* 所見に名簿の名前が入ると要修正 */
+  await page.click('nav [data-tab="pick"]');
+  await page.fill('.draftbox textarea', '国語科では、佐藤と音読を練習しました。');
+  await page.waitForTimeout(100);
+  assert.match(await page.textContent('.draftbox .issues'), /名簿の名前が入っています/);
+  /* 仕上げ：名前を入れて書き出せる */
+  await page.click('nav [data-tab="finish"]');
+  assert.match(await page.textContent('#listbody'), /山田 花子/);
+  await page.check('#l-name');
+  assert.ok(await page.isChecked('#l-name'));
   assert.deepEqual(errors, []);
   await ctx.close();
 });
@@ -117,7 +192,7 @@ test('ブラウザ保存版：人数を減らすと、入力済みの番号を�
   await page.click('#btn-settings');
   await page.fill('#s-count', '30');
   await page.click('.dlg .btn.primary');
-  assert.match(await page.textContent('.side .counts'), /メモだけ\s*1/, '名簿の下の集計が入力に合わせて変わる');
+  assert.match(await page.textContent('[data-badge="memo"]'), /1\/32/, 'メモの数が入力に合わせて変わる');
   await page.waitForSelector('.dlg h3:has-text("人数を30人にします")');
   assert.match(await page.textContent('.dlg .body'), /31番/);
   await shot(page, '03-count-warning');
@@ -247,7 +322,9 @@ test('クラス全体の書き分け：プロンプト・案の話題・偏り�
   await page.click('#btn-build');
   const prompt = await page.textContent('#promptout');
   assert.match(prompt, /# クラス全体での書き分け/);
-  assert.match(prompt, /3人までを目安/);
+  assert.match(prompt, /同じ教科は、クラス全体で3人までを目安/);
+  assert.match(prompt, /8人）で5人まで。必ず守る/);
+  assert.match(prompt, /「ごんぎつね」 6人（上限に達しています。取り上げない）/);
   assert.match(prompt, /国語科 6人（目安に達しています/);
   assert.match(prompt, /同じ単元・教材「ごんぎつね」：#7・#8/);
   assert.match(prompt, /メモがよく似ている：#7・#8/);
@@ -260,12 +337,12 @@ test('クラス全体の書き分け：プロンプト・案の話題・偏り�
 
   /* 仕上げ：偏りの表と切りかえ */
   await page.click('nav [data-tab="finish"]');
-  assert.match(await page.textContent('#variety'), /目安を超えているもの：.*国語科.*6人/);
+  assert.match(await page.textContent('#variety'), /上限・目安を超えているもの：.*国語科.*6人.*「ごんぎつね」.*6人（5人まで）/);
   assert.equal(await page.locator('[data-swap]').count(), 3);
   await shot(page, '10-variety');
   await page.click('#swap-all');
   await page.waitForTimeout(100);
-  assert.match(await page.textContent('#variety'), /目安（3人まで）を超えている/);
+  assert.match(await page.textContent('#variety'), /上限・目安を超えている単元・項目・教科・書き出しはありません/);
   assert.equal(await page.locator('[data-swap]').count(), 0);
   assert.deepEqual(errors, []);
   await ctx.close();
@@ -285,7 +362,7 @@ test('道徳・総合・外国語：ほかの学期に書いたメモも案づ�
   /* 3学期に切りかえる（3年3学期は「所見・道徳所見」） */
   await page.click('#term-seg button[data-term="3"]');
   await page.click('.rbtn[data-no="1"]');
-  assert.match(await page.getAttribute('.rbtn[data-no="1"]', 'class'), /st-memo/, '2学期の道徳メモで「メモあり」になる');
+  assert.match(await page.textContent('[data-badge="memo"]'), /2\/32/, '2学期の道徳メモも「メモあり」に数える');
   assert.match(await page.textContent('.othermemo'), /2学期.*バスの中で/);
   await shot(page, '11-other-term-memo');
 

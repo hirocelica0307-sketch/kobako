@@ -104,3 +104,50 @@ test('書き分けの目安を保存して読み戻せる（前の版のシー�
   assert.deepEqual(srv.getState().variety, { share: 0.25 });
   assert.equal(srv.getState().write === null || typeof srv.getState().write === 'object', true);
 });
+
+test('名前・チェック・確認済みの指摘・新しい設定を保存して読み戻せる', () => {
+  const { w, srv } = fresh();
+  const s = srv.getState();
+  s.names = { 1: '山田 花子', 3: '=佐藤' };
+  s.variety = { share: 0.34, itemLimit: 5 };
+  s.checkUse = ['subject', 'life', 'event'];
+  s.data['2'][1] = { memos: {}, drafts: {}, cands: {}, pick: {}, checks: { subject: true }, dismiss: { shoken: ['字数||warn'] } };
+  srv.putState(s, s.rev);
+  const back = srv.getState();
+  assert.deepEqual(back.names, { 1: '山田 花子', 3: '=佐藤' });
+  assert.deepEqual(back.variety, { share: 0.34, itemLimit: 5 });
+  assert.deepEqual(back.checkUse, ['subject', 'life', 'event']);
+  assert.deepEqual(back.data['2'][1].checks, { subject: true });
+  assert.deepEqual(back.data['2'][1].dismiss, { shoken: ['字数||warn'] });
+  /* 名前を消すと、シートからも消える */
+  back.names = {};
+  srv.putState(back, back.rev);
+  assert.deepEqual(srv.getState().names, {});
+  assert.ok(w.book.getSheetByName('名簿'));
+});
+
+test('前の版の「所見データ」シート（右の列が無い）も読めて、見出しが足される', () => {
+  const { w, srv } = fresh();
+  srv.getState();
+  const dt = w.book.getSheetByName('所見データ');
+  const oldHead = ['学期', '出席番号', '教科での姿', '生活・当番・係', '行事・特別活動', '伸びた点・期待',
+    '道徳', '総合的な学習', '外国語', 'その他メモ', '所見', '道徳所見', '総合的な学習の記録', '外国語活動の記録', '更新'];
+  dt.clear();
+  dt.getRange(1, 1, 1, oldHead.length).setValues([oldHead]);
+  dt.getRange(2, 1, 1, 3).setValues([['2', '5', '前の版のメモ']]);
+  const s = srv.getState();
+  assert.equal(s.data['2'][5].memos.subject, '前の版のメモ');
+  assert.deepEqual(s.data['2'][5].checks, {});
+  assert.equal(dt.getRange(1, 17).getValues()[0][0], '確認済みの指摘');
+});
+
+test('書き出しシート：名前の列を入れられる（前の版の呼び方も使える）', () => {
+  const { w, srv } = fresh();
+  srv.getState();
+  srv.exportToSheet('2学期_所見', ['出席番号', '名前', '所見', '字数'], [[1, '山田 花子', '本文', 2]]);
+  const sh = w.book.getSheetByName('書き出し_2学期_所見');
+  assert.deepEqual(sh.dump()[0].slice(0, 4), ['出席番号', '名前', '所見', '字数']);
+  assert.deepEqual(sh.dump()[1].slice(0, 4), [1, '山田 花子', '本文', 2]);
+  srv.exportToSheet('旧', '所見', [[1, '本文', 2]]);
+  assert.deepEqual(w.book.getSheetByName('書き出し_旧').dump()[0].slice(0, 3), ['出席番号', '所見', '字数']);
+});

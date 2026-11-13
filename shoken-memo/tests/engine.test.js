@@ -168,3 +168,40 @@ test('書き分け：目安を超えた話題が減るように、案の切り�
   /* 目安を超えていなければ何も提案しない */
   assert.equal(E.planSwaps(entries, 'shoken', 10).swaps.length, 0);
 });
+
+test('生活・当番・係のメモに書いた内容が所見にあれば「教科以外が見あたりません」と言わない', () => {
+  const t = '国語科「ごんぎつね」の学習では、叙述をもとに考えることができました。廊下を静かに右側通行することができました。';
+  assert.ok(!E.checkText(t, 'shoken', { stage: '中' }).some(i => i.kind === '構成'), '廊下歩行');
+  /* 一覧に無い語でも、その子の生活のメモに書いた語なら認める */
+  const t2 = '国語科「ごんぎつね」の学習では、叙述をもとに考えることができました。黒板をきれいにする仕事を続けました。';
+  assert.ok(E.checkText(t2, 'shoken', { stage: '中' }).some(i => i.kind === '構成'));
+  const hints = E.lifeHintsOf('毎朝、黒板をきれいにしていた。国語の音読');
+  assert.ok(hints.includes('黒板') && !hints.some(h => /国語/.test(h)));
+  assert.ok(!E.checkText(t2, 'shoken', { stage: '中', lifeHints: hints }).some(i => i.kind === '構成'));
+});
+
+test('名簿の名前が入っていたら要修正', () => {
+  const list = E.checkText('国語科では、佐藤と音読しました。', 'shoken', { names: ['佐藤', '佐藤太郎'] });
+  assert.ok(list.some(i => i.kind === '個人情報' && i.ng === '佐藤' && i.level === 'error'));
+});
+
+test('書き分け：単元・生活の項目と、教科で、別々の上限を使える', () => {
+  const kokugo = n => `国語科「ごんぎつね」の学習では、${n}番は考えを書きました。掃除の時間には、床をふきました。`;
+  const sansu = n => `国語科「漢字の広場」の学習では、${n}番は漢字を使いました。給食の時間には、配ぜんを手伝いました。`;
+  const entries = [1, 2, 3, 4, 5, 6, 7].map(n => ({
+    no: n, text: kokugo(n), pick: 0, cands: [{ text: kokugo(n), usable: true }, { text: sansu(n), usable: true }]
+  }));
+  /* 単元・項目は5人まで、教科は上限なし → 国語科のまま、単元と生活の項目だけを5人以下にする */
+  const lim = key => (key.startsWith('単元|') || key.startsWith('生活・行事|')) ? 5 : Infinity;
+  const plan = E.planSwaps(entries, 'shoken', lim);
+  assert.equal(plan.swaps.length, 2);
+  assert.equal(plan.counts['単元|ごんぎつね'], 5);
+  assert.equal(plan.counts['生活・行事|掃除'], 5);
+  assert.equal(plan.counts['教科|国語科'], 7);
+});
+
+test('「確認した」の見分けは、字数が変わっても同じ', () => {
+  const a = E.checkText('短い。', 'shoken', {}).find(i => i.kind === '字数');
+  const b = E.checkText('もう少しだけ短い。', 'shoken', {}).find(i => i.kind === '字数');
+  assert.equal(E.issueSig(a), E.issueSig(b));
+});
