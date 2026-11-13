@@ -1042,14 +1042,38 @@ function viewMemo(root){
   showMaterial();
   renderChips();
 }
+/* 所見の材料：「教科での姿」から教科ごと、「生活・当番・係」「行事」から1文ごと */
+function materialsFor(no){
+  return E.materialsOf(memoOf(S.term, no, 'subject'), [memoOf(S.term, no, 'life'), memoOf(S.term, no, 'event')].join('\n'));
+}
+function subjLabel(m){ return m ? `${m.subject}${m.unit ? `「${m.unit}」` : ''}` : ''; }
+/* プロンプトの児童たちに、案ごとの組み合わせを割り当てる。
+   案1は、すでに採用した所見とこの回の前の児童の案1を数えて、クラスでいちばん偏らないものにする */
+function planBatch(nums, avoidTerms){
+  const NC = (R.generation && R.generation.candidates) || 5;
+  const counts = {};
+  const tl = E.tallyKeys(classEntries('shoken', nums), 'shoken');
+  Object.keys(tl).forEach(k => counts[k] = tl[k].length);
+  const out = {};
+  nums.forEach(n => {
+    const avoid = [];
+    otherTerms(n, 'shoken', avoidTerms).forEach(o => R.subjects.list.forEach(sb => { if(o.text.indexOf(sb) >= 0) avoid.push(sb); }));
+    const mat = materialsFor(n);
+    const combos = E.planCombos(mat, NC, { counts, limit:limitFor, avoidSubjects:avoid });
+    E.comboKeys(combos[0]).forEach(k => counts[k] = (counts[k] || 0) + 1);
+    out[n] = { mat, combos };
+  });
+  return out;
+}
 function showMaterial(){
   const el = $('#material'); if(!el) return;
-  const tp = E.topicsOf(memoRaw(cur, 'shoken'), 'shoken');
-  const items = tp.subjects.concat(tp.units.map(u => `「${u}」`), tp.life);
-  const nSub = tp.subjects.length, nLife = tp.life.length;
-  el.innerHTML = `<b>このメモの材料</b>　${items.length ? esc(items.join('・')) : 'まだありません'}
-    <span class="mini">（教科${nSub}・生活や行事${nLife}）</span><br>
-    <span class="mini">教科の姿と生活の姿を、それぞれ2つずつくらい書いておくと、AIがクラス全体で話題をバラけさせやすくなります。
+  const mat = materialsFor(cur);
+  const nS = mat.subjects.length, nL = mat.life.length;
+  const subs = mat.subjects.map(subjLabel), lifes = mat.life.map(m => m.label);
+  const pairs = Math.max(1, nS) * Math.max(1, nL);
+  el.innerHTML = `<b>このメモの材料</b>　教科：${nS ? esc(subs.join('、')) : '<span class="mini">まだありません</span>'}　／　生活・行事：${nL ? esc(lifes.join('、')) : '<span class="mini">まだありません</span>'}<br>
+    <span class="mini">5つの案は、この教科と生活の材料を組み合わせて作ります（いまは${nS && nL ? pairs + '通り' : 'まだ組み合わせられません'}）。
+    教科の姿と生活の姿を、それぞれ2つ以上書くと、案ごとに違う組み合わせになります。教科は1文に1つ、生活は1文に1つの場面で書くと、材料として分かれます。
     メモに無い教科や話題を、AIが作ることはありません。</span>`;
 }
 
@@ -1146,8 +1170,7 @@ function varietyBlock(typeKey, nums){
       L.push(`  下の配分で${iLim}人に達している単元・項目は、どの案でも取り上げない（メモにほかの材料が無い子だけは例外。その場合は「※」の行でそのことを伝える）。`);
     }
     if(sLim !== Infinity) L.push(`- 同じ教科は、クラス全体で${sLim}人までを目安にする。`);
-    L.push('- 各児童の「案1」は、下の配分を見て、クラス全体で教科・単元・生活の項目がバラけるように選んだ組み合わせにする。案2〜5は、これまでどおり切り口を変えて書く。');
-    L.push('- この回の児童どうしでも、案1で取り上げる単元・項目がなるべく重ならないようにする。');
+    L.push('- 各児童の案1には、下の配分とこの回のほかの児童の案1を見て、クラス全体で教科・単元・生活の項目がバラけるような組み合わせを割り当ててある（児童ごとのメモの「組み合わせ」）。割り当てどおりに書く。');
   }else{
     L.push('- 各児童の「案1」は、この回のほかの児童と、書き出しと文の組み立てがいちばん重ならないものにする。');
   }
@@ -1379,10 +1402,19 @@ function buildPrompt(typeKey, nums, opt){
     L.push('× 国語科では、（単元名が無い）');
     L.push('');
   }
+  if(typeKey === 'shoken'){
+    L.push('# 案ごとの組み合わせ（厳守）');
+    L.push(`- 児童ごとのメモの下に、案1〜案${NC}の「組み合わせ」（教科・単元 ＋ 生活の内容）を書いてある。`);
+    L.push('- **各案は、その案に割り当てた教科・単元と生活の内容を使って書く。** 割り当てと違う教科や生活の内容に変えない。');
+    L.push('- 割り当ては、その子のメモの材料から、案ごとになるべく違う組み合わせになるように決めてある。案1は、クラス全体で教科・単元・生活の内容が偏らないように決めてある。');
+    L.push('- 1つの案で取り上げる教科は1つ、生活の内容は1つにする（いくつもの教科を並べない）。');
+    L.push('- メモの材料が少なく、同じ組み合わせになっている案は、取り上げる場面・言い回し・文の組み立てを変える。');
+    L.push('');
+  }
   L.push(`# ${NC}つの案の作り分け`);
   L.push(`- ${NC}案は「同じ文の言い換え」にしない。取り上げる場面・切り口・文の組み立てを変える。`);
   L.push(typeKey === 'shoken'
-    ? `- 切り口の目安（どの案も「${R.shokenOpening.form}」で始め、「教科の評価 → 生活面」の順序は変えない）：`
+    ? `- 割り当てた組み合わせの中での切り口の目安（どの案も「${R.shokenOpening.form}」で始め、「教科の評価 → 生活面」の順序は変えない）：`
     : '- 切り口の目安：');
   ((R.generation && R.generation.angles) || []).forEach((a, i) => L.push(`  ${i+1}. ${a}`));
   L.push('- ただし、メモに材料が無い切り口は無理に作らない。その場合は近い切り口で書き分ける。');
@@ -1444,14 +1476,27 @@ function buildPrompt(typeKey, nums, opt){
   L.push('# 児童ごとのメモ');
   L.push('（番号だけで管理しています。氏名はありません。）');
   L.push('');
+  const plans = typeKey === 'shoken' ? planBatch(nums, opt.avoidTerms) : {};
   nums.forEach(n => {
     L.push(`## #${n}`);
     L.push(memoBlock(n, typeKey));
     if(typeKey === 'shoken'){
       const units = memoUnitsFor(n);
       L.push(units.length
-        ? `単元名：${units.map(u => `「${u}」`).join('・')}（書き出しは「〇〇科「${units[0]}」では、」の形にする）`
+        ? `単元名：${units.map(u => `「${u}」`).join('・')}（書き出しは、その案に割り当てた教科と単元名で「〇〇科「単元名」では、」の形にする）`
         : '単元名：メモにありません（メモにある学習の内容を短く「 」に入れる。新しい単元名は作らない）');
+      const plan = plans[n];
+      if(plan){
+        L.push('組み合わせ（この割り当てどおりに書く）：');
+        plan.combos.forEach((c, i) => {
+          const sub = c.s ? (c.s.unit ? subjLabel(c.s) : `${c.s.subject}（単元名はメモに無い。メモにある学習の内容を短く「 」に入れる）`)
+                          : '教科のメモがありません（「※」の行で先生に伝える）';
+          const life = c.l ? c.l.label : 'メモがありません（行事や伸びのメモから書く。無ければ「※」の行で先生に伝える）';
+          L.push(`- 案${i + 1}：${sub} ＋ 生活：${life}`);
+        });
+        const distinct = new Set(plan.combos.map(c => subjLabel(c.s) + '|' + (c.l ? c.l.label : ''))).size;
+        if(distinct < plan.combos.length) L.push('（メモの材料が少ないため、同じ組み合わせの案があります。その案は、取り上げる場面・言い回しを変える）');
+      }
     }
     otherTerms(n, typeKey, opt.avoidTerms).forEach(o => {
       const used = R.subjects.list.filter(s => o.text.indexOf(s) >= 0);

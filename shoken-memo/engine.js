@@ -553,6 +553,103 @@
       return { swaps: out, counts: counts };
     }
 
+    /* ======================================================================
+       案ごとの組み合わせ（教科の材料 × 生活の材料）
+       ====================================================================== */
+    function sentencesOf(t) {
+      return String(t || '').split(/[。\n]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+    }
+    /* メモから材料を取り出す。
+       subjectMemo … 「教科での姿」 / lifeMemo … 「生活・当番・係」「行事」
+       戻り値 { subjects:[{subject, unit, text}], life:[{label, labels, text}] }
+       生活の材料は1文で1つ（「給食当番」なら labels は 給食・当番・日直 の2つ） */
+    function materialsOf(subjectMemo, lifeMemo) {
+      var subjects = [], life = [];
+      var lastSubj = null;
+      sentencesOf(subjectMemo).forEach(function (sen) {
+        var tp = topicsOf(sen, 'shoken');
+        if (!tp.subjects.length) {
+          /* 教科名の無い文は、前の文の続きとみなす */
+          if (lastSubj) lastSubj.forEach(function (m) { m.text += '。' + sen; });
+          return;
+        }
+        lastSubj = [];
+        tp.subjects.forEach(function (sb, i) {
+          var unit = tp.subjects.length === 1 ? (tp.units[0] || '') : (tp.units[i] || '');
+          var same = subjects.filter(function (m) { return m.subject === sb && m.unit === unit; })[0];
+          if (same) { same.text += '。' + sen; lastSubj.push(same); return; }
+          var m = { subject: sb, unit: unit, text: sen };
+          subjects.push(m); lastSubj.push(m);
+        });
+      });
+      sentencesOf(lifeMemo).forEach(function (sen) {
+        var labels = topicsOf(sen, 'shoken').life;
+        var label = labels.length ? labels.join('・') : Array.from(sen).slice(0, 14).join('');
+        var same = life.filter(function (m) { return m.label === label; })[0];
+        if (same) { if (same.text.indexOf(sen) < 0) same.text += '。' + sen; return; }
+        life.push({ label: label, labels: labels, text: sen });
+      });
+      return { subjects: subjects, life: life };
+    }
+    function comboKeys(c) {
+      var k = [];
+      if (c.s) { k.push('教科|' + c.s.subject); if (c.s.unit) k.push('単元|' + c.s.unit); }
+      if (c.l) (c.l.labels && c.l.labels.length ? c.l.labels : [c.l.label]).forEach(function (x) { k.push('生活・行事|' + x); });
+      return k;
+    }
+    /* 案ごとの組み合わせを決める。
+       n        … 案の数
+       opt.counts … クラスですでに使われている数 { 鍵: 人数 }（案1を決めるのに使う）
+       opt.limit  … 鍵 → 上限 の関数
+       opt.avoidSubjects … ほかの学期に使った教科（ほかに教科があれば使わない）
+       案1は、クラスの配分がいちばん偏らない組み合わせ。案2〜は、まだ使っていない
+       教科・生活の材料を優先して、なるべく違う組み合わせにする。 */
+    function planCombos(mat, n, opt) {
+      opt = opt || {};
+      var counts = opt.counts || {}, lim = opt.limit || function () { return Infinity; };
+      var subs = mat.subjects.slice();
+      var avoid = opt.avoidSubjects || [];
+      var fresh = subs.filter(function (m) { return avoid.indexOf(m.subject) < 0; });
+      if (fresh.length) subs = fresh;
+      var lifes = mat.life.slice();
+      var S = subs.length ? subs : [null], L = lifes.length ? lifes : [null];
+      var pairs = [];
+      S.forEach(function (sm, i) { L.forEach(function (lm, j) { pairs.push({ s: sm, l: lm, i: i, j: j }); }); });
+      /* 案1：クラスの数と上限から、いちばん余裕のある組み合わせ */
+      var hasUnit = S.some(function (m) { return m && m.unit; });
+      /* 教科側（教科・単元）と生活側で、それぞれいちばん多い項目の割合を足す。
+         「給食当番」のように2つの項目に当たる材料が、鍵の数だけ不利にならないように */
+      var classScore = function (p) {
+        var side = { s: 0, l: 0 }, over = 0;
+        comboKeys(p).forEach(function (k) {
+          var c = (counts[k] || 0) + 1, l = lim(k);
+          if (c > l) over += 1000;
+          var r = l === Infinity ? 0 : c / l, g = k.indexOf('生活・行事|') === 0 ? 'l' : 's';
+          if (r > side[g]) side[g] = r;
+        });
+        var sc = over + side.s + side.l;
+        /* 書き出しに「単元名」が要るので、単元名のある材料を少し優先する */
+        if (hasUnit && p.s && !p.s.unit) sc += 0.3;
+        return sc;
+      };
+      var out = [], useS = {}, useL = {}, usePair = {};
+      var take = function (p) {
+        out.push({ s: p.s, l: p.l });
+        useS[p.i] = (useS[p.i] || 0) + 1; useL[p.j] = (useL[p.j] || 0) + 1;
+        usePair[p.i + ',' + p.j] = (usePair[p.i + ',' + p.j] || 0) + 1;
+      };
+      take(pairs.slice().sort(function (a, b) { return classScore(a) - classScore(b) || a.i - b.i || a.j - b.j; })[0]);
+      while (out.length < n) {
+        var best = pairs.slice().sort(function (a, b) {
+          var ka = (usePair[a.i + ',' + a.j] || 0) * 100 + (useS[a.i] || 0) * 10 + (useL[a.j] || 0) * 10 + classScore(a);
+          var kb = (usePair[b.i + ',' + b.j] || 0) * 100 + (useS[b.i] || 0) * 10 + (useL[b.j] || 0) * 10 + classScore(b);
+          return ka - kb || a.i - b.i || a.j - b.j;
+        })[0];
+        take(best);
+      }
+      return out;
+    }
+
     /* その子の「生活・当番・係」「行事」のメモから、所見に出てきそうな語を取り出す。
        ここにある語が所見に入っていれば「教科以外の記述がある」とみなす */
     var HINT_STOP = ['時間', '学習', '自分', '友達', '毎日', '学期', '最後', '様子', '活動', '一緒', '全員', '学校', '教室', '仕事'];
@@ -584,6 +681,7 @@
     return {
       MASK: MASK,
       lifeHintsOf: lifeHintsOf, mostSimilar: mostSimilar, issueSig: issueSig,
+      materialsOf: materialsOf, planCombos: planCombos, comboKeys: comboKeys,
       topicsOf: topicsOf, openingOf: openingOf, keysOf: keysOf, limitOf: limitOf, tallyKeys: tallyKeys,
       groupSimilar: groupSimilar, repeatedPhrases: repeatedPhrases, planSwaps: planSwaps,
       countChars: countChars, lenRange: lenRange, stageOf: stageOf,

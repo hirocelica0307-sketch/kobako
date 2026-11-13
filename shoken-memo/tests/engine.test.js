@@ -229,3 +229,27 @@ test('所見は書き出しが決まっているので、書き出しの重な�
   assert.ok(!keys.some(x => x.startsWith('書き出し|')));
   assert.ok(keys.includes('単元|ごんぎつね'));
 });
+
+test('メモから教科と生活の材料を取り出す', () => {
+  const m = E.materialsOf('国語科「ごんぎつね」で考えた。発表もした。算数のわり算で図を使った', '掃除をだまって行った。給食当番を最後まで行った');
+  assert.deepEqual([...m.subjects.map(x => x.subject + '|' + x.unit)], ['国語科|ごんぎつね', '算数科|']);
+  assert.match(m.subjects[0].text, /発表もした/, '教科名の無い文は前の教科の続き');
+  assert.deepEqual([...m.life.map(x => x.label)], ['掃除', '給食・当番・日直']);
+  assert.deepEqual([...E.comboKeys({ s: m.subjects[0], l: m.life[1] })], ['教科|国語科', '単元|ごんぎつね', '生活・行事|給食', '生活・行事|当番・日直']);
+});
+
+test('案ごとの組み合わせ：なるべく違う組み合わせにし、上限を超えるものは避ける', () => {
+  const m = E.materialsOf('国語科「ごんぎつね」で考えた。算数科「わり算」で説明した。体育科「ハードル走」で跳んだ', '掃除をした。給食の配ぜんをした。廊下を歩いた');
+  const label = c => c.s.subject + '×' + c.l.label;
+  const p = E.planCombos(m, 5);
+  assert.equal(new Set(p.map(label)).size, 5);
+  assert.ok(new Set(p.map(c => c.s.subject)).size === 3 && new Set(p.map(c => c.l.label)).size === 3);
+  /* 国語科・掃除がクラスで上限に達していれば、どの案でも使わない */
+  const q = E.planCombos(m, 5, { counts: { '単元|ごんぎつね': 5, '生活・行事|掃除': 5 }, limit: k => k.startsWith('教科|') ? Infinity : 5 });
+  assert.ok(q.every(c => c.s.subject !== '国語科' && c.l.label !== '掃除'), q.map(label).join(','));
+  /* ほかの学期に使った教科は、ほかに教科があれば使わない */
+  assert.ok(E.planCombos(m, 5, { avoidSubjects: ['体育科'] }).every(c => c.s.subject !== '体育科'));
+  /* 材料が1つずつなら同じ組み合わせになる */
+  const one = E.planCombos(E.materialsOf('国語科「ごんぎつね」で考えた', '掃除をした'), 5);
+  assert.equal(new Set(one.map(label)).size, 1);
+});

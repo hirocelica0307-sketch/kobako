@@ -328,7 +328,7 @@ test('クラス全体の書き分け：プロンプト・案の話題・偏り�
   assert.match(prompt, /国語科 6人（目安に達しています/);
   assert.match(prompt, /同じ単元・教材「ごんぎつね」：#7・#8/);
   assert.match(prompt, /メモがよく似ている：#7・#8/);
-  assert.match(prompt, /「案1」は、下の配分を見て/);
+  assert.match(prompt, /各児童の案1には、下の配分とこの回のほかの児童の案1を見て/);
 
   /* 案を選ぶ：各案の話題と「多い」 */
   await page.click('nav [data-tab="pick"]');
@@ -402,7 +402,8 @@ test('所見のプロンプト：書き出しの形を必ず守らせる・チ�
   assert.match(prompt, /書き出し：どの案も必ず「〇〇科「単元名」では、」で始める/);
   assert.match(prompt, /# 所見の形（厳守/);
   assert.match(prompt, /1\) 国語科「ごんぎつね」では、/);
-  assert.match(prompt, /単元名：「ごんぎつね」（書き出しは「〇〇科「ごんぎつね」では、」の形にする）/);
+  assert.match(prompt, /単元名：「ごんぎつね」（書き出しは、その案に割り当てた教科と単元名で「〇〇科「単元名」では、」の形にする）/);
+  assert.match(prompt, /- 案1：国語科「ごんぎつね」 ＋ 生活：掃除/);
   assert.match(prompt, /## #2\n[^\n]*\n単元名：メモにありません/);
   assert.match(prompt, /# 出力する前の確認/);
   assert.match(prompt, /もう一度：どの案も、必ず「〇〇科「単元名」では、」で書き始めてください。/);
@@ -431,6 +432,35 @@ test('所見のプロンプト：書き出しの形を必ず守らせる・チ�
   await page.click('.rbtn[data-no="1"]');
   assert.match(await page.textContent('.draftbox .pastterm'), /2学期.*国語科.*ごんぎつね/);
   await shot(page, '14-past-term');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('所見のプロンプト：メモの教科と生活を、案ごとに違う組み合わせで割り当てる', async () => {
+  const { page, errors, ctx } = await openLocal({ count: 3 });
+  /* 3人とも同じ材料（国語・算数・体育 × 掃除・給食当番・廊下） */
+  for (const n of [1, 2, 3]) {
+    await page.click(`.rbtn[data-no="${n}"]`);
+    await page.fill('#memo-subject', '国語科「ごんぎつね」で、ごんの気持ちを考えた。算数科「わり算」で図を使って説明した。体育科「ハードル走」でリズムよく跳んだ');
+    await page.fill('#memo-life', '掃除をだまって行った。給食当番を最後まで行った。廊下を静かに歩いた');
+  }
+  assert.match(await page.textContent('#material'), /国語科「ごんぎつね」、算数科「わり算」、体育科「ハードル走」[\s\S]*掃除、給食・当番・日直、廊下歩行[\s\S]*9通り/);
+  await page.click('nav [data-tab="ai"]');
+  await page.click('#btn-build');
+  const prompt = await page.textContent('#promptout');
+  assert.match(prompt, /# 案ごとの組み合わせ（厳守）/);
+  const kid = n => prompt.split(`## #${n}\n`)[1].split('\n## #')[0];
+  const combos = n => (kid(n).match(/- 案\d：[^\n]+/g) || []);
+  /* 1人の5案は、教科も生活もばらける */
+  const c1 = combos(1);
+  assert.equal(c1.length, 5);
+  assert.ok(new Set(c1.map(x => x.split('＋')[0].replace(/- 案\d：/, '').trim())).size >= 3, c1.join('\n'));
+  assert.ok(new Set(c1.map(x => x.split('生活：')[1])).size >= 3, c1.join('\n'));
+  assert.equal(new Set(c1.map(x => x.replace(/- 案\d：/, ''))).size, 5, '同じ組み合わせが続いている');
+  /* 3人の案1は、それぞれ違う教科・生活になる */
+  const first = [1, 2, 3].map(n => combos(n)[0].replace('- 案1：', ''));
+  assert.equal(new Set(first.map(x => x.split('＋')[0].trim())).size, 3, first.join('\n'));
+  assert.equal(new Set(first.map(x => x.split('生活：')[1])).size, 3, first.join('\n'));
   assert.deepEqual(errors, []);
   await ctx.close();
 });
