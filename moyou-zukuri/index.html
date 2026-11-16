@@ -128,15 +128,74 @@ body.show .bar .grp, body.show .palette, body.show .hint{ display:none; }
 body.show .bar .showonly{ display:inline-flex; }
 .showonly{ display:none; }
 
+/* つなぐ ボタン */
+.btn.net .ndot{ width:.7em; height:.7em; border-radius:50%; background:#c9c1b1; flex:none; }
+.btn.net.joined{ border-color:#3f9a62; background:#eef8f1; }
+.btn.net.joined .ndot{ background:#3f9a62; }
+.btn.net.joined.off{ border-color:var(--warn); background:#fdf0ee; }
+.btn.net.joined.off .ndot{ background:var(--warn); }
+
+/* せんせい：みんなの がめん */
+body.teaching > .bar, body.teaching > .main{ display:none; }
+.teach{ position:fixed; inset:0; z-index:20; display:flex; flex-direction:column; background:var(--bg); }
+.tbar{
+    display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+    padding:.45rem .8rem; background:var(--panel); border-bottom:2px solid var(--line);
+}
+.tcode{ font-size:1.1rem; color:var(--thin); }
+.tcode b{ font-size:1.7rem; color:var(--accent); letter-spacing:.12em; margin-left:.2em; }
+.tcount{ font-size:1.1rem; }
+.tmsg{ padding:.4rem 1rem; color:var(--warn); text-align:center; }
+.tarea{ flex:1; min-height:0; position:relative; padding:10px; }
+.tgrid{ display:grid; gap:10px; justify-content:center; align-content:center; height:100%; }
+.tile{
+    display:flex; flex-direction:column; padding:0; overflow:hidden;
+    border:2px solid var(--line); border-radius:10px; background:var(--panel);
+    transition:transform .1s, border-color .15s;
+}
+.tile:hover{ border-color:var(--accent); }
+.tile:active{ transform:scale(.97); }
+.tile .tname{ height:30px; flex:none; display:flex; align-items:center; justify-content:space-between; padding:0 .55rem; font-size:18px; }
+.tile .tname small{ font-size:14px; color:var(--thin); font-weight:500; }
+.tile svg{ flex:1; min-height:0; width:100%; display:block; background:var(--paper); }
+.tile.off svg{ opacity:.45; }
+.tempty{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:.5rem; }
+.tempty p{ margin:0; font-size:1.4rem; color:var(--thin); }
+.tempty .big{ font-size:min(18vw, 26vh); letter-spacing:.12em; color:var(--accent); line-height:1.1; }
+.tempty .url{ font-size:1rem; font-weight:500; word-break:break-all; }
+.tzoom{ position:absolute; inset:0; display:flex; flex-direction:column; background:var(--bg); }
+.zbar{
+    display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+    padding:.45rem .8rem; background:var(--panel); border-bottom:2px solid var(--line);
+}
+.zbar b{ font-size:1.7rem; min-width:4em; text-align:center; }
+.zwrap{ flex:1; min-height:0; display:flex; align-items:center; justify-content:center; padding:12px; }
+#zBoard{ display:block; width:100%; height:100%; }
+
 /* ダイアログ */
 dialog{
     border:3px solid var(--line); border-radius:22px; padding:1.4rem 1.6rem; max-width:min(560px, 92vw);
     font-family:var(--round); font-weight:800; color:var(--ink); text-align:center;
 }
+#noDlg{ max-width:min(820px, 94vw); }
 dialog::backdrop{ background:rgba(40,30,20,.35); }
 dialog p{ font-size:1.25rem; margin:.2rem 0 1.2rem; }
 dialog .row{ display:flex; gap:.8rem; justify-content:center; }
 dialog .btn{ min-width:7.5rem; font-size:1.1rem; }
+dialog .col{ display:flex; flex-direction:column; gap:.6rem; align-items:stretch; margin-bottom:.8rem; }
+dialog .col .btn{ min-height:3.4rem; font-size:1.15rem; }
+dialog .note{ font-size:.9rem; color:var(--thin); font-weight:500; margin:.2rem 0 .8rem; }
+dialog h3{ margin:.2rem 0 .5rem; font-size:1rem; color:var(--thin); }
+.dmsg{ min-height:1.6em; color:var(--warn); font-size:1rem !important; margin:.4rem 0 !important; }
+.codebox{ display:flex; gap:.4rem; justify-content:center; margin-bottom:.8rem; }
+.codebox span{ width:2.4rem; height:3rem; border:3px solid var(--line); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.8rem; }
+.codebox span.now{ border-color:var(--accent); }
+.keys{ display:grid; grid-template-columns:repeat(3, 4.2rem); gap:.45rem; justify-content:center; }
+.keys .btn, .nos .btn{ min-width:0; font-size:1.5rem; padding:0; }
+.keys .btn{ height:3.4rem; }
+.keys .btn.small{ font-size:1rem; }
+.nos{ display:grid; grid-template-columns:repeat(8, 3.6rem); gap:.4rem; justify-content:center; }
+.nos .btn{ height:3.2rem; font-size:1.3rem; }
 </style>
 </head>
 <body>
@@ -157,6 +216,7 @@ dialog .btn{ min-width:7.5rem; font-size:1.1rem; }
     </div>
     <div class="spacer"></div>
     <div class="grp">
+        <button class="btn net" id="netBtn"><span class="ndot"></span><span id="netLabel">つなぐ</span></button>
         <button class="btn go" id="showBtn">かざる</button>
     </div>
     <button class="btn showonly" id="backBtn">もどる</button>
@@ -197,11 +257,69 @@ dialog .btn{ min-width:7.5rem; font-size:1.1rem; }
 
 <svg id="float" xmlns="http://www.w3.org/2000/svg"></svg>
 
-<dialog id="clearDlg">
-    <p>いろがみを ぜんぶ けしますか？</p>
+<!-- せんせい：みんなの がめん（テレビ） -->
+<section class="teach" id="teach" hidden>
+    <header class="tbar">
+        <div class="tcode">コード <b id="tCode"></b></div>
+        <div class="tcount" id="tCount"></div>
+        <div class="spacer"></div>
+        <button class="btn" id="tCopy">URLを コピー</button>
+        <button class="btn" id="tClean">あとかたづけ</button>
+        <button class="btn" id="tEnd">クラスを おわる</button>
+        <button class="btn" id="tFull">ぜんがめん</button>
+        <button class="btn go" id="tBack">もどる</button>
+    </header>
+    <div class="tmsg" id="tMsg" hidden></div>
+    <div class="tarea" id="tArea">
+        <div class="tgrid" id="tGrid"></div>
+        <div class="tempty" id="tEmpty" hidden>
+            <p>こどもの たんまつで「つなぐ」→「コードを いれる」</p>
+            <div class="big" id="tBig"></div>
+            <p class="url" id="tUrl"></p>
+        </div>
+    </div>
+    <div class="tzoom" id="tZoom" hidden>
+        <div class="zbar">
+            <button class="btn" id="zPrev">まえの 人</button>
+            <b id="zName"></b>
+            <button class="btn" id="zNext">つぎの 人</button>
+            <div class="spacer"></div>
+            <button class="btn" id="zRemove">この ばんごうを はずす</button>
+            <button class="btn go" id="zBack">みんなに もどる</button>
+        </div>
+        <div class="zwrap" id="zWrap"><svg id="zBoard" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    </div>
+</section>
+
+<dialog id="askDlg">
+    <p id="askMsg"></p>
     <div class="row">
-        <button class="btn" id="clearNo">やめる</button>
-        <button class="btn go" id="clearYes">けす</button>
+        <button class="btn" id="askNo">やめる</button>
+        <button class="btn go" id="askYes">はい</button>
+    </div>
+</dialog>
+
+<dialog id="netDlg">
+    <div id="netBody"></div>
+</dialog>
+
+<dialog id="codeDlg">
+    <p>せんせいの コードを いれてね</p>
+    <div class="codebox" id="codeBox"></div>
+    <div class="keys" id="codeKeys"></div>
+    <p class="dmsg" id="codeMsg"></p>
+    <div class="row">
+        <button class="btn" id="codeNo">やめる</button>
+        <button class="btn go" id="codeYes" disabled>つぎへ</button>
+    </div>
+</dialog>
+
+<dialog id="noDlg">
+    <p>じぶんの ばんごうを えらんでね</p>
+    <div class="nos" id="noKeys"></div>
+    <p class="dmsg" id="noMsg"></p>
+    <div class="row">
+        <button class="btn" id="noNo">やめる</button>
     </div>
 </dialog>
 
@@ -363,12 +481,244 @@ dialog .btn{ min-width:7.5rem; font-size:1.1rem; }
     }
     function allInBounds(pieces, cols, rows) { return pieces.every(p => inBounds(p, cols, rows)); }
 
+    /* おくる ための みじかい 文字（ひろさ 1文字 ＋ 色紙 1まい 4文字：しゅるい・むき・x・y（36しんすう）） */
+    function encode(pieces, sizeIdx) {
+        return String(sizeIdx) + pieces.map(p => '' + p.t + p.r + p.x.toString(36) + p.y.toString(36)).join('');
+    }
+    function decode(str) {
+        if (typeof str !== 'string' || !str) return null;
+        const size = +str[0];
+        if (!SIZES[size] || (str.length - 1) % 4) return null;
+        const { cols, rows } = SIZES[size], pieces = [];
+        for (let i = 1; i < str.length; i += 4) {
+            const t = +str[i], r = +str[i + 1], x = parseInt(str[i + 2], 36), y = parseInt(str[i + 3], 36);
+            if (!TYPES[t] || !(r >= 0) || isNaN(x) || isNaN(y)) return null;
+            const p = { id: pieces.length + 1, t, r: norm(shapeOf(t), r), x, y };
+            if (inBounds(p, cols, rows)) pieces.push(p);
+        }
+        return { size, cols, rows, pieces };
+    }
+    /* 色紙の ある ところだけを 見せる まど（まわりに 1ます。小さすぎない ように minW ます いじょう） */
+    function contentBox(b, minW) {
+        if (!b.pieces.length) return { x: 0, y: 0, w: b.cols, h: b.rows };
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const p of b.pieces) {
+            const s = size(shapeOf(p.t), p.r);
+            x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y);
+            x1 = Math.max(x1, p.x + s.w); y1 = Math.max(y1, p.y + s.h);
+        }
+        x0 = Math.max(0, x0 - 1); y0 = Math.max(0, y0 - 1);
+        x1 = Math.min(b.cols, x1 + 1); y1 = Math.min(b.rows, y1 + 1);
+        let w = x1 - x0, h = y1 - y0;
+        if (w < minW) { x0 = Math.max(0, Math.min(b.cols - minW, x0 - (minW - w) / 2)); w = Math.min(minW, b.cols); }
+        if (h < minW * .6) { const mh = Math.min(minW * .6, b.rows); y0 = Math.max(0, Math.min(b.rows - mh, y0 - (mh - h) / 2)); h = mh; }
+        return { x: x0, y: y0, w, h };
+    }
+    /* n まいの がめんを W×H に いちばん 大きく ならべる（よこ:たて ＝ aspect、名まえの 高さ labelH） */
+    function gridFit(n, W, H, aspect, labelH, gap) {
+        let best = { cols: 1, rows: 1, w: 0, h: 0 };
+        for (let cols = 1; cols <= Math.max(1, n); cols++) {
+            const rows = Math.ceil(Math.max(1, n) / cols);
+            const w = Math.min((W - gap * (cols - 1)) / cols, ((H - gap * (rows - 1)) / rows - labelH) * aspect);
+            if (w > best.w) best = { cols, rows, w: Math.floor(w), h: Math.floor(w / aspect + labelH) };
+        }
+        return best;
+    }
+
     root.MoyouLogic = {
         TYPES, SHAPES, SIZES, shapeOf, norm, polygon, size, inside, quarters, occupancy,
         inBounds, fits, center, anchorAt, snapNear, snapAtPointer, pieceAt, clampInto, rotateInPlace, allInBounds,
+        encode, decode, gridFit, contentBox,
     };
 })(globalThis);
 // ==/LOGIC==
+</script>
+
+<script>
+/* みんなの がめん ── つうしん（Firebase）
+   ------------------------------------------------------------------
+   ・「ブロック おはじき」「かいて あてて」と おなじ Firebase プロジェクト（hiro-kobako）の
+     Realtime Database を つかいます（ルールは database.rules.json の moyou）。
+   ・moyou/rooms/{6けたの コード}/
+       owner        クラスを つくった せんせいの 匿名ID
+       cfg          { t }（つくった 時こく）
+       kids/{番号}   こどもの いまの だいし { uid, no, st（みじかい 文字）, on（つながっているか）, t }
+   ・こどもの だいしを 見られるのは クラスを つくった せんせい だけ。
+     番号は さいしょに つかった 端末だけが 書きかえられる（ほかの 子と まざらない）。
+   ・Firebase の 読みこみは つかう ときまで しない。つながない 子は ネットを つかいません。
+   ・ためす ときは window.__MOYOU_FAKE__ = true で、この ブラウザの 中だけの にせものに なります。
+   ------------------------------------------------------------------ */
+(function (root) {
+    'use strict';
+    const CONFIG = {
+        apiKey: 'AIzaSyBsf_UntQvkfRl0fZijHBYH7Ctm00OPLZY',
+        authDomain: 'hiro-kobako.firebaseapp.com',
+        databaseURL: 'https://hiro-kobako-default-rtdb.asia-southeast1.firebasedatabase.app',
+        projectId: 'hiro-kobako',
+        appId: '1:781860379018:web:745ea72a961a7575aa9073',
+    };
+    const SDK = 'https://www.gstatic.com/firebasejs/11.6.1/';
+    const BASE = 'moyou/rooms/';
+    const TIMEOUT = 20000;
+
+    const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('つうしんに 時間が かかりすぎました')), ms || TIMEOUT))]);
+    const isPerm = e => /permission/i.test(String((e && (e.code || e.message)) || e));
+    function explain(e) {
+        if (isPerm(e)) return new Error('Firebase の ルールが まだ はられて いません（README の「Firebase の ルール」を みてください）');
+        return e instanceof Error ? e : new Error(String(e));
+    }
+
+    let conn = null;
+    function connect() {
+        if (!conn) conn = (root.__MOYOU_FAKE__ ? Promise.resolve(fake()) : real()).catch(e => { conn = null; throw e; });
+        return conn;
+    }
+
+    async function real() {
+        if (location.protocol === 'file:') throw new Error('ファイルとして ひらいて いる ときは つなげません（Web の ほうで ひらいてください）');
+        let appMod, authMod, db;
+        try {
+            [appMod, authMod, db] = await Promise.all([
+                import(SDK + 'firebase-app.js'), import(SDK + 'firebase-auth.js'), import(SDK + 'firebase-database.js'),
+            ]);
+        } catch (e) {
+            throw new Error('つうしんの じゅんびが できませんでした（ネットに つながっているか かくにんしてください）');
+        }
+        const app = appMod.initializeApp(CONFIG, 'moyou-zukuri');
+        const auth = authMod.getAuth(app);
+        await withTimeout(authMod.signInAnonymously(auth)).catch(() => { throw new Error('サインインが できませんでした'); });
+        const d = db.getDatabase(app);
+        const R = p => db.ref(d, p);
+        return {
+            uid: auth.currentUser.uid,
+            now: () => db.serverTimestamp(),
+            get: async p => (await db.get(R(p))).val(),
+            set: (p, v) => db.set(R(p), v),
+            update: (p, v) => db.update(R(p), v),
+            watch: (p, cb, err) => db.onValue(R(p), s => cb(s.val()), e => err && err(e)),
+            onDisconnectSet: (p, v) => db.onDisconnect(R(p)).set(v),
+            cancelDisconnect: p => db.onDisconnect(R(p)).cancel(),
+            online: cb => db.onValue(R('.info/connected'), s => cb(!!s.val())),
+            setOnline: on => (on ? db.goOnline(d) : db.goOffline(d)),
+        };
+    }
+
+    /* にせもの：この ブラウザの localStorage を データベースの かわりに つかう（タブどうしで とどく） */
+    function fake() {
+        const KEY = 'moyou-fake-db';
+        let uid = '';
+        try { uid = sessionStorage.getItem('moyou-fake-uid') || ''; } catch (e) { /* なくても よい */ }
+        if (!uid) { uid = 'u' + Math.random().toString(36).slice(2, 10); try { sessionStorage.setItem('moyou-fake-uid', uid); } catch (e) { /* なくても よい */ } }
+        const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } };
+        const keys = p => p.split('/').filter(Boolean);
+        const at = (t, p) => keys(p).reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), t);
+        function put(t, p, v) {
+            const ks = keys(p);
+            let o = t;
+            for (let i = 0; i < ks.length - 1; i++) { if (!o[ks[i]] || typeof o[ks[i]] !== 'object') o[ks[i]] = {}; o = o[ks[i]]; }
+            if (v === null || v === undefined) delete o[ks[ks.length - 1]]; else o[ks[ks.length - 1]] = JSON.parse(JSON.stringify(v));
+        }
+        const subs = new Set();
+        const notify = () => subs.forEach(f => f());
+        window.addEventListener('storage', e => { if (e.key === KEY) notify(); });
+        function guard(p) {
+            const m = p.match(/^moyou\/rooms\/(\d+)\/kids\/(\d+)/);
+            if (!m) return;
+            const t = read(), owner = at(t, 'moyou/rooms/' + m[1] + '/owner'), cur = at(t, 'moyou/rooms/' + m[1] + '/kids/' + m[2]);
+            if (!owner || (owner !== uid && cur && cur.uid !== uid)) throw { code: 'PERMISSION_DENIED' };
+        }
+        const write = fn => { const t = read(); fn(t); localStorage.setItem(KEY, JSON.stringify(t)); notify(); };
+        return {
+            uid,
+            now: () => Date.now(),
+            get: async p => { const v = at(read(), p); return v === undefined ? null : v; },
+            set: async (p, v) => { guard(p); write(t => put(t, p, v)); },
+            update: async (p, o) => { guard(p); write(t => { for (const k in o) put(t, p + '/' + k, o[k]); }); },
+            watch: (p, cb) => {
+                let last;
+                const f = () => { const v = JSON.stringify(at(read(), p) || null); if (v !== last) { last = v; cb(JSON.parse(v)); } };
+                subs.add(f); f();
+                return () => subs.delete(f);
+            },
+            onDisconnectSet: async () => {},
+            cancelDisconnect: async () => {},
+            online: cb => { cb(true); return () => {}; },
+            setOnline: () => {},
+        };
+    }
+
+    const newCode = () => String(100000 + Math.floor(Math.random() * 900000));
+    const kidPath = (code, no) => BASE + code + '/kids/' + no;
+
+    /* せんせい：あたらしい クラス */
+    async function createRoom() {
+        const c = await connect();
+        c.setOnline(true);
+        try {
+            for (let i = 0; i < 8; i++) {
+                const code = newCode();
+                if (await withTimeout(c.get(BASE + code + '/owner'))) continue;
+                await withTimeout(c.set(BASE + code + '/owner', c.uid));
+                await withTimeout(c.set(BASE + code + '/cfg', { t: c.now() }));
+                return code;
+            }
+        } catch (e) { throw explain(e); }
+        throw new Error('コードを つくれませんでした。もう一度 おしてください');
+    }
+    /* コードの クラスが あるか・じぶんが つくったか（ない ときは null） */
+    async function roomInfo(code) {
+        const c = await connect();
+        c.setOnline(true);
+        try {
+            const o = await withTimeout(c.get(BASE + code + '/owner'));
+            return o ? { mine: o === c.uid } : null;
+        } catch (e) { throw explain(e); }
+    }
+    async function watchKids(code, cb, onErr) {
+        const c = await connect();
+        c.setOnline(true);
+        return c.watch(BASE + code + '/kids', v => cb(v || {}), e => onErr && onErr(explain(e)));
+    }
+    /* こども：番号を えらんで はいる */
+    async function join(code, no, st) {
+        const c = await connect();
+        c.setOnline(true);
+        let o;
+        try { o = await withTimeout(c.get(BASE + code + '/owner')); } catch (e) { throw explain(e); }
+        if (!o) { const e = new Error('その コードの クラスは ないよ'); e.gone = true; throw e; }
+        try {
+            await withTimeout(c.update(kidPath(code, no), { uid: c.uid, no, st, on: true, t: c.now() }));
+        } catch (e) {
+            if (isPerm(e)) { const x = new Error(no + 'ばんは ほかの 人が つかっているよ。ばんごうを たしかめてね'); x.taken = true; throw x; }
+            throw explain(e);
+        }
+        c.onDisconnectSet(kidPath(code, no) + '/on', false).catch(() => {});
+    }
+    async function send(code, no, st) {
+        const c = await connect();
+        try { await c.update(kidPath(code, no), { uid: c.uid, st, on: true, t: c.now() }); } catch (e) {
+            const x = explain(e); x.perm = isPerm(e); throw x;
+        }
+    }
+    async function leave(code, no) {
+        const c = await connect();
+        try {
+            await c.cancelDisconnect(kidPath(code, no) + '/on');
+            await withTimeout(c.set(kidPath(code, no), null));
+        } catch (e) { /* おわった クラスなど。きにしない */ }
+    }
+    async function onConn(cb) { const c = await connect(); return c.online(cb); }
+    async function idle() { if (conn) (await conn).setOnline(false); }
+    /* せんせい：かたづけ */
+    async function removeKid(code, no) { const c = await connect(); try { await withTimeout(c.set(kidPath(code, no), null)); } catch (e) { throw explain(e); } }
+    async function clearKids(code) { const c = await connect(); try { await withTimeout(c.set(BASE + code + '/kids', null)); } catch (e) { throw explain(e); } }
+    async function endRoom(code) { const c = await connect(); try { await withTimeout(c.set(BASE + code, null)); } catch (e) { throw explain(e); } }
+
+    root.MoyouNet = {
+        isCode: s => /^[0-9]{6}$/.test(String(s)),
+        createRoom, roomInfo, watchKids, join, send, leave, onConn, idle, removeKid, clearKids, endRoom,
+    };
+})(window);
 </script>
 
 <script>
@@ -472,7 +822,7 @@ dialog .btn{ min-width:7.5rem; font-size:1.1rem; }
         fresh.clear();
         $('#count').textContent = state.pieces.length;
     }
-    function changed() { render(); save(); }
+    function changed() { render(); save(); scheduleSend(); }
 
     function clearGhosts() { $('#ghosts').textContent = ''; }
     function ghost(p, ok, flash) {
@@ -769,6 +1119,7 @@ dialog .btn{ min-width:7.5rem; font-size:1.1rem; }
         $('#sizeBtn').textContent = 'ひろさ：' + L.SIZES[next].label;
         layout();
         save();
+        scheduleSend();
     }
     function setShow(on) {
         document.body.classList.toggle('show', on);
@@ -776,13 +1127,380 @@ dialog .btn{ min-width:7.5rem; font-size:1.1rem; }
         layout();
     }
 
+    /* ---------- たずねる（はい・やめる） ---------- */
+    function ask(msg, yes) {
+        return new Promise(res => {
+            const d = $('#askDlg');
+            $('#askMsg').textContent = msg;
+            $('#askYes').textContent = yes || 'はい';
+            const done = v => { d.close(); $('#askYes').onclick = $('#askNo').onclick = null; d.oncancel = null; res(v); };
+            $('#askYes').onclick = () => done(true);
+            $('#askNo').onclick = () => done(false);
+            d.oncancel = e => { e.preventDefault(); done(false); };
+            d.showModal();
+        });
+    }
+
+    /* ================================================================
+       みんなの がめん
+       ・こども：「つなぐ」→ コード → じぶんの ばんごう。うごかす たびに だいしを おくる
+       ・せんせい：「クラスを つくる」→ テレビに みんなの だいしが ならぶ。おすと 大きく
+       ================================================================ */
+    const N = window.MoyouNet;
+    const JKEY = 'moyou-zukuri:join', TKEY = 'moyou-zukuri:teach';
+    const net = { code: '', no: 0, joined: false, conn: true, teach: '', watching: false };
+    const NO_MAX = 40;
+
+    function loadNet() {
+        try {
+            const j = JSON.parse(localStorage.getItem(JKEY) || 'null');
+            if (j && N.isCode(j.code) && j.no >= 1 && j.no <= NO_MAX) { net.code = j.code; net.no = j.no; }
+            const t = localStorage.getItem(TKEY) || '';
+            if (N.isCode(t)) net.teach = t;
+        } catch (e) { /* なくても よい */ }
+    }
+    function saveNet() {
+        try {
+            if (net.joined) localStorage.setItem(JKEY, JSON.stringify({ code: net.code, no: net.no }));
+            else localStorage.removeItem(JKEY);
+            if (net.teach) localStorage.setItem(TKEY, net.teach); else localStorage.removeItem(TKEY);
+        } catch (e) { /* ほぞん できなくても つかえる */ }
+    }
+    function netLabel() {
+        const b = $('#netBtn');
+        b.classList.toggle('joined', net.joined);
+        b.classList.toggle('off', net.joined && !net.conn);
+        $('#netLabel').textContent = net.joined ? (net.no + 'ばん' + (net.conn ? '' : '（つながっていない）')) : 'つなぐ';
+    }
+    const roomUrl = code => location.origin + location.pathname + '?c=' + code;
+
+    /* こども：だいしを おくる（0.4びょうに 1回 まで） */
+    let lastSend = 0, sendTimer = 0;
+    function scheduleSend() {
+        if (!net.joined) return;
+        clearTimeout(sendTimer);
+        sendTimer = setTimeout(() => {
+            lastSend = Date.now();
+            N.send(net.code, net.no, L.encode(state.pieces, state.size)).catch(e => {
+                if (e.perm) { endJoin(); say('クラスが おわったよ', true); }
+            });
+        }, Math.max(0, 400 - (Date.now() - lastSend)));
+    }
+    let connWatched = false;
+    function watchConn() {
+        if (connWatched) return;
+        connWatched = true;
+        N.onConn(on => {
+            net.conn = on;
+            netLabel();
+            if (on && net.joined) scheduleSend();
+        }).catch(() => { connWatched = false; });
+    }
+    async function doJoin(code, no, quiet) {
+        if (!quiet) say('つないでいるよ…');
+        try {
+            await N.join(code, no, L.encode(state.pieces, state.size));
+        } catch (e) {
+            if (quiet && e.gone) { net.code = ''; net.no = 0; saveNet(); return false; }
+            if (!quiet || !e.gone) say(e.message, true);
+            throw e;
+        }
+        net.code = code; net.no = no; net.joined = true;
+        saveNet(); netLabel(); watchConn();
+        say(no + 'ばんで つながったよ。せんせいの テレビに うつるよ');
+        return true;
+    }
+    function endJoin() {
+        net.joined = false; net.code = ''; net.no = 0;
+        saveNet(); netLabel();
+        if (!net.watching) N.idle();
+    }
+    async function leaveJoin() {
+        const { code, no } = net;
+        endJoin();
+        await N.leave(code, no);
+        say('つなぐのを やめたよ');
+    }
+
+    /* つなぐ ダイアログ */
+    function openNetDlg() {
+        const body = $('#netBody');
+        body.textContent = '';
+        const add = (tag, cls, text, fn) => {
+            const el = document.createElement(tag);
+            if (cls) el.className = cls;
+            el.textContent = text;
+            if (fn) el.onclick = () => { $('#netDlg').close(); fn(); };
+            return el;
+        };
+        const col = add('div', 'col', '');
+        if (net.joined) {
+            body.appendChild(add('p', '', net.no + 'ばんで つながっているよ'));
+            body.appendChild(add('div', 'note', 'コード ' + net.code));
+            col.appendChild(add('button', 'btn', 'ばんごうを かえる', async () => { const c = net.code; await leaveJoin(); openNoDlg(c); }));
+            col.appendChild(add('button', 'btn', 'つなぐのを やめる', leaveJoin));
+        } else {
+            body.appendChild(add('p', '', 'みんなと つなぐ'));
+            col.appendChild(add('button', 'btn go', 'コードを いれる（こども）', openCodeDlg));
+            col.appendChild(add('h3', '', 'せんせい'));
+            if (net.teach) col.appendChild(add('button', 'btn', 'みんなの がめんを 見る（コード ' + net.teach + '）', () => openTeach(net.teach)));
+            col.appendChild(add('button', 'btn', net.teach ? 'あたらしい クラスを つくる' : 'クラスを つくる', newRoom));
+        }
+        body.appendChild(col);
+        const row = add('div', 'row', '');
+        row.appendChild(add('button', 'btn', 'とじる', () => {}));
+        body.appendChild(row);
+        $('#netDlg').showModal();
+    }
+
+    /* コードを いれる */
+    let codeIn = '';
+    function drawCode() {
+        const box = $('#codeBox');
+        box.textContent = '';
+        for (let i = 0; i < 6; i++) {
+            const sp = document.createElement('span');
+            sp.textContent = codeIn[i] || '';
+            if (i === codeIn.length) sp.className = 'now';
+            box.appendChild(sp);
+        }
+        $('#codeYes').disabled = codeIn.length !== 6;
+    }
+    function codeKey(k) {
+        if (k === 'del') codeIn = codeIn.slice(0, -1);
+        else if (k === 'clr') codeIn = '';
+        else if (codeIn.length < 6) codeIn += k;
+        $('#codeMsg').textContent = '';
+        drawCode();
+    }
+    (function buildKeys() {
+        const keys = $('#codeKeys');
+        for (const k of ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clr', '0', 'del']) {
+            const b = document.createElement('button');
+            b.className = 'btn' + (k.length > 1 ? ' small' : '');
+            b.textContent = k === 'del' ? '1つ けす' : k === 'clr' ? 'ぜんぶ けす' : k;
+            b.onclick = () => codeKey(k);
+            keys.appendChild(b);
+        }
+        const nos = $('#noKeys');
+        for (let n = 1; n <= NO_MAX; n++) {
+            const b = document.createElement('button');
+            b.className = 'btn';
+            b.textContent = n;
+            b.onclick = () => pickNo(n);
+            nos.appendChild(b);
+        }
+    })();
+    function openCodeDlg() {
+        codeIn = '';
+        $('#codeMsg').textContent = '';
+        drawCode();
+        $('#codeDlg').showModal();
+    }
+    $('#codeNo').onclick = () => $('#codeDlg').close();
+    $('#codeYes').onclick = async () => {
+        const code = codeIn;
+        $('#codeMsg').textContent = 'しらべているよ…';
+        $('#codeYes').disabled = true;
+        try {
+            const info = await N.roomInfo(code);
+            if (!info) { $('#codeMsg').textContent = 'その コードの クラスは ないよ。たしかめてね'; return; }
+            $('#codeDlg').close();
+            if (info.mine) openTeach(code);
+            else openNoDlg(code);
+        } catch (e) {
+            $('#codeMsg').textContent = e.message;
+        } finally {
+            $('#codeYes').disabled = codeIn.length !== 6;
+        }
+    };
+
+    /* ばんごうを えらぶ */
+    let noCode = '';
+    function openNoDlg(code) {
+        noCode = code;
+        $('#noMsg').textContent = '';
+        $('#noDlg').showModal();
+    }
+    $('#noNo').onclick = () => $('#noDlg').close();
+    async function pickNo(n) {
+        $('#noMsg').textContent = 'つないでいるよ…';
+        try {
+            await doJoin(noCode, n);
+            $('#noDlg').close();
+        } catch (e) {
+            $('#noMsg').textContent = e.message;
+        }
+    }
+
+    /* ---------- せんせい ---------- */
+    const teach = { code: '', kids: [], off: null, zoom: 0, tiles: new Map(), fitKey: '' };
+    async function newRoom() {
+        if (net.teach && !(await ask('あたらしい クラスを つくりますか？（まえの コード ' + net.teach + ' は つかえなくなります）', 'つくる'))) return;
+        say('クラスを つくっているよ…');
+        try {
+            const old = net.teach;
+            const code = await N.createRoom();
+            if (old) N.endRoom(old).catch(() => {});
+            net.teach = code;
+            saveNet();
+            openTeach(code);
+        } catch (e) { say(e.message, true); }
+    }
+    function tMsg(m) { $('#tMsg').textContent = m || ''; $('#tMsg').hidden = !m; }
+    async function openTeach(code) {
+        net.teach = code; saveNet();
+        teach.code = code; teach.kids = []; teach.zoom = 0; teach.fitKey = '';
+        teach.tiles.forEach(t => t.el.remove());
+        teach.tiles.clear();
+        $('#tCode').textContent = code;
+        $('#tBig').textContent = code;
+        $('#tUrl').textContent = roomUrl(code);
+        $('#tZoom').hidden = true;
+        tMsg('');
+        document.body.classList.add('teaching');
+        $('#teach').hidden = false;
+        net.watching = true;
+        renderTeach();
+        try {
+            if (teach.off) teach.off();
+            teach.off = await N.watchKids(code, v => { teach.kids = kidList(v); renderTeach(); }, e => tMsg(e.message));
+        } catch (e) { tMsg(e.message); }
+    }
+    function closeTeach() {
+        if (teach.off) teach.off();
+        teach.off = null;
+        net.watching = false;
+        if (!net.joined) N.idle();
+        document.body.classList.remove('teaching');
+        $('#teach').hidden = true;
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        layout();
+    }
+    function kidList(v) {
+        const out = [];
+        for (const k in v) {
+            const d = v[k], no = +k, b = d && L.decode(d.st);
+            if (no >= 1 && no <= NO_MAX && b) out.push({ no, on: d.on !== false, st: d.st, b });
+        }
+        return out.sort((a, b) => a.no - b.no);
+    }
+    function drawBoard(svg, b) {
+        const v = L.contentBox(b, 8);
+        svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`);
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        svg.textContent = '';
+        const bg = document.createElementNS(NS, 'rect');
+        bg.setAttribute('width', b.cols); bg.setAttribute('height', b.rows); bg.setAttribute('fill', 'var(--paper)');
+        bg.setAttribute('stroke', 'var(--line)'); bg.setAttribute('stroke-width', '.08');
+        svg.appendChild(bg);
+        for (const p of b.pieces) svg.appendChild(polyEl(p, 'pc'));
+    }
+    function renderTeach() {
+        if ($('#teach').hidden) return;
+        const kids = teach.kids;
+        $('#tCount').textContent = kids.length + 'にん';
+        $('#tEmpty').hidden = kids.length > 0;
+        // タイル：なくなった 子を けし、ふえた 子を つくり、かわった 子だけ かきなおす
+        const seen = new Set(kids.map(k => k.no));
+        teach.tiles.forEach((t, no) => { if (!seen.has(no)) { t.el.remove(); teach.tiles.delete(no); } });
+        const grid = $('#tGrid');
+        kids.forEach(k => {
+            let t = teach.tiles.get(k.no);
+            if (!t) {
+                const el = document.createElement('button');
+                el.className = 'tile';
+                el.innerHTML = `<div class="tname"><span>${k.no}ばん</span><small></small></div>`;
+                el.appendChild(document.createElementNS(NS, 'svg'));
+                el.onclick = () => openZoom(k.no);
+                t = { el, st: null, on: null };
+                teach.tiles.set(k.no, t);
+            }
+            grid.appendChild(t.el);   // ばんごう じゅんに ならべなおす
+            if (t.st !== k.st) { drawBoard(t.el.querySelector('svg'), k.b); t.st = k.st; }
+            if (t.on !== k.on) {
+                t.el.classList.toggle('off', !k.on);
+                t.el.querySelector('small').textContent = k.on ? '' : 'つながっていない';
+                t.on = k.on;
+            }
+        });
+        fitTiles();
+        if (teach.zoom) drawZoom();
+    }
+    function fitTiles() {
+        const area = $('#tArea');
+        const n = teach.kids.length;
+        const W = area.clientWidth - 20, H = area.clientHeight - 20;
+        const key = n + ':' + W + ':' + H;
+        if (key === teach.fitKey) return;
+        teach.fitKey = key;
+        if (!n) return;
+        const f = L.gridFit(n, W, H, 24 / 14, 30, 10);
+        $('#tGrid').style.gridTemplateColumns = `repeat(${f.cols}, ${f.w}px)`;
+        $('#tGrid').style.gridAutoRows = f.h + 'px';
+    }
+    function openZoom(no) {
+        teach.zoom = no;
+        $('#tZoom').hidden = false;
+        drawZoom();
+    }
+    function drawZoom() {
+        const kids = teach.kids;
+        const k = kids.find(x => x.no === teach.zoom);
+        if (!k) { $('#zName').textContent = teach.zoom + 'ばん（いなくなった）'; $('#zBoard').textContent = ''; return; }
+        $('#zName').textContent = k.no + 'ばん' + (k.on ? '' : '（つながっていない）');
+        const svg = $('#zBoard');
+        if (svg.dataset.st !== k.st || svg.dataset.no !== String(k.no)) {
+            drawBoard(svg, k.b);
+            svg.dataset.st = k.st; svg.dataset.no = k.no;
+        }
+        const i = kids.indexOf(k);
+        $('#zPrev').disabled = i <= 0;
+        $('#zNext').disabled = i < 0 || i >= kids.length - 1;
+    }
+    function stepZoom(d) {
+        const kids = teach.kids, i = kids.findIndex(x => x.no === teach.zoom);
+        const k = kids[i + d];
+        if (k) openZoom(k.no);
+    }
+    function closeZoom() { teach.zoom = 0; $('#tZoom').hidden = true; $('#zBoard').dataset.st = ''; }
+
+    $('#tBack').onclick = closeTeach;
+    $('#tCopy').onclick = () => {
+        const url = roomUrl(teach.code);
+        (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject())
+            .then(() => tMsg('URLを コピーしました：' + url), () => tMsg('URL：' + url));
+    };
+    $('#tFull').onclick = () => {
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        else document.documentElement.requestFullscreen().catch(() => {});
+    };
+    $('#tClean').onclick = async () => {
+        if (!(await ask('こどもの だいしを ぜんぶ けしますか？（こどもの たんまつの もようは のこります）', 'けす'))) return;
+        N.clearKids(teach.code).then(() => tMsg(''), e => tMsg(e.message));
+    };
+    $('#tEnd').onclick = async () => {
+        if (!(await ask('クラスを おわりますか？（コード ' + teach.code + ' は つかえなくなります）', 'おわる'))) return;
+        try { await N.endRoom(teach.code); } catch (e) { tMsg(e.message); return; }
+        net.teach = ''; saveNet();
+        closeTeach();
+        say('クラスを おわったよ');
+    };
+    $('#zPrev').onclick = () => stepZoom(-1);
+    $('#zNext').onclick = () => stepZoom(1);
+    $('#zBack').onclick = closeZoom;
+    $('#zRemove').onclick = async () => {
+        const no = teach.zoom;
+        if (!(await ask(no + 'ばんを はずしますか？（ちがう ばんごうを えらんだ ときなど）', 'はずす'))) return;
+        N.removeKid(teach.code, no).then(closeZoom, e => tMsg(e.message));
+    };
+    $('#netBtn').onclick = openNetDlg;
+
     $('#modePut').onclick = () => setMode('put');
     $('#modeErase').onclick = () => setMode('erase');
     $('#undo').onclick = undo;
-    $('#clear').onclick = () => { if (state.pieces.length) $('#clearDlg').showModal(); };
-    $('#clearNo').onclick = () => $('#clearDlg').close();
-    $('#clearYes').onclick = () => {
-        $('#clearDlg').close();
+    $('#clear').onclick = async () => {
+        if (!state.pieces.length || !(await ask('いろがみを ぜんぶ けしますか？', 'けす'))) return;
         pushHistory(snap());
         state.pieces = [];
         changed();
@@ -800,8 +1518,16 @@ dialog .btn{ min-width:7.5rem; font-size:1.1rem; }
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
-    window.addEventListener('resize', layout);
+    window.addEventListener('resize', () => { layout(); fitTiles(); if (teach.zoom) drawZoom(); });
     window.addEventListener('keydown', e => {
+        if (document.body.classList.contains('teaching')) {
+            if (document.querySelector('dialog[open]')) return;
+            if (teach.zoom && e.key === 'ArrowLeft') stepZoom(-1);
+            else if (teach.zoom && e.key === 'ArrowRight') stepZoom(1);
+            else if (e.key === 'Escape' && teach.zoom) closeZoom();
+            return;
+        }
+        if (document.querySelector('dialog[open]')) return;
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
         else if (e.key === 'r' || e.key === 'R') rotatePalette();
         else if (e.key === 'Escape' && document.body.classList.contains('show')) setShow(false);
@@ -816,6 +1542,21 @@ dialog .btn{ min-width:7.5rem; font-size:1.1rem; }
     layout();
     render();
     $('#hint').textContent = baseHint();
+
+    /* URL に ?c=コード が あれば：せんせいなら みんなの がめん、こどもなら ばんごうを えらぶ */
+    loadNet();
+    netLabel();
+    const qc = new URLSearchParams(location.search).get('c');
+    if (qc && N.isCode(qc)) {
+        N.roomInfo(qc).then(info => {
+            if (!info) say('その コードの クラスは ないよ', true);
+            else if (info.mine) openTeach(qc);
+            else if (net.code === qc && net.no) doJoin(qc, net.no, true).catch(() => openNoDlg(qc));
+            else openNoDlg(qc);
+        }).catch(e => say(e.message, true));
+    } else if (net.code && net.no) {
+        doJoin(net.code, net.no, true).catch(() => {});
+    }
 })();
 </script>
 </body>

@@ -83,6 +83,28 @@ t('はしでも はみださない ように まわす', ru && L.inBounds(ru, C,
 t('ひろさ 3しゅるい（正方形が はいる 偶数の ます）', L.SIZES.length === 3 && L.SIZES.every(s => s.cols % 2 === 0 && s.rows % 2 === 0));
 t('せまく できるか', L.allInBounds([P(0, 0, 10, 4)], 16, 10) && !L.allInBounds([P(0, 0, 20, 4)], 16, 10));
 
+/* みんなの がめん */
+const pcs = [P(0, 0, 0, 0, 1), P(3, 1, 31, 18, 2), P(5, 3, 10, 12, 3)];
+const enc = L.encode(pcs, 2);
+const dec = L.decode(enc);
+t('おくる 文字は 1まい 4文字', enc.length === 1 + 4 * 3, enc);
+t('おくった とおりに もどる', dec && dec.size === 2 && JSON.stringify(dec.pieces.map(p => [p.t, p.r, p.x, p.y])) === JSON.stringify(pcs.map(p => [p.t, p.r, p.x, p.y])));
+t('なにも ない だいしも おくれる', L.decode(L.encode([], 1)).pieces.length === 0);
+t('こわれた 文字は よまない', L.decode('9') === null && L.decode('1abc') === null && L.decode('') === null && L.decode(null) === null);
+t('いちばん ひろい だいしでも 2まん文字 より みじかい', L.encode(Array.from({ length: 320 }, (_, i) => P(4, 0, i % 32, i % 20)), 2).length < 20000);
+const g30 = L.gridFit(30, 1900, 980, 24 / 14, 30, 10);
+t('30人は テレビ（1920×1080）に 6れつ×5だん', g30.cols === 6 && g30.rows === 5, JSON.stringify(g30));
+t('30人の がめんが はみださない', g30.cols * g30.w + 5 * 10 <= 1900 && g30.rows * g30.h + 4 * 10 <= 980);
+t('1人なら 大きく 1まい', L.gridFit(1, 1900, 980, 24 / 14, 30, 10).cols === 1);
+const g12 = L.gridFit(12, 1900, 980, 24 / 14, 30, 10);
+t('12人は 4れつ×3だん', g12.cols === 4 && g12.rows === 3, JSON.stringify(g12));
+
+const cb = L.contentBox({ cols: 24, rows: 14, pieces: [P(2, 0, 10, 6), P(2, 0, 12, 6)] }, 8);
+t('一覧では 色紙の ある ところを 大きく 見せる', cb.x >= 0 && cb.x <= 9 && cb.x + cb.w >= 15 && cb.w === 8 && cb.y + cb.h <= 14, JSON.stringify(cb));
+t('なにも ない ときは だいし ぜんぶ', JSON.stringify(L.contentBox({ cols: 24, rows: 14, pieces: [] }, 8)) === JSON.stringify({ x: 0, y: 0, w: 24, h: 14 }));
+const cb2 = L.contentBox({ cols: 24, rows: 14, pieces: [P(0, 0, 0, 0), P(0, 0, 22, 12)] }, 8);
+t('ひろく おいた ときは だいしから はみださない', cb2.x === 0 && cb2.y === 0 && cb2.w === 24 && cb2.h === 14, JSON.stringify(cb2));
+
 const bad = rows.filter(r => !r.ok);
 for (const r of rows) console.log((r.ok ? '○ ' : '× ') + r.name + (r.ok || !r.detail ? '' : '  … ' + r.detail));
 console.log(`\n${rows.length - bad.length} / ${rows.length} OK`);
