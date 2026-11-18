@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>フリーボード</title>
+<meta name="description" content="先生が Chromebook で 自由に 線・図形・文字を かく 板書ボード（マス目・罫線などの 背景つき）">
+<link rel="icon" href="assets/icon/app-icon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="assets/icon/app-icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="assets/icon/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#ffffff">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One:wght@600&family=Zen+Maru+Gothic:wght@700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="board">
+  <canvas id="c-bg" aria-hidden="true"></canvas>
+  <canvas id="c-ink" aria-hidden="true"></canvas>
+  <canvas id="c-top" aria-label="ボード"></canvas>
+  <textarea id="texted" spellcheck="false" autocomplete="off" hidden></textarea>
+</div>
+
+<!-- ===== せってい（左か 右に たてながで 出す） ===== -->
+<aside id="panel" class="panel" aria-label="せってい">
+  <div class="p-head">
+    <button class="btn big" id="b-undo" title="もとに もどす（Ctrl+Z）">もどす</button>
+    <button class="btn big" id="b-redo" title="やり直す（Ctrl+Y）">やり直す</button>
+    <button class="btn close" id="b-close" title="せっていを しまう（S）">しまう</button>
+  </div>
+
+  <div class="p-body">
+    <section class="sec">
+      <h2>どうぐ</h2>
+      <div class="tools" id="tools"></div>
+    </section>
+
+    <section class="sec" id="sec-color">
+      <h2>色</h2>
+      <div class="swatches" id="swatches"></div>
+      <label class="custom-color">ほかの 色 <input type="color" id="in-color"></label>
+    </section>
+
+    <section class="sec ctx" id="sec-width">
+      <h2><span id="width-title">太さ</span> <output id="out-width"></output></h2>
+      <div class="seg" id="width-presets"></div>
+      <input type="range" id="in-width" min="1" max="60" step="1">
+      <div class="width-sample"><span id="width-dot"></span></div>
+    </section>
+
+    <section class="sec ctx" id="sec-shape">
+      <h2>図形</h2>
+      <div class="lbl">中を ぬる</div>
+      <div class="seg" id="seg-fill">
+        <button data-v="none">ぬらない</button>
+        <button data-v="light">うすく</button>
+        <button data-v="solid">ぬる</button>
+      </div>
+      <div class="lbl">線の 形</div>
+      <div class="seg" id="seg-dash">
+        <button data-v="0">ふつうの 線</button>
+        <button data-v="1">点線</button>
+      </div>
+      <p class="hint">Shift を おしながら かくと、まっすぐ（15°ごと）・正方形・円 に なります。</p>
+    </section>
+
+    <section class="sec ctx" id="sec-text">
+      <h2>文字 <output id="out-tsize"></output></h2>
+      <div class="seg" id="tsize-presets"></div>
+      <input type="range" id="in-tsize" min="12" max="240" step="2">
+      <div class="lbl">書体</div>
+      <div class="seg seg2" id="seg-font"></div>
+      <p class="hint">ボードを おした ところに 文字を 書けます。おわったら ボードの ほかの ところを おすか、Esc。かいた 文字を おすと 書きなおせます。</p>
+    </section>
+
+    <section class="sec ctx" id="sec-select">
+      <h2>えらんだ もの <output id="out-selcount"></output></h2>
+      <div class="row">
+        <button class="btn" id="b-sel-del">消す</button>
+        <button class="btn" id="b-sel-dup">ふやす（コピー）</button>
+      </div>
+      <p class="hint">ドラッグで うごかせます。なにも ない ところから ドラッグすると、かこんだ ものを まとめて えらべます。えらんで いる ときに 色を おすと、その 色に かわります。</p>
+    </section>
+
+    <section class="sec">
+      <h2>背景</h2>
+      <div class="seg seg5" id="seg-bgkind">
+        <button data-v="plain">無地</button>
+        <button data-v="grid">マス目</button>
+        <button data-v="hline">横の線</button>
+        <button data-v="vline">縦の線</button>
+        <button data-v="dot">点</button>
+      </div>
+      <div class="lbl">地の 色</div>
+      <div class="seg seg4 bgcolors" id="seg-bgcolor">
+        <button data-v="white"><i style="background:#ffffff"></i>白</button>
+        <button data-v="cream"><i style="background:#fbf6e6"></i>クリーム</button>
+        <button data-v="black"><i style="background:#111214"></i>黒</button>
+        <button data-v="green"><i style="background:#1f4d3a"></i>黒板</button>
+      </div>
+      <div id="bg-more">
+        <div class="lbl"><span id="bgsize-title">マスの 大きさ</span> <output id="out-bgsize"></output></div>
+        <div class="row stepper">
+          <button class="btn" id="b-bgsize-minus" aria-label="小さく">−</button>
+          <input type="range" id="in-bgsize" min="16" max="160" step="2">
+          <button class="btn" id="b-bgsize-plus" aria-label="大きく">＋</button>
+        </div>
+        <label class="check" id="lab-sub"><input type="checkbox" id="in-sub"> <span id="sub-text">マスの 中に 十字の 点線</span></label>
+        <label class="check" id="lab-bold5"><input type="checkbox" id="in-bold5"> 5マスごとに 太い 線</label>
+        <div class="lbl">線の 色</div>
+        <div class="seg seg4 linecolors" id="seg-linecolor">
+          <button data-v="blue">水色</button>
+          <button data-v="gray">灰色</button>
+          <button data-v="green">緑</button>
+          <button data-v="orange">オレンジ</button>
+        </div>
+        <div class="lbl">線の こさ</div>
+        <div class="seg" id="seg-strength">
+          <button data-v="0">うすい</button>
+          <button data-v="1">ふつう</button>
+          <button data-v="2">こい</button>
+        </div>
+        <label class="check" id="lab-snap"><input type="checkbox" id="in-snap"> 直線・図形を マス目（点）に ぴったり あわせる</label>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2>ページ</h2>
+      <div class="row pager">
+        <button class="btn" id="b-prev" title="前の ページ（PageUp）">◀ 前</button>
+        <output id="out-page">1 / 1</output>
+        <button class="btn" id="b-next" title="次の ページ（PageDown）">次 ▶</button>
+      </div>
+      <div class="row">
+        <button class="btn" id="b-addpage">＋ 新しいページ</button>
+        <button class="btn" id="b-delpage">このページを消す</button>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2>ボード</h2>
+      <div class="row">
+        <button class="btn" id="b-clear">ぜんぶ 消す</button>
+        <button class="btn" id="b-png">画像で 保存</button>
+      </div>
+      <div class="row">
+        <button class="btn" id="b-side">せっていを 右に</button>
+        <button class="btn" id="b-full">全画面</button>
+      </div>
+      <details class="keys">
+        <summary>キーボードの ショートカット</summary>
+        <table>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>もどす</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>やりなおす</td></tr>
+          <tr><td><kbd>P</kbd> <kbd>M</kbd></td><td>ペン・蛍光ペン</td></tr>
+          <tr><td><kbd>L</kbd> <kbd>A</kbd></td><td>直線・矢印</td></tr>
+          <tr><td><kbd>C</kbd> <kbd>O</kbd> <kbd>R</kbd></td><td>円・だ円・四角</td></tr>
+          <tr><td><kbd>T</kbd> <kbd>B</kbd></td><td>文字・ぬりつぶし</td></tr>
+          <tr><td><kbd>E</kbd> <kbd>X</kbd></td><td>消しゴム・線ごと消す</td></tr>
+          <tr><td><kbd>V</kbd></td><td>えらぶ・うごかす</td></tr>
+          <tr><td><kbd>Backspace</kbd></td><td>えらんだ ものを 消す</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>えらんだ ものを ふやす</td></tr>
+          <tr><td><kbd>PageUp</kbd> <kbd>PageDown</kbd></td><td>前・次の ページ</td></tr>
+          <tr><td><kbd>S</kbd></td><td>せっていを 出す・しまう</td></tr>
+          <tr><td><kbd>F</kbd></td><td>全画面</td></tr>
+        </table>
+      </details>
+    </section>
+  </div>
+</aside>
+
+<!-- せっていを しまって いる ときの 小さい ボタン -->
+<div id="mini" class="mini" hidden>
+  <button class="btn" id="m-open" title="せっていを 出す（S）">せってい</button>
+  <button class="btn" data-mtool="pen">ペン</button>
+  <button class="btn" data-mtool="erase">消しゴム</button>
+  <button class="btn" id="m-undo">もどす</button>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<dialog id="dlg">
+  <p id="dlg-msg"></p>
+  <div class="row">
+    <button class="btn" id="dlg-no">やめる</button>
+    <button class="btn danger" id="dlg-yes">消す</button>
+  </div>
+</dialog>
+
+<script src="logic.js"></script>
+<script src="app.js"></script>
+<script>
+if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+  window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+}
+</script>
+</body>
+</html>
