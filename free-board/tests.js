@@ -15,29 +15,66 @@ t('小さすぎる マスは 16px に', B.sanitizeBg({ size: 2 }).size === 16);
 t('黒と 黒板は くらい 地', B.isDarkBg({ color: 'black' }) && B.isDarkBg({ color: 'green' }) && !B.isDarkBg({ color: 'cream' }));
 t('くらい 地では 線の 色を あかるく', B.bgLineColor({ color: 'black', lineColor: 'blue' }) === B.LINE_COLORS.blue.dark);
 
-const plain = B.bgShapes({ kind: 'plain' }, 400, 300);
+const R = (w, h) => ({ x: 0, y: 0, w: w, h: h });
+const plain = B.bgShapes({ kind: 'plain' }, R(400, 300), 400, 1);
 t('無地は 線なし', plain.lines.length === 0 && plain.dots.length === 0);
 
-const grid = B.bgShapes({ kind: 'grid', size: 40 }, 400, 300);
+const grid = B.bgShapes({ kind: 'grid', size: 40 }, R(400, 300), 400, 1);
 const gv = grid.lines.filter(l => l.x1 === l.x2), gh = grid.lines.filter(l => l.y1 === l.y2);
-t('マス目：たて 11本（0〜400）', gv.length === 11, gv.length);
+t('マス目：たて 11本（0〜400）', gv.length === 11 && gv[0].x1 === 0 && gv[10].x1 === 400, gv.map(l => l.x1).join());
 t('マス目：よこ 8本（0〜280）', gh.length === 8, gh.length);
 t('マス目：点線なし', grid.lines.every(l => !l.dash));
 
-const grid2 = B.bgShapes({ kind: 'grid', size: 40, sub: true, bold5: true }, 400, 300);
+const grid2 = B.bgShapes({ kind: 'grid', size: 40, sub: true, bold5: true }, R(400, 300), 400, 1);
 t('十字の 点線は マスの まんなか', grid2.lines.some(l => l.dash && l.x1 === 20 && l.x2 === 20) && grid2.lines.some(l => l.dash && l.y1 === 20));
 t('5マスごとに 太い 線', grid2.lines.filter(l => l.x1 === l.x2 && !l.dash && l.w > 2).map(l => l.x1).join() === '0,200,400');
+const gNeg = B.bgShapes({ kind: 'grid', size: 40, bold5: true }, { x: -230, y: 0, w: 100, h: 50 }, 400, 1);
+t('マイナスの ところ（左に 移動した とき）も 5マスごと', gNeg.lines.filter(l => l.x1 === l.x2 && l.w > 2).map(l => l.x1).join() === '-200', gNeg.lines.filter(l => l.x1 === l.x2).map(l => l.x1 + ':' + l.w).join());
+t('見えて いる ところだけ 線を ひく', gNeg.lines.filter(l => l.x1 === l.x2).map(l => l.x1).join() === '-200,-160', gNeg.lines.filter(l => l.x1 === l.x2).map(l => l.x1).join());
+t('線の はしは 見えて いる ところ', gNeg.lines[0].y1 === 0 && gNeg.lines[0].y2 === 50);
+const gZoom = B.bgShapes({ kind: 'grid', size: 40, sub: true }, R(400, 300), 400, 0.2);
+t('ちぢめて マスが 8px（12px より 小さい）→ 点線は はぶく', gZoom.lines.every(l => !l.dash) && gZoom.lines.length > 0);
+t('ちぢめて マスが 2px → 線を ひかない', B.bgShapes({ kind: 'grid', size: 40 }, R(400, 300), 400, 0.05).lines.length === 0);
 
-const hl = B.bgShapes({ kind: 'hline', size: 50 }, 300, 260);
-t('横の線：50px ごと（いちばん上は 線なし）', hl.lines.map(l => l.y1).join() === '50,100,150,200,250', hl.lines.map(l => l.y1).join());
-const hl2 = B.bgShapes({ kind: 'hline', size: 50, sub: true }, 300, 120);
+const hl = B.bgShapes({ kind: 'hline', size: 50 }, R(300, 260), 300, 1);
+t('横の線：50px ごと', hl.lines.map(l => l.y1).join() === '0,50,100,150,200,250', hl.lines.map(l => l.y1).join());
+const hl2 = B.bgShapes({ kind: 'hline', size: 50, sub: true }, R(300, 120), 300, 1);
 t('横の線：あいだに 点線', hl2.lines.filter(l => l.dash).map(l => l.y1).join() === '25,75', J(hl2.lines));
 
-const vl = B.bgShapes({ kind: 'vline', size: 100 }, 350, 200);
-t('縦の線：右の はしから ならぶ', vl.lines.map(l => l.x1).join() === '250,150,50', vl.lines.map(l => l.x1).join());
+const vl = B.bgShapes({ kind: 'vline', size: 100 }, R(350, 200), 350, 1);
+t('縦の線：右の はし（350）から 100px ごと', vl.lines.map(l => l.x1).sort((a, b) => a - b).join() === '50,150,250,350', vl.lines.map(l => l.x1).join());
 
-const dots = B.bgShapes({ kind: 'dot', size: 50 }, 210, 110);
-t('点：50px ごと', dots.dots.length === 4 * 2 && dots.dots[0].x === 50 && dots.dots[0].y === 50, dots.dots.length);
+const dots = B.bgShapes({ kind: 'dot', size: 50 }, R(210, 110), 210, 1);
+t('点：50px ごと（0,50,100 … 200 × 0,50,100）', dots.dots.length === 5 * 3 && dots.dots[0].x === 0 && dots.dots[0].y === 0, dots.dots.length);
+
+/* ---------- 拡大・移動 ---------- */
+const v1 = { s: 2, x: 100, y: 50 };
+t('画面 → ボード', J(B.toWorld(v1, 300, 250)) === J([100, 100]));
+t('ボード → 画面', J(B.toScreen(v1, 100, 100)) === J([300, 250]));
+const vz = B.zoomAt({ s: 1, x: 0, y: 0 }, 2, 200, 100);
+t('(200,100) を 中心に 2ばい：その 点は うごかない', J(B.toScreen(vz, 200, 100)) === J([200, 100]) && vz.s === 2, J(vz));
+t('拡大は 8ばい まで', B.zoomAt({ s: 1, x: 0, y: 0 }, 99, 0, 0).s === B.ZOOM_MAX && B.zoomAt({ s: 1, x: 0, y: 0 }, 0.01, 0, 0).s === B.ZOOM_MIN);
+const pv = B.pinchView({ s: 1, x: 0, y: 0 }, [100, 100], [200, 100], [50, 100], [250, 100]);
+t('2本ゆびを 2ばいに ひろげる → 2ばい・まんなかは そのまま', pv.s === 2 && J(B.toScreen(pv, 150, 100)) === J([150, 100]), J(pv));
+const pm = B.pinchView({ s: 1, x: 0, y: 0 }, [100, 100], [200, 100], [130, 140], [230, 140]);
+t('2本ゆびで うごかす → 移動だけ', pm.s === 1 && pm.x === 30 && pm.y === 40, J(pm));
+t('見えて いる ところ', J(B.visibleRect({ s: 2, x: -100, y: 0 }, 400, 300)) === J({ x: 50, y: 0, w: 200, h: 150 }));
+t('ビューを たしかめる', J(B.sanitizeView({ s: 'x', x: NaN })) === J({ s: 1, x: 0, y: 0 }) && B.sanitizeView({ s: 100 }).s === B.ZOOM_MAX);
+
+/* ---------- 画像 ---------- */
+const fit = B.fitInto(400, 200, { x: 0, y: 0, w: 1000, h: 1000 }, 0.8);
+t('画像を おさめる（よこが 長い）', fit.w === 800 && fit.h === 400 && fit.x === 100 && fit.y === 300, J(fit));
+const pic = { t: 'image', id: 'i', x: 0, y: 0, w: 200, h: 100, ref: 'abc' };
+const rz = B.resizeBox(pic, 2, 300, 120);
+t('右下の 角を ひっぱる：左上は そのまま・わりあいも そのまま', rz.x === 0 && rz.y === 0 && rz.w === 300 && rz.h === 150, J(rz));
+const rz0 = B.resizeBox(pic, 0, 100, 50);
+t('左上の 角を ひっぱる：右下は そのまま', rz0.x + rz0.w === 200 && rz0.y + rz0.h === 100 && rz0.w === 100 && rz0.h === 50, J(rz0));
+t('小さく しすぎない', B.resizeBox(pic, 2, 0, 0, 8).w === 8);
+t('画像は わくの 中で あたる', B.hitTest(pic, 150, 50, 0) && !B.hitTest(pic, 250, 50, 0));
+t('画像を うごかす', B.translate(pic, 5, 6).x === 5 && pic.x === 0);
+t('画像の 色は かえない', !B.hasColor(pic));
+t('画像の データを たしかめる', !!B.sanitizeObj(pic) && B.sanitizeObj(Object.assign({}, pic, { ref: '../x' })) === null && B.sanitizeObj(Object.assign({}, pic, { w: 0 })) === null);
+t('つかって いる 画像の なまえ', J(Array.from(B.imageRefs([{ objs: [pic, { t: 'pen' }] }, { objs: [Object.assign({}, pic, { ref: 'b' }), pic] }]))) === J(['abc', 'b']));
 
 /* ---------- ぴったり あわせる・まっすぐ ---------- */
 t('マス目に あわせる', J(B.snapPoint(58, 81, 40)) === J([40, 80]));
@@ -123,7 +160,7 @@ t('はしを こえない', dEdge.x === 0 && dEdge.y === 0 && dEdge.w === 10 && 
 /* ---------- 保存した データ ---------- */
 t('へんな ものは すてる', B.sanitizeObj({ t: 'virus' }) === null && B.sanitizeObj(null) === null && B.sanitizeObj({ t: 'pen', pts: [], c: '#000000' }) === null);
 const sp = B.sanitizeObj({ t: 'pen', pts: [[1, 2], ['x', 3], [4, 5]], c: '#123456', w: 9999, hl: 1 });
-t('線：おかしな 点を のぞく・太さを おさえる', sp && J(sp.pts) === J([[1, 2], [4, 5]]) && sp.w === 200 && sp.hl === true, J(sp));
+t('線：おかしな 点を のぞく・太さを おさえる', sp && J(sp.pts) === J([[1, 2], [4, 5]]) && sp.w === 800 && sp.hl === true, J(sp));
 t('色が おかしい 線は すてる', B.sanitizeObj({ t: 'pen', pts: [[1, 2]], c: 'javascript:alert(1)' }) === null);
 const sr = B.sanitizeObj({ t: 'rect', x1: 0, y1: 0, x2: 1, y2: 1, c: '#000000', fill: 'bad' });
 t('四角：ぬりかたが おかしい → ぬらない', sr && sr.fill === 'none');
@@ -133,7 +170,7 @@ const st = B.sanitizeObj({ t: 'text', x: 0, y: 0, w: 10, h: 10, text: 'こんに
 t('文字：書体が おかしい → ゴシック', st && st.font === 'gothic' && st.text === 'こんにちは');
 t('空の 文字は すてる', B.sanitizeObj({ t: 'text', x: 0, y: 0, w: 10, h: 10, text: '', size: 40, c: '#ff0000' }) === null);
 const pg = B.sanitizePage({ bg: { kind: 'grid' }, objs: [{ t: 'pen', pts: [[0, 0]], c: '#000000' }, { t: 'bad' }] });
-t('ページ：のこるのは 1つ', pg.objs.length === 1 && pg.bg.kind === 'grid' && pg.bg.size === 40);
+t('ページ：のこるのは 1つ', pg.objs.length === 1 && pg.bg.kind === 'grid' && pg.bg.size === 40 && pg.view.s === 1);
 t('ページが ない → からっぽ', B.sanitizePage(undefined).objs.length === 0);
 
 /* ---------- いろいろ ---------- */

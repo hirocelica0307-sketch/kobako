@@ -20,3 +20,12 @@
 背景の マス目・罫線・点、先生が かく 線・図形 は、ボードの 機能 なので canvas で えがいて います（絵の 素材では ありません）。
 文字の 書体「教科書体ふう（Klee One）」「丸ゴシック（Zen Maru Gothic）」は Google Fonts から よみこみます
 （ほかの アプリ〔漢字プリ＆テスト など〕と おなじ。インターネットに つながって いない ときは ふつうの ゴシックに なります）。
+
+----------------------------------------------------------------
+PDF を 読みこむ しくみ（素材では なく プログラム）… lib/pdfjs/
+  pdf.js（Mozilla・Apache License 2.0）と、日本語の 文字の 表（cmaps・Adobe・BSD 3-Clause）、
+  スキャン画像の 読みこみ（JBIG2・PDFium・BSD 3-Clause／OpenJPEG・BSD 2-Clause）、色の 調整（qcms・MIT）、
+  ICC プロファイル（CC0）。入手もと: npm の pdfjs-dist 6.5.438
+  2026-11-18 に 依頼者に たしかめて 入れました。ライセンスの 全文は THIRD_PARTY_LICENSES.txt と lib/pdfjs/ の LICENSE ファイル。
+  加工: pdf.min.mjs → pdf.min.js、pdf.worker.min.mjs → pdf.worker.min.js に 名前だけ かえた（どの サーバーでも JavaScript と して とどく ように）。
+  先生が はった 画像・PDF は ブラウザの 中（IndexedDB）に しまうだけで、どこにも 送りません。

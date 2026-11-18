@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>フリーボード</title>
 <meta name="description" content="先生が Chromebook で 自由に 線・図形・文字を かく 板書ボード（マス目・罫線などの 背景つき）">
 <link rel="icon" href="assets/icon/app-icon-32.png" sizes="32x32" type="image/png">
@@ -19,6 +19,7 @@
 
 <div id="board">
   <canvas id="c-bg" aria-hidden="true"></canvas>
+  <canvas id="c-img" aria-hidden="true"></canvas>
   <canvas id="c-ink" aria-hidden="true"></canvas>
   <canvas id="c-top" aria-label="ボード"></canvas>
   <textarea id="texted" spellcheck="false" autocomplete="off" hidden></textarea>
@@ -82,7 +83,28 @@
         <button class="btn" id="b-sel-del">消す</button>
         <button class="btn" id="b-sel-dup">ふやす（コピー）</button>
       </div>
-      <p class="hint">ドラッグで うごかせます。なにも ない ところから ドラッグすると、かこんだ ものを まとめて えらべます。えらんで いる ときに 色を おすと、その 色に かわります。</p>
+      <div class="row">
+        <button class="btn" id="b-sel-front">いちばん前へ</button>
+        <button class="btn" id="b-sel-back">いちばん後ろへ</button>
+      </div>
+      <p class="hint">ドラッグで うごかせます。なにも ない ところから ドラッグすると、かこんだ ものを まとめて えらべます。えらんで いる ときに 色を おすと、その 色に かわります。画像は 角の □ を ひっぱると 大きさを かえられます。</p>
+    </section>
+
+    <section class="sec">
+      <h2>画像・PDF</h2>
+      <button class="btn wide-btn" id="b-insert">画像・PDFを はる</button>
+      <input type="file" id="in-file" accept="image/*,application/pdf,.pdf" multiple hidden>
+      <p class="hint">ボードに ファイルを ドラッグしたり、コピーした 画像を Ctrl+V でも はれます。はった 画像は かいた 線の 下に なり、消しゴムでは 消えません（「えらぶ・動かす」で えらんで 消します）。</p>
+    </section>
+
+    <section class="sec">
+      <h2>拡大 <output id="out-zoom">100%</output></h2>
+      <div class="row zoomrow">
+        <button class="btn" id="b-zoomout" title="小さく（Ctrl+−）">− 小さく</button>
+        <button class="btn" id="b-zoomin" title="大きく（Ctrl+＋）">＋ 大きく</button>
+      </div>
+      <button class="btn wide-btn" id="b-zoomreset" title="Ctrl+0">もとの 大きさに もどす</button>
+      <p class="hint">ボードの 上で 2本の ゆびを ひろげると 拡大、2本の ゆびで うごかすと 移動します（せっていの 画面は そのまま）。タッチパッドは 2本ゆびで ピンチ・スクロール、マウスは Ctrl＋ホイールで 拡大、Space を おしながら ドラッグで 移動。拡大して いても 線の 太さや 文字の 大きさは せっていの まま かけます。</p>
     </section>
 
     <section class="sec">
@@ -164,6 +186,9 @@
           <tr><td><kbd>Backspace</kbd></td><td>えらんだ ものを 消す</td></tr>
           <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>えらんだ ものを ふやす</td></tr>
           <tr><td><kbd>PageUp</kbd> <kbd>PageDown</kbd></td><td>前・次の ページ</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>＋</kbd> <kbd>−</kbd> <kbd>0</kbd></td><td>拡大・縮小・もとの 大きさ</td></tr>
+          <tr><td><kbd>Space</kbd>+ドラッグ</td><td>ボードを 動かす</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>V</kbd> ／ <kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>画像を はる ／ 画像・PDFを えらぶ</td></tr>
           <tr><td><kbd>S</kbd></td><td>せっていを 出す・しまう</td></tr>
           <tr><td><kbd>F</kbd></td><td>全画面</td></tr>
         </table>
@@ -180,7 +205,29 @@
   <button class="btn" id="m-undo">もどす</button>
 </div>
 
+<!-- 拡大して いる ときの 小さい 表示 -->
+<div id="zoombadge" class="zoombadge" hidden>
+  <span id="zb-pct">100%</span>
+  <button class="btn" id="zb-reset">もとの 大きさ</button>
+</div>
+
 <div id="toast" role="status" aria-live="polite"></div>
+
+<!-- PDF の ページを えらぶ -->
+<dialog id="pdfdlg" class="pdfdlg">
+  <h2 id="pdf-name">PDF</h2>
+  <div class="pdf-tools">
+    <span id="pdf-count"></span>
+    <button class="btn" id="pdf-all" type="button">ぜんぶ えらぶ</button>
+    <button class="btn" id="pdf-none" type="button">ぜんぶ はずす</button>
+  </div>
+  <div id="pdf-pages" class="pdf-pages"></div>
+  <div class="pdf-actions">
+    <button class="btn" id="pdf-cancel" type="button">やめる</button>
+    <button class="btn primary" id="pdf-here" type="button">今の ページに はる</button>
+    <button class="btn primary" id="pdf-new" type="button">新しい ページに 1まいずつ はる</button>
+  </div>
+</dialog>
 
 <dialog id="dlg">
   <p id="dlg-msg"></p>

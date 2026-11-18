@@ -1,8 +1,11 @@
 /* フリーボード：一度 ひらけば インターネット なしでも ひらける ように する。
  * ネットに つながる ときは いつも 新しい ものを とりに いき（3びょう まで まつ）、
- * つながらない ときだけ 前に とって おいた ものを 出す。 */
-var CACHE="free-board-v1";
+ * つながらない ときだけ 前に とって おいた ものを 出す。
+ * PDF の 日本語の 文字の 表（lib/pdfjs/cmaps/）は 169こ あるので、つかった ときに おぼえる。 */
+var CACHE="free-board-v2";
 var FILES=["./","./index.html","./style.css","./logic.js","./app.js","./manifest.webmanifest",
+  "./lib/pdfjs/pdf.min.js","./lib/pdfjs/pdf.worker.min.js","./lib/pdfjs/wasm/jbig2.wasm","./lib/pdfjs/wasm/openjpeg.wasm",
+  "./lib/pdfjs/wasm/qcms_bg.wasm","./lib/pdfjs/iccs/CGATS001Compat-v2-micro.icc",
   "./assets/icon/app-icon-32.png","./assets/icon/app-icon-192.png","./assets/icon/app-icon-512.png",
   "./assets/icon/maskable-512.png","./assets/icon/apple-touch-icon.png"];
 

@@ -9,6 +9,7 @@
      rect / ellipse / tri / rtri … 四角・だ円・三角・直角三角 { t, id, x1,y1,x2,y2, c, w, dash, fill }
      circle … 円（中心と 半径）        { t, id, cx,cy,r, c, w, dash, fill }
      text   … 文字                     { t, id, x,y, text, size, c, font, w:はば, h:たかさ }
+     image  … はりつけた 画像・PDF     { t, id, x,y, w,h, ref } … ref は IndexedDB に しまった 画像の なまえ
      fill   … ぬりつぶし（画像）       { t, id, x,y, w,h, src:dataURL, under }
                under … すきまを ぬった とき true。それより 前に かいた 線の「うしろ」に ぬる（ふちが きれい）
 */
@@ -60,37 +61,111 @@ function bgLineColor(bg) {
   return isDarkBg(bg) ? lc.dark : lc.light;
 }
 
-/* 背景の 線と 点を 計算する。lines の w は 線の 太さ、dash は 点線、bold は 太い 線 */
-function bgShapes(bgIn, W, H) {
+/* 背景の 線と 点を 計算する。
+   r … 見えて いる ところ（ボードの ざひょう）{ x, y, w, h }
+   anchorX … 縦の線を ならべる 右の はし（ボードの ざひょう。ふつうは 画面の はば）
+   lines の ざひょうは ボードの ざひょう。w は 画面の 上での 線の 太さ（拡大しても 太く しない）、dash は 点線。
+   画面の 上で マスが 小さすぎる とき（minPx より 小さい）は、こまかい 線を はぶく。 */
+function bgShapes(bgIn, r, anchorX, scale) {
   const bg = sanitizeBg(bgIn);
   const s = bg.size, lines = [], dots = [];
-  const vert = (x, w, dash) => lines.push({ x1: x, y1: 0, x2: x, y2: H, w: w, dash: dash });
-  const horz = (y, w, dash) => lines.push({ x1: 0, y1: y, x2: W, y2: y, w: w, dash: dash });
+  scale = scale || 1;
+  const px = s * scale;                 /* 画面の 上での マスの 大きさ */
+  if (bg.kind === 'plain' || px < 3) return { lines: lines, dots: dots };
+  const showSub = bg.sub && px >= 12;
+  const x0 = r.x, y0 = r.y, x1 = r.x + r.w, y1 = r.y + r.h;
+  const vert = (x, w, dash) => lines.push({ x1: x, y1: y0, x2: x, y2: y1, w: w, dash: dash });
+  const horz = (y, w, dash) => lines.push({ x1: x0, y1: y, x2: x1, y2: y, w: w, dash: dash });
+  const kFrom = (lo, off) => Math.ceil((lo - off) / s - 1e-9);
+  const kTo = (hi, off) => Math.floor((hi - off) / s + 1e-9);
+  const mod5 = k => ((k % 5) + 5) % 5;
   if (bg.kind === 'grid') {
-    for (let k = 0, x = 0; x <= W; k++, x = k * s) {
-      vert(x, bg.bold5 && k % 5 === 0 ? 2.5 : 1, false);
-      if (bg.sub && x + s / 2 <= W) vert(x + s / 2, 1, true);
+    for (let k = kFrom(x0 - s, 0); k <= kTo(x1, 0); k++) {
+      const x = k * s;
+      if (x >= x0 - 0.01) vert(x, bg.bold5 && mod5(k) === 0 ? 2.5 : 1, false);
+      if (showSub && x + s / 2 >= x0 && x + s / 2 <= x1) vert(x + s / 2, 1, true);
     }
-    for (let k = 0, y = 0; y <= H; k++, y = k * s) {
-      horz(y, bg.bold5 && k % 5 === 0 ? 2.5 : 1, false);
-      if (bg.sub && y + s / 2 <= H) horz(y + s / 2, 1, true);
+    for (let k = kFrom(y0 - s, 0); k <= kTo(y1, 0); k++) {
+      const y = k * s;
+      if (y >= y0 - 0.01) horz(y, bg.bold5 && mod5(k) === 0 ? 2.5 : 1, false);
+      if (showSub && y + s / 2 >= y0 && y + s / 2 <= y1) horz(y + s / 2, 1, true);
     }
   } else if (bg.kind === 'hline') {
-    for (let k = 1, y = s; y <= H; k++, y = k * s) {
-      horz(y, 1.5, false);
-      if (bg.sub && y - s / 2 >= 0) horz(y - s / 2, 1, true);
+    for (let k = kFrom(y0, 0); k <= kTo(y1 + s / 2, 0); k++) {
+      const y = k * s;
+      if (y <= y1 + 0.01) horz(y, 1.5, false);
+      if (showSub && y - s / 2 >= y0 && y - s / 2 <= y1) horz(y - s / 2, 1, true);
     }
   } else if (bg.kind === 'vline') {
-    /* たて書きは 右から 書くので、右の はしから ならべる */
-    for (let k = 1, x = W - s; x >= 0; k++, x = W - k * s) {
-      vert(x, 1.5, false);
-      if (bg.sub && x + s / 2 <= W) vert(x + s / 2, 1, true);
+    /* たて書きは 右から 書くので、右の はし（anchorX）から ならべる */
+    const a = anchorX || 0;
+    for (let k = kFrom(x0, a); k <= kTo(x1 + s / 2, a); k++) {
+      const x = a + k * s;
+      if (x <= x1 + 0.01) vert(x, 1.5, false);
+      if (showSub && x - s / 2 >= x0 && x - s / 2 <= x1) vert(x - s / 2, 1, true);
     }
   } else if (bg.kind === 'dot') {
-    const r = clamp(s / 22, 1.6, 4);
-    for (let y = s; y <= H; y += s) for (let x = s; x <= W; x += s) dots.push({ x: x, y: y, r: r });
+    if (px >= 5) {
+      const rad = clamp(px / 22, 1.6, 4); /* 画面の 上での 点の 半径 */
+      for (let j = kFrom(y0, 0); j <= kTo(y1, 0); j++) for (let i = kFrom(x0, 0); i <= kTo(x1, 0); i++) dots.push({ x: i * s, y: j * s, r: rad });
+    }
   }
   return { lines: lines, dots: dots };
+}
+
+/* ---------- 拡大・移動（ビュー） ----------
+   画面の 点 = ボードの 点 × s ＋ (x, y) */
+const ZOOM_MIN = 0.25, ZOOM_MAX = 8;
+const DEFAULT_VIEW = { s: 1, x: 0, y: 0 };
+function sanitizeView(v) {
+  v = v && typeof v === 'object' ? v : {};
+  const n = (a, d) => typeof a === 'number' && Number.isFinite(a) ? a : d;
+  return { s: clamp(n(v.s, 1), ZOOM_MIN, ZOOM_MAX), x: clamp(n(v.x, 0), -1e6, 1e6), y: clamp(n(v.y, 0), -1e6, 1e6) };
+}
+const toWorld = (v, sx, sy) => [(sx - v.x) / v.s, (sy - v.y) / v.s];
+const toScreen = (v, wx, wy) => [wx * v.s + v.x, wy * v.s + v.y];
+/* 画面の (cx, cy) を 中心に s ばいに する（その 点の 下の ものは うごかない） */
+function zoomAt(v, newS, cx, cy) {
+  const s = clamp(newS, ZOOM_MIN, ZOOM_MAX);
+  const w = toWorld(v, cx, cy);
+  return { s: s, x: cx - w[0] * s, y: cy - w[1] * s };
+}
+/* 2本の ゆび：はじめの ビュー v0 と、ゆびの はじめ (a0,b0) → いま (a1,b1) から あたらしい ビュー */
+function pinchView(v0, a0, b0, a1, b1) {
+  const d0 = Math.hypot(b0[0] - a0[0], b0[1] - a0[1]) || 1, d1 = Math.hypot(b1[0] - a1[0], b1[1] - a1[1]) || 1;
+  const m0 = [(a0[0] + b0[0]) / 2, (a0[1] + b0[1]) / 2], m1 = [(a1[0] + b1[0]) / 2, (a1[1] + b1[1]) / 2];
+  const s = clamp(v0.s * d1 / d0, ZOOM_MIN, ZOOM_MAX);
+  const w = toWorld(v0, m0[0], m0[1]);
+  return { s: s, x: m1[0] - w[0] * s, y: m1[1] - w[1] * s };
+}
+/* 見えて いる ところ（ボードの ざひょう） */
+function visibleRect(v, W, H) {
+  const p = toWorld(v, 0, 0);
+  return { x: p[0], y: p[1], w: W / v.s, h: H / v.s };
+}
+
+/* 画像を 四角 r の 中に、たて よこの わりあいを かえずに おさめる（ratio … r の 何わりの 大きさまで） */
+function fitInto(iw, ih, r, ratio) {
+  const k = Math.min(r.w * ratio / iw, r.h * ratio / ih);
+  const w = iw * k, h = ih * k;
+  return { x: r.x + (r.w - w) / 2, y: r.y + (r.h - h) / 2, w: w, h: h };
+}
+/* 画像の 角を ひっぱって 大きさを かえる（たて よこの わりあいは そのまま。はんたいの 角は うごかない）
+   corner … 0 左上・1 右上・2 右下・3 左下 */
+function resizeBox(o, corner, px, py, minW) {
+  minW = minW || 8;
+  const ax = corner === 0 || corner === 3 ? o.x + o.w : o.x;   /* うごかない 角 */
+  const ay = corner === 0 || corner === 1 ? o.y + o.h : o.y;
+  const ratio = o.h / o.w;
+  let w = Math.max(Math.abs(px - ax), Math.abs(py - ay) / ratio);
+  w = Math.max(minW, w);
+  const h = w * ratio;
+  const x = corner === 0 || corner === 3 ? ax - w : ax;
+  const y = corner === 0 || corner === 1 ? ay - h : ay;
+  return Object.assign({}, o, { x: x, y: y, w: w, h: h });
+}
+function corners(o) {
+  return [[o.x, o.y], [o.x + o.w, o.y], [o.x + o.w, o.y + o.h], [o.x, o.y + o.h]];
 }
 
 /* マス目・点に ぴったり あわせる */
@@ -173,7 +248,7 @@ function hitTest(o, x, y, tol) {
       const poly = shapePolygon(o);
       return distToPolyline(x, y, poly, true) <= reach || (o.fill && o.fill !== 'none' && pointInPolygon(x, y, poly));
     }
-    case 'text': case 'fill':
+    case 'text': case 'fill': case 'image':
       return x >= o.x - tol && x <= o.x + o.w + tol && y >= o.y - tol && y <= o.y + o.h + tol;
     default: return false;
   }
@@ -181,14 +256,14 @@ function hitTest(o, x, y, tol) {
 
 /* もの を かこむ 四角 { x, y, w, h } */
 function bbox(o) {
-  const pad = (o.w && o.t !== 'text' && o.t !== 'fill') ? o.w / 2 : 0;
+  const pad = (o.w && o.t !== 'text' && o.t !== 'fill' && o.t !== 'image') ? o.w / 2 : 0;
   let x1, y1, x2, y2;
   if (o.t === 'pen' || o.t === 'erase') {
     x1 = y1 = Infinity; x2 = y2 = -Infinity;
     for (const p of o.pts) { x1 = Math.min(x1, p[0]); y1 = Math.min(y1, p[1]); x2 = Math.max(x2, p[0]); y2 = Math.max(y2, p[1]); }
   } else if (o.t === 'circle') {
     x1 = o.cx - o.r; y1 = o.cy - o.r; x2 = o.cx + o.r; y2 = o.cy + o.r;
-  } else if (o.t === 'text' || o.t === 'fill') {
+  } else if (o.t === 'text' || o.t === 'fill' || o.t === 'image') {
     return { x: o.x, y: o.y, w: o.w, h: o.h };
   } else {
     x1 = Math.min(o.x1, o.x2); y1 = Math.min(o.y1, o.y2); x2 = Math.max(o.x1, o.x2); y2 = Math.max(o.y1, o.y2);
@@ -211,7 +286,7 @@ function translate(o, dx, dy) {
   if (o.pts) n.pts = o.pts.map(p => [p[0] + dx, p[1] + dy]);
   if ('x1' in o) { n.x1 += dx; n.y1 += dy; n.x2 += dx; n.y2 += dy; }
   if ('cx' in o) { n.cx += dx; n.cy += dy; }
-  if (o.t === 'text' || o.t === 'fill') { n.x += dx; n.y += dy; }
+  if (o.t === 'text' || o.t === 'fill' || o.t === 'image') { n.x += dx; n.y += dy; }
   return n;
 }
 function duplicate(o, dx, dy) {
@@ -220,7 +295,7 @@ function duplicate(o, dx, dy) {
   return n;
 }
 /* 色を かえられる もの */
-const hasColor = o => o.t !== 'erase' && o.t !== 'fill';
+const hasColor = o => o.t !== 'erase' && o.t !== 'fill' && o.t !== 'image';
 
 /* 線の 点を へらす（ちかすぎる 点は すてる） */
 function thinPoints(pts, minDist) {
@@ -307,7 +382,7 @@ const isColor = c => typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c);
 function sanitizeObj(o) {
   if (!o || typeof o !== 'object') return null;
   const base = { id: typeof o.id === 'string' ? o.id : newId(), t: o.t };
-  const w = num(o.w) ? clamp(o.w, 0.5, 200) : 4;
+  const w = num(o.w) ? clamp(o.w, 0.02, 800) : 4;
   const pts = Array.isArray(o.pts) ? o.pts.filter(p => Array.isArray(p) && num(p[0]) && num(p[1])).map(p => [p[0], p[1]]) : [];
   switch (o.t) {
     case 'pen':
@@ -326,17 +401,26 @@ function sanitizeObj(o) {
         fill: ['solid', 'light'].indexOf(o.fill) >= 0 ? o.fill : 'none' });
     case 'text':
       if (typeof o.text !== 'string' || !o.text || ![o.x, o.y, o.w, o.h, o.size].every(num) || !isColor(o.c)) return null;
-      return Object.assign(base, { x: o.x, y: o.y, w: o.w, h: o.h, text: o.text, size: clamp(o.size, 8, 400), c: o.c,
+      return Object.assign(base, { x: o.x, y: o.y, w: o.w, h: o.h, text: o.text, size: clamp(o.size, 1, 1000), c: o.c,
         font: FONTS[o.font] ? o.font : 'gothic' });
     case 'fill':
       if (![o.x, o.y, o.w, o.h].every(num) || typeof o.src !== 'string' || o.src.indexOf('data:image/png;base64,') !== 0) return null;
       return Object.assign(base, { x: o.x, y: o.y, w: o.w, h: o.h, src: o.src, under: !!o.under });
+    case 'image':
+      if (![o.x, o.y, o.w, o.h].every(num) || !(o.w > 0) || !(o.h > 0) || typeof o.ref !== 'string' || !/^[a-z0-9-]{1,80}$/.test(o.ref)) return null;
+      return Object.assign(base, { x: o.x, y: o.y, w: o.w, h: o.h, ref: o.ref });
     default: return null;
   }
 }
 function sanitizePage(p) {
   p = p && typeof p === 'object' ? p : {};
-  return { bg: sanitizeBg(p.bg), objs: (Array.isArray(p.objs) ? p.objs : []).map(sanitizeObj).filter(Boolean) };
+  return { bg: sanitizeBg(p.bg), view: sanitizeView(p.view), objs: (Array.isArray(p.objs) ? p.objs : []).map(sanitizeObj).filter(Boolean) };
+}
+/* ページたちが つかって いる 画像の なまえ */
+function imageRefs(pages) {
+  const set = new Set();
+  for (const p of pages) for (const o of p.objs || []) if (o.t === 'image') set.add(o.ref);
+  return set;
 }
 
 /* 文字の 書体（canvas と 入力わく で おなじ ものを つかう） */
@@ -356,7 +440,8 @@ function stamp(d) {
 
 const api = {
   newId, clamp, SHAPES, isBoxShape, BG_KINDS, BG_COLORS, LINE_COLORS, STRENGTH_ALPHA, DEFAULT_BG,
-  sanitizeBg, isDarkBg, bgLineColor, bgShapes, snapPoint, canSnap, constrainAngle, constrainSquare,
+  sanitizeBg, isDarkBg, bgLineColor, bgShapes, ZOOM_MIN, ZOOM_MAX, DEFAULT_VIEW, sanitizeView, toWorld, toScreen, zoomAt,
+  pinchView, visibleRect, fitInto, resizeBox, corners, imageRefs, snapPoint, canSnap, constrainAngle, constrainSquare,
   shapePolygon, arrowHead, distToSeg, distToPolyline, pointInPolygon, hitTest, bbox, rectsOverlap, normRect,
   translate, duplicate, hasColor, thinPoints, round1, floodFill, dilateMask, sanitizeObj, sanitizePage,
   FONTS, TEXT_LINE, stamp
