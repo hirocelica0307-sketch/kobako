@@ -11,13 +11,10 @@
 
    emoji/drum.webp       … Drum（たいこ）
                            https://github.com/microsoft/fluentui-emoji/blob/main/assets/Drum/3D/drum_3d.png
-                           つかう ところ: した の バーの たいこ（たたくと はねる）・「たいこ」ボタン
+                           つかう ところ: した の バーの たいこ（たたくと はねる）
    emoji/lantern.webp    … Red paper lantern（赤ちょうちん）
                            https://github.com/microsoft/fluentui-emoji/blob/main/assets/Red%20paper%20lantern/3D/red_paper_lantern_3d.png
                            つかう ところ: うえの だいめいの りょうがわ
-   emoji/megaphone.webp  … Megaphone（メガホン）
-                           https://github.com/microsoft/fluentui-emoji/blob/main/assets/Megaphone/3D/megaphone_3d.png
-                           つかう ところ: 「かけごえ」の きりかえ ボタン
    app-icon.png（64×64・すきとおし）・app-icon-180.png（180×180・白い 地）
                          … Drum から つくった ブラウザの タブ・ホーム画面の アイコン
    加工: 256×256 の PNG を WebP に した／縮めた（180 は 白い 地に のせた）だけ。形・いろは かえていない。
@@ -30,12 +27,10 @@
    つかう もの:
      音符・休符 … music-note-quarter（4分音符）・music（8分音符 2つ）・music-note-eighth（8分音符）・
                   music-rest-quarter（4分休符）・music-rest-eighth（8分休符）
-     ボタン     … play・stop・repeat・close・delete-outline・cog・microphone・volume-high・plus・minus・
-                  account-multiple・metronome・account-voice（ほかに check・arrow-right・backup-restore を ふくむ）
+     ボタン     … play・stop・repeat・close・delete-outline・volume-high・metronome
    加工: icons.json から つかう ものだけ ぬきだした（形は かえていない）。
 
 自分で えがいた 絵・アイコンは ありません。
 たいこ・ふち（カッ）の 音は 音の ファイルを つかわず、Web Audio で その場で つくって います。
-かけごえの こえは、たんまつの よみあげ（Web Speech API）か、先生が この アプリで ろくおんした こえです。
 文字の 書体（Mochiy Pop One・M PLUS Rounded 1c）は Google Fonts から よみこみます
 （ほかの アプリ〔ドレミ がっき など〕と おなじ）。
