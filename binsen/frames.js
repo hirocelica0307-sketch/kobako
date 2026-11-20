@@ -8,10 +8,15 @@ window.SEASONS = [
   ['fuyu', 'ふゆ'],
   ['kengaku', 'ぎょうじ・見学'],
   ['tsuunen', '通年'],
+  ['maru', 'まるい わく'],
 ];
 
 // rich: にぎやかな わく（assets/frames/rich/<src>-tate・yoko・kaku.svg を まるごと つかう）
+// round: 丸い わく（assets/frames/round/ の 絵。行の ながさを 1行ずつ わくに あわせる）
 window.FRAMES = [
+  { id: 'tsuunen-niji-o', src: 'tsuunen-niji', rich: true, round: true, name: 'にじと くも', season: 'tsuunen', fine: true },
+  { id: 'tsuunen-doubutsu-o', src: 'tsuunen-doubutsu', rich: true, round: true, name: 'なかよし どうぶつ', season: 'tsuunen', fine: true },
+  { id: 'tsuunen-hana-o', src: 'tsuunen-hana', rich: true, round: true, name: 'おはなの リース', season: 'tsuunen', fine: true },
   { id: 'haru-sakura-r', src: 'haru-sakura', rich: true, name: 'さくらと 小鳥', season: 'haru', fine: true },
   { id: 'natsu-asagao-r', src: 'natsu-asagao', rich: true, name: 'あさがおと じょうろ', season: 'natsu', fine: true },
   { id: 'natsu-himawari-r', src: 'natsu-himawari', rich: true, name: 'ひまわりと むぎわらぼうし', season: 'natsu', fine: true },

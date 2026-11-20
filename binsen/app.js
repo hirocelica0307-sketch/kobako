@@ -1,4 +1,4 @@
-/* おれいの てがみ びんせん */
+/* 手紙ちゃん */
 (() => {
   'use strict';
 
@@ -6,6 +6,7 @@
   const FRAMES = window.FRAMES;
   const SIZES = window.FRAME_SIZES;      // シンプルな わく（すみ・へんの 絵）
   const RICH = window.RICH_SIZES || {};   // にぎやかな わく（まるごと 1まいの 絵）
+  const ROUND = window.ROUND_SIZES || {}; // 丸い わく（まるごと 1まいの 絵 ＋ すじごとの 書ける はば）
   const byId = (id) => FRAMES.find((f) => f.id === id);
   const NONE = 'none';
 
@@ -64,7 +65,8 @@
 
   // にぎやかな わく：面の 形に いちばん 近い 絵（たて長・よこ長・正方形）を えらび、ゆがめずに 面の 中へ おさめる
   function richGeom(fid, fw, fh) {
-    const set = RICH[byId(fid).src];
+    const f = byId(fid);
+    const set = (f.round ? ROUND : RICH)[f.src];
     let best = null;
     for (const [shape, v] of Object.entries(set)) {
       const d = Math.abs(Math.log(fw / fh) - Math.log(v.size[0] / v.size[1]));
@@ -75,15 +77,50 @@
     const ox = (fw - w0 * s) / 2, oy = (fh - h0 * s) / 2;
     const [ix, iy, iw, ih] = best.v.inner;
     return {
-      src: `assets/frames/rich/${byId(fid).src}-${best.shape}.svg`,
+      src: `assets/frames/${f.round ? 'round' : 'rich'}/${f.src}-${best.shape}.svg`,
       box: { x: ox, y: oy, w: w0 * s, h: h0 * s },
       inner: { x: ox + ix * s, y: oy + iy * s, w: iw * s, h: ih * s },
+      v: best.v, s, ox, oy,
     };
+  }
+
+  // 丸い わく：よこの すじ（axis 'rows'）・たての すじ（'cols'）で、a〜b mm の はばの 中で ずっと 書ける はんい [はじめ, おわり]（mm）
+  const ROUND_PAD = 1.5;
+  function roundSpan(G, axis, a, b) {
+    const { v, s } = G;
+    const o0 = axis === 'rows' ? G.oy : G.ox; // すじの 位置の ずれ
+    const o1 = axis === 'rows' ? G.ox : G.oy; // はんいの ずれ
+    const map = G[axis] || (G[axis] = new Map(v[axis].map(([p, lo, hi]) => [p, [lo, hi]])));
+    const p0 = Math.ceil(((a - o0) / s) / v.step) * v.step;
+    const p1 = (b - o0) / s;
+    let lo = -Infinity, hi = Infinity, any = false;
+    for (let p = p0; p <= p1; p += v.step) {
+      const sp = map.get(p);
+      if (!sp) return null;
+      lo = Math.max(lo, sp[0]); hi = Math.min(hi, sp[1]); any = true;
+    }
+    if (!any) return null;
+    const r = [o1 + lo * s + ROUND_PAD, o1 + hi * s - ROUND_PAD];
+    return r[1] > r[0] ? r : null;
   }
 
   // 行を ひける ところ（面の 中の mm）
   function areaFor(fid, fw, fh) {
     const f = byId(fid);
+    if (f && f.round) {
+      // 丸い わく：行の ながさが わくの はばの 半分 いじょう ある ところだけ つかう（上と 下の はしは 短すぎる）
+      const G = richGeom(fid, fw, fh);
+      const p = ROUND_PAD;
+      const axis = S.dir === 'yoko' ? 'rows' : 'cols';
+      const prof = G.v[axis];
+      const maxLen = Math.max(...prof.map(([, lo, hi]) => hi - lo));
+      const ok = prof.filter(([, lo, hi]) => hi - lo >= maxLen * 0.5).map(([q]) => q);
+      const a = Math.min(...ok) * G.s, b = Math.max(...ok) * G.s;
+      const { inner } = G;
+      return S.dir === 'yoko'
+        ? { x: inner.x + p, y: G.oy + a + p, w: inner.w - 2 * p, h: b - a - 2 * p }
+        : { x: G.ox + a + p, y: inner.y + p, w: b - a - 2 * p, h: inner.h - 2 * p };
+    }
     if (f && f.rich) {
       const { inner } = richGeom(fid, fw, fh);
       const p = 1.5;
@@ -121,8 +158,13 @@
     const n = S.lines == null ? auto : clamp(S.lines, need, maxLines);
     const pitch = across / n;
     const body = n - need + 1;
-    const perLine = Math.max(1, Math.floor(along / gp));
-    return { W, H, cols, rows, pw, ph, fw, fh, area, across, along, gp, fit, need, maxLines, auto, n, pitch, body, perLine };
+    const L = { W, H, cols, rows, pw, ph, fw, fh, area, across, along, gp, fit, need, maxLines, auto, n, pitch, body };
+    // 1行に 書ける 字の 数（丸い わくは 行ごとに ちがうので、本文の 行の いちばん 少ない〜多い）
+    const per = lineSegs(L, frameFor(0)).filter((g) => g.body).map((g) => Math.max(1, Math.floor((g.e - g.b) / gp)));
+    L.perMin = per.length ? Math.min(...per) : 0;
+    L.perMax = per.length ? Math.max(...per) : 0;
+    L.total = per.reduce((a, b) => a + b, 0);
+    return L;
   }
 
   // ---------- わくを かく ----------
@@ -163,37 +205,75 @@
   }
 
   // ---------- 行を かく ----------
-  function linesHTML(L) {
+  // 1行ずつの はんい。よこ書き：r 行めの 下の 線の y と、書ける x の はじめ（b）・おわり（e）。
+  // たて書き：r 行め（右から）の 右はし x と、書ける y の はじめ・おわり。丸い わくは 行ごとに ながさが かわる
+  function lineSegs(L, fid) {
     const { area, n, pitch } = L;
+    const f = byId(fid);
+    const G = f && f.round ? richGeom(fid, L.fw, L.fh) : null;
+    const segs = [];
+    for (let r = 0; r < n; r++) {
+      const body = !(S.atena && r === 0) && !(S.yori && r === n - 1);
+      if (S.dir === 'yoko') {
+        const y = area.y + pitch * (r + 1);
+        let b = area.x, e = area.x + area.w;
+        if (G) {
+          const sp = roundSpan(G, 'rows', y - pitch, y);
+          if (!sp) continue;
+          b = Math.max(b, sp[0]); e = Math.min(e, sp[1]);
+        }
+        segs.push({ r, pos: y, b, e, body });
+      } else {
+        const x = area.x + area.w - pitch * r;
+        let b = area.y, e = area.y + area.h;
+        if (G) {
+          const sp = roundSpan(G, 'cols', x - pitch, x);
+          if (!sp) continue;
+          b = Math.max(b, sp[0]); e = Math.min(e, sp[1]);
+        }
+        segs.push({ r, pos: x, b, e, body });
+      }
+    }
+    return segs.filter((g) => g.e - g.b > pitch);
+  }
+
+  function linesHTML(L, fid) {
+    const { pitch } = L;
     const t = 0.25;                                  // 線の ふとさ
     const fs = Math.min(pitch * 0.55, 7, L.along * 0.13); // 「へ」「より」の 字の 大きさ
-    const last = n - 1;
+    const segs = lineSegs(L, fid);
+    const last = L.n - 1;
     let h = '';
     if (S.dir === 'yoko') {
-      for (let r = 0; r < n; r++) {
-        const y = area.y + pitch * (r + 1);
-        let x0 = area.x, x1 = area.x + area.w;
+      for (const { r, pos: y, b, e } of segs) {
+        const w = e - b;
+        let x0 = b, x1 = e;
         let mark = '';
         if (S.atena && r === 0) {
-          x1 = area.x + area.w * 0.6;
+          x1 = b + w * 0.6;
           mark = `<span class="mark" style="left:${mm(x1 + 1.2)};top:${mm(y - fs - 0.6)};font-size:${mm(fs)}">へ</span>`;
         } else if (S.yori && r === last) {
-          x1 = area.x + area.w - fs * 2.4;
-          x0 = Math.min(area.x + area.w * 0.42, x1 - area.w * 0.35);
+          x1 = e - fs * 2.4;
+          x0 = Math.min(b + w * 0.42, x1 - w * 0.35);
           mark = `<span class="mark" style="left:${mm(x1 + 1.2)};top:${mm(y - fs - 0.6)};font-size:${mm(fs)}">より</span>`;
         }
         h += `<div class="rule" style="left:${mm(x0)};top:${mm(y - t / 2)};width:${mm(x1 - x0)};height:${mm(t)}"></div>${mark}`;
       }
     } else {
-      // たて書き：右から 左へ。行と 行の さかいめに 線を ひく
-      const right = area.x + area.w;
-      for (let r = 0; r <= n; r++) {
-        const x = right - pitch * r;
-        h += `<div class="rule" style="left:${mm(x - t / 2)};top:${mm(area.y)};width:${mm(t)};height:${mm(area.h)}"></div>`;
+      // たて書き：右から 左へ。行と 行の さかいめに 線を ひく（さかいめの 線は となりあう 2行の はんいを あわせた ながさ）
+      const byR = new Map(segs.map((g) => [g.r, g]));
+      for (let k = 0; k <= L.n; k++) {
+        const a = byR.get(k - 1), c = byR.get(k);
+        if (!a && !c) continue;
+        const x = (c || a).pos - (c ? 0 : pitch);
+        const y0 = Math.min(a ? a.b : Infinity, c ? c.b : Infinity);
+        const y1 = Math.max(a ? a.e : -Infinity, c ? c.e : -Infinity);
+        h += `<div class="rule" style="left:${mm(x - t / 2)};top:${mm(y0)};width:${mm(t)};height:${mm(y1 - y0)}"></div>`;
       }
-      const cx = (r) => right - pitch * (r + 0.5) - fs / 2;
-      if (S.atena) h += `<span class="mark vt" style="left:${mm(cx(0))};top:${mm(area.y + area.h * 0.62)};font-size:${mm(fs)}">へ</span>`;
-      if (S.yori) h += `<span class="mark vt" style="left:${mm(cx(last))};top:${mm(area.y + area.h - fs * 2.3)};font-size:${mm(fs)}">より</span>`;
+      const cx = (g) => g.pos - pitch / 2 - fs / 2;
+      const first = byR.get(0), lastSeg = byR.get(last);
+      if (S.atena && first) h += `<span class="mark vt" style="left:${mm(cx(first))};top:${mm(first.b + (first.e - first.b) * 0.62)};font-size:${mm(fs)}">へ</span>`;
+      if (S.yori && lastSeg) h += `<span class="mark vt" style="left:${mm(cx(lastSeg))};top:${mm(lastSeg.e - fs * 2.3)};font-size:${mm(fs)}">より</span>`;
     }
     return h;
   }
@@ -206,7 +286,7 @@
     return list[(start + i) % list.length].id;
   }
   function seasonFrames() {
-    return FRAMES.filter((f) => S.season === 'all' || f.season === S.season);
+    return FRAMES.filter((f) => S.season === 'all' || (S.season === 'maru' ? f.round : f.season === S.season));
   }
 
   // ---------- 見本 ----------
@@ -216,14 +296,13 @@
     sheet.style.width = mm(L.W);
     sheet.style.height = mm(L.H);
     let h = '';
-    const lines = linesHTML(L);
     for (let r = 0; r < L.rows; r++) {
       for (let c = 0; c < L.cols; c++) {
         const fid = frameFor(r * L.cols + c);
         const x = MARGIN + L.pw * c + CUT;
         const y = MARGIN + L.ph * r + CUT;
         h += `<div class="panel" style="left:${mm(x)};top:${mm(y)};width:${mm(L.fw)};height:${mm(L.fh)}">`
-          + (fid === NONE ? '' : frameHTML(fid, L.fw, L.fh)) + lines + '</div>';
+          + (fid === NONE ? '' : frameHTML(fid, L.fw, L.fh)) + linesHTML(L, fid) + '</div>';
       }
     }
     // 切りはなす 点線
@@ -296,7 +375,7 @@
     if (S.atena) parts.push('あて名 1');
     parts.push(`本文 ${L.body}`);
     if (S.yori) parts.push('なまえ 1');
-    $('#i-detail').textContent = `${parts.join('・')}　／　1行の はば ${f1(L.pitch)}mm　／　1行 やく${L.perLine}字・本文 ぜんぶで やく${L.perLine * L.body}字`;
+    $('#i-detail').textContent = `${parts.join('・')}　／　1行の はば ${f1(L.pitch)}mm　／　1行 やく${L.perMin === L.perMax ? L.perMax : `${L.perMin}〜${L.perMax}`}字・本文 ぜんぶで やく${L.total}字`;
 
     const warn = [];
     if (L.fit < L.need) {
