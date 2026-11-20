@@ -44,6 +44,7 @@
    ライセンス・メモ: 1 と 同じ。
    tsuunen-niji         くも・星・きらきら・虹の 輪、上に 虹と にこにこ たいよう
    tsuunen-doubutsu     手を つなぐ うさぎ・くま・ねこ・いぬ・パンダ・花・ハート、上に 手紙を くわえた ことり
+   tsuunen-hana         丸い 花・デイジー・つぼみ・葉・木の実の 花かんむり、下に リボン
 
 3. frames/rich/<名前>-<かたち>.svg、frames/rich/sizes.js … 1b から 作った もの
    作りかた: tools/make_rich.py（白黒に して まるごと potrace で SVG に し、まん中の 書ける ところ〔長方形〕を はかる）。
