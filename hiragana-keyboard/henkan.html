@@ -1,0 +1,363 @@
+<script>
+/* ============================================================
+ * へんかんの しくみ（画面に かかわらない ぶぶん）
+ *  - 辞書（辞書.html の JISHO）を よみこんで、よみ → ことば の 表を つくる
+ *  - 学年に あわせて、ならっていない 漢字を ひらがなに もどす
+ *  - 1語ずつの こうほ（predict）と、文ぜんたいの こうほ（convert）を だす
+ *  - こえで 入った 漢字を 学年に あわせて もどす（soften）
+ * tests.js（node）でも そのまま うごきます。ES5 で 書いています。
+ * ============================================================ */
+var HENKAN = (function(){
+"use strict";
+
+/* ---------- 学年別漢字配当表（小学校学習指導要領 平成29年告示・2020年度から） ---------- */
+var GRADE_KANJI = {
+  "1":"一右雨円王音下火花貝学気九休玉金空月犬見五口校左三山子四糸字耳七車手十出女小上森人水正生青夕石赤千川先早草足村大男竹中虫町天田土二日入年白八百文木本名目立力林六",
+  "2":"引羽雲園遠何科夏家歌画回会海絵外角楽活間丸岩顔汽記帰弓牛魚京強教近兄形計元言原戸古午後語工公広交光考行高黄合谷国黒今才細作算止市矢姉思紙寺自時室社弱首秋週春書少場色食心新親図数西声星晴切雪船線前組走多太体台地池知茶昼長鳥朝直通弟店点電刀冬当東答頭同道読内南肉馬売買麦半番父風分聞米歩母方北毎妹万明鳴毛門夜野友用曜来里理話",
+  "3":"悪安暗医委意育員院飲運泳駅央横屋温化荷界開階寒感漢館岸起期客究急級宮球去橋業曲局銀区苦具君係軽血決研県庫湖向幸港号根祭皿仕死使始指歯詩次事持式実写者主守取酒受州拾終習集住重宿所暑助昭消商章勝乗植申身神真深進世整昔全相送想息速族他打対待代第題炭短談着注柱丁帳調追定庭笛鉄転都度投豆島湯登等動童農波配倍箱畑発反坂板皮悲美鼻筆氷表秒病品負部服福物平返勉放味命面問役薬由油有遊予羊洋葉陽様落流旅両緑礼列練路和",
+  "4":"愛案以衣位印英栄塩億加果貨課芽改械害街各覚完官管関観願希季旗器機議求泣給挙漁共協鏡競極訓軍郡径景芸欠結建健験固功好候康差菜最材昨札刷察参産散残氏司試児治辞失借種周祝順初松笑唱焼照臣信成省清静席積折節説浅戦選然争倉巣束側続卒孫帯隊達単置仲兆低底的典伝徒努灯働特熱念敗梅博飯飛必票標不夫付府副兵別辺変便包法望牧末満未民無約勇要養浴利陸良料量輪類令冷例連老労録茨媛岡潟岐熊香佐埼崎滋鹿縄井沖栃奈梨阪阜賀群徳富城",
+  "5":"圧移因永営衛易益液演応往桜可仮価河過快解格確額刊幹慣眼基寄規技義逆久旧居許境均禁句経潔件険検限現減故個護効厚耕鉱構興講混査再災妻採際在財罪雑酸賛支志枝師資飼示似識質舎謝授修述術準序招証条状常情織職制性政勢精製税責績接設絶祖素総造像増則測属率損貸態団断築張提程適統銅導独任燃能破犯判版比肥非備評貧布婦武復複仏編弁保墓報豊防貿暴務夢迷綿輸余容略留領囲紀喜救型航告殺士史象賞貯停堂得毒費粉脈歴",
+  "6":"異遺域宇映延沿我灰拡革閣割株干巻看簡危机揮貴疑吸供胸郷勤筋系敬警劇激穴絹権憲源厳己呼誤后孝皇紅降鋼刻穀骨困砂座済裁策冊蚕至私姿視詞誌磁射捨尺若樹収宗就衆従縦縮熟純処署諸除将傷障蒸針仁垂推寸盛聖誠宣専泉洗染善奏窓創装層操蔵臓存尊宅担探誕段暖値宙忠著庁頂潮賃痛展討党糖届難乳認納脳派拝背肺俳班晩否批秘腹奮並陛閉片補暮宝訪亡忘棒枚幕密盟模訳郵優幼欲翌乱卵覧裏律臨朗論胃腸恩券承舌銭退敵俵預"
+};
+var KG = {};                                  /* 漢字 → 何年で ならうか */
+(function(){
+  for(var g=1; g<=6; g++){
+    var s=GRADE_KANJI[g];
+    for(var i=0;i<s.length;i++) KG[s.charAt(i)]=g;
+  }
+})();
+
+var KANJI_RE = /[一-鿿々〆]/;
+function k2h(s){ return s.replace(/[ァ-ヶ]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0x60);}); }
+function hasKanjiStr(s){ return KANJI_RE.test(s); }
+
+/* ---------- 辞書の 書きかた ----------
+ *  漢字の すぐ うしろに ( ) で 読みを 書く。ひらがな・カタカナは そのまま。
+ *    家(か)族(ぞく)   学(がっ)校(こう)   食(た)べる   ラーメン
+ *  2字いじょうを まとめて 読む ことば（熟字訓）は まとめて 書く。
+ *    今日(きょう)   大人(おとな)   一人(ひとり)
+ *  ならっていない 漢字は、その ( ) の ぶんだけ ひらがなに もどる（まぜがき）。
+ *    家(か)族(ぞく) → 2年「家ぞく」 3年「家族」
+ *  さきに「~」…よそくの いちらんに 出さない（かつようけい など）
+ *  さきに「^」…おなじ 読みの なかで いちばん さきに 出す
+ *  さきに「_」…おなじ 読みの なかで あとに 出す
+ */
+var TOKEN_RE = /([一-鿿々〆]+)\(([ぁ-ゖー]+)\)|([^()一-鿿々〆]+)/g;
+function parse(tok){
+  if(tok.replace(TOKEN_RE,"")!=="") return null;     /* ( ) の まちがい */
+  var groups=[], read="", m;
+  TOKEN_RE.lastIndex=0;
+  while((m=TOKEN_RE.exec(tok))){
+    if(m[1]){ groups.push([m[1], m[2], true]); read+=m[2]; }
+    else{ var t=m[3]; groups.push([t, k2h(t), false]); read+=k2h(t); }
+  }
+  if(!/^[ぁ-ゖー]+$/.test(read)) return null;
+  return {r:read, g:groups};
+}
+function fullOf(g){ var s=""; for(var i=0;i<g.length;i++) s+=g[i][0]; return s; }
+function readOf(g){ var s=""; for(var i=0;i<g.length;i++) s+=g[i][1]; return s; }
+function groupsHaveKanji(g){ for(var i=0;i<g.length;i++) if(g[i][2]) return true; return false; }
+
+/* ---------- 表 ---------- */
+var FORMS = {};          /* よみ → [ことば]（rank の ちいさい じゅん） */
+var SURF  = {};          /* 漢字の 表記 → ことば（こえ 用） */
+var BASES = [];          /* よそく 用の よみ（もじ数の みじかい じゅん） */
+var MAXL = 1, MAXS = 1, SEQ = 0;
+var dirty = true;
+
+function add(r, g, rank, base, func, infl){
+  if(!r || !g) return;
+  var full=fullOf(g), list=FORMS[r] || (FORMS[r]=[]);
+  for(var i=0;i<list.length;i++){
+    var o=list[i];
+    if(fullOf(o.g)===full && o.func===!!func){
+      if(rank<o.rank) o.rank=rank;
+      if(base) o.base=true;
+      dirty=true; return o;
+    }
+  }
+  var e={r:r, g:g, rank:rank, base:!!base, func:!!func, infl:!!infl, hasK:groupsHaveKanji(g), seq:SEQ++};
+  e.pen = rank>=2 ? 0.15 : 0;
+  e.kHead = KANJI_RE.test(full.charAt(0));
+  e.kTail = KANJI_RE.test(full.charAt(full.length-1));
+  e.conv = e.hasK || full!==r;               /* ひらがなの ままでは ない */
+  list.push(e);
+  if(r.length>MAXL) MAXL=r.length;
+  if(e.hasK && !func && !SURF[full]){ SURF[full]=e; if(full.length>MAXS) MAXS=full.length; }
+  dirty=true;
+  return e;
+}
+
+/* さいごの かなの ぐるーぷを けずって つけたす（かつよう 用） */
+function swapTail(g, cut, tail){
+  var last=g[g.length-1];
+  if(!last || last[2] || last[0].length<cut) return null;
+  var ng=g.slice(0,-1), t=last[0].slice(0,last[0].length-cut)+tail;
+  if(t) ng.push([t,t,false]);
+  return ng;
+}
+/* bare＝うしろに なにも つかない かたち（かき・たべ）。2もじいかは めいしと まぎれるので いれない */
+/* pen＝文の 変換で すこし つかいにくく する（1もじの 読みの 動詞「見る・着る・来る」など） */
+function addForm(g, rank, base, bare, pen){
+  if(!g) return;
+  var r=readOf(g);
+  if(r.length<2 && !base) return;
+  if(bare && r.length<=2) return;
+  if(r.length<=2 && rank>0) rank=Math.max(rank,2);   /* みじかい かつようけいは めいしの あと */
+  var e=add(r, g, rank, base, false, true);
+  if(e && pen) e.pen=Math.max(e.pen,pen);
+}
+function stemPen(g){ return (g[0][2] && g[0][1].length===1 && g.length<=2 && readOf(g).length<=3) ? 0.3 : 0; }
+
+/* 五段：う く ぐ す つ ぬ ぶ む る（「!」つきは いく → いって） */
+var GODAN = {
+  "う":["わ","い","う","え","お","っ"], "く":["か","き","く","け","こ","い"],
+  "ぐ":["が","ぎ","ぐ","げ","ご","い"], "す":["さ","し","す","せ","そ","し"],
+  "つ":["た","ち","つ","て","と","っ"], "ぬ":["な","に","ぬ","ね","の","ん"],
+  "ぶ":["ば","び","ぶ","べ","ぼ","ん"], "む":["ま","み","む","め","も","ん"],
+  "る":["ら","り","る","れ","ろ","っ"]
+};
+function addGodan(p, rank, iku){
+  var end=p.r.slice(-1), row=GODAN[end];
+  if(!row) return false;
+  var g=p.g, i, k;
+  var onbin = iku ? "っ" : row[5];
+  var daku  = /[ぐぬぶむ]/.test(end) && !iku;
+  addForm(g, rank, true);                                        /* かく */
+  var A=["な","れ","せ","ず"], I=["ま","ます","ました","ません","ましょう","たい","たく","たかっ"], E=["ば","る","た","な","ま","て"];
+  for(k=0;k<A.length;k++) addForm(swapTail(g,1,row[0]+A[k]), rank);   /* かかない */
+  addForm(swapTail(g,1,row[1]), rank+1, false, true);                               /* かき（ことばだけ） */
+  for(k=0;k<I.length;k++) addForm(swapTail(g,1,row[1]+I[k]), rank);   /* かきます */
+  addForm(swapTail(g,1,row[3]), rank+1, false, true);
+  for(k=0;k<E.length;k++) addForm(swapTail(g,1,row[3]+E[k]), rank);   /* かける */
+  addForm(swapTail(g,1,row[4]+"う"), rank);                            /* かこう */
+  var T = daku ? ["だ","で"] : ["た","て"];
+  for(i=0;i<T.length;i++) addForm(swapTail(g,1,onbin+T[i]), rank);    /* かいた */
+  return true;
+}
+/* 一段：たべる → たべ＋… */
+function addIchidan(p, rank){
+  if(p.r.slice(-1)!=="る") return false;
+  var g=p.g, S=["る","れ","ろ","よ","ま","ます","ました","ません","ましょう","たい","たく","た","て","な","られ","させ"];
+  var pen=stemPen(g);
+  addForm(g, rank, true, false, pen);
+  addForm(swapTail(g,1,""), rank+1, false, true);
+  for(var k=1;k<S.length;k++) addForm(swapTail(g,1,S[k]), rank, false, false, pen);
+  return true;
+}
+/* 形容詞：たのしい → たのし＋… */
+function addAdj(p, rank){
+  if(p.r.slice(-1)!=="い") return false;
+  var g=p.g, S=["かった","かったら","くて","く","くな","けれ","さ","そう","すぎ"];
+  addForm(g, rank, true);
+  for(var k=0;k<S.length;k++) addForm(swapTail(g,1,S[k]), rank);
+  return true;
+}
+
+var errors = [];
+function eachToken(src, fn){
+  if(!src) return;
+  var toks=String(src).split(/\s+/);
+  for(var i=0;i<toks.length;i++){
+    var t=toks[i]; if(!t) continue;
+    var rank=1, base=true, iku=false;
+    while(/^[~^_]/.test(t)){
+      if(t.charAt(0)==="~") base=false;
+      if(t.charAt(0)==="^") rank=0;
+      if(t.charAt(0)==="_") rank=2;
+      t=t.slice(1);
+    }
+    if(t.slice(-1)==="!"){ iku=true; t=t.slice(0,-1); }
+    var p=parse(t);
+    if(!p){ errors.push(t); continue; }
+    fn(p, rank, base, iku, t);
+  }
+}
+
+/* 来る：き・く・こ に かわる */
+function addKuru(p, rank){
+  if(p.r!=="くる" || !p.g[0][2]) return false;
+  var k=p.g[0][0];
+  var F=[["こ","な"],["こ","なかっ"],["こ","よう"],["こ","られ"],["き","た"],["き","て"],["き","ます"],["き","ました"],["き","ません"],["き","たい"],["く","る"],["く","れ"]];
+  for(var i=0;i<F.length;i++){
+    var g=[[k,F[i][0],true],[F[i][1],F[i][1],false]];
+    var e=add(readOf(g), g, 0, F[i][0]==="く" && F[i][1]==="る", false, true);
+    if(e) e.pen=0.3;
+  }
+  return true;
+}
+
+function load(J){
+  eachToken(J.F, function(p){ add(p.r, [[p.r,p.r,false]], -1, false, true); });
+  eachToken(J.W, function(p,rank,base){ add(p.r, p.g, rank, base, false); });
+  eachToken(J.V5, function(p,rank,base,iku,t){ if(!addGodan(p,rank,iku)) errors.push(t); });
+  eachToken(J.V1, function(p,rank,base,iku,t){ if(!addIchidan(p,rank)) errors.push(t); });
+  eachToken(J.A, function(p,rank,base,iku,t){ if(!addAdj(p,rank)) errors.push(t); });
+  eachToken(J.KURU, function(p,rank,base,iku,t){ if(!addKuru(p,rank)) errors.push(t); });
+  finish();
+}
+
+/* 先生が スプレッドシートに 書いた ことば。
+   「家(か)族(ぞく)」の 書きかたなら まぜがき、ふつうに「家族」なら まとめて あつかう。 */
+function addUser(yomi, hyoki){
+  yomi=k2h(String(yomi||"").replace(/\s/g,""));
+  hyoki=String(hyoki||"").replace(/\s/g,"");
+  if(!/^[ぁ-ゖー]+$/.test(yomi) || !hyoki) return false;
+  var p = hyoki.indexOf("(")>=0 ? parse(hyoki) : null;
+  var g = (p && p.r===yomi) ? p.g : [[hyoki, yomi, hasKanjiStr(hyoki)]];
+  add(yomi, g, 0, true, false);
+  return true;
+}
+
+function finish(){
+  if(!dirty) return;
+  var r;
+  BASES=[];
+  for(r in FORMS){
+    FORMS[r].sort(function(a,b){ return a.rank-b.rank || a.seq-b.seq; });
+    for(var i=0;i<FORMS[r].length;i++) if(FORMS[r][i].base && FORMS[r][i].conv){ BASES.push(r); break; }
+  }
+  BASES.sort(function(a,b){ return a.length-b.length || (a<b?-1:1); });
+  dirty=false;
+}
+
+/* ---------- 学年 ---------- */
+function okChar(c, grade){ return c==="々" || c==="〆" || (KG[c] && KG[c]<=grade); }
+function okGroup(s, grade){
+  for(var i=0;i<s.length;i++){
+    var c=s.charAt(i);
+    if(KANJI_RE.test(c) && !okChar(c,grade)) return false;
+  }
+  return true;
+}
+/* opt = {grade:1〜6, maze:true/false} */
+function surface(e, opt){
+  var g=e.g, out="", all=true;
+  for(var i=0;i<g.length;i++){
+    if(!g[i][2]){ out+=g[i][0]; continue; }
+    if(okGroup(g[i][0], opt.grade)) out+=g[i][0];
+    else { out+=g[i][1]; all=false; }
+  }
+  if(!all && !opt.maze) return e.r;
+  return out;
+}
+
+/* ---------- 1語ずつの こうほ ----------
+   かえす かたち：[{r:よみ, k:[表記…], rest:のこり, use:つかった もじ数}] */
+function predict(buf, opt){
+  finish();
+  if(!buf) return [];
+  var out=[], seen={};
+  function words(r){
+    var list=FORMS[r]||[], ws=[];
+    for(var i=0;i<list.length;i++){
+      var e=list[i];
+      if(e.func || !e.conv) continue;
+      var s=surface(e,opt);
+      if(s===r || seen[r+"|"+s]) continue;
+      seen[r+"|"+s]=1; ws.push(s);
+    }
+    return ws;
+  }
+  /* ① バッファ ぜんぶが よみ */
+  if(FORMS[buf]){ var w0=words(buf); if(w0.length) out.push({r:buf,k:w0,rest:"",use:buf.length}); }
+  /* ② バッファで はじまる ながい ことば */
+  for(var i=0;i<BASES.length && out.length<6;i++){
+    var r=BASES[i];
+    if(r.length>buf.length && r.indexOf(buf)===0) out.push({r:r, k:words(r), rest:"", use:r.length});
+  }
+  /* ③ さきの ぶぶんだけ（1もじの よみは じょしと まぎれるので つかわない） */
+  for(var n=buf.length-1; n>=2; n--){
+    var head=buf.slice(0,n);
+    if(FORMS[head]){
+      var wh=words(head);
+      if(wh.length){ out.push({r:head,k:wh,rest:buf.slice(n),use:n}); break; }
+    }
+  }
+  return out;
+}
+
+/* ---------- 文ぜんたいの こうほ ----------
+   ことばを ならべる くみあわせの なかから、くぎりの すくない ものを えらぶ。
+   ・ことば 1つ … 1（ながいほど すこし やすい）
+   ・かな 1もじ … 1（じょしは 0.9）
+   ・漢字で おわる ことばの すぐ あとに 漢字で はじまる ことば … ＋1.1
+   ・うごきの ことば（かつよう）… −0.05
+   ・あとに 出す ことば（_ や みじかい かたち）… ＋0.15、1もじ読みの 動詞（見る・来る）… ＋0.3
+   1もじの ことば（て・め・き など）は まちがえやすいので つかわない。 */
+var PARTICLE = "はがをにでとものへやねよ、。！？";
+var JOIN = 1.1;
+function segment(buf){
+  finish();
+  var n=buf.length, INF=1e9, i, s, L;
+  var C=[], B=[];
+  for(i=0;i<=n;i++){ C.push([INF,INF]); B.push([null,null]); }
+  C[0][0]=0;
+  function relax(j, st, cost, from, fst, e){
+    if(cost < C[j][st] - 1e-9){ C[j][st]=cost; B[j][st]={from:from, fst:fst, e:e}; }
+  }
+  for(i=0;i<n;i++) for(s=0;s<2;s++){
+    var c=C[i][s]; if(c>=INF) continue;
+    relax(i+1, 0, c + (PARTICLE.indexOf(buf.charAt(i))>=0 ? 0.9 : 1), i, s, null);
+    for(L=2; L<=MAXL && i+L<=n; L++){
+      var list=FORMS[buf.substr(i,L)];
+      if(!list) continue;
+      var e=list[0], real=e.hasK && !e.func;
+      var cost = c + 1 - 0.01*L - (e.infl ? 0.05 : 0) + e.pen + (real && e.kHead && s ? JOIN : 0);
+      relax(i+L, (real && e.kTail) ? 1 : 0, cost, i, s, e);
+    }
+  }
+  var st = C[n][0] <= C[n][1] ? 0 : 1, segs=[], j=n;
+  while(j>0){
+    var b=B[j][st];
+    segs.unshift({t:buf.slice(b.from,j), e:b.e});
+    j=b.from; st=b.fst;
+  }
+  return segs;
+}
+function convert(buf, opt){
+  if(!buf || buf.length<2) return null;
+  var segs=segment(buf), out="", used=0;
+  for(var i=0;i<segs.length;i++){
+    var e=segs[i].e;
+    if(e && !e.func && e.conv){
+      var s=surface(e,opt);
+      if(s!==segs[i].t) used++;
+      out+=s;
+    }else out+=segs[i].t;
+  }
+  return used ? out : null;
+}
+
+/* ---------- こえで 入った 漢字を 学年に あわせる ----------
+   辞書に ある ことばだけ もどせる。1字の ことばは、まえと うしろが
+   漢字でない ときだけ つかう（「体重」を「からだ重」に しない ため）。 */
+function soften(text, opt){
+  finish();
+  var out="", i=0, prevHit=false, n=text.length;
+  while(i<n){
+    var hit=null, L;
+    for(L=Math.min(MAXS, n-i); L>=1; L--){
+      var e=SURF[text.substr(i,L)];
+      if(!e) continue;
+      var before = i>0 && !prevHit && KANJI_RE.test(text.charAt(i-1));
+      var after  = i+L<n && KANJI_RE.test(text.charAt(i+L));
+      if(L===1 && (before||after)) continue;
+      hit=e; break;
+    }
+    if(hit){ out+=surface(hit,opt); i+=L; prevHit=true; }
+    else { out+=text.charAt(i); i++; prevHit=false; }
+  }
+  return out;
+}
+
+function gradeOf(c){ return KG[c]||0; }
+
+return {
+  load:load, addUser:addUser, predict:predict, convert:convert, segment:segment,
+  soften:soften, surface:surface, parse:parse, gradeOf:gradeOf,
+  GRADE_KANJI:GRADE_KANJI, errors:errors, FORMS:FORMS,
+  stats:function(){ var n=0,r; for(r in FORMS) n+=FORMS[r].length; return {readings:Object.keys(FORMS).length, forms:n}; }
+};
+})();
+</script>

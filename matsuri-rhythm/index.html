@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#d9363e">
+<meta name="description" content="2年生 音楽「おまつりの 音楽」。リズムカードを 4まい えらんで ならべると、たいこの 音で ならせる。">
+<title>おまつり リズム</title>
+<link rel="icon" type="image/png" href="assets/app-icon.png">
+<link rel="apple-touch-icon" href="assets/app-icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=M+PLUS+Rounded+1c:wght@500;800&display=swap">
+<script src="assets/icons.js"></script>
+<style>
+/* おまつり リズム ── 見ため
+   ------------------------------------------------------------------
+   うえ：だいめい。
+   まんなか：つかう カード（ア〜カ）と、つくった リズム（4まい）。
+   した：ならす ボタン など（いつも 見える）。
+   カードの いろは カードごとに きめて ある ので、おなじ カードを
+   つかうと おなじ いろが ならび、「くりかえし」が 目で わかる。
+   ------------------------------------------------------------------ */
+:root{
+    --bg:#fff6ec;
+    --ink:#2b2420;
+    --thin:#7a6a60;
+    --line:#ecdccc;
+    --red:#d9363e;
+    --red-d:#a8232a;
+    --gold:#ffb703;
+    --glow:#ffcf3f;
+    --note:56px;
+    --ff: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Hiragino Sans", "Meiryo", sans-serif;
+    --ff-pop: "Mochiy Pop One", var(--ff);
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; height:100%; }
+body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--ff);
+    font-weight:500;
+    display:flex; flex-direction:column;
+    min-height:100dvh;
+    -webkit-tap-highlight-color:transparent;
+    user-select:none; -webkit-user-select:none;
+}
+button{ font:inherit; color:inherit; cursor:pointer; }
+.ic{ width:1em; height:1em; vertical-align:-.15em; flex:none; }
+
+/* ---------- うえ ---------- */
+.top{
+    display:flex; align-items:center; gap:10px;
+    padding:8px 14px;
+    background:linear-gradient(180deg,#e2434b,#c92a33);
+    color:#fff;
+    box-shadow:0 2px 0 #a8232a;
+}
+.top .lan{ width:42px; height:42px; flex:none; }
+.top h1{
+    margin:0; flex:1; min-width:0;
+    font-family:var(--ff-pop); font-weight:400;
+    font-size:clamp(18px,2.6vw,28px); line-height:1.15;
+    letter-spacing:.04em;
+}
+.top h1 small{ display:block; font-family:var(--ff); font-weight:800; font-size:clamp(11px,1.3vw,15px); opacity:.92; letter-spacing:.02em; }
+
+/* ---------- まんなか ---------- */
+main{ flex:1; overflow:auto; padding:10px 14px 16px; }
+h2{
+    margin:4px 2px 8px; font-size:clamp(16px,1.8vw,20px); font-weight:800;
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+}
+h2 .hint{ font-size:13px; font-weight:500; color:var(--thin); }
+.sp{ flex:1; }
+.subbtn{
+    border:2px solid var(--line); background:#fff; border-radius:10px;
+    padding:4px 12px; font-size:14px; font-weight:800; min-height:36px;
+    display:inline-flex; align-items:center; gap:4px;
+}
+.subbtn:hover{ border-color:#d8bfa8; }
+
+.pal{
+    display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px;
+    background:#efe5da; border-radius:16px; padding:10px;
+}
+
+/* カード */
+.card{
+    --c:#e03131; --t:#fff0f0;
+    position:relative;
+    background:#fff;
+    border:3px solid var(--c);
+    border-radius:14px;
+    padding:26px 6px 8px;
+    box-shadow:0 3px 0 rgba(0,0,0,.12);
+    touch-action:none;
+    cursor:grab;
+    transition:transform .08s;
+}
+.card:active{ transform:scale(.98); }
+.card .badge{
+    position:absolute; left:6px; top:5px;
+    width:26px; height:26px; border-radius:50%;
+    background:var(--c); color:#fff;
+    display:grid; place-items:center;
+    font-weight:800; font-size:16px; line-height:1;
+}
+.card .lis{
+    position:absolute; right:4px; top:3px;
+    border:0; background:var(--t); color:var(--c);
+    width:34px; height:30px; border-radius:9px; font-size:20px;
+    display:grid; place-items:center;
+}
+.units{ display:grid; grid-template-columns:1fr 1fr; gap:2px; }
+.unit{
+    display:flex; flex-direction:column; align-items:center;
+    border-radius:10px; padding:2px 0 4px;
+    transition:background .08s;
+}
+.unit .nt{ height:var(--note); display:flex; align-items:flex-end; justify-content:center; color:#1f1a17; }
+.unit .nt .ic{ width:var(--note); height:var(--note); }
+.unit .nt.two .ic{ width:calc(var(--note)*.72); }
+.unit .dk{ font-weight:800; font-size:calc(var(--note)*.32); white-space:nowrap; line-height:1.3; }
+.unit.now{ background:var(--glow); }
+.unit.now .nt{ transform:scale(1.12); }
+.card.playing{ box-shadow:0 0 0 4px var(--glow), 0 3px 0 rgba(0,0,0,.12); }
+
+.c-a{ --c:#e03131; --t:#ffe3e3; }
+.c-i{ --c:#f08c00; --t:#fff0d6; }
+.c-u{ --c:#2b9a3e; --t:#e1f5e4; }
+.c-e{ --c:#1c7ed6; --t:#dcebfb; }
+.c-o{ --c:#7048e8; --t:#ebe5fd; }
+.c-ka{ --c:#d6336c; --t:#fde3ec; }
+.slot .card{ background:var(--t); }
+
+/* つくった リズム */
+.trk-wrap{ margin-top:14px; }
+.slots{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; padding:6px; }
+.slot{ display:flex; flex-direction:column; min-width:0; }
+.slab{ font-weight:800; font-size:14px; color:var(--thin); padding:0 4px 3px; }
+.sbox{
+    flex:1; border-radius:14px; position:relative;
+    min-height:calc(var(--note)*1.9 + 34px);
+}
+.sbox.empty{
+    border:3px dashed #d8c4b0; background:#fffaf4;
+    display:grid; place-items:center; color:#b8a291; font-weight:800; font-size:14px; text-align:center;
+    cursor:pointer;
+}
+.slot.cur .sbox{ outline:4px solid var(--gold); outline-offset:2px; }
+.slot.cur .sbox.empty{ border-color:var(--gold); background:#fff7dd; color:#9a6a00; animation:blink 1.2s infinite; }
+@keyframes blink{ 50%{ background:#ffefc2; } }
+.slot.over .sbox{ outline:4px solid #4dabf7; outline-offset:2px; }
+.sbox .card{ height:100%; }
+.del{
+    position:absolute; right:-6px; top:-8px; z-index:2;
+    width:30px; height:30px; border-radius:50%; border:2px solid #fff;
+    background:#6b5d55; color:#fff; font-size:18px; display:grid; place-items:center; padding:0;
+}
+.dots{ display:grid; grid-template-columns:1fr 1fr; padding:6px 9px 0; }
+.dots i{
+    justify-self:center; width:16px; height:16px; border-radius:50%; background:#cdb9a6;
+    transition:transform .06s, background .06s;
+}
+.dots i.on{ background:var(--red); transform:scale(1.5); }
+
+.rep{ margin:2px 10px 0; font-weight:800; font-size:15px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; min-height:34px; }
+.rep .chip{ border-radius:999px; padding:3px 12px 3px 4px; background:var(--t); color:var(--c); display:inline-flex; align-items:center; gap:6px; border:2px solid var(--c); }
+.rep .chip b{ background:var(--c); color:#fff; border-radius:50%; width:22px; height:22px; display:grid; place-items:center; font-size:13px; }
+.rep .none{ color:var(--thin); font-weight:500; }
+
+/* ---------- した ---------- */
+.ctl{
+    display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px;
+    padding:8px 14px calc(8px + env(safe-area-inset-bottom));
+    background:#fff; border-top:3px solid var(--line);
+}
+#drum{ width:60px; height:60px; flex:none; transform-origin:50% 70%; }
+#drum.hit{ animation:hit .18s ease-out; }
+#drum.hit2{ animation:hit2 .14s ease-out; }
+@keyframes hit{ 0%{ transform:scale(1.22) rotate(-4deg); } 100%{ transform:none; } }
+@keyframes hit2{ 0%{ transform:scale(1.1) rotate(3deg); } 100%{ transform:none; } }
+.play{
+    border:0; border-radius:16px; background:var(--red); color:#fff;
+    font-weight:800; font-size:22px; min-height:58px; padding:0 22px;
+    display:flex; align-items:center; gap:6px; box-shadow:0 4px 0 var(--red-d);
+}
+.play:active{ transform:translateY(2px); box-shadow:0 2px 0 var(--red-d); }
+.play .ic{ font-size:30px; }
+.play.stop{ background:#4a3f39; box-shadow:0 4px 0 #2a221e; }
+.tgls{ display:flex; gap:6px; flex-wrap:wrap; }
+.tgl{
+    border:2px solid var(--line); background:#fff; border-radius:12px;
+    min-height:46px; padding:2px 10px; font-weight:800; font-size:15px;
+    display:flex; align-items:center; gap:4px; color:var(--thin);
+}
+.tgl .ic{ font-size:22px; }
+.tgl.on{ background:#fff4d1; border-color:var(--gold); color:#6b4600; }
+
+/* おしらせ */
+#toast{
+    position:fixed; left:50%; top:76px; transform:translateX(-50%) translateY(-20px);
+    background:#3a2f29; color:#fff; padding:10px 18px; border-radius:14px; font-weight:800;
+    font-size:17px; opacity:0; pointer-events:none; transition:.2s; z-index:50; max-width:calc(100% - 32px); text-align:center;
+}
+#toast.show{ opacity:1; transform:translateX(-50%); }
+#count{
+    position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; z-index:40;
+    font-family:var(--ff-pop); font-size:min(30vw,220px); color:var(--red); opacity:0;
+    text-shadow:0 6px 0 rgba(0,0,0,.08);
+}
+#count.show{ animation:cnt .5s ease-out; }
+@keyframes cnt{ 0%{ opacity:.9; transform:scale(1.2);} 100%{ opacity:0; transform:scale(.9);} }
+
+/* ひっぱっている カード */
+.ghost{ position:fixed; z-index:60; pointer-events:none; opacity:.92; transform:rotate(-3deg) scale(1.04); box-shadow:0 12px 24px rgba(0,0,0,.25); }
+
+/* れい */
+dialog{
+    border:0; border-radius:18px; padding:0; width:min(560px, calc(100% - 24px)); max-height:calc(100dvh - 24px);
+    box-shadow:0 20px 50px rgba(0,0,0,.3); color:var(--ink);
+}
+dialog::backdrop{ background:rgba(40,25,15,.45); }
+.dlg-h{ display:flex; align-items:center; gap:10px; padding:12px 16px; background:#fff3e6; border-bottom:2px solid var(--line); }
+.dlg-h h3{ margin:0; flex:1; font-size:20px; }
+.dlg-b{ padding:12px 16px 18px; }
+.dlg-b p{ margin:4px 0 10px; font-size:14px; color:var(--thin); }
+.xbtn{ border:2px solid var(--line); background:#fff; border-radius:9px; width:38px; height:38px; display:grid; place-items:center; font-size:20px; padding:0; }
+.exlist{ display:flex; flex-direction:column; gap:8px; }
+.exlist button{ text-align:left; border:2px solid var(--line); background:#fff; border-radius:12px; padding:10px 12px; font-weight:800; font-size:16px; }
+.exlist button small{ display:block; font-weight:500; color:var(--thin); font-size:13px; }
+.exlist button:hover{ border-color:var(--gold); }
+
+/* ---------- せまい 画面 ---------- */
+@media (max-width:980px){
+    .pal{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    :root{ --note:48px; }
+}
+@media (max-width:640px){
+    .top .lan:last-of-type{ display:none; }
+    .slots{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    :root{ --note:42px; }
+    .play{ font-size:19px; padding:0 14px; }
+    #drum{ width:48px; height:48px; }
+    main{ padding:8px 10px 14px; }
+    .ctl{ padding-left:10px; padding-right:10px; }
+}
+@media (max-height:700px) and (min-width:981px){
+    :root{ --note:50px; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+    <img class="lan" src="assets/emoji/lantern.webp" alt="">
+    <h1>おまつりの 音楽<small>くりかえしを つかって リズムを つくろう</small></h1>
+    <img class="lan" src="assets/emoji/lantern.webp" alt="">
+</header>
+
+<main>
+    <section>
+        <h2>つかう カード <span class="hint">カードを おすと、えらんだ ところに ならぶよ（ひっぱっても おける）</span></h2>
+        <div class="pal" id="pal"></div>
+    </section>
+
+    <section class="trk-wrap">
+        <h2>つくった リズム
+            <span class="hint" id="trkHint">4まい ならべて ならしてみよう</span>
+            <span class="sp"></span>
+            <button type="button" class="subbtn" id="btnEx">れい</button>
+            <button type="button" class="subbtn" id="btnClear"></button>
+        </h2>
+        <div class="slots" id="slots"></div>
+        <div class="rep" id="rep"></div>
+    </section>
+</main>
+
+<footer class="ctl">
+    <img id="drum" src="assets/emoji/drum.webp" alt="">
+    <button type="button" class="play" id="btnPlay"></button>
+    <div class="tgls">
+        <button type="button" class="tgl" id="tLoop" title="おわったら また はじめから">ずっと</button>
+        <button type="button" class="tgl" id="tBeat" title="はくを カッ カッ と うつ（はじめに 2つ かぞえる）">はく</button>
+    </div>
+</footer>
+
+<div id="toast"></div>
+<div id="count"></div>
+
+<dialog id="dlgEx">
+    <div class="dlg-h"><h3>れい（きょうかしょ）</h3><button type="button" class="xbtn" id="exClose" aria-label="とじる"></button></div>
+    <div class="dlg-b">
+        <p>えらぶと リズムに ならびます。</p>
+        <div class="exlist" id="exList"></div>
+    </div>
+</dialog>
+
+<script>
+'use strict';
+/* =====================================================================
+   おまつり リズム
+   ---------------------------------------------------------------------
+   ・カード ア〜カ（どれも 2はく）を 4まい ならべて 8はくの リズムを つくる
+   ・たいこの 音は Web Audio で その場で つくる（音の ファイルは つかわない）
+   ・はやさは ♩＝90 で きまり
+   ===================================================================== */
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+/* ---------- アイコン（assets/icons.js の Material Design Icons） ---------- */
+function ic(name, cls = '') {
+    const d = (window.MDI || {})[name];
+    if (!d) return '';
+    return `<svg class="ic ${cls}" viewBox="0 0 ${d.w} ${d.h}" aria-hidden="true">${d.body}</svg>`;
+}
+
+/* ---------- カードの なかみ ----------
+   1つの カードは 2はく。1はく ずつ「ユニット」に わける。
+   q＝4分音符、ee＝8分音符 2つ、qr＝4分休符、re＝8分休符＋8分音符
+   hits の o は ユニットの なかの 位置（はく）、k は たたきかた
+   （don＝ひびかせる ドン、do＝つぎが すぐ くる ド、ko＝よわめの コ） */
+const UNIT = {
+    q:  { notes: ['music-note-quarter'], hits: [{ o: 0, k: 'don' }] },
+    ee: { notes: ['music'], hits: [{ o: 0, k: 'do' }, { o: .5, k: 'ko' }] },
+    qr: { notes: ['music-rest-quarter'], hits: [] },
+    re: { notes: ['music-rest-eighth', 'music-note-eighth'], hits: [{ o: .5, k: 'ko' }] },
+};
+const CARDS = [
+    { id: 'a',  kana: 'ア', units: ['q', 'ee'],  dk: ['ドン', 'ドコ'] },
+    { id: 'i',  kana: 'イ', units: ['q', 'q'],   dk: ['ドン', 'ドン'] },
+    { id: 'u',  kana: 'ウ', units: ['q', 'qr'],  dk: ['ドン', '（ウン）'] },
+    { id: 'e',  kana: 'エ', units: ['ee', 'q'],  dk: ['ドコ', 'ドン'] },
+    { id: 'o',  kana: 'オ', units: ['re', 'q'],  dk: ['（ス）コ', 'ドン'] },
+    { id: 'ka', kana: 'カ', units: ['ee', 'ee'], dk: ['ドコ', 'ドコ'] },
+];
+const CARD = Object.fromEntries(CARDS.map(c => [c.id, c]));
+const EXAMPLES = [
+    { name: '1まい目と 2まい目を くりかえした れい', ids: ['a', 'a', 'i', 'u'] },
+    { name: '1まい目と 3まい目を くりかえした れい', ids: ['a', 'i', 'a', 'u'] },
+];
+const TEMPO = 90;            // はやさ（♩＝90 で きまり）
+const BEAT = 60 / TEMPO;     // 1はくの びょう
+
+/* ---------- じょうたい（この たんまつに のこす） ---------- */
+const KEY = 'matsuri-rhythm-v1';
+const S = {
+    track: [null, null, null, null],
+    cur: 0,               // つぎに カードを おく ところ（null＝ぜんぶ うまっている）
+    loop: false, beat: false,
+};
+function load() {
+    try {
+        const d = JSON.parse(localStorage.getItem(KEY) || 'null');
+        if (!d) return;
+        // まえの はん（tracks.A）でも よめる ように する
+        const a = Array.isArray(d.track) ? d.track : (d.tracks && Array.isArray(d.tracks.A) ? d.tracks.A : []);
+        S.track = [0, 1, 2, 3].map(i => CARD[a[i]] ? a[i] : null);
+        S.cur = (d.cur === null || (d.cur >= 0 && d.cur <= 3)) ? d.cur : 0;
+        S.loop = !!d.loop; S.beat = !!d.beat;
+    } catch (e) {}
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+/* ---------- 音 ---------- */
+let ctx = null, master = null, drumBus = null, noiseBuf = null;
+function audio() {
+    if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        ctx = new AC({ latencyHint: 'interactive' });
+        const comp = ctx.createDynamicsCompressor();
+        comp.threshold.value = -14; comp.knee.value = 10; comp.ratio.value = 4;
+        comp.attack.value = .003; comp.release.value = .2;
+        master = ctx.createGain(); master.gain.value = .9;
+        master.connect(comp).connect(ctx.destination);
+        // ひびき（その場で つくる みじかい ホールの ひびき）
+        const rev = ctx.createConvolver();
+        const len = Math.floor(ctx.sampleRate * 1.1), ir = ctx.createBuffer(2, len, ctx.sampleRate);
+        for (let ch = 0; ch < 2; ch++) {
+            const d = ir.getChannelData(ch);
+            for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2);
+        }
+        rev.buffer = ir;
+        const wet = ctx.createGain(); wet.gain.value = .16;
+        rev.connect(wet).connect(master);
+        drumBus = ctx.createGain(); drumBus.gain.value = .9;
+        drumBus.connect(master); drumBus.connect(rev);
+        noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+        const nd = noiseBuf.getChannelData(0);
+        for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    }
+    if (ctx.state !== 'running') ctx.resume();
+    return ctx;
+}
+const outLat = () => ctx ? (ctx.outputLatency || ctx.baseLatency || 0) : 0;
+
+// やわらかく ひずませて、小さい スピーカー でも ひくい 音が きこえる ように する
+let shaper = null;
+function softClip() {
+    if (shaper) return shaper;
+    shaper = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; shaper[i] = Math.tanh(2.4 * x) / Math.tanh(2.4); }
+    return shaper;
+}
+function env(g, t, peak, a, d1, lvl1, d2) {
+    g.gain.setValueAtTime(.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + a);
+    g.gain.exponentialRampToValueAtTime(Math.max(.0001, peak * lvl1), t + a + d1);
+    g.gain.exponentialRampToValueAtTime(.0001, t + a + d1 + d2);
+}
+/* たいこ（和太鼓）の 音：まくの ひくい 音（ピッチが さがる）＋ 2ばんめの まくの 音 ＋ バチの あたる 音 */
+function drumHit(t, kind, out) {
+    const amp = (kind === 'ko' ? .55 : kind === 'do' ? .9 : 1) * .72;
+    const ring = kind === 'don' ? 1.15 : .5;
+    const f0 = kind === 'ko' ? 128 : 118, f1 = kind === 'ko' ? 74 : 66;
+    const end = t + ring + .1;
+    // まくの ひくい 音
+    const o = ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(f0 * 1.9, t);
+    o.frequency.exponentialRampToValueAtTime(f0, t + .025);
+    o.frequency.exponentialRampToValueAtTime(f1, t + ring);
+    const ws = ctx.createWaveShaper(); ws.curve = softClip();
+    const pre = ctx.createGain(); pre.gain.value = 1.6;
+    const g = ctx.createGain(); env(g, t, amp * .85, .004, .12, .45, ring - .12);
+    o.connect(pre).connect(ws).connect(g).connect(out);
+    o.start(t); o.stop(end);
+    // 2ばんめの まくの 音（すこし たかい）
+    const o2 = ctx.createOscillator(); o2.type = 'sine';
+    o2.frequency.setValueAtTime(f0 * 1.62, t);
+    o2.frequency.exponentialRampToValueAtTime(f1 * 1.55, t + ring * .5);
+    const g2 = ctx.createGain(); env(g2, t, amp * .32, .003, .06, .3, ring * .4);
+    o2.connect(g2).connect(out); o2.start(t); o2.stop(end);
+    // 胴の ひびき（ノイズを ひくい ところで ならす）
+    const n = ctx.createBufferSource(); n.buffer = noiseBuf;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = kind === 'ko' ? 260 : 210; bp.Q.value = 1.8;
+    const ng = ctx.createGain(); env(ng, t, amp * .9, .002, .05, .25, ring * .35);
+    n.connect(bp).connect(ng).connect(out); n.start(t, Math.random() * .5); n.stop(end);
+    // バチの あたる 音
+    const n2 = ctx.createBufferSource(); n2.buffer = noiseBuf;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = kind === 'ko' ? 2600 : 1900;
+    const ng2 = ctx.createGain(); env(ng2, t, amp * .55, .001, .012, .2, .03);
+    n2.connect(lp).connect(ng2).connect(out); n2.start(t, Math.random() * .5); n2.stop(t + .1);
+}
+/* はく（ふちを たたく カッ） */
+function rimHit(t, out, strong) {
+    const amp = strong ? .5 : .35;
+    const o = ctx.createOscillator(); o.type = 'triangle';
+    o.frequency.setValueAtTime(strong ? 1250 : 1050, t);
+    const g = ctx.createGain(); env(g, t, amp, .001, .015, .2, .04);
+    o.connect(g).connect(out); o.start(t); o.stop(t + .1);
+    const n = ctx.createBufferSource(); n.buffer = noiseBuf;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2500;
+    const ng = ctx.createGain(); env(ng, t, amp * .8, .001, .01, .2, .03);
+    n.connect(hp).connect(ng).connect(out); n.start(t, Math.random() * .5); n.stop(t + .08);
+}
+
+/* ---------- ならす（さきに すこし ずつ よやく する） ---------- */
+let P = null;   // いま ならして いる もの
+
+// spec: { kind:'track', loop } ／ { kind:'card', id }
+function buildPass(spec) {
+    if (spec.kind === 'card') {
+        const sel = `.pal .card[data-card="${spec.id}"]`;
+        return [{ id: spec.id, sel, cardSel: sel }];
+    }
+    const arr = S.track.slice();
+    while (arr.length && !arr[arr.length - 1]) arr.pop();   // うしろの からっぽは ならさない
+    return arr.map((id, si) => {
+        const sel = `.slot[data-slot="${si}"]`;
+        return { id, sel, cardSel: sel + ' .card' };
+    });
+}
+function play(spec) {
+    stop();
+    const segs = buildPass(spec);
+    if (!segs.some(s => s.id)) {
+        if (spec.kind === 'track') toast('カードを ならべてから ならしてね');
+        return;
+    }
+    audio();
+    const bus = ctx.createGain(); bus.connect(drumBus);
+    P = { spec, bus, ev: [], start: ctx.currentTime + .12, passEnd: 0 };
+    let at = P.start;
+    if (spec.kind === 'track' && S.beat) {
+        // はじめに 2つ かぞえる（カッ カッ）
+        for (let b = 0; b < 2; b++) {
+            rimHit(at + b * BEAT, bus, b === 0);
+            P.ev.push({ t: at + b * BEAT, type: 'count', n: b + 1 });
+        }
+        at += 2 * BEAT;
+    }
+    P.passEnd = at;
+    schedulePass();
+    P.iv = setInterval(tick, 20);
+    P.raf = requestAnimationFrame(frame);
+    updPlayBtn();
+}
+function schedulePass() {
+    const spec = P.spec;
+    const segs = buildPass(spec);
+    const t0 = P.passEnd;
+    segs.forEach((sg, si) => {
+        const st = t0 + si * 2 * BEAT;
+        if (spec.kind === 'track') {
+            for (let b = 0; b < 2; b++) {
+                const bt = st + b * BEAT;
+                P.ev.push({ t: bt, end: bt + BEAT * .5, type: 'dot', sel: sg.sel + ' .dots i:nth-child(' + (b + 1) + ')' });
+                if (S.beat) rimHit(bt, P.bus, b === 0);
+            }
+        }
+        if (!sg.id) return;
+        const c = CARD[sg.id];
+        P.ev.push({ t: st, end: st + 2 * BEAT, type: 'card', sel: sg.cardSel });
+        c.units.forEach((uk, u) => {
+            const ut = st + u * BEAT;
+            P.ev.push({ t: ut, end: ut + BEAT, type: 'unit', sel: sg.sel + ` .unit[data-u="${u}"]` });
+            for (const h of UNIT[uk].hits) {
+                const ht = ut + h.o * BEAT;
+                drumHit(ht, h.k, P.bus);
+                P.ev.push({ t: ht, type: 'hit', k: h.k });
+            }
+        });
+    });
+    P.passEnd = t0 + segs.length * 2 * BEAT;
+}
+function tick() {
+    if (!P) return;
+    const now = ctx.currentTime;
+    if (P.spec.loop) {
+        if (now > P.passEnd - .35) schedulePass();
+    } else if (now > P.passEnd + .25) {
+        stop();
+    }
+}
+const lit = new Set();
+function frame() {
+    if (!P) return;
+    const now = ctx.currentTime - outLat();
+    const want = new Set();
+    let keep = 0;
+    for (const e of P.ev) {
+        if (e.type === 'hit' || e.type === 'count') {
+            if (!e.done && now >= e.t) {
+                e.done = true;
+                if (e.type === 'hit') bounce(e.k !== 'ko');
+                else showCount(e.n);
+            }
+            if (!e.done) keep++;
+            continue;
+        }
+        if (now >= e.t && now < e.end) want.add(e.sel + '|' + e.type);
+        if (now < e.end) keep++;
+    }
+    // おわった ものは すてる
+    if (P.ev.length > 300 && keep < P.ev.length / 2) P.ev = P.ev.filter(e => (e.type === 'hit' || e.type === 'count') ? !e.done : e.end > now);
+    for (const k of lit) if (!want.has(k)) { setLit(k, false); lit.delete(k); }
+    for (const k of want) if (!lit.has(k)) { setLit(k, true); lit.add(k); }
+    P.raf = requestAnimationFrame(frame);
+}
+function setLit(k, on) {
+    const [sel, type] = k.split('|');
+    const el = $(sel); if (!el) return;
+    el.classList.toggle(type === 'dot' ? 'on' : type === 'card' ? 'playing' : 'now', on);
+}
+function clearLit() { for (const k of lit) setLit(k, false); lit.clear(); $$('.now,.playing,.dots i.on').forEach(e => e.classList.remove('now', 'playing', 'on')); }
+function stop() {
+    if (!P) return;
+    const p = P; P = null;
+    clearInterval(p.iv); cancelAnimationFrame(p.raf);
+    try { p.bus.gain.setTargetAtTime(0, ctx.currentTime, .03); } catch (e) {}
+    setTimeout(() => { try { p.bus.disconnect(); } catch (e) {} }, 300);
+    clearLit();
+    updPlayBtn();
+}
+const drumImg = $('#drum');
+function bounce(strong) {
+    drumImg.classList.remove('hit', 'hit2'); void drumImg.offsetWidth;
+    drumImg.classList.add(strong ? 'hit' : 'hit2');
+}
+function showCount(n) {
+    const el = $('#count'); el.textContent = n;
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+}
+const isPlaying = () => P && P.spec.kind === 'track';
+
+/* ---------- がめん ---------- */
+function unitHTML(c, u) {
+    const U = UNIT[c.units[u]];
+    return `<div class="unit" data-u="${u}">
+        <div class="nt${U.notes.length > 1 ? ' two' : ''}">${U.notes.map(n => ic(n)).join('')}</div>
+        <div class="dk">${c.dk[u]}</div>
+    </div>`;
+}
+function cardHTML(c, inPal) {
+    return `<div class="card c-${c.id}" data-card="${c.id}">
+        <span class="badge">${c.kana}</span>
+        ${inPal ? `<button type="button" class="lis" title="きく" aria-label="${c.kana} を きく">${ic('volume-high')}</button>` : ''}
+        <div class="units">${c.units.map((_, u) => unitHTML(c, u)).join('')}</div>
+    </div>`;
+}
+function renderPal() {
+    lit.clear();   // かきなおすと ひかりが きえるので、つぎの コマで つけなおす
+    $('#pal').innerHTML = CARDS.map(c => cardHTML(c, true)).join('');
+}
+function renderTrack() {
+    lit.clear();
+    $('#slots').innerHTML = S.track.map((id, i) => `
+        <div class="slot${S.cur === i ? ' cur' : ''}" data-slot="${i}">
+            <div class="slab">${i + 1}まい目</div>
+            <div class="sbox${id ? '' : ' empty'}">${id
+                ? cardHTML(CARD[id], false) + `<button type="button" class="del" title="とる" aria-label="${i + 1}まい目を とる">${ic('close')}</button>`
+                : (S.cur === i ? 'ここに<br>おくよ' : 'カードを<br>えらんでね')}</div>
+            <div class="dots"><i></i><i></i></div>
+        </div>`).join('');
+    renderRep();
+    const n = S.track.filter(Boolean).length;
+    $('#trkHint').textContent = n < 4 ? `あと ${4 - n}まい` : 'できたね！ ならしてみよう';
+}
+function renderRep() {
+    const pos = {};
+    S.track.forEach((id, i) => { if (id) (pos[id] = pos[id] || []).push(i + 1); });
+    const out = Object.entries(pos).filter(([, ps]) => ps.length > 1)
+        .map(([id, ps]) => `<span class="chip c-${id}"><b>${CARD[id].kana}</b>${ps.join('・')}まい目</span>`);
+    $('#rep').innerHTML = out.length
+        ? `<span>くりかえし みつけた！</span>` + out.join('')
+        : `<span class="none">おなじ カードを もう いちど つかうと「くりかえし」に なるよ</span>`;
+}
+function renderCtl() {
+    $('#tLoop').classList.toggle('on', S.loop);
+    $('#tBeat').classList.toggle('on', S.beat);
+    updPlayBtn();
+}
+function updPlayBtn() {
+    const b = $('#btnPlay'), on = isPlaying();
+    b.classList.toggle('stop', !!on);
+    b.innerHTML = on ? ic('stop') + 'とめる' : ic('play') + 'ならす';
+}
+function staticIcons() {
+    $('#btnClear').innerHTML = ic('delete-outline') + 'ぜんぶ けす';
+    $('#tLoop').innerHTML = ic('repeat') + 'ずっと';
+    $('#tBeat').innerHTML = ic('metronome') + 'はく';
+    $('#exClose').innerHTML = ic('close');
+}
+let toastT = 0;
+function toast(msg) {
+    const el = $('#toast'); el.textContent = msg; el.classList.add('show');
+    clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+/* ---------- カードを おく・うごかす ---------- */
+function nextEmpty(from) {
+    for (let k = 0; k < 4; k++) { const i = (from + k) % 4; if (!S.track[i]) return i; }
+    return null;
+}
+function changed() {
+    // ならしている とちゅうで かえても、つぎの まわりから かわる
+    save(); renderTrack();
+}
+function place(id) {
+    if (S.cur === null) { toast('かえたい ところを おしてから カードを えらんでね'); return false; }
+    S.track[S.cur] = id;
+    S.cur = nextEmpty(S.cur + 1);
+    changed();
+    return true;
+}
+function previewCard(id) {
+    // リズムを ならしている あいだは じゃまを しない（おいた カードは つぎの まわりから きこえる）
+    if (isPlaying()) return;
+    play({ kind: 'card', id });
+}
+
+// タップ と ひっぱる
+let drag = null;
+document.addEventListener('pointerdown', e => {
+    if (e.button > 0) return;
+    const card = e.target.closest('.card');
+    if (!card || e.target.closest('button')) return;
+    const slot = card.closest('.slot');
+    drag = {
+        id: card.dataset.card, el: card, x0: e.clientX, y0: e.clientY, moved: false, pid: e.pointerId,
+        from: slot ? +slot.dataset.slot : null,
+    };
+    try { card.setPointerCapture(e.pointerId); } catch (err) {}
+});
+document.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.pid) return;
+    if (!drag.moved) {
+        if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 10) return;
+        drag.moved = true;
+        const r = drag.el.getBoundingClientRect();
+        const g = drag.el.cloneNode(true);
+        g.classList.add('ghost'); g.classList.remove('playing');
+        g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
+        g.style.setProperty('--note', getComputedStyle(drag.el).getPropertyValue('--note'));
+        drag.dx = drag.x0 - r.left; drag.dy = drag.y0 - r.top;
+        document.body.appendChild(g); drag.g = g;
+        if (drag.from !== null) drag.el.style.opacity = '.35';
+    }
+    drag.g.style.left = (e.clientX - drag.dx) + 'px';
+    drag.g.style.top = (e.clientY - drag.dy) + 'px';
+    const over = document.elementFromPoint(e.clientX, e.clientY);
+    const slot = over && over.closest('.slot');
+    $$('.slot.over').forEach(s => s !== slot && s.classList.remove('over'));
+    if (slot) slot.classList.add('over');
+});
+function endDrag(e, cancel) {
+    if (!drag || (e && e.pointerId !== drag.pid)) return;
+    const d = drag; drag = null;
+    $$('.slot.over').forEach(s => s.classList.remove('over'));
+    if (d.g) d.g.remove();
+    d.el.style.opacity = '';
+    if (cancel) return;
+    if (!d.moved) { tapCard(d); return; }
+    const over = document.elementFromPoint(e.clientX, e.clientY);
+    const slot = over && over.closest('.slot');
+    if (slot) {
+        const i = +slot.dataset.slot;
+        if (d.from !== null) {
+            const tmp = S.track[i]; S.track[i] = S.track[d.from]; S.track[d.from] = tmp;
+        } else {
+            S.track[i] = d.id;
+        }
+        S.cur = nextEmpty(i + 1);
+        changed();
+        if (d.from === null) previewCard(d.id);
+    } else if (d.from !== null && over && over.closest('.pal')) {
+        // カードおきばに もどすと とれる
+        S.track[d.from] = null; S.cur = d.from;
+        changed();
+    }
+}
+document.addEventListener('pointerup', e => endDrag(e, false));
+document.addEventListener('pointercancel', e => endDrag(e, true));
+function tapCard(d) {
+    if (d.from !== null) {
+        // ならんでいる カードを おすと、そこを かえる ところに する
+        S.cur = d.from; renderTrack();
+        return;
+    }
+    if (place(d.id)) previewCard(d.id);
+}
+
+/* ---------- ボタン ---------- */
+$('#pal').addEventListener('click', e => {
+    const b = e.target.closest('.lis'); if (!b) return;
+    previewCard(b.closest('.card').dataset.card);
+});
+$('#slots').addEventListener('click', e => {
+    const del = e.target.closest('.del');
+    if (del) {
+        const i = +del.closest('.slot').dataset.slot;
+        S.track[i] = null; S.cur = i;
+        changed();
+        return;
+    }
+    const box = e.target.closest('.sbox.empty');
+    if (box) { S.cur = +box.closest('.slot').dataset.slot; renderTrack(); }
+});
+$('#btnPlay').addEventListener('click', () => {
+    if (isPlaying()) { stop(); return; }
+    play({ kind: 'track', loop: S.loop });
+});
+$('#tLoop').addEventListener('click', () => { S.loop = !S.loop; if (P) P.spec.loop = S.loop; save(); renderCtl(); });
+$('#tBeat').addEventListener('click', () => { S.beat = !S.beat; save(); renderCtl(); });
+$('#btnClear').addEventListener('click', () => {
+    if (!S.track.some(Boolean)) return;
+    if (!confirm('カードを ぜんぶ けしますか？')) return;
+    stop();
+    S.track = [null, null, null, null]; S.cur = 0; changed();
+});
+// スペースキーで ならす／とめる（さいごに おした ボタンが うごかない ように keyup も とめる）
+const typing = e => e.target.closest && e.target.closest('input,select,textarea,dialog');
+document.addEventListener('keydown', e => {
+    if (typing(e) || e.code !== 'Space') return;
+    e.preventDefault();
+    if (!e.repeat) $('#btnPlay').click();
+});
+document.addEventListener('keyup', e => { if (!typing(e) && e.code === 'Space') e.preventDefault(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
+
+/* れい */
+$('#btnEx').addEventListener('click', () => {
+    $('#exList').innerHTML = EXAMPLES.map((x, i) => `<button type="button" data-i="${i}">${x.name}<small>${x.ids.map(id => CARD[id].kana).join(' → ')}（${x.ids.map(id => CARD[id].dk.join(' ')).join('｜')}）</small></button>`).join('');
+    $('#dlgEx').showModal();
+});
+$('#exList').addEventListener('click', e => {
+    const b = e.target.closest('button[data-i]'); if (!b) return;
+    stop();
+    S.track = EXAMPLES[+b.dataset.i].ids.slice(); S.cur = null; changed();
+    $('#dlgEx').close();
+});
+$('#exClose').addEventListener('click', () => $('#dlgEx').close());
+
+/* ---------- はじめる ---------- */
+load();
+staticIcons();
+renderPal();
+renderTrack();
+renderCtl();
+</script>
+</body>
+</html>

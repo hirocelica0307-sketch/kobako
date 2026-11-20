@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<style>
+:root{
+  --bg:#E7ECE4; --paper:#FFFFFF; --ink:#2B302C; --ink-soft:#6C7A6E;
+  --rule:#C6D2C4; --note-line:#AFC9DC;
+  --red:#C2503F; --blue:#3B6EA0; --green:#4E8C5A; --gold:#A87A12;
+  --key:#FDFBF5; --key-edge:#C9D4C7; --key-press:#F0EDE2;
+  --fs-note:34px; --anim:120ms;
+}
+body.contrast{
+  --bg:#FFFFFF; --ink:#000; --ink-soft:#333; --rule:#000; --note-line:#000;
+  --key:#FFF; --key-edge:#000; --key-press:#DDD; --red:#B00000; --blue:#0040A0; --green:#0A6B22; --gold:#6B4A00;
+}
+body.quiet{ --anim:0ms; }
+@media (prefers-reduced-motion:reduce){ :root{--anim:0ms;} }
+
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{height:100%; margin:0; overflow:hidden;}
+body{
+  background:var(--bg); color:var(--ink); font-size:15px; user-select:none;
+  font-family:"BIZ UDPGothic","UD デジタル教科書体 NK-R","M PLUS Rounded 1c","Noto Sans JP",sans-serif;
+  display:flex; flex-direction:column;
+}
+button{font-family:inherit; color:inherit; cursor:pointer;}
+:focus-visible{outline:3px solid var(--blue); outline-offset:2px;}
+
+/* ===== 上バー ===== */
+header{
+  flex:0 0 auto; display:flex; align-items:center; gap:7px;
+  padding:6px 10px; background:var(--paper); border-bottom:2px solid var(--rule);
+}
+.brand{font-weight:700; font-size:15px; margin-right:auto; white-space:nowrap;}
+.brand .dot{color:var(--red);}
+.tool{
+  border:2px solid var(--key-edge); background:var(--key); border-radius:999px;
+  padding:7px 13px; font-weight:700; font-size:13px; box-shadow:0 2px 0 var(--key-edge);
+  transition:transform var(--anim), box-shadow var(--anim); white-space:nowrap;
+}
+.tool:active{transform:translateY(2px); box-shadow:none; background:var(--key-press);}
+.tool.warn{color:var(--red);}
+
+/* ===== 1ぎょうの にゅうりょくらん ===== */
+#note-wrap{flex:0 0 auto; padding:9px 10px 7px;}
+#note{
+  position:relative;
+  background:var(--paper); border:2px solid var(--rule); border-radius:10px;
+  padding:4px 14px 2px; overflow-x:auto; overflow-y:hidden;
+  cursor:text; scrollbar-width:thin;
+}
+#note::-webkit-scrollbar{height:6px;}
+#note::-webkit-scrollbar-thumb{background:var(--rule); border-radius:3px;}
+#line{
+  display:flex; align-items:flex-end; white-space:nowrap;
+  min-height:calc(var(--fs-note) * 1.5);
+  border-bottom:2px solid var(--note-line); width:max-content; min-width:100%;
+}
+.ch{
+  font-size:var(--fs-note); line-height:1.5; position:relative;
+  padding:0 1px; white-space:pre; flex:0 0 auto;
+}
+.ch.pending{color:var(--blue); text-decoration:underline; text-decoration-thickness:3px;}
+.ch.caret::before{
+  content:""; position:absolute; left:-2px; top:12%; bottom:8%;
+  width:3px; background:var(--red); border-radius:2px;
+  animation:blink 1s steps(2,start) infinite;
+}
+body.quiet .ch.caret::before{animation:none;}
+@keyframes blink{50%{opacity:0;}}
+.ch.pad{flex:1 0 auto; min-width:14px;}
+#note.listening{border-color:var(--red); border-style:dashed;}
+
+/* ===== こうほバー ===== */
+#cands{
+  flex:0 0 auto; background:var(--paper);
+  border-top:2px solid var(--rule); border-bottom:2px solid var(--rule);
+  padding:6px 8px; display:flex; gap:7px; align-items:stretch;
+  overflow-x:auto; overflow-y:hidden; min-height:60px; touch-action:pan-x;
+}
+#cands::-webkit-scrollbar{height:6px;}
+#cands::-webkit-scrollbar-thumb{background:var(--rule); border-radius:3px;}
+.chip{
+  flex:0 0 auto; position:relative;
+  border:2px solid var(--key-edge); background:#fff; border-radius:13px;
+  padding:2px 15px 5px; min-width:64px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  box-shadow:0 3px 0 var(--key-edge);
+  transition:transform var(--anim), box-shadow var(--anim);
+}
+.chip .lab{font-size:11px; color:var(--ink-soft); line-height:1.2; min-height:13px;}
+.chip .word{font-size:25px; font-weight:700; line-height:1.25; display:flex; align-items:baseline;}
+.chip.kana{border-color:var(--blue);}
+.chip.kana .word{color:var(--blue);}
+.chip.pairhead{margin-left:9px;}
+.chip.part{border-color:var(--green); background:#F4FBF4;}
+.chip.part .lab{color:var(--green); font-weight:700;}
+.chip.whole{border-color:var(--gold); background:#FFF8E6; border-width:3px; margin-left:9px;}
+.chip.whole .lab{color:var(--gold); font-weight:700;}
+.chip .rest{font-size:17px; color:var(--ink-soft); font-weight:400; margin-left:2px;}
+#cands .none{color:var(--ink-soft); font-size:14px; align-self:center; padding-left:4px;}
+
+/* ===== 下 もじ一覧 ===== */
+#board{
+  flex:1 1 auto; background:var(--paper);
+  display:flex; flex-direction:column; padding:6px 8px 8px; gap:6px; min-height:0;
+  /* #board 全体を none に すると、ことばパレットが スクロールできなくなる。
+     キーそのものに none を つけて、リストだけ うごくように する。 */
+}
+#tabs{display:flex; gap:4px; flex:0 0 auto;}
+.tab{
+  flex:1 1 0; min-width:0; border:2px solid var(--key-edge); background:var(--key);
+  border-radius:11px 11px 0 0; padding:8px 2px; font-size:13px; font-weight:700;
+  border-bottom-width:4px; white-space:nowrap; overflow:hidden;
+}
+.tab[aria-selected="true"]{background:var(--blue); color:#fff; border-color:var(--blue);}
+#btn-mic{
+  flex:0 0 auto; min-width:88px;
+  border:2px solid var(--key-edge); background:var(--key);
+  border-radius:11px; padding:8px 10px; font-size:14px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  box-shadow:0 3px 0 var(--key-edge);
+  transition:transform var(--anim), box-shadow var(--anim);
+}
+#btn-mic:active{transform:translateY(3px); box-shadow:none;}
+#btn-mic.on{background:var(--red); color:#fff; border-color:var(--red); box-shadow:0 3px 0 #8d3b2e;}
+#btn-mic.on .dotmic{animation:pulse .9s ease-in-out infinite;}
+body.quiet #btn-mic.on .dotmic{animation:none;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+.dotmic{font-size:17px;}
+
+.pane{display:none; flex:1 1 auto; flex-direction:column; gap:5px; min-height:0;}
+.pane.on{display:flex;}
+.grid{display:grid; gap:5px; flex:1 1 auto; min-height:0;}
+.g10{grid-template-columns:repeat(10,minmax(0,1fr));}
+.g9{grid-template-columns:repeat(9,minmax(0,1fr));}
+.key{
+  min-width:0; min-height:36px; overflow:hidden;
+  border:2px solid var(--key-edge); background:var(--key); border-radius:11px;
+  font-size:23px; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 3px 0 var(--key-edge);
+  transition:transform var(--anim), box-shadow var(--anim);
+}
+.key.blank{visibility:hidden;}
+.key.sm{font-size:18px;}
+
+/* ===== ぎょうごとの いろ ===== */
+.row0{background:#FFDDDD; color:#8C2020; border-color:#E4A9A9;}
+.row1{background:#FFE7CC; color:#8A4A0A; border-color:#E5BA8B;}
+.row2{background:#FAF1BC; color:#6B5700; border-color:#D8C97A;}
+.row3{background:#DDF0C8; color:#3A6412; border-color:#AED08E;}
+.row4{background:#CBEEDA; color:#126347; border-color:#96CDB3;}
+.row5{background:#CBECF0; color:#0C5863; border-color:#93CBD3;}
+.row6{background:#D5E5FB; color:#1C4988; border-color:#9FBEE6;}
+.row7{background:#E1DBF8; color:#423293; border-color:#B3A9E1;}
+.row8{background:#F7D7EF; color:#77216D; border-color:#DAA5CF;}
+.row9{background:#E8E2D9; color:#4B4339; border-color:#C2BAAC;}
+.key.row0,.key.row1,.key.row2,.key.row3,.key.row4,
+.key.row5,.key.row6,.key.row7,.key.row8,.key.row9{box-shadow:0 3px 0 rgba(60,50,40,.22);}
+body.nocolor .key[class*="row"]{
+  background:var(--key); color:var(--ink);
+  border-color:var(--key-edge); box-shadow:0 3px 0 var(--key-edge);
+}
+body.contrast .key[class*="row"]{border-width:3px; border-color:#000; color:#000;}
+
+/* ゆびで キーを なぞる あいだ、がめんが うごかないように する */
+.key,.fkey,.pop,.chip{touch-action:none;}
+
+/* ===== おした ときの みため（はなした ときに かくてい） ===== */
+.key.hold,.fkey.hold,.chip.hold,.wchip.hold,.pop.hold{
+  transform:translateY(3px); box-shadow:none; filter:brightness(.92);
+  outline:4px solid var(--blue); outline-offset:-4px;
+}
+
+.frow{display:flex; gap:5px; flex:0 0 auto;}
+.fkey{
+  flex:1 1 0; min-width:0;
+  border:2px solid var(--key-edge); background:var(--key); border-radius:11px;
+  height:46px; font-size:16px; font-weight:700;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.1;
+  box-shadow:0 3px 0 var(--key-edge);
+  transition:transform var(--anim), box-shadow var(--anim);
+}
+.fkey[disabled]{opacity:.35; box-shadow:none; cursor:default;}
+.fkey b{font-size:19px;}
+.fkey small{font-size:10px; color:var(--ink-soft); font-weight:400;}
+.fkey.mark{color:var(--blue);}
+.fkey.del{color:var(--red);}
+.fkey.ok{color:var(--green);}
+.fkey.w2{flex:1.5 1 0;}
+
+/* ===== 10キー（おしてから えらぶ） ===== */
+.fg{grid-template-columns:repeat(5,minmax(0,1fr)); grid-template-rows:repeat(2,minmax(0,1fr)); gap:8px;}
+.fg .key{font-size:34px; border-width:3px; border-radius:15px;}
+.fg .key::after{
+  content:"…"; position:absolute; right:7px; bottom:1px;
+  font-size:15px; opacity:.5; letter-spacing:1px;
+}
+.fg .key{position:relative;}
+body.kb-flick .kb50{display:none;}
+body:not(.kb-flick) .kb10{display:none;}
+
+#popbase{position:fixed; inset:0; z-index:30; pointer-events:none; display:none;}
+#popbase.on{display:block;}
+#popup{position:fixed; pointer-events:none;}
+.pop{
+  position:absolute; pointer-events:auto;
+  border:3px solid var(--blue); background:#fff; color:var(--ink);
+  border-radius:14px; font-size:30px; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 5px 14px rgba(20,30,20,.28);
+}
+.pop.mid{background:#EAF1F9;}
+.pop.off{display:none;}
+
+/* ===== ことばパレット ===== */
+#wcats{display:flex; gap:5px; flex:0 0 auto; overflow-x:auto; padding-bottom:2px; touch-action:pan-x;}
+#wcats::-webkit-scrollbar{height:5px;}
+#wcats::-webkit-scrollbar-thumb{background:var(--rule); border-radius:3px;}
+.wcat{
+  flex:0 0 auto; border:2px solid var(--key-edge); background:var(--key);
+  border-radius:999px; padding:7px 15px; font-size:14px; font-weight:700; white-space:nowrap;
+}
+.wcat[aria-pressed="true"]{background:var(--green); color:#fff; border-color:var(--green);}
+#wgrid{
+  display:grid; grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:6px; flex:1 1 auto; min-height:0; overflow-y:auto; align-content:start; padding-right:2px;
+  touch-action:pan-y;   /* ことばが おおいので たてに スクロールできるように */
+}
+#wgrid::-webkit-scrollbar{width:6px;}
+#wgrid::-webkit-scrollbar-thumb{background:var(--rule); border-radius:3px;}
+.wchip{
+  min-height:68px; border:2px solid var(--key-edge); background:var(--key);
+  border-radius:12px; padding:5px 6px; font-size:15px; font-weight:700; line-height:1.25;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+  box-shadow:0 3px 0 var(--key-edge);
+  transition:transform var(--anim), box-shadow var(--anim);
+}
+.wchip .emo{font-size:21px; line-height:1;}
+#wgrid .none{grid-column:1/-1; color:var(--ink-soft); font-size:14px; padding:10px 4px;}
+
+/* かくれた 音声うけとり欄 */
+#dictbox{
+  position:absolute; opacity:0.01; width:2px; height:2px;
+  border:0; padding:0; left:6px; top:6px; font-size:16px;
+}
+
+#guide{
+  display:none; flex:0 0 auto; align-items:center; gap:9px;
+  background:#FFF6E8; border:2px solid var(--red); border-radius:11px;
+  padding:8px 12px; font-size:15px; line-height:1.5;
+}
+#guide.on{display:flex;}
+kbd{
+  background:#fff; border:2px solid var(--ink); border-radius:6px;
+  padding:1px 8px; font-family:inherit; font-weight:700; font-size:15px;
+}
+#guide button{
+  margin-left:auto; border:2px solid var(--key-edge); background:var(--key);
+  border-radius:999px; padding:5px 12px; font-size:13px; font-weight:700; white-space:nowrap;
+}
+
+/* ===== おした もじの ふきだし ===== */
+#bubble{
+  position:fixed; z-index:35; pointer-events:none; display:none;
+  background:var(--ink); color:#fff; border-radius:14px;
+  padding:6px 18px 9px; font-size:44px; font-weight:700; line-height:1.15;
+  box-shadow:0 6px 18px rgba(20,30,20,.34); white-space:nowrap;
+}
+#bubble.on{display:block;}
+#bubble.small{font-size:26px; padding:6px 14px 8px;}
+
+/* ===== せってい ===== */
+.panel{position:fixed; inset:0; background:rgba(30,40,32,.45); display:none; align-items:center; justify-content:center; z-index:40;}
+.panel.open{display:flex;}
+.sheet{
+  background:var(--paper); width:min(560px,94%); border-radius:16px; padding:16px;
+  max-height:88vh; overflow:auto; border:2px solid var(--rule);
+}
+.sheet h2{font-size:17px; margin:0 0 10px;}
+.row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px dashed var(--rule);}
+.seg{display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end;}
+.seg button{border:2px solid var(--key-edge); background:var(--key); border-radius:999px; padding:6px 13px; font-size:14px; font-weight:700; white-space:nowrap;}
+.seg button[aria-pressed="true"]{background:var(--blue); color:#fff; border-color:var(--blue);}
+#seg-grade button{padding:6px 11px;}
+.close{position:sticky; bottom:0; width:100%; margin-top:13px; border:2px solid var(--key-edge); background:var(--key); border-radius:999px; padding:11px; font-size:16px; font-weight:700; box-shadow:0 3px 0 var(--key-edge);}
+.note{font-size:12px; color:var(--ink-soft); line-height:1.7; margin:10px 0 0;}
+
+#toast{
+  position:fixed; left:50%; bottom:22px; transform:translateX(-50%);
+  background:var(--ink); color:#fff; padding:9px 18px; border-radius:999px;
+  font-size:14px; z-index:50; opacity:0; pointer-events:none; transition:opacity 200ms;
+}
+#toast.show{opacity:1;}
+
+@media (max-height:680px){
+  header{padding:4px 10px;} .tool{padding:5px 11px;}
+  #note-wrap{padding:5px 10px 4px;}
+  #cands{min-height:52px; padding:4px 8px;}
+  .chip .word{font-size:22px;} .chip{padding:1px 12px 3px;}
+  .tab{padding:5px 2px; font-size:12px;} #btn-mic{padding:5px 10px; min-width:76px;}
+  .fkey{height:40px;} .fkey b{font-size:17px;}
+  #board{padding:5px 8px 6px; gap:5px;}
+  #guide{padding:6px 10px; font-size:14px;}
+  .fg .key{font-size:29px;}
+  #bubble{font-size:36px;}
+}
+@media (max-width:640px){
+  .brand{font-size:13px;} .tool{padding:6px 9px; font-size:12px;}
+  .key{font-size:20px;} .tab{font-size:11px;} .chip .word{font-size:21px;}
+  #btn-mic{min-width:58px;} #btn-mic .txt{display:none;}
+  #wgrid{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .fg .key{font-size:27px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">ひらがなキーボード<span class="dot">。</span></div>
+  <button class="tool" id="btn-copy">コピー</button>
+  <button class="tool warn" id="btn-clear">ぜんぶけす</button>
+  <button class="tool" id="btn-set">せってい</button>
+</header>
+
+<div id="note-wrap"><div id="note"><div id="line"></div></div></div>
+
+<div id="cands"><span class="none">もじを うつと ここに こうほが でます</span></div>
+
+<div id="board">
+  <div id="tabs" role="tablist">
+    <button class="tab" role="tab" data-pane="hira" aria-selected="true">ひらがな</button>
+    <button class="tab" role="tab" data-pane="kata" aria-selected="false">カタカナ</button>
+    <button class="tab" role="tab" data-pane="word" aria-selected="false">ことば</button>
+    <button class="tab" role="tab" data-pane="num"  aria-selected="false">すうじ</button>
+    <button class="tab" role="tab" data-pane="abc"  aria-selected="false">ABC</button>
+    <button id="btn-mic"><span class="dotmic">🎤</span><span class="txt">こえ</span></button>
+  </div>
+
+  <div id="guide">
+    <span><kbd>🔍</kbd> と <kbd>D</kbd> を いっしょに おして はなしてね</span>
+    <button id="guide-close">とじる</button>
+  </div>
+
+  <div class="pane on" id="pane-hira">
+    <div class="grid g10 kb50" id="grid-hira"></div>
+    <div class="grid fg kb10" id="grid-hira10"></div>
+    <div class="frow">
+      <button class="fkey mark" data-mod="daku"><b>゛</b><small>てんてん</small></button>
+      <button class="fkey mark" data-mod="handaku"><b>゜</b><small>まる</small></button>
+      <button class="fkey mark" data-mod="small"><b>小</b><small>ちいさく</small></button>
+      <button class="fkey" data-kana="ー"><b>ー</b></button>
+      <button class="fkey" data-raw="、"><b>、</b></button>
+      <button class="fkey" data-raw="。"><b>。</b></button>
+      <button class="fkey" data-raw="？"><b>？</b></button>
+      <button class="fkey" data-raw="！"><b>！</b></button>
+    </div>
+  </div>
+
+  <div class="pane" id="pane-kata">
+    <div class="grid g10 kb50" id="grid-kata"></div>
+    <div class="grid fg kb10" id="grid-kata10"></div>
+    <div class="frow">
+      <button class="fkey mark" data-mod="daku"><b>゛</b><small>てんてん</small></button>
+      <button class="fkey mark" data-mod="handaku"><b>゜</b><small>まる</small></button>
+      <button class="fkey mark" data-mod="small"><b>小</b><small>ちいさく</small></button>
+      <button class="fkey" data-kana="ー"><b>ー</b></button>
+      <button class="fkey" data-raw="、"><b>、</b></button>
+      <button class="fkey" data-raw="。"><b>。</b></button>
+      <button class="fkey" data-raw="？"><b>？</b></button>
+      <button class="fkey" data-raw="！"><b>！</b></button>
+    </div>
+  </div>
+
+  <div class="pane" id="pane-word">
+    <div id="wcats"></div>
+    <div id="wgrid"></div>
+  </div>
+
+  <div class="pane" id="pane-num"><div class="grid g10" id="grid-num"></div></div>
+
+  <div class="pane" id="pane-abc">
+    <div class="grid g9" id="grid-abc"></div>
+    <div class="frow">
+      <button class="fkey" id="abc-case" data-act="case"><b>a ⇄ A</b><small>おおもじ</small></button>
+      <button class="fkey" data-raw=" "><b>␣</b><small>すきま</small></button>
+    </div>
+  </div>
+
+  <div class="frow" id="common-row">
+    <button class="fkey" data-act="undo" id="k-undo"><b>↶</b><small>もどす</small></button>
+    <button class="fkey" data-act="redo" id="k-redo"><b>↷</b><small>やりなおす</small></button>
+    <button class="fkey w2 ok" data-act="ok" id="k-ok"><b>✓</b><small>けってい</small></button>
+    <button class="fkey w2 del" data-act="del" id="k-del"><b>⌫</b><small>一文字けす</small></button>
+  </div>
+</div>
+
+<textarea id="dictbox" aria-hidden="true"></textarea>
+
+<div id="popbase"><div id="popup"></div></div>
+<div id="bubble"></div>
+
+<div class="panel" id="panel-set">
+  <div class="sheet">
+    <h2>せってい</h2>
+    <div class="row"><span>キーボード<br><small style="color:var(--ink-soft)">10キーは おすと 5つ でます</small></span>
+      <div class="seg" id="seg-kb"><button data-v="50">五十音</button><button data-v="10">10キー</button></div></div>
+    <div class="row"><span>ぎょうの いろ</span>
+      <div class="seg" id="seg-color"><button data-v="on">つける</button><button data-v="off">つけない</button></div></div>
+    <div class="row"><span>かんじ<br><small style="color:var(--ink-soft)">えらんだ 学年までの かんじだけ だす</small></span>
+      <div class="seg" id="seg-grade"><button data-v="1">1年</button><button data-v="2">2年</button><button data-v="3">3年</button><button data-v="4">4年</button><button data-v="5">5年</button><button data-v="6">6年</button></div></div>
+    <div class="row"><span>まぜがき<br><small style="color:var(--ink-soft)">ならっていない 字だけ ひらがなに（家ぞく）</small></span>
+      <div class="seg" id="seg-maze"><button data-v="on">する</button><button data-v="off">しない</button></div></div>
+    <div class="row"><span>もじの おおきさ</span>
+      <div class="seg" id="seg-size"><button data-v="s">小</button><button data-v="m">中</button><button data-v="l">大</button></div></div>
+    <div class="row"><span>しずかモード<br><small style="color:var(--ink-soft)">おと・うごきを とめる</small></span>
+      <div class="seg" id="seg-quiet"><button data-v="off">オフ</button><button data-v="on">オン</button></div></div>
+    <div class="row"><span>みやすさ</span>
+      <div class="seg" id="seg-contrast"><button data-v="soft">やさしい</button><button data-v="hard">くっきり</button></div></div>
+    <p class="note">
+      かいた もじは この タブレットの なかだけに あります。ほかの 人には おくられません（タブを とじると きえます）。<br>
+      キーは <b>ゆびを はなした とき</b> に はいります。おしたまま ゆびを うごかせば えらびなおせます。キーの そとで はなすと なにも はいりません。<br>
+      「、。？！」も こうほの なかに 入るので、文を さいごまで うってから <b>まとめて</b> の こうほで いっぺんに かんじに できます。<br>
+      まぜがきを「しない」に すると、ならっていない 字が 1つでも ある ことばは ぜんぶ ひらがなの ままに なります。<br>
+      キーボード：Backspace＝一文字けす／Space または Enter＝けってい／←→＝カーソル／1〜9＝こうほ<br>
+      こえが つかえないときは、ChromeOSの せってい ＞ ユーザー補助機能 ＞ 音声入力 を オンに してください。
+    </p>
+    <button class="close" data-close>とじる</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<?!= include('辞書') ?>
+<?!= include('henkan') ?>
+
+<script>
+"use strict";
+
+HENKAN.load(JISHO);
+
+var KANA = [
+  ["わ","ら","や","ま","は","な","た","さ","か","あ"],
+  ["",  "り","",  "み","ひ","に","ち","し","き","い"],
+  ["を","る","ゆ","む","ふ","ぬ","つ","す","く","う"],
+  ["",  "れ","",  "め","へ","ね","て","せ","け","え"],
+  ["ん","ろ","よ","も","ほ","の","と","そ","こ","お"]
+];
+/* あぎょう〜わぎょう が KANA の なんれつめか（0=あぎょう … 9=わぎょう） */
+var COL = [9,8,7,6,5,4,3,2,1,0];
+function colChars(ci){
+  var col=COL[ci], out=[], r;
+  for(r=0;r<5;r++) out.push(KANA[r][col]);
+  return out;                       /* [あだん, いだん, うだん, えだん, おだん] */
+}
+
+var NUMSYM = [
+  ["1","2","3","4","5","6","7","8","9","0"],
+  ["＋","－","×","÷","＝","＜","＞","％","＃","＊"],
+  ["、","。","？","！","・","～","ー","：","；","／"],
+  ["「","」","（","）","『","』","｛","｝","［","］"],
+  ["＠","＄","￥","℃","△","○","□","☆","♪","→"]
+];
+var ABC = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+function pair(a,b){var m={};for(var i=0;i<a.length;i++)m[a[i]]=b[i];return m;}
+var DAKU_ON  = pair("かきくけこさしすせそたちつてとはひふへほう","がぎぐげござじずぜぞだぢづでどばびぶべぼゔ");
+var DAKU_OFF = pair("がぎぐげござじずぜぞだぢづでどばびぶべぼゔ","かきくけこさしすせそたちつてとはひふへほう");
+var HAN_ON   = pair("はひふへほばびぶべぼ","ぱぴぷぺぽぱぴぷぺぽ");
+var HAN_OFF  = pair("ぱぴぷぺぽ","はひふへほ");
+var SML_ON   = pair("あいうえおつやゆよわ","ぁぃぅぇぉっゃゅょゎ");
+var SML_OFF  = pair("ぁぃぅぇぉっゃゅょゎ","あいうえおつやゆよわ");
+
+function h2k(s){return s.replace(/[ぁ-ゖ]/g,function(c){return String.fromCharCode(c.charCodeAt(0)+0x60);});}
+function k2h(s){return s.replace(/[ァ-ヶ]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0x60);});}
+
+/* ===== ことばパレット（きほんセット。スプレッドシートで ふやせます） ===== */
+var PALETTE = {
+  "あいさつ":[
+    ["おはよう","おはようございます。","🌅"],["こんにちは","こんにちは。","🙂"],
+    ["こんばんは","こんばんは。","🌃"],["さようなら","さようなら。","👋"],
+    ["ありがとう","ありがとうございます。","💐"],["どういたしまして","どういたしまして。","😊"],
+    ["ごめんなさい","ごめんなさい。","🙇"],["すみません","すみません。","💦"],
+    ["いただきます","いただきます。","🍚"],["ごちそうさま","ごちそうさまでした。","🥢"],
+    ["よろしく","よろしく おねがいします。","🤝"],["はじめまして","はじめまして。","✋"],
+    ["おねがいします","おねがいします。","🙏"],["いってきます","いってきます。","🚪"],
+    ["ただいま","ただいま。","🏠"],["おかえり","おかえりなさい。","🏡"],
+    ["おやすみ","おやすみなさい。","🌙"],["げんきですか","げんきですか。","😀"],
+    ["だいじょうぶ","だいじょうぶですか。","🤔"],["またあした","また あした。","🌈"]
+  ],
+  "きもち":[
+    ["うれしい","うれしかったです。","😊"],["たのしい","たのしかったです。","🎵"],
+    ["おもしろい","おもしろかったです。","😄"],["うれしくなった","うれしく なりました。","🌟"],
+    ["びっくり","びっくりしました。","😲"],["どきどき","どきどきしました。","💓"],
+    ["わくわく","わくわくしました。","🎈"],["がんばった","がんばりました。","💪"],
+    ["すごい","すごいと おもいました。","✨"],["きれい","きれいでした。","🌸"],
+    ["かわいい","かわいかったです。","🐣"],["おいしい","おいしかったです。","😋"],
+    ["こわかった","こわかったです。","😨"],["かなしい","かなしかったです。","😢"],
+    ["くやしい","くやしかったです。","😖"],["つかれた","つかれました。","😪"],
+    ["ほっとした","ほっとしました。","😌"],["うまくできた","うまく できました。","🎯"],
+    ["またやりたい","また やりたいです。","🔁"],["たのしみ","たのしみです。","🎁"]
+  ],
+  "いつ・どこ":[
+    ["きょうは","きょうは ","📅"],["きのう","きのう ","📆"],["あしたは","あしたは ","🌤"],
+    ["あさ","あさ ","🌅"],["ひるやすみ","ひるやすみに ","🕛"],["ほうかご","ほうかごに ","🎒"],
+    ["にちようび","にちようびに ","📆"],["がっこうで","がっこうで ","🏫"],
+    ["きょうしつで","きょうしつで ","📖"],["たいいくかんで","たいいくかんで ","🏐"],
+    ["こうていで","こうていで ","🏃"],["ぷーるで","プールで ","🏊"],
+    ["こうえんで","こうえんで ","🌳"],["いえで","いえで ","🏠"],
+    ["としょかんで","としょかんで ","📚"],["ともだちと","ともだちと ","👫"],
+    ["せんせいと","せんせいと ","👩‍🏫"],["かぞくと","かぞくと ","👨‍👩‍👧"],
+    ["ひとりで","ひとりで ","🙋"],["みんなで","みんなで ","👐"]
+  ],
+  "いきもの":[
+    ["いぬ","いぬ","🐕"],["ねこ","ねこ","🐈"],["うさぎ","うさぎ","🐇"],
+    ["はむすたー","ハムスター","🐹"],["さかな","さかな","🐟"],["めだか","めだか","🐟"],
+    ["かめ","かめ","🐢"],["かえる","かえる","🐸"],["とり","とり","🐦"],
+    ["にわとり","にわとり","🐓"],["ひよこ","ひよこ","🐤"],["むし","むし","🐛"],
+    ["ちょうちょ","ちょうちょ","🦋"],["てんとうむし","てんとうむし","🐞"],
+    ["あり","あり","🐜"],["かたつむり","かたつむり","🐌"],["ぱんだ","パンダ","🐼"],
+    ["ぞう","ぞう","🐘"],["きりん","きりん","🦒"],["ぶた","ぶた","🐷"]
+  ],
+  "たべもの":[
+    ["ごはん","ごはん","🍚"],["ぱん","パン","🍞"],["たまご","たまご","🥚"],
+    ["からあげ","からあげ","🍗"],["かれー","カレー","🍛"],["らーめん","ラーメン","🍜"],
+    ["おにぎり","おにぎり","🍙"],["おすし","おすし","🍣"],["やさい","やさい","🥦"],
+    ["にんじん","にんじん","🥕"],["とまと","トマト","🍅"],["りんご","りんご","🍎"],
+    ["みかん","みかん","🍊"],["ばなな","バナナ","🍌"],["いちご","いちご","🍓"],
+    ["すいか","すいか","🍉"],["ぎゅうにゅう","ぎゅうにゅう","🥛"],["じゅーす","ジュース","🥤"],
+    ["あいす","アイス","🍦"],["けーき","ケーキ","🍰"]
+  ],
+  "ぶんのおわり":[
+    ["です。","です。",""],["ます。","ます。",""],["でした。","でした。",""],
+    ["ました。","ました。",""],["ません。","ません。",""],["たいです。","たいです。",""],
+    ["ましょう。","ましょう。",""],["ください。","ください。",""],
+    ["ですか？","ですか？",""],["ますか？","ますか？",""],
+    ["とおもいます。","と おもいます。",""],["とおもいました。","と おもいました。",""],
+    ["ができました。","が できました。",""],["からです。","からです。",""],
+    ["そして、","そして、",""],["それから、","それから、",""],
+    ["つぎに、","つぎに、",""],["さいごに、","さいごに、",""],
+    ["でも、","でも、",""],["だから、","だから、",""]
+  ]
+};
+
+/* ===== 状態 ===== */
+var chars = [], caret = 0, buffer = "";
+var undoStack = [], redoStack = [];
+var cfg = {size:"m", quiet:false, contrast:false, kb:"50", color:true, grade:"2", maze:true};
+var abcUpper = false;
+var activePane = "hira";             /* いま ひらいている タブ */
+var MAXC = 4;                        /* 「そのまま」「まとめて」の ほかに だす こうほの かず */
+var JOIN_PUNCT = "、。？！";          /* うっている とちゅうなら こうほに まぜる きごう */
+
+function hOpt(){ return {grade:parseInt(cfg.grade,10)||6, maze:cfg.maze!==false}; }
+/* カタカナタブでは、うっている もじを カタカナで あつかう */
+function bufShown(){ return activePane==="kata" ? h2k(buffer) : buffer; }
+
+/* ===== おと・しんどう ===== */
+var actx=null;
+function tick(f){
+  if(cfg.quiet) return;
+  try{
+    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+    var o=actx.createOscillator(), g=actx.createGain();
+    o.type="sine"; o.frequency.value=f;
+    g.gain.setValueAtTime(0.05, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.07);
+    o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime+0.08);
+  }catch(e){}
+}
+function buzz(ms){
+  if(cfg.quiet) return;
+  try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){}
+}
+
+/* ===== Undo ===== */
+function snap(){ undoStack.push({c:chars.slice(),k:caret,b:buffer}); if(undoStack.length>60)undoStack.shift(); redoStack.length=0; }
+function undo(){ if(!undoStack.length)return; redoStack.push({c:chars.slice(),k:caret,b:buffer});
+  var s=undoStack.pop(); chars=s.c;caret=s.k;buffer=s.b; render(); tick(520); }
+function redo(){ if(!redoStack.length)return; undoStack.push({c:chars.slice(),k:caret,b:buffer});
+  var s=redoStack.pop(); chars=s.c;caret=s.k;buffer=s.b; render(); tick(640); }
+
+/* ===== にゅうりょく ===== */
+function typeKana(ch){ if(!ch)return; snap(); buffer+=ch; render(); tick(700); }
+function typeKata(ch){ if(!ch)return; snap(); buffer+=k2h(ch); render(); tick(700); }
+function applyMod(kind){
+  var on = kind==="daku"?DAKU_ON : kind==="handaku"?HAN_ON : SML_ON;
+  var off= kind==="daku"?DAKU_OFF: kind==="handaku"?HAN_OFF: SML_OFF;
+  function conv(c){ return on[c] || off[c] || null; }
+  if(buffer.length){
+    var r=conv(buffer.slice(-1)); if(!r){tick(300);return;}
+    snap(); buffer=buffer.slice(0,-1)+r;
+  }else if(caret>0){
+    var last=chars[caret-1], isK=/[ァ-ヶ]/.test(last);
+    var r2=conv(isK?k2h(last):last); if(!r2){tick(300);return;}
+    snap(); chars[caret-1]= isK ? h2k(r2) : r2;
+  }else{ tick(300); return; }
+  render(); tick(780);
+}
+/* useLen ＝ バッファの さきから なんもじ つかったか。
+   のこりは バッファに もどるので、そのまま つづけて うてる。 */
+function commit(word, useLen, flushRest){
+  snap();
+  var n = (useLen==null || isNaN(useLen) || useLen>buffer.length) ? buffer.length : useLen;
+  var rest = buffer.slice(n);
+  var arr=word.split("");
+  /* 「ここまで」を えらんだ ときは、のこりも かくていする。
+     そうしないと つぎに うつ ことばと くっついて、こうほが でなくなる。 */
+  if(flushRest && rest){ arr = arr.concat((activePane==="kata"?h2k(rest):rest).split("")); rest=""; }
+  chars.splice.apply(chars,[caret,0].concat(arr));
+  caret+=arr.length; buffer=rest;
+  render(); tick(860);
+}
+/* うっている もじを そのまま かくてい（カタカナタブなら カタカナで） */
+function flush(){
+  if(!buffer) return false;
+  var a=bufShown().split("");
+  chars.splice.apply(chars,[caret,0].concat(a));
+  caret+=a.length; buffer="";
+  return true;
+}
+function kettei(){
+  if(!buffer){ tick(300); return; }
+  snap(); flush(); render(); tick(880);
+}
+function insertRaw(s){
+  if(buffer){ snap(); flush(); } else snap();
+  var a=s.split(""); chars.splice.apply(chars,[caret,0].concat(a)); caret+=a.length;
+  render(); tick(660);
+}
+/* 「、。？！」は、うっている とちゅうなら こうほに まぜる（文ごと へんかん できる） */
+function typeRaw(s){
+  if(buffer && JOIN_PUNCT.indexOf(s)>=0){ snap(); buffer+=s; render(); tick(660); return; }
+  insertRaw(s);
+}
+function del(){
+  if(buffer.length){ snap(); buffer=buffer.slice(0,-1); }
+  else if(caret>0){ snap(); chars.splice(caret-1,1); caret--; }
+  else { tick(300); return; }
+  render(); tick(420);
+}
+/* to は「うっている もじを かくていする まえ」の いち。
+   かくていで うしろの 字が ずれる ぶんを たす。 */
+function moveCaret(to){
+  if(buffer){
+    var L=buffer.length, old=caret;
+    snap(); flush();
+    if(to>old) to+=L;
+    else if(to===old) to=old+L;      /* うっていた もじの うしろ */
+  }
+  caret=Math.max(0,Math.min(chars.length,to)); render();
+}
+function caretLeft(){
+  if(buffer){ snap(); flush(); render(); return; }   /* まず かくていだけ */
+  moveCaret(caret-1);
+}
+function caretRight(){
+  if(buffer){ snap(); flush(); render(); return; }
+  moveCaret(caret+1);
+}
+
+/* ===== びょうが ===== */
+var noteEl=document.getElementById("note"), lineEl=document.getElementById("line"), candsEl=document.getElementById("cands");
+
+function render(){
+  var seq=[], i, shown=bufShown();
+  for(i=0;i<caret;i++) seq.push({ch:chars[i], idx:i, pend:false});
+  for(i=0;i<shown.length;i++) seq.push({ch:shown.charAt(i), idx:caret, pend:true});
+  for(i=caret;i<chars.length;i++) seq.push({ch:chars[i], idx:i, pend:false});
+  var cpos=caret+shown.length;
+
+  lineEl.innerHTML="";
+  var caretNode=null;
+  function span(txt,cls,idx){
+    var s=document.createElement("span"); s.className="ch"+(cls?" "+cls:"");
+    s.textContent=txt;
+    s.addEventListener("pointerdown",function(e){e.preventDefault(); moveCaret(idx);});
+    return s;
+  }
+  for(i=0;i<seq.length;i++){
+    var n=span(seq[i].ch, (seq[i].pend?"pending":"")+(i===cpos?" caret":""), seq[i].idx);
+    if(i===cpos) caretNode=n;
+    lineEl.appendChild(n);
+  }
+  var tail=span("", (cpos===seq.length?"caret":""), chars.length);
+  tail.classList.add("pad");
+  if(cpos===seq.length) caretNode=tail;
+  lineEl.appendChild(tail);
+
+  /* カーソルが みえる ところまで よこに うごかす（見た目の いちで はかる） */
+  if(caretNode){
+    var nr=noteEl.getBoundingClientRect(), cr=caretNode.getBoundingClientRect();
+    var x=cr.left-nr.left;
+    if(x < 40) noteEl.scrollLeft = Math.max(0, noteEl.scrollLeft + x - 40);
+    else if(x > nr.width - 60) noteEl.scrollLeft = noteEl.scrollLeft + x - nr.width + 60;
+  }
+
+  // こうほ（おおきく、すくなく）
+  candsEl.innerHTML="";
+  if(!buffer){
+    var nn=document.createElement("span"); nn.className="none";
+    nn.textContent="もじを うつと ここに こうほが でます"; candsEl.appendChild(nn);
+  }else{
+    var opt=hOpt(), used={};
+    function once(w){ if(used[w]) return false; used[w]=1; return true; }
+    once(shown); chip(shown,"kana","そのまま",true,buffer.length,"");
+    if(activePane==="kata"){ once(buffer); chip(buffer,"kana","ひらがな",false,buffer.length,""); }
+    /* 文ぜんたいを まとめて かんじに */
+    var whole=HENKAN.convert(buffer, opt);
+    if(whole && once(whole)) chip(whole,"whole","まとめて",false,buffer.length,"");
+    var list=HENKAN.predict(buffer, opt), cnt=0;
+    for(var j=0;j<list.length && cnt<MAXC;j++){
+      var it=list[j];
+      if(!it.rest && it.r!==buffer && once(it.r)){ chip(it.r,"kana","",true,it.use,""); cnt++; }
+      for(var m=0;m<it.k.length && cnt<MAXC;m++){
+        if(!it.rest && !once(it.k[m])) continue;
+        chip(it.k[m],"","",false,it.use,it.rest); cnt++;
+      }
+    }
+    candsEl.scrollLeft=0;
+  }
+  document.getElementById("k-undo").disabled=!undoStack.length;
+  document.getElementById("k-redo").disabled=!redoStack.length;
+  document.getElementById("k-ok").disabled=!buffer;
+  saveText();
+}
+
+function chip(word,cls,label,head,useLen,rest){
+  var b=document.createElement("button");
+  b.className="chip"+(cls?" "+cls:"")+(head?" pairhead":"")+(rest?" part":"");
+  b.setAttribute("data-word", word);
+  b.setAttribute("data-use", useLen);
+  if(rest) b.setAttribute("data-rest", rest);
+  var l=document.createElement("div"); l.className="lab";
+  l.textContent = rest ? "ここまで" : (label||"");
+  var w=document.createElement("div"); w.className="word";
+  w.appendChild(document.createTextNode(word));
+  if(rest){
+    var rs=document.createElement("span"); rs.className="rest"; rs.textContent="＋"+(activePane==="kata"?h2k(rest):rest);
+    w.appendChild(rs);
+  }
+  b.appendChild(l); b.appendChild(w);
+  candsEl.appendChild(b);
+}
+
+/* ===== かいた もじを タブの なかだけに のこす（まちがえて よみなおしても きえない） ===== */
+var TEXT_KEY="hkbText";
+function saveText(){
+  try{ sessionStorage.setItem(TEXT_KEY, JSON.stringify({c:chars.join(""), k:caret, b:buffer})); }catch(e){}
+}
+function loadText(){
+  try{
+    var s=sessionStorage.getItem(TEXT_KEY); if(!s) return;
+    var o=JSON.parse(s);
+    chars=Array.from ? Array.from(String(o.c||"")) : String(o.c||"").split("");
+    caret=Math.max(0,Math.min(chars.length, o.k|0));
+    buffer=String(o.b||"");
+  }catch(e){}
+}
+
+/* ===== キーボードUI：五十音（ぜんぶ みえる） ===== */
+function buildGrid(el, rows, kind, cls){
+  el.innerHTML="";
+  for(var r=0;r<rows.length;r++) for(var c=0;c<rows[r].length;c++){
+    var ch=rows[r][c];
+    var b=document.createElement("button");
+    b.className="key"+(ch?"":" blank")+(cls?" "+cls:"");
+    if(ch && kind!=="raw") b.className += " row"+(9-c);
+    b.textContent=ch;
+    if(ch) b.setAttribute(kind==="kata"?"data-kata":(kind==="raw"?"data-raw":"data-kana"), ch);
+    el.appendChild(b);
+  }
+}
+buildGrid(document.getElementById("grid-hira"), KANA, "kana");
+buildGrid(document.getElementById("grid-kata"), KANA.map(function(r){return r.map(h2k);}), "kata");
+buildGrid(document.getElementById("grid-num"), NUMSYM, "raw", "sm");
+
+/* ===== キーボードUI：10キー（おしてから えらぶ／すべらせても よい） ===== */
+function build10(el, kata){
+  el.innerHTML="";
+  for(var ci=0; ci<10; ci++){
+    var face=colChars(ci)[0];
+    var b=document.createElement("button");
+    b.className="key row"+ci;
+    b.textContent = kata ? h2k(face) : face;
+    b.setAttribute("data-pop", ci);
+    if(kata) b.setAttribute("data-kt","1");
+    el.appendChild(b);
+  }
+}
+build10(document.getElementById("grid-hira10"), false);
+build10(document.getElementById("grid-kata10"), true);
+
+var abcEl=document.getElementById("grid-abc");
+function buildAbc(){
+  abcEl.innerHTML="";
+  for(var i=0;i<27;i++){
+    var ch = i<26 ? (abcUpper?ABC[i]:ABC[i].toLowerCase()) : "";
+    var b=document.createElement("button");
+    b.className="key"+(ch?"":" blank");
+    b.textContent=ch;
+    if(ch) b.setAttribute("data-raw", ch);
+    abcEl.appendChild(b);
+  }
+  /* いま どちらか わかるように ボタンの じを かえる */
+  var cb=document.getElementById("abc-case");
+  if(cb){
+    cb.querySelector("b").textContent    = abcUpper ? "A ⇄ a" : "a ⇄ A";
+    cb.querySelector("small").textContent = abcUpper ? "いま おおもじ" : "いま こもじ";
+  }
+}
+buildAbc();
+
+/* ===== ことばパレット ===== */
+var wcatsEl=document.getElementById("wcats"), wgridEl=document.getElementById("wgrid");
+var curCat=null;
+function buildCats(){
+  wcatsEl.innerHTML="";
+  var names=[], k;
+  for(k in PALETTE) names.push(k);
+  if(!names.length){ wgridEl.innerHTML='<div class="none">ことばが ありません</div>'; return; }
+  if(names.indexOf(curCat)<0) curCat=names[0];
+  for(var i=0;i<names.length;i++){
+    var b=document.createElement("button");
+    b.className="wcat"; b.textContent=names[i];
+    b.setAttribute("data-cat", names[i]);
+    b.setAttribute("aria-pressed", names[i]===curCat?"true":"false");
+    wcatsEl.appendChild(b);
+  }
+  buildWords();
+}
+function buildWords(){
+  wgridEl.innerHTML="";
+  var list=PALETTE[curCat]||[];
+  if(!list.length){ wgridEl.innerHTML='<div class="none">ことばが ありません</div>'; return; }
+  for(var i=0;i<list.length;i++){
+    var it=list[i];
+    var b=document.createElement("button");
+    b.className="wchip";
+    b.setAttribute("data-ins", it[1]);
+    if(it[2]){ var e=document.createElement("span"); e.className="emo"; e.textContent=it[2]; b.appendChild(e); }
+    var t=document.createElement("span"); t.textContent=it[0]; b.appendChild(t);
+    wgridEl.appendChild(b);
+  }
+}
+wcatsEl.addEventListener("click",function(e){
+  var b=e.target.closest ? e.target.closest(".wcat") : null;
+  if(!b) return;
+  curCat=b.getAttribute("data-cat");
+  var ns=wcatsEl.querySelectorAll(".wcat");
+  for(var i=0;i<ns.length;i++) ns[i].setAttribute("aria-pressed", ns[i]===b?"true":"false");
+  buildWords(); tick(560);
+});
+buildCats();
+
+/* ===== ふきだし（おした もじを おおきく みせる） ===== */
+var bubbleEl=document.getElementById("bubble");
+function bubbleTextOf(el){
+  var v;
+  if((v=el.getAttribute("data-kana"))!=null) return v;
+  if((v=el.getAttribute("data-kata"))!=null) return v;
+  if((v=el.getAttribute("data-raw"))!=null) return v===" "?"␣":v;
+  if((v=el.getAttribute("data-word"))!=null) return v;
+  if((v=el.getAttribute("data-ins"))!=null) return v;
+  return null;
+}
+function showBubble(el){
+  var txt=bubbleTextOf(el);
+  if(txt==null || txt===""){ hideBubble(); return; }
+  bubbleEl.textContent=txt;
+  bubbleEl.classList.toggle("small", txt.length>2);
+  bubbleEl.classList.add("on");
+  var r=el.getBoundingClientRect(), bw=bubbleEl.offsetWidth, bh=bubbleEl.offsetHeight;
+  var x=r.left + r.width/2 - bw/2;
+  x=Math.max(6, Math.min(window.innerWidth-bw-6, x));
+  var y=r.top - bh - 10;
+  if(y < 6) y = Math.min(window.innerHeight-bh-6, r.bottom + 10);
+  bubbleEl.style.left=x+"px"; bubbleEl.style.top=y+"px";
+}
+function hideBubble(){ bubbleEl.classList.remove("on"); }
+
+/* ===== 10キーの ポップアップ ===== */
+var popbase=document.getElementById("popbase"), popupEl=document.getElementById("popup");
+var POSXY=[[1,1],[0,1],[1,0],[2,1],[1,2]];   /* あ=まんなか い=ひだり う=うえ え=みぎ お=した */
+function popupOpen(){ return popbase.classList.contains("on"); }
+function closePopup(){ popbase.classList.remove("on"); popupEl.innerHTML=""; }
+function openPopup(keyEl){
+  var ci=parseInt(keyEl.getAttribute("data-pop"),10);
+  var kata=keyEl.getAttribute("data-kt")!=null;
+  var cs=colChars(ci);
+  var r=keyEl.getBoundingClientRect();
+  var cell=Math.max(56, Math.min(92, Math.min(r.width, r.height)*0.95));
+  popupEl.innerHTML="";
+  for(var i=0;i<5;i++){
+    if(!cs[i]) continue;
+    var ch = kata ? h2k(cs[i]) : cs[i];
+    var b=document.createElement("button");
+    b.className="pop"+(i===0?" mid":"");
+    b.textContent=ch;
+    b.setAttribute(kata?"data-kata":"data-kana", ch);
+    b.style.width=(cell-4)+"px"; b.style.height=(cell-4)+"px";
+    b.style.left=(POSXY[i][0]*cell)+"px"; b.style.top=(POSXY[i][1]*cell)+"px";
+    popupEl.appendChild(b);
+  }
+  var w=cell*3;
+  var x=r.left + r.width/2 - w/2, y=r.top + r.height/2 - w/2;
+  x=Math.max(4, Math.min(window.innerWidth-w-4, x));
+  y=Math.max(4, Math.min(window.innerHeight-w-4, y));
+  popupEl.style.left=x+"px"; popupEl.style.top=y+"px";
+  popupEl.style.width=w+"px"; popupEl.style.height=w+"px";
+  popbase.classList.add("on");
+}
+
+/* ===== おして・はなして かくてい（すべらせて えらびなおせる） ===== */
+var PRESS={on:false,id:null,cur:null,kind:null,moved:false,x0:0,y0:0};
+var HIT=".key,.fkey,.chip,.wchip,.pop";
+
+function targetAt(x,y){
+  var el=document.elementFromPoint(x,y);
+  if(!el || !el.closest) return null;
+  var t=el.closest(HIT);
+  if(!t || t.disabled || t.classList.contains("blank")) return null;
+  return t;
+}
+function setCur(el){
+  if(PRESS.cur===el) return;
+  if(PRESS.cur) PRESS.cur.classList.remove("hold");
+  PRESS.cur=el;
+  if(el){ el.classList.add("hold"); showBubble(el); buzz(6); }
+  else hideBubble();
+}
+function doAct(a){
+  if(a==="del") del();
+  else if(a==="ok") kettei();
+  else if(a==="undo") undo();
+  else if(a==="redo") redo();
+  else if(a==="case"){ abcUpper=!abcUpper; buildAbc(); tick(600); }
+}
+function fire(el){
+  if(!el) return;
+  var v;
+  if((v=el.getAttribute("data-kana"))!=null){ typeKana(v); return; }
+  if((v=el.getAttribute("data-kata"))!=null){ typeKata(v); return; }
+  if((v=el.getAttribute("data-raw"))!=null){ typeRaw(v); return; }
+  if((v=el.getAttribute("data-ins"))!=null){ insertRaw(v); return; }
+  if((v=el.getAttribute("data-mod"))!=null){ applyMod(v); return; }
+  if((v=el.getAttribute("data-word"))!=null){
+    commit(v, parseInt(el.getAttribute("data-use"),10), el.getAttribute("data-rest")!=null); return; }
+  if((v=el.getAttribute("data-act"))!=null){ doAct(v); return; }
+}
+
+document.addEventListener("pointerdown",function(e){
+  var el=e.target.closest ? e.target.closest(HIT) : null;
+  if(!el || el.disabled || el.classList.contains("blank")) return;
+  /* ことばパレットは たてスクロールを じゃましない（スクロールに なったら
+     pointercancel が くるので、なにも はいらない） */
+  if(!el.classList.contains("wchip")) e.preventDefault();
+  var isPop=el.classList.contains("pop");
+  if(!isPop && popupOpen()) closePopup();
+  PRESS.on=true; PRESS.id=e.pointerId; PRESS.moved=false;
+  PRESS.x0=e.clientX; PRESS.y0=e.clientY;
+  PRESS.cur=null;
+  if(!isPop && el.getAttribute("data-pop")!=null){
+    PRESS.kind="popkey"; openPopup(el);
+  }else{
+    PRESS.kind= isPop ? "pop" : "key";
+    setCur(el);
+  }
+  try{ el.setPointerCapture && el.setPointerCapture(e.pointerId); }catch(err){}
+},true);
+
+document.addEventListener("pointermove",function(e){
+  if(!PRESS.on || e.pointerId!==PRESS.id) return;
+  if(Math.abs(e.clientX-PRESS.x0)>12 || Math.abs(e.clientY-PRESS.y0)>12) PRESS.moved=true;
+  /* 10キーを おした ときの ちいさな ゆびの ぶれでは えらばない
+     （タッチでも マウスでも「タップ＝ひらいたまま」に そろえる） */
+  if(PRESS.kind==="popkey" && !PRESS.moved) return;
+  var el=targetAt(e.clientX,e.clientY);
+  if(popupOpen()) setCur(el && el.classList.contains("pop") ? el : null);
+  else setCur(el && !el.classList.contains("pop") ? el : null);
+},true);
+
+function endPress(fireIt){
+  if(!PRESS.on) return;
+  var el=PRESS.cur, kind=PRESS.kind, moved=PRESS.moved;
+  if(el) el.classList.remove("hold");
+  PRESS.on=false; PRESS.cur=null; hideBubble();
+  if(!fireIt){ closePopup(); return; }
+  if(el){
+    if(el.classList.contains("pop")) closePopup();
+    fire(el);
+    return;
+  }
+  /* なにも えらんで いない */
+  if(kind==="popkey" && !moved && popupOpen()) return;   /* ポップアップは あけたまま（2かい タップ） */
+  closePopup();
+}
+document.addEventListener("pointerup",function(e){
+  if(!PRESS.on || e.pointerId!==PRESS.id) return;
+  e.preventDefault(); endPress(true);
+},true);
+document.addEventListener("pointercancel",function(e){
+  if(!PRESS.on || e.pointerId!==PRESS.id) return;
+  endPress(false);
+},true);
+
+/* ===== タブ ===== */
+var tabs=document.querySelectorAll(".tab");
+for(var t=0;t<tabs.length;t++)(function(tb){
+  tb.addEventListener("click",function(){
+    closePopup();
+    for(var i=0;i<tabs.length;i++) tabs[i].setAttribute("aria-selected", tabs[i]===tb?"true":"false");
+    var panes=document.querySelectorAll(".pane");
+    for(var j=0;j<panes.length;j++) panes[j].classList.remove("on");
+    activePane = tb.getAttribute("data-pane");
+    document.getElementById("pane-"+activePane).classList.add("on");
+    render(); tick(560);
+  });
+})(tabs[t]);
+
+/* ===== こえ（二段構え） ===== */
+var micBtn=document.getElementById("btn-mic");
+var guide=document.getElementById("guide");
+var dictbox=document.getElementById("dictbox");
+var recog=null, listening=false, dictMode=false;
+
+function micOn(state){
+  listening=state;
+  micBtn.classList.toggle("on", state);
+  noteEl.classList.toggle("listening", state);
+}
+/* こえで 入った 漢字は、えらんだ 学年に あわせて ひらがなに もどす */
+function takeText(s){
+  s=String(s||"").replace(/\s+$/,"");
+  if(!s) return;
+  insertRaw(HENKAN.soften(s, hOpt()));
+}
+
+/* 1だんめ：ブラウザの 音声にんしき */
+function startRecognition(){
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR) return false;
+  try{
+    recog = new SR();
+    recog.lang = "ja-JP";
+    recog.interimResults = false;
+    recog.continuous = false;
+    recog.onstart = function(){ micOn(true); toast("きいています"); };
+    recog.onresult = function(e){
+      var txt="";
+      for(var i=e.resultIndex;i<e.results.length;i++){
+        if(e.results[i].isFinal) txt += e.results[i][0].transcript;
+      }
+      takeText(txt);
+    };
+    recog.onerror = function(e){
+      micOn(false);
+      if(e.error==="not-allowed" || e.error==="service-not-allowed" || e.error==="audio-capture"){
+        startDictMode();
+      }else if(e.error==="no-speech"){
+        toast("きこえませんでした");
+      }
+    };
+    recog.onend = function(){ micOn(false); };
+    recog.start();
+    return true;
+  }catch(err){ return false; }
+}
+
+/* 2だんめ：ChromeOSの 音声入力を つかう */
+function startDictMode(){
+  dictMode=true;
+  guide.classList.add("on");
+  dictbox.value="";
+  dictbox.focus();
+  micOn(true);
+}
+function stopDictMode(){
+  dictMode=false;
+  guide.classList.remove("on");
+  dictbox.blur();
+  micOn(false);
+}
+dictbox.addEventListener("input",function(){
+  if(!dictbox.value) return;
+  clearTimeout(dictbox._t);
+  dictbox._t=setTimeout(function(){
+    takeText(dictbox.value);
+    dictbox.value="";
+  },700);
+});
+dictbox.addEventListener("blur",function(){ if(dictMode) setTimeout(function(){ if(dictMode) dictbox.focus(); },50); });
+document.getElementById("guide-close").addEventListener("click",function(e){ e.stopPropagation(); stopDictMode(); });
+
+micBtn.addEventListener("click",function(){
+  closePopup();
+  if(dictMode){ stopDictMode(); return; }
+  if(listening && recog){ try{recog.stop();}catch(e){} micOn(false); return; }
+  if(!startRecognition()) startDictMode();
+});
+
+/* ===== 上バー ===== */
+document.getElementById("btn-copy").addEventListener("click",function(){
+  closePopup();
+  if(buffer){ snap(); flush(); render(); }
+  var text=chars.join("");
+  if(!text){ toast("まだ なにも かいて いません"); return; }
+  var done=false;
+  try{
+    var ta=document.createElement("textarea");
+    ta.value=text; ta.style.position="fixed"; ta.style.top="-1000px";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    ta.setSelectionRange(0, text.length);
+    done=document.execCommand("copy"); document.body.removeChild(ta);
+  }catch(e){}
+  if(done){ toast("ぜんぶ コピーしました"); return; }
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(function(){toast("ぜんぶ コピーしました");},
+      function(){toast("コピーできませんでした");});
+  }else toast("コピーできませんでした");
+});
+document.getElementById("btn-clear").addEventListener("click",function(){
+  closePopup();
+  if(!chars.length && !buffer) return;
+  snap(); chars=[]; caret=0; buffer=""; render(); toast("ぜんぶ けしました（↶ で もどせます）");
+});
+document.getElementById("btn-set").addEventListener("click",function(){ closePopup(); document.getElementById("panel-set").classList.add("open"); });
+document.querySelector("[data-close]").addEventListener("click",function(){ document.getElementById("panel-set").classList.remove("open"); });
+document.getElementById("panel-set").addEventListener("click",function(e){ if(e.target===this) this.classList.remove("open"); });
+
+function toast(m){
+  var t=document.getElementById("toast");
+  t.textContent=m; t.classList.add("show");
+  clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove("show");},1700);
+}
+
+/* ===== PCキーボード ===== */
+document.addEventListener("keydown",function(e){
+  if(dictMode) return;
+  if(document.getElementById("panel-set").classList.contains("open")){
+    if(e.key==="Escape") document.getElementById("panel-set").classList.remove("open");
+    return;
+  }
+  if(e.key==="Escape"){ closePopup(); return; }
+  if(e.key==="Backspace"){ e.preventDefault(); del(); }
+  else if(e.key===" " || e.key==="Enter"){ e.preventDefault(); kettei(); }
+  else if(e.key==="ArrowLeft"){ e.preventDefault(); caretLeft(); }
+  else if(e.key==="ArrowRight"){ e.preventDefault(); caretRight(); }
+  else if(/^[1-9]$/.test(e.key) && buffer){
+    e.preventDefault();
+    var cs=candsEl.querySelectorAll(".chip");
+    var c=cs[parseInt(e.key,10)-1];
+    if(c) fire(c);
+  }
+  else if(e.ctrlKey && e.key==="z"){ e.preventDefault(); undo(); }
+  else if(e.ctrlKey && e.key==="y"){ e.preventDefault(); redo(); }
+  else if(/^[ぁ-ゖ]$/.test(e.key)){ e.preventDefault(); typeKana(e.key); }
+});
+
+/* ===== せってい ===== */
+function saveCfg(){ try{ localStorage.setItem("hkbCfg", JSON.stringify(cfg)); }catch(e){} }
+function loadCfg(){
+  try{
+    var s=localStorage.getItem("hkbCfg");
+    if(!s) return;
+    var o=JSON.parse(s), k;
+    for(k in cfg) if(o[k]!==undefined) cfg[k]=o[k];
+  }catch(e){}
+  /* まえの はん の「ぜんぶ」は 6年に する */
+  if(!/^[1-6]$/.test(String(cfg.grade))) cfg.grade = "6";
+  cfg.grade=String(cfg.grade);
+}
+function applyCfg(){
+  document.body.classList.toggle("quiet", cfg.quiet);
+  document.body.classList.toggle("contrast", cfg.contrast);
+  document.body.classList.toggle("kb-flick", cfg.kb==="10");
+  document.body.classList.toggle("nocolor", !cfg.color);
+  seg("seg-size",cfg.size); seg("seg-quiet",cfg.quiet?"on":"off"); seg("seg-contrast",cfg.contrast?"hard":"soft");
+  seg("seg-kb",cfg.kb); seg("seg-color",cfg.color?"on":"off"); seg("seg-grade",cfg.grade);
+  seg("seg-maze",cfg.maze?"on":"off");
+  closePopup(); saveCfg(); fitNote(); render();
+}
+function seg(id,v){ var ns=document.querySelectorAll("#"+id+" button");
+  for(var i=0;i<ns.length;i++) ns[i].setAttribute("aria-pressed", ns[i].getAttribute("data-v")===v?"true":"false"); }
+function bindSeg(id,fn){ document.getElementById(id).addEventListener("click",function(e){
+  var b=e.target.closest("button"); if(!b)return; fn(b.getAttribute("data-v")); applyCfg(); }); }
+bindSeg("seg-size", function(v){cfg.size=v;});
+bindSeg("seg-quiet", function(v){cfg.quiet=(v==="on");});
+bindSeg("seg-contrast", function(v){cfg.contrast=(v==="hard");});
+bindSeg("seg-kb", function(v){cfg.kb=v;});
+bindSeg("seg-color", function(v){cfg.color=(v==="on");});
+bindSeg("seg-grade", function(v){cfg.grade=v;});
+bindSeg("seg-maze", function(v){cfg.maze=(v==="on");});
+
+function fitNote(){
+  var base = cfg.size==="s"?26 : cfg.size==="l"?44 : 34;
+  if(window.innerHeight < 680) base = Math.min(base, 30);
+  document.documentElement.style.setProperty("--fs-note", base+"px");
+  noteEl.style.height=(base*1.5+12)+"px";
+}
+window.addEventListener("resize", function(){ closePopup(); fitNote(); render(); });
+
+/* ===== スプレッドシートから じしょ・ことばを もらう（あとから ごうりゅう） ===== */
+function mergeBundle(b){
+  if(!b) return;
+  var k;
+  if(b.dict) for(k in b.dict){
+    for(var i=0;i<b.dict[k].length;i++) HENKAN.addUser(k, b.dict[k][i]);
+  }
+  if(b.palette) for(k in b.palette){
+    if(b.palette[k] && b.palette[k].length) PALETTE[k]=b.palette[k];
+  }
+  buildCats(); render();
+}
+try{
+  if(typeof google!=="undefined" && google.script && google.script.run){
+    google.script.run.withSuccessHandler(mergeBundle).withFailureHandler(function(){}).getBundle();
+  }
+}catch(e){}
+
+if(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) cfg.quiet=true;
+loadCfg();
+loadText();
+applyCfg();
+</script>
+</body>
+</html>
