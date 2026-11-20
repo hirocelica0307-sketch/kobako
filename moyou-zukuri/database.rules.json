@@ -7,6 +7,13 @@
         ".validate": "$code.matches(/^[0-9]{4}$/)"
       }
     },
+    "kaiteSecret": {
+      "$code": {
+        ".read": "auth != null && root.child('rooms').child($code).child('info').child('hostUid').val() === auth.uid",
+        ".write": "auth != null",
+        ".validate": "$code.matches(/^[0-9]{4}$/)"
+      }
+    },
     "tsunahiki": {
       "lobby": {
         ".read": "auth != null",

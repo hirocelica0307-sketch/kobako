@@ -46,7 +46,9 @@ async function openConnection() {
         throw new Error('サインインが できませんでした（Firebase の「匿名」ログインが 有効か かくにんしてください）');
     });
 
-    return { db: dbMod.getDatabase(app), fb: dbMod };
+    /* uid … この ブラウザの 匿名ID。せんせい だけが 読める ところ（おだい）の かぎに つかいます */
+    const uid = (auth.currentUser && auth.currentUser.uid) || null;
+    return { db: dbMod.getDatabase(app), fb: dbMod, uid };
 }
 
 /* ── このタブを あらわす ID ────────────────────── */
@@ -90,14 +92,20 @@ export async function createRoom(conn, hostId) {
     const { db, fb } = conn;
     for (let tries = 0; tries < 30; tries++) {
         const code = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-        const info = { createdAt: Date.now(), hostId, phase: 'waiting' };
+        /* hostUid … つくった せんせいの 匿名ID。おだいを 読めるのは この ID だけ（database.rules.json）*/
+        const info = { createdAt: Date.now(), hostId, hostUid: conn.uid || null, phase: 'waiting' };
         const result = await fb.runTransaction(fb.ref(db, `rooms/${code}/info`), current => {
             /* だれかが つかっている 番号は とばします（古い 部屋は つかいまわし）*/
             if (current && Date.now() - (current.createdAt || 0) < ROOM_LIFETIME) return;
             return info;
         });
         if (result.committed) {
-            await fb.remove(fb.ref(db, `rooms/${code}/members`));   // 前の 部屋の のこりを 消す
+            /* 前の 部屋の のこりを 消す */
+            for (const part of ['members', 'game', 'round', 'scores', 'teamScores', 'strokes', 'live',
+                                'gallery', 'tel', 'telDone']) {
+                await fb.remove(fb.ref(db, `rooms/${code}/${part}`));
+            }
+            await fb.remove(fb.ref(db, `kaiteSecret/${code}`)).catch(() => {});
             return code;
         }
     }
@@ -146,15 +154,30 @@ export function watchMembers(conn, code, cb) {
         const raw = snap.val() || {};
         const list = Object.entries(raw)
             .map(([id, m]) => ({ id, ...m }))
+            .filter(m => m.name)              /* 名まえの ない 席（のこりかす）は かぞえない */
             .sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0));
         cb(list);
     });
 }
 
-/** 自分の 席を かたづけて 部屋を 出ます。 */
+/** 自分の 席を かたづけて 部屋を 出ます。
+    「切れたら いない 印を つける」よやくも とりけします
+    （とりけさないと、タブを とじた ときに 名まえの ない 席が のこります）*/
 export async function leaveRoom(conn, code, memberId) {
     const { db, fb } = conn;
+    await cancelMyDisconnect(conn, code, memberId);
     await fb.remove(fb.ref(db, `rooms/${code}/members/${memberId}`));
+}
+export async function cancelMyDisconnect(conn, code, memberId) {
+    const { db, fb } = conn;
+    await fb.onDisconnect(fb.ref(db, `rooms/${code}/members/${memberId}/online`)).cancel().catch(() => {});
+    await fb.onDisconnect(fb.ref(db, `rooms/${code}/live/${memberId}`)).cancel().catch(() => {});
+}
+
+/** せんせいが こどもを へやから 出します */
+export function removeMember(conn, code, memberId) {
+    const { db, fb } = conn;
+    return fb.remove(fb.ref(db, `rooms/${code}/members/${memberId}`));
 }
 
 /* ── おえかき ──────────────────────────────────
@@ -443,4 +466,19 @@ export function watchTelDone(conn, code, cb) {
 export async function loadTel(conn, code) {
     const { db, fb } = conn;
     return (await fb.get(fb.ref(db, `rooms/${code}/tel`))).val() || {};
+}
+
+/* ── せんせい だけが 見る おだい ─────────────────
+   おだいの ことばは rooms の 中には おきません（こどもも 読めるため）。
+   kaiteSecret/{へや} に おき、Firebase の ルールで **へやを つくった せんせいの 匿名ID だけ** が
+   読めるように しています。書くのは その かいの かく人の タブです。
+   ルールが まだ はられて いない ときは 書き・読みが ことわられるので、
+   せんせいの 画面に「ルールを はってください」と 出します。 */
+export function writeSecret(conn, code, data) {
+    const { db, fb } = conn;
+    return fb.set(fb.ref(db, `kaiteSecret/${code}`), data);
+}
+export function watchSecret(conn, code, cb, onError) {
+    const { db, fb } = conn;
+    return fb.onValue(fb.ref(db, `kaiteSecret/${code}`), snap => cb(snap.val()), err => onError && onError(err));
 }

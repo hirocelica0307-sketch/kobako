@@ -171,7 +171,11 @@ h1.logo span:nth-of-type(6){ --c:#e0569b; transform:rotate(3deg);  animation-del
 .roomcode b{ font-size:clamp(22px,3.6vw,34px); letter-spacing:.14em; color:var(--accent-dk); }
 
 .members{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
-.topbar .members{ flex:1 1 200px; justify-content:flex-start; overflow:hidden; }
+/* 上の帯には じぶんの 名まえ だけ（名まえは 切らずに ぜんぶ 出します）*/
+.mename{
+    flex:1 1 auto; min-width:0; font-size:clamp(14px,2vw,20px); color:var(--ink);
+    overflow-wrap:anywhere;
+}
 .member{
     display:flex; align-items:center; gap:6px;
     border:2px solid var(--line); border-radius:999px;
@@ -251,29 +255,64 @@ h1.logo span:nth-of-type(6){ --c:#e0569b; transform:rotate(3deg);  animation-del
     border-radius:var(--radius); padding:10px; text-align:center;
     display:flex; flex-direction:column; gap:6px;
 }
+/* だれの ばんか・のこり時間。名まえは 切らずに、入りきらない ときは 2行に なります */
 .statusbar{
-    display:flex; justify-content:space-between; align-items:center; gap:8px; flex:none;
+    display:flex; justify-content:space-between; align-items:center; gap:4px 8px; flex:none; flex-wrap:wrap;
     border-bottom:3px solid var(--line); padding-bottom:6px;
-    font-size:clamp(11px,1.8vw,16px); color:var(--ink-thin);
+    color:var(--ink-thin); text-align:left;
 }
-.timer{ font-size:clamp(13px,2.2vw,20px); color:var(--ink); white-space:nowrap; }
-.timer.hurry{ color:#b3402f; }
-.clock{ font-size:clamp(11px,1.7vw,15px); }
+.turninfo{ display:flex; flex-direction:column; min-width:0; flex:1 1 10em; line-height:1.25; }
+.turnno{ font-size:clamp(10px,1.4vw,13px); }
+/* 名まえの とちゅうで 切れない ように、空白の ところで だけ おりかえします */
+.turnlabel{ font-size:clamp(14px,2vw,19px); color:var(--ink); word-break:keep-all; overflow-wrap:anywhere; }
+.clocks{ display:flex; flex-direction:column; align-items:flex-end; flex:none; line-height:1.2; margin-left:auto; }
+.clock{ font-size:clamp(11px,1.6vw,14px); }
+
+/* のこり時間：へるほど 目立たせます（ふつう → きいろ → 赤 → 赤で ぴょこぴょこ）*/
+.timer{ font-size:clamp(15px,2.3vw,22px); color:var(--ink); white-space:nowrap; transition:color .3s, font-size .3s; }
+.timer.t-half{ color:#d4840a; }
+.timer.t-low { color:#d6332a; font-size:clamp(18px,2.8vw,27px); }
+/* 大きさは かえずに（はみ出さない ように）、赤い 地を ぴかぴか させます */
+.timer.t-crit{ color:#fff; background:#d6332a; border-radius:10px; padding:0 8px;
+               font-size:clamp(18px,2.8vw,27px); animation:timerBeat 1s ease-in-out infinite; }
+@keyframes timerBeat{ 0%,100%{ background:#d6332a; } 50%{ background:#ff6b5e; } }
+
+/* 絵の 上の のこり時間バー */
+.timebar{ position:absolute; left:0; right:0; top:0; height:9px; z-index:5; background:rgba(0,0,0,.06); pointer-events:none; }
+.timebar i{ display:block; height:100%; width:100%; background:#46a83c; border-radius:0 6px 6px 0; transition:width .3s linear, background .3s; }
+.timebar.t-half i{ background:#f2b12e; }
+.timebar.t-low  i{ background:#e8503a; }
+.timebar.t-crit{ height:14px; }
+.timebar.t-crit i{ background:#d6332a; animation:barBlink .5s steps(2) infinite; }
+@keyframes barBlink{ 50%{ opacity:.45; } }
+
+/* さいごの 5びょうの 大きな かず（絵の じゃまに ならない ように すけさせます）*/
+.bigcount{
+    position:absolute; inset:0; z-index:5; pointer-events:none;
+    display:flex; align-items:center; justify-content:center;
+    font-size:clamp(90px,18vw,220px); line-height:1; color:rgba(214,51,42,.35);
+    -webkit-text-stroke:3px rgba(255,255,255,.8);
+}
+.bigcount.pop{ animation:countPop .9s ease-out both; }
+@keyframes countPop{ 0%{ transform:scale(1.5); opacity:0; } 25%{ transform:scale(1); opacity:1; } 100%{ opacity:.6; } }
+@media (prefers-reduced-motion:reduce){
+    .timer.t-crit,.timebar.t-crit i,.bigcount.pop{ animation:none; }
+}
+
+/* せいかいの 人数（だれが あてたかは 出しません）*/
+.corrstat{ margin:0; flex:none; font-size:clamp(14px,2vw,19px); color:var(--go-dk); }
 
 /* ── おだい ───────────────────────────────────
    まわりの 席から 見えにくい ように、**画面の 下の 左はしに 小さく**
    出します。「かくす」を おすと ● に なり、その えらびは おぼえます。 */
+/* できるだけ 小さく・うすく（となりの 席から 読みにくい ように）*/
 .odaibox{
-    display:flex; align-items:center; gap:8px; flex:none;
-    border:3px solid var(--line); border-radius:var(--radius);
-    background:var(--tap); padding:4px 10px; margin-right:auto;
+    display:flex; align-items:center; gap:6px; flex:none;
+    border:2px solid var(--line); border-radius:10px;
+    background:var(--panel); padding:2px 6px; margin-right:auto;
 }
-.odailabel{ font-size:clamp(9px,1.2vw,12px); color:var(--ink-thin); }
-.odaiword{
-    font-size:clamp(15px,2vw,20px); letter-spacing:.06em; color:var(--accent-dk);
-    max-width:9em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-}
-.odaihidden{ font-size:clamp(11px,1.5vw,15px); color:var(--line); letter-spacing:.2em; }
+.odaiword{ font-size:13px; letter-spacing:.02em; color:var(--ink-thin); white-space:nowrap; }
+.odaihidden{ font-size:11px; color:var(--line); letter-spacing:.15em; }
 .btn.sub-btn.tiny{
     min-height:30px; padding:2px 10px; font-size:clamp(10px,1.3vw,13px);
     border-width:2px;
@@ -297,7 +336,7 @@ h1.logo span:nth-of-type(6){ --c:#e0569b; transform:rotate(3deg);  animation-del
     border:3px solid var(--line); cursor:pointer; padding:0;
     font:inherit; font-size:12px; color:var(--ink); transition:transform .08s;
 }
-.swatch.eraser{ background:#fff; }
+.swatch.eraser{ background:#fff; font-size:11px; line-height:1; white-space:nowrap; letter-spacing:-.05em; }
 .swatch.on{ border-color:var(--ink); transform:scale(1.14); }
 .pen{
     width:46px; height:38px; border-radius:10px;
@@ -338,12 +377,6 @@ h1.logo span:nth-of-type(6){ --c:#e0569b; transform:rotate(3deg);  animation-del
 .side{ overflow:hidden; }          /* 念のため、はみ出しを ここで 止めます */
 #answerPanel{ min-width:0; }
 
-/* 上の帯は 1れつに おさめます（2れつに なると たての ばしょを とられ、
-   キーボードが 小さく なってしまうため）*/
-.topbar .members{ flex-wrap:nowrap; }
-.statusbar{ white-space:nowrap; overflow:hidden; }
-.statusbar > span{ overflow:hidden; text-overflow:ellipsis; }
-.statusbar > .timer{ flex:none; }      /* のこり時間は 切らずに、名まえの ほうを みじかく します */
 
 /* ── せの ひくい 画面（Chromebook の 小さめの かいぞうどなど）──
    かざりを へらして、キーボードに たての ばしょを まわします。 */
@@ -356,7 +389,7 @@ h1.logo span:nth-of-type(6){ --c:#e0569b; transform:rotate(3deg);  animation-del
     .btn.sub-btn{ min-height:36px; }
     .judge{ padding:5px 10px; font-size:clamp(13px,2vw,18px); }
     .key.wide{ min-height:38px; }
-    .statusbar{ padding-bottom:4px; font-size:clamp(10px,1.5vw,14px); }
+    .statusbar{ padding-bottom:4px; }
     .member{ padding:3px 10px; }
 }
 @media (max-height:620px){
@@ -387,16 +420,38 @@ h1.logo span:nth-of-type(6){ --c:#e0569b; transform:rotate(3deg);  animation-del
 .key.wide .label{ font-size:.82em; }
 .key.mark .glyph{ color:var(--accent-dk); }
 
-/* 上の帯で 名まえが 入りきらない ときは、右はしを うすく して
-   「まだ つづきが ある」ことが わかるように します */
-.topbar .members{
-    position:relative;
-    -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent 100%);
-    mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent 100%);
-}
-
-/* ── 先生（かんり）の 見え方 ───────────────────── */
+/* ── せんせいの 見え方 ─────────────────────── */
 #adminPanel{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:4px; }
+.tcard{
+    flex:none; border:3px solid var(--accent); border-radius:var(--radius); background:var(--tap);
+    padding:6px 10px; display:flex; flex-direction:column; gap:3px; text-align:left;
+}
+.trow{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.tlab{ font-size:clamp(11px,1.5vw,14px); color:var(--ink-thin); min-width:6.5em; }
+.trow b{ font-size:clamp(16px,2.3vw,23px); color:var(--accent-dk); word-break:keep-all; overflow-wrap:anywhere; }
+.tnote{ margin:0; font-size:12px; color:#b3402f; }
+.tlisthead{ text-align:left; }
+.rowbtn{
+    font:inherit; font-size:clamp(11px,1.5vw,14px); flex:none; cursor:pointer;
+    border:2px solid var(--accent); border-radius:8px; background:#fff; color:var(--accent-dk);
+    padding:3px 8px; min-height:30px;
+}
+.rowbtn.out{ border-color:var(--line); color:var(--ink-thin); }
+.rowbtn:active{ transform:translateY(1px); background:var(--tap); }
+/* せんせいの 画面は、みんなの ようすを たくさん 見られる ように つめて ならべます
+   （はこは 2れつ、ボタンは 3れつ）*/
+body.teacher .tcard{ display:grid; grid-template-columns:1fr 1fr; gap:4px 12px; }
+body.teacher .trow{ display:grid; grid-template-columns:auto auto; justify-content:start; align-items:center; gap:0 6px; }
+body.teacher .tlab{ min-width:0; grid-column:1 / -1; }
+body.teacher .tnote{ grid-column:1 / -1; }
+body.teacher #hostRow{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+body.teacher #hostRow .btn{ min-width:0; padding:6px 4px; min-height:40px; font-size:clamp(13px,1.6vw,17px); }
+body.teacher #hostRow .btn.hidden{ display:none; }
+@media (max-height:720px){
+    body.teacher .trow b{ font-size:clamp(14px,2vw,19px); }
+    body.teacher #hostRow .btn{ min-height:34px; padding:4px; }
+    .watchrow{ padding:3px 8px; }
+}
 .watchlist{ flex:1 1 auto; min-height:0; overflow:auto; display:flex; flex-direction:column; gap:4px; }
 .watchrow{
     display:flex; align-items:center; gap:8px;
@@ -404,7 +459,7 @@ h1.logo span:nth-of-type(6){ --c:#e0569b; transform:rotate(3deg);  animation-del
     padding:5px 10px; font-size:clamp(12px,1.9vw,17px);
 }
 .watchrow .dot{ width:14px; height:14px; border-radius:50%; flex:none; }
-.watchrow .nm{ flex:1; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.watchrow .nm{ flex:1; min-width:0; text-align:left; overflow-wrap:anywhere; }
 .watchrow .st{ font-size:.86em; white-space:nowrap; }
 .watchrow.ok{ border-color:#bfe0b5; background:#f2faf0; }
 .watchrow.ok .st{ color:var(--go-dk); }
@@ -441,7 +496,8 @@ body.paused .board-wrap::after{
 .fx-toast{
     position:absolute; left:50%; transform:translateX(-50%); z-index:6;
     background:#fff; color:var(--ink); border:3px solid var(--c,var(--accent));
-    border-radius:999px; padding:6px 16px; white-space:nowrap; pointer-events:none;
+    border-radius:999px; padding:6px 16px; pointer-events:none;
+    max-width:92%; text-align:center; white-space:normal;
     font-size:clamp(13px,1.9vw,19px); box-shadow:0 4px 0 rgba(0,0,0,.08);
     animation:toastIn 2.6s ease both;
 }
@@ -544,8 +600,6 @@ body.paused .board-wrap::after{
     .odaibox{ gap:5px; padding:3px 8px; }
 }
 @media (max-width:1100px){
-    .odailabel{ display:none; }
-    .odaiword{ font-size:16px; }
     .swatch{ width:28px; height:28px; }
 }
 
@@ -602,9 +656,15 @@ body.paused .board-wrap::after{
    .btn や .key の「font:inherit」に 上書き されないよう、いちばん 下に 書きます。
    （Mochiy Pop One は ふとさが 1つだけ なので 400 に します）*/
 h1,.btn,.key,.readout,.digit,.roomcode b,.member,.level b,.stepval b,
-.timer,#turnLabel,.odaiword,.judge,.resulttitle,.rankrow,.watchrow .nm,
+.timer,.turnlabel,.judge,.corrstat,.trow b,.bigcount,.mename,.resulttitle,.rankrow,.watchrow .nm,
 .fx-toast,.hint b,.hintlab,.teamscore,.teamwin,.bigmsg,.kind b,.gcard b,.viewercap,
 .cword,.chainhead,.cresult,
 body.paused .board-wrap::after{
     font-family:var(--pop); font-weight:400;
+}
+
+/* ── はじめの 画面の「せんせい」ボタン（こどもが まちがえて おさない ように 小さく）── */
+.sensei-btn{
+    position:fixed; right:10px; bottom:10px; z-index:3;
+    min-height:34px !important; padding:4px 12px !important; font-size:13px !important; opacity:.75;
 }

@@ -6,6 +6,7 @@ import { connect, watchMembers, enterRoom, leaveRoom, myMemberId, readStore, wri
          clearBoard, watchStrokes, watchLive, watchInfo, setPhase,
          setupRound, armRound, finishRound, watchRound, markAnswered,
          startGame, watchGame, setTurn, watchScores, addScores,
+         removeMember, cancelMyDisconnect, writeSecret, watchSecret,
          updateRound, updateGame, bumpMiss,
          addTeamScore, watchTeamScores,
          sendReact, saveGallery, loadGallery,
@@ -37,12 +38,13 @@ const TEL_GUESS_SECONDS = 40;
 /* リアクション。つづけて おせる 間かく（ミリ秒）*/
 const REACTIONS = ['👍', '😂', '😮', '❤️', '👏'];
 const REACT_GAP = 600;
-/* ぬしは「あそぶ」か「かんりする（先生）」かを えらべます。
-   かんりする ときは ゲームに 入らず、みんなの ようすを 見て すすめます。 */
-const HOST_ROLES = [
-    { key: 'play',  label: 'あそぶ',     note: 'いっしょに さんか' },
-    { key: 'admin', label: 'かんりする', note: 'さんかせず すすめる' }
-];
+/* せんせいが ＋ボタンで のばす 時間（びょう）*/
+const ADD_SECONDS = 15;
+/* のこり時間の 目立たせかた（のこりの わりあい・びょう）*/
+const TIME_HALF = 0.5;        // 半分を きったら きいろ
+const TIME_LOW = 0.25;        // 4分の1 か 15びょう で 赤
+const TIME_LOW_SEC = 15;
+const TIME_CRIT_SEC = 5;      // さいごの 5びょうは 大きな かずで
 const LAP_CHOICES = [
     { n: 1, label: '1しゅう', note: 'ひとり 1かい' },
     { n: 2, label: '2しゅう', note: 'ひとり 2かい' },
@@ -63,11 +65,13 @@ const myId = myMemberId();
 
 if (!code || !myName) location.replace('index.html');
 $('code').textContent = code;
+$('meName').textContent = isHost ? 'せんせい' : (myName || '');
 
 let conn = null, board = null;
 let members = [], game = null, round = null, scores = {}, teamScores = {};
 let phase = 'waiting';
-let level = TOPICS[0].key, mode = 'order', laps = 1, hostRole = 'play';
+/* へやを つくれるのは せんせい だけ。せんせいは ゲームに 入らず、すすめる 役です */
+let level = TOPICS[0].key, mode = 'order', laps = 1;
 let minutes = DEFAULT_MINUTES, seconds = DEFAULT_SECONDS;
 let myWord = null, recent = [];
 let arming = false, finishing = false, advancing = false;
@@ -83,6 +87,12 @@ let galleryData = null, telData = null, resultTab = 'rank';
 let telDone = {};
 let tel = { step: -1, chain: null, prompt: '', img: null, submitted: false, loading: false };
 let localN = 0;
+/* せんせいの 画面：おだい（せんせい だけ 読める ところ）*/
+let secret = null, secretDenied = false;
+let tWordHidden = false;
+try { tWordHidden = localStorage.getItem('ka_twordhide') === '1'; } catch (e) {}
+/* へやから 出された ことに 気づく ため */
+let joined = false, kicked = false;
 /* おだいを かくすか。えらんだら おぼえます（この 端末だけ）*/
 let odaiHidden = false;
 try { odaiHidden = localStorage.getItem('ka_odaihide') === '1'; } catch (e) {}
@@ -127,8 +137,6 @@ const answerRank = id => {
     if (!a[id]) return 0;
     return Object.entries(a).sort((x, y) => x[1] - y[1]).findIndex(e => e[0] === id) + 1;
 };
-const RANK_BADGE = ['', '🥇 1ばん！', '🥈 2ばん！', '🥉 3ばん！'];
-const rankBadge = n => RANK_BADGE[n] || (n ? n + 'ばん！' : '');
 /* でんごん：じぶんが なんばんめか（さんか していなければ -1）*/
 const telIndex = () => (isTel() && game.order ? game.order.indexOf(myId) : -1);
 const telSecondsFor = s => isDrawStep(s) ? ((game && game.seconds) || DEFAULT_SECONDS) : TEL_GUESS_SECONDS;
@@ -143,7 +151,9 @@ function shuffle(a) {
 }
 
 /* ── あつまった人 ─────────────────────────── */
-function chip(m, compact) {
+/* あつまる 画面の 名まえ。あそんで いる あいだは、ほかの 人の ようす（だれが あてたか など）は
+   こどもの 画面に 出しません（せんせいの 画面にだけ 出します）*/
+function chip(m) {
     const el = document.createElement('div');
     el.className = 'member' + (m.id === myId ? ' me' : '') + (m.online === false ? ' off' : '');
     const dot = document.createElement('span');
@@ -151,41 +161,20 @@ function chip(m, compact) {
     dot.style.background = m.color || '#ccc';
     el.appendChild(dot);
     el.appendChild(document.createTextNode(m.name || 'だれか'));
-
-    /* チームせんでは ふちを チームの 色に します */
-    const tm = phase !== 'waiting' && teamInfo(teamOf(m.id));
-    if (tm) el.style.borderColor = tm.color;
-
-    /* 人数が 多い ときは、上の帯では 名まえを ゆうせんし、
-       てんすうなどは はぶきます（名まえが 切れると 見づらい ため）*/
-    if (compact) return el;
-
-    const tags = [];
-    if (tm) tags.push(tm.label);
-    if (phase === 'playing' && isTel()) {
-        if (telDone[game.step] && telDone[game.step][m.id]) tags.push('できた');
-    } else if (phase === 'playing' && round && round.drawer === m.id) tags.push('かく人');
-    else if (phase === 'playing' && round && round.answered && round.answered[m.id]) tags.push('せいかい');
-    else if (phase === 'waiting' && m.isHost) tags.push('ぬし');
-    if (scores[m.id]) tags.push(scores[m.id] + 'てん');
-    if (tags.length) {
+    if (m.isHost) {
         const t = document.createElement('span');
         t.className = 'tag';
-        t.textContent = tags.join('・');
+        t.textContent = 'へやを つくった 人';
         el.appendChild(t);
     }
     return el;
 }
 
 function drawMembers() {
-    const crowded = members.length > 4;
-    for (const id of ['members', 'membersBig']) {
-        const box = $(id);
-        box.textContent = '';
-        /* 上の帯は 1れつなので、人数が 多い ときは かんたんな 見せかたに */
-        for (const m of members) box.appendChild(chip(m, id === 'members' && crowded));
-    }
-    const here = onlineIds().length;
+    const box = $('membersBig');
+    box.textContent = '';
+    for (const m of members) box.appendChild(chip(m));
+    const here = members.filter(m => m.online !== false && !m.isHost).length;
     $('count').textContent = here === 0 ? 'まだ だれも いません' : here + ' にん あつまりました';
 }
 
@@ -286,14 +275,16 @@ function render() {
     $('waitMsg').classList.toggle('hidden', !waiting || isHost);
     $('again').classList.toggle('hidden', !result || !isHost);
     $('againMsg').classList.toggle('hidden', !result || isHost);
+    if (!playing) hideTimeFx();
 
     if (playing && isTel()) { renderTel(); return; }
     $('telImg').classList.add('hidden');
     $('telDoneRow').classList.add('hidden');
+    $('answeredCount').classList.add('hidden');
     $('drawerHead').textContent = 'あなたが かく ばんです';
     $('ansHead').textContent = 'なにを かいて いるのかな？';
 
-    const admin = playing && amAdmin();
+    const admin = playing && (amAdmin() || isHost);
     const drawer = playing && amDrawer();
     const answerer = playing && !drawer && !admin && canAnswer();
     /* チームせんで あいての チームの ばん／あとから 来た 人は 見て おうえん */
@@ -312,11 +303,12 @@ function render() {
     $('tools').classList.toggle('hidden', !drawer || done);
     $('clear').classList.toggle('hidden', !drawer);
     document.body.classList.toggle('answering', answerer);
+    document.body.classList.toggle('teacher', admin);
     document.body.classList.toggle('paused', playing && paused());
     if (board) {
         board.setEnabled(drawer && !done && !paused());
-        /* こたえる人は よこに ひらがなキーボードが 出るので、広めに のこします */
-        board.setSideMin(answerer ? 520 : 400);
+        /* こたえる人は ひらがなキーボード、せんせいは みんなの ようすが 出るので、広めに のこします */
+        board.setSideMin(answerer || admin ? 520 : 400);
     }
 
     /* ヒント（文字の 数と、時間が たつと 見える 文字）*/
@@ -330,53 +322,51 @@ function render() {
         $('hint').append(lab, w, n);
     }
 
-    /* リアクションは 絵を 見ている 人だけ（かく人は おせません）*/
-    $('reactBar').classList.toggle('hidden', !playing || drawer || !round || !round.hash);
+    /* リアクションは 絵を 見ている こどもだけ（かく人・せんせいは おせません）*/
+    $('reactBar').classList.toggle('hidden', !playing || drawer || admin || !round || !round.hash);
 
     /* チームせんの てんすう */
     $('teamBar').classList.toggle('hidden', !playing || !isTeam());
     if (playing && isTeam()) drawTeamBar($('teamBar'));
 
-    /* ボタンは ぜんぶ ぬし（先生）が おします */
-    $('nextTurn').classList.toggle('hidden', !playing || !isHost || (!done && !admin));
+    /* ボタンは ぜんぶ せんせいが おします */
+    const live = playing && isHost && round && round.hash && !done;
+    $('nextTurn').classList.toggle('hidden', !playing || !isHost);
     $('nextTurn').textContent = done ? 'つぎの 人へ' : 'つぎの 人に かわる';
-    $('changeOdai').classList.toggle('hidden',
-        !playing || !isHost || !round || !round.hash || done);
+    $('changeOdai').classList.toggle('hidden', !live);
+    $('addTime').classList.toggle('hidden', !live || paused());
     $('pauseBtn').classList.toggle('hidden', !playing || !isHost);
     $('pauseBtn').textContent = paused() ? 'さいかい' : 'いちじ ていし';
     $('endGame').classList.toggle('hidden', !playing || !isHost);
 
-    if (admin) drawWatchlist();
+    if (admin) drawTeacher();
 
     if (playing && game) {
-        const who = nameOf(round ? round.drawer : null) + ' さんの ばん';
-        $('turnLabel').textContent = isRandom()
-            ? (game.turn + 1) + ' かいめ　' + who
-            : (game.turn + 1) + ' / ' + totalTurns() + ' かいめ　' + who;
+        const name = round && round.drawer ? nameOf(round.drawer) : '';
+        $('turnNo').textContent = isRandom() ? (game.turn + 1) + 'かいめ' : (game.turn + 1) + ' / ' + totalTurns() + 'かいめ';
+        $('turnLabel').textContent = drawer ? 'あなたが かく ばん' : name ? name + ' さんが かく ばん' : 'じゅんびちゅう';
+        /* せんせいは 下の はこに 出るので、ここには 出しません */
+        $('turnLabel').classList.toggle('hidden', admin);
     }
 
+    /* かく人の ばんは 上の 帯に 出るので、チームせんの ときだけ「だれが あてるか」を 出します */
+    $('drawerHead').classList.toggle('hidden', !(drawer && isTeam()));
     if (drawer) {
         /* おだいは 小さく、下の 左はしに。「かくす」を えらんで いれば ● に します
            （まわりの 席から 見えて しまわない ように）*/
-        $('odai').textContent = myWord || '（じゅんびちゅう…）';
+        $('odai').textContent = myWord || '…';
         $('odai').classList.toggle('hidden', odaiHidden);
         $('odaiMask').classList.toggle('hidden', !odaiHidden);
         $('hideOdai').textContent = odaiHidden ? 'みる' : 'かくす';
-        const n = round && round.answered ? Object.keys(round.answered).length : 0;
-        $('answeredCount').textContent = n === 0 ? 'まだ だれも あてていません' : n + ' にん あてました';
-        if (isTeam()) $('drawerHead').textContent = 'あなたが かく ばんです（' + (teamInfo(teamOf(myId)) || {}).label + 'が あてるよ）';
+        if (isTeam()) $('drawerHead').textContent = (teamInfo(teamOf(myId)) || {}).label + 'が あてるよ';
     }
 
-    /* 先生（ぬし）と かく人には「まだの 人」を 出します。
-       だれを 待っているかが 見えると、つぎに すすめる はんだんが できます。 */
-    const showWaiting = playing && round && round.hash && !done && !admin && (isHost || drawer);
-    $('waitingFor').classList.toggle('hidden', !showWaiting);
-    if (showWaiting) {
-        const answered = round.answered || {};
-        const yet = answerTargets().filter(id => !answered[id]).map(nameOf);
-        $('waitingFor').textContent = yet.length === 0
-            ? 'ぜんいん あてました！'
-            : 'まだの 人 … ' + yet.join('、');
+    /* せいかいの 人数（だれが あてたかは 出しません）。せんせいは じぶんの はこで 見ます */
+    const showCorr = playing && round && round.hash && !admin;
+    $('corrStat').classList.toggle('hidden', !showCorr);
+    if (showCorr) {
+        const n = correctCount();
+        $('corrStat').textContent = n === 0 ? 'まだ だれも あてていないよ' : 'せいかい ' + n + 'にん';
     }
 
     /* しらせ（せいかい・ちがう・こたえの はっぴょう）*/
@@ -386,7 +376,7 @@ function render() {
         j.textContent = round.word ? 'こたえは「' + round.word + '」でした' : 'この かいは おしまいです';
     } else if (answerer && iAnswered()) {
         j.className = 'judge ok';
-        j.textContent = 'せいかい！　' + (readStore('ka_myans') || '') + '　' + rankBadge(answerRank(myId));
+        j.textContent = 'せいかい！ ' + (readStore('ka_myans') || '') + '　あなたは ' + answerRank(myId) + 'ばんめ';
     } else if (j.dataset.wrong === 'near') {
         j.className = 'judge near';
         j.textContent = 'おしい！ もうすこし！';
@@ -399,6 +389,12 @@ function render() {
     }
 
     if (result) renderResult();
+}
+
+/* この かいの せいかいの 人数（あてる はずの 人の うち）*/
+function correctCount() {
+    const a = (round && round.answered) || {};
+    return Object.keys(a).filter(id => id !== (round && round.drawer)).length;
 }
 
 /* チームの てんすうを ならべます（あそんでいる とき・けっか）*/
@@ -417,30 +413,81 @@ function drawTeamBar(box) {
     });
 }
 
-/* 先生（かんり）の 画面。だれが あてて、だれが こまっているかが わかります。
-   みんなの 画面を そのまま 映す ひつようは ありません。
-   絵は みんな 同じ ものを 見ているので、ちがうのは「こたえの ようす」だけです。 */
+/* ── せんせいの 画面 ───────────────────────────
+   いま かいている 人・おだい・せいかいの 人数・つぎの 人と、
+   一人ひとりの ようす（だれが あてて、だれが こまっているか）を 出します。
+   ここは せんせいの 画面だけ です（こどもの 画面には 出しません）。 */
+function drawTeacher() {
+    const telMode = isTel();
+    const s = telMode ? (game.step || 0) : 0;
+    $('tWord').parentElement.classList.toggle('hidden', telMode);
+    if (telMode) {
+        const doneNow = telDone[s] || {};
+        $('tDrawer').previousElementSibling.textContent = 'でんごん';
+        $('tDrawer').textContent = (s + 1) + 'だんめ（' + (isDrawStep(s) ? '絵を かく' : 'ことばを いれる') + '）';
+        $('tCount').previousElementSibling.textContent = 'できた 人';
+        $('tCount').textContent = game.order.filter(id => doneNow[id]).length + ' / ' + game.order.length + 'にん';
+        $('tNextRow').classList.add('hidden');
+        $('tRuleNote').classList.add('hidden');
+    } else {
+        const done = !!(round && round.done);
+        $('tDrawer').previousElementSibling.textContent = 'かいている 人';
+        $('tDrawer').textContent = round && round.drawer ? nameOf(round.drawer) + ' さん' : '－';
+        /* おだい：かく人の タブが せんせい だけ 読める ところに おいた ことば */
+        const ok = secret && round && secret.drawer === round.drawer && secret.hash === round.hash;
+        const word = ok ? secret.word : (round && round.word) || null;
+        let shown;
+        if (tWordHidden && word) shown = '● ● ●';
+        else if (word) shown = word;
+        else if (round && !round.hash) shown = '（えらんでいます…）';
+        else shown = secretDenied ? '？' : '（とどくのを まっています）';
+        $('tWord').textContent = shown;
+        $('tWordHide').textContent = tWordHidden ? 'みる' : 'かくす';
+        $('tWordHide').classList.toggle('hidden', !word);
+        $('tRuleNote').classList.toggle('hidden', !secretDenied || !!word);
+        $('tCount').previousElementSibling.textContent = 'せいかい';
+        const targets = answerTargets();
+        $('tCount').textContent = round && round.hash
+            ? correctCount() + ' / ' + targets.length + 'にん' + (done ? '（おしまい）' : '')
+            : '－';
+        /* つぎに かく 人（じゅんばん・チームせん）*/
+        const next = nextDrawerPreview();
+        $('tNextRow').classList.toggle('hidden', !next);
+        if (next) $('tNext').textContent = next;
+    }
+    $('tListHead').textContent = telMode ? 'みんなの ようす' : 'みんなの ようす（「かく」で かく人を かえられます）';
+    drawWatchlist();
+}
+
+/* つぎに かく 人の 名まえ（わからない ときは 空）*/
+function nextDrawerPreview() {
+    if (!game || !game.order || isRandom() || isTel()) return isRandom() ? 'くじびきで きめます' : '';
+    const next = game.turn + 1;
+    if (next >= totalTurns()) return 'これで さいご';
+    return nameOf(game.order[next % game.order.length]) + ' さん';
+}
+
 function drawWatchlist() {
     const box = $('watchlist');
     box.textContent = '';
     const answered = (round && round.answered) || {};
     const misses = (round && round.misses) || {};
     const order = Object.entries(answered).sort((a, b) => a[1] - b[1]).map(e => e[0]);
-
     const telNow = isTel() ? (telDone[game.step] || {}) : null;
+
     for (const m of members) {
-        if (m.id === adminId()) continue;
+        if (m.id === adminId() || m.isHost) continue;
         const row = document.createElement('div');
         let cls = 'watchrow';
-        let st = 'まだ こたえていません';
+        let st = 'まだ';
         if (telNow) {
             if (!game.order.includes(m.id)) st = 'みている';
             else if (telNow[m.id]) { cls += ' ok'; st = 'できた！'; }
             else st = isDrawStep(game.step) ? 'かいています' : 'かんがえています';
         }
         else if (round && round.drawer === m.id) { cls += ' draw'; st = 'かいています'; }
-        else if (isTeam() && round && teamOf(m.id) !== teamOf(round.drawer)) { st = 'おうえん中'; }
-        else if (answered[m.id]) { cls += ' ok'; st = (order.indexOf(m.id) + 1) + ' ばんめに せいかい'; }
+        else if (isTeam() && round && teamOf(m.id) !== teamOf(round.drawer)) { st = teamOf(m.id) ? 'おうえん中' : 'みている'; }
+        else if (answered[m.id]) { cls += ' ok'; st = (order.indexOf(m.id) + 1) + 'ばんめに せいかい'; }
         if (m.online === false) { cls += ' off'; st = 'はなれて います'; }
         row.className = cls;
 
@@ -448,6 +495,8 @@ function drawWatchlist() {
         dot.className = 'dot'; dot.style.background = m.color || '#ccc';
         const nm = document.createElement('span');
         nm.className = 'nm'; nm.textContent = m.name || 'だれか';
+        const tm = teamInfo(teamOf(m.id));
+        if (tm) nm.style.color = tm.color;
         const stt = document.createElement('span');
         stt.className = 'st'; stt.textContent = st;
         row.append(dot, nm, stt);
@@ -458,9 +507,28 @@ function drawWatchlist() {
             ms.textContent = '✕' + misses[m.id];
             row.appendChild(ms);
         }
+        /* かく人を この 人に かえる（でんごん では つかいません）*/
+        /* チームせんでは、チームに 入って いる 人だけ（あとから 来た 人が かくと、あてる 人が いなく なる）*/
+        if (!telNow && isHost && m.online !== false && (!round || round.drawer !== m.id) && (!isTeam() || teamOf(m.id))) {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'rowbtn'; b.textContent = 'かく';
+            b.title = m.name + ' さんに かいて もらう';
+            b.addEventListener('click', () => changeDrawer(m.id));
+            row.appendChild(b);
+        }
+        /* へやから 出す（まちがえて 入った 人・のこった 席の かたづけ）*/
+        if (isHost) {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'rowbtn out'; b.textContent = 'だす';
+            b.title = m.name + ' さんを へやから 出す';
+            b.addEventListener('click', () => kickMember(m.id));
+            row.appendChild(b);
+        }
         box.appendChild(row);
     }
+    if (!box.children.length) box.textContent = 'まだ だれも いません';
 }
+
 /* ── けっか はっぴょう ──────────────────────────
    じゅんい（チームせんは チームの かちまけも）／みんなの 絵／でんごんの すじ */
 function renderResult() {
@@ -608,7 +676,7 @@ function renderChains() {
 function renderTel() {
     const s = game.step || 0;
     const me = telIndex();
-    const admin = amAdmin();
+    const admin = amAdmin() || isHost;
     const drawStep = isDrawStep(s);
     const doing = me >= 0 && !tel.submitted && tel.step === s && !tel.loading;
     const drawing = doing && drawStep;
@@ -616,11 +684,16 @@ function renderTel() {
     const doneNow = telDone[s] || {};
     const doneN = game.order.filter(id => doneNow[id]).length;
 
-    $('turnLabel').textContent = 'でんごん ' + (s + 1) + ' / ' + (game.steps || 0) + 'だん　' + (drawStep ? '絵を かく' : 'なにかな？');
+    $('turnNo').textContent = 'でんごん ' + (s + 1) + ' / ' + (game.steps || 0) + 'だん';
+    $('turnLabel').textContent = drawStep ? '絵を かく' : 'なにかな？';
+    $('turnLabel').classList.toggle('hidden', admin);     /* せんせいは 下の はこに 出ます */
+    $('drawerHead').classList.remove('hidden');
     $('drawerPanel').classList.toggle('hidden', !drawing);
     $('telDoneRow').classList.toggle('hidden', !drawing);
     $('drawerHead').textContent = s === 0 ? 'おだいを 絵に しよう！' : 'まわってきた ことばを 絵に しよう！';
+    $('answeredCount').classList.remove('hidden');
     $('answeredCount').textContent = 'できた 人 ' + doneN + ' / ' + game.order.length;
+    $('corrStat').classList.add('hidden');
     $('answerPanel').classList.toggle('hidden', !guessing || paused());
     $('ansHead').textContent = 'この 絵は なにかな？';
     $('adminPanel').classList.toggle('hidden', !admin);
@@ -637,6 +710,7 @@ function renderTel() {
     $('teamBar').classList.add('hidden');
     $('judge').className = 'judge hidden';
     document.body.classList.toggle('answering', guessing);
+    document.body.classList.toggle('teacher', admin);
     document.body.classList.toggle('paused', paused());
 
     /* 「この 絵は なに？」の ときは、まわってきた 絵を 上に かさねます */
@@ -649,7 +723,7 @@ function renderTel() {
     }
     if (board) {
         board.setEnabled(drawing && !paused());
-        board.setSideMin(guessing ? 520 : 400);
+        board.setSideMin(guessing || admin ? 520 : 400);
     }
     if (drawing) {
         $('odai').textContent = tel.prompt || '（じゅんびちゅう…）';
@@ -658,25 +732,23 @@ function renderTel() {
         $('hideOdai').textContent = odaiHidden ? 'みる' : 'かくす';
     }
 
-    /* ぬしの ボタン */
+    /* せんせいの ボタン */
     $('nextTurn').classList.toggle('hidden', !isHost);
     $('nextTurn').textContent = 'つぎの だんへ';
     $('changeOdai').classList.add('hidden');
+    $('addTime').classList.toggle('hidden', !isHost || paused());
     $('pauseBtn').classList.toggle('hidden', !isHost);
     $('pauseBtn').textContent = paused() ? 'さいかい' : 'いちじ ていし';
     $('endGame').classList.toggle('hidden', !isHost);
 
-    const yet = game.order.filter(id => !doneNow[id] && onlineIds().includes(id)).map(nameOf);
-    const showWaiting = isHost && !admin;
-    $('waitingFor').classList.toggle('hidden', !showWaiting);
-    if (showWaiting) $('waitingFor').textContent = yet.length ? 'まだの 人 … ' + yet.join('、') : 'ぜんいん できました！';
-    if (admin) drawWatchlist();
+    if (admin) drawTeacher();
 }
 
 function renderRanking() {
     const box = $('ranking');
     box.textContent = '';
     const list = members
+        .filter(m => !m.isHost && m.id !== adminId())
         .map(m => ({ ...m, score: scores[m.id] || 0 }))
         .sort((a, b) => b.score - a.score);
     const medals = ['🥇', '🥈', '🥉'];
@@ -699,14 +771,47 @@ function renderRanking() {
     });
 }
 
-/* ── のこり時間 ───────────────────────────── */
+/* ── のこり時間 ───────────────────────────────
+   のこりが すくなく なるほど 目立たせます。
+     ふつう → 半分を きると きいろ → 4分の1（か 15びょう）で 赤・大きく
+     → さいごの 5びょうは 絵の 上に 大きな かず ＋ 音
+   絵の 上の バーも、へるにつれて みどり → きいろ → 赤 に かわります。 */
+function paintTime(leftMs, totalMs) {
+    const left = Math.max(0, Math.ceil(leftMs / 1000));
+    const ratio = Math.max(0, Math.min(1, leftMs / Math.max(totalMs, leftMs, 1)));
+    const stage = left <= TIME_CRIT_SEC ? 'crit'
+        : (ratio <= TIME_LOW || left <= TIME_LOW_SEC) ? 'low'
+        : ratio <= TIME_HALF ? 'half' : 'ok';
+    $('timer').textContent = 'のこり ' + left + 'びょう';
+    $('timer').className = 'timer t-' + stage;
+    $('timebar').className = 'timebar t-' + stage;
+    $('timebarFill').style.width = (ratio * 100).toFixed(1) + '%';
+    const big = stage === 'crit' && left > 0;
+    $('bigCount').classList.toggle('hidden', !big);
+    if (big && $('bigCount').textContent !== String(left)) {
+        $('bigCount').textContent = left;
+        /* かずが かわる たびに ぽんと 大きく */
+        $('bigCount').classList.remove('pop'); void $('bigCount').offsetWidth; $('bigCount').classList.add('pop');
+    }
+    /* のこり 5びょうから、1びょうごとに 小さく 鳴らします */
+    if (left <= TIME_CRIT_SEC && left > 0 && left !== lastTick) { lastTick = left; sound.tick(); }
+    if (left > TIME_CRIT_SEC) lastTick = -1;
+    return left;
+}
+function hideTimeFx() {
+    $('timebar').classList.add('hidden');
+    $('bigCount').classList.add('hidden');
+    $('timer').className = 'timer';
+}
+
 setInterval(() => {
-    if (phase !== 'playing') { $('timer').textContent = '－'; $('clock').textContent = ''; return; }
+    if (phase !== 'playing') { $('timer').textContent = '－'; $('clock').textContent = ''; hideTimeFx(); return; }
 
     /* いちじ ていし中は 時間を 止めます */
     if (paused()) {
         $('timer').textContent = 'いちじ ていし';
-        $('timer').classList.remove('hurry');
+        $('timer').className = 'timer';
+        $('bigCount').classList.add('hidden');
         $('clock').textContent = '';
         return;
     }
@@ -736,16 +841,10 @@ setInterval(() => {
     }
 
     /* 1かいの のこり時間 */
-    if (!round || !round.endsAt) { $('timer').textContent = '－'; return; }
-    if (round.done) { $('timer').textContent = 'おしまい'; $('timer').classList.remove('hurry'); return; }
-    const left = Math.max(0, Math.ceil((round.endsAt - Date.now()) / 1000));
-    $('timer').textContent = 'のこり ' + left + ' びょう';
-    $('timer').classList.toggle('hurry', left <= Math.max(3, Math.round(((game && game.seconds) || DEFAULT_SECONDS) / 3)));
+    if (!round || !round.endsAt) { $('timer').textContent = '－'; hideTimeFx(); return; }
+    if (round.done) { $('timer').textContent = 'おしまい'; hideTimeFx(); return; }
+    const left = paintTime(round.endsAt - Date.now(), ((game && game.seconds) || DEFAULT_SECONDS) * 1000);
     if (left === 0 && amDrawer()) endRound();
-
-    /* のこり 3びょうから、1びょうごとに 小さく 鳴らします */
-    if (left <= 3 && left > 0 && left !== lastTick) { lastTick = left; sound.tick(); }
-    if (left > 3) lastTick = -1;
 
     writeHint();
     watchdog();
@@ -769,7 +868,8 @@ function writeHint() {
    ぬしは かならず いて、みんなと 同じ 絵を 見て いるからです。 */
 async function archiveRound() {
     if (!conn || !isHost || !game || isTel() || !round || !round.hash || !board || board.count() === 0) return;
-    const key = game.turn;
+    /* かく人を とちゅうで かえても 上書き しない ように、時こくを 名まえに します */
+    const key = Date.now();
     try {
         const tally = {};
         for (const r of Object.values(round.reacts || {})) if (r && r.e) tally[r.e] = (tally[r.e] || 0) + 1;
@@ -786,12 +886,8 @@ async function archiveRound() {
 /* ── でんごんの 時計（みんなの タブ）──────────────── */
 function telTick() {
     const s = game.step || 0;
-    const left = Math.max(0, Math.ceil(((game.stepEndsAt || Date.now()) - Date.now()) / 1000));
     $('clock').textContent = '';
-    $('timer').textContent = 'のこり ' + left + ' びょう';
-    $('timer').classList.toggle('hurry', left <= Math.max(3, Math.round(telSecondsFor(s) / 3)));
-    if (left <= 3 && left > 0 && left !== lastTick) { lastTick = left; sound.tick(); }
-    if (left > 3) lastTick = -1;
+    const left = paintTime((game.stepEndsAt || Date.now()) - Date.now(), telSecondsFor(s) * 1000);
 
     /* じぶんの だんが かわったら、まわってきた ものを とりに いきます */
     if (tel.step !== s) telEnter(s);
@@ -891,8 +987,11 @@ async function armIfMine(force) {
         writeStore('ka_word', word);
         await clearBoard(conn, code);
         myStrokes.length = 0;
-        await armRound(conn, code, hashWord(word), (game && game.seconds) || DEFAULT_SECONDS,
+        const hash = hashWord(word);
+        await armRound(conn, code, hash, (game && game.seconds) || DEFAULT_SECONDS,
                        nearHashes(word), hintFor(word, 0));
+        /* せんせい だけが 読める ところに ことばを おきます（ルールが まだなら ことわられるだけ）*/
+        writeSecret(conn, code, { word, drawer: myId, hash, at: Date.now() }).catch(() => {});
     } catch (e) {
         say('おだいを くばれませんでした', true);
     } finally {
@@ -1033,7 +1132,6 @@ board = createBoard({
 buildTools();
 buildReactions();
 buildChooser('levels', TOPICS, it => { level = it.key; });
-buildChooser('hostRoles', HOST_ROLES, it => { hostRole = it.key; });
 buildChooser('modes', MODES, it => {
     mode = it.key;
     /* じゅんばんなら「なんしゅう」、ランダムなら「ぜんたいの じかん」*/
@@ -1083,7 +1181,8 @@ function cheer(r, fresh) {
         if (id === myId) {
             confetti({ from: 'center' });
         } else {
-            toast(box, nameOf(id) + ' さん せいかい！ ' + rankBadge(rank), colorOf(id));
+            /* だれが あてたかは 出さず、なんにんめ かだけ しらせます */
+            toast(box, rank + 'にんめの せいかい！', '#46a83c');
             if (r.drawer === myId) sound.ok();
         }
     }
@@ -1127,7 +1226,10 @@ function onRound(r) {
     /* 画面を 読みこみ なおしたときは、おぼえている ことばを つかいます */
     if (round && round.drawer === myId && round.hash && !myWord) {
         const kept = readStore('ka_word');
-        if (kept && hashWord(kept) === round.hash) myWord = kept;
+        if (kept && hashWord(kept) === round.hash) {
+            myWord = kept;
+            writeSecret(conn, code, { word: kept, drawer: myId, hash: round.hash, at: Date.now() }).catch(() => {});
+        }
     }
     render();
     drawMembers();
@@ -1150,7 +1252,17 @@ function onRound(r) {
         clearLiveOnDisconnect(c, code, myId);
         conn = c;
 
-        watchMembers(c, code, list => { members = list; drawMembers(); render(); });
+        watchMembers(c, code, list => {
+            members = list;
+            /* せんせいに へやから 出された */
+            if (list.some(m => m.id === myId)) joined = true;
+            else if (joined && !kicked) { kicked = true; onKicked(); return; }
+            drawMembers(); render();
+        });
+        if (isHost) {
+            watchSecret(c, code, v => { secret = v; secretDenied = false; render(); },
+                        () => { secretDenied = true; render(); });
+        }
         watchInfo(c, code, info => {
             phase = info.phase || 'waiting';
             if (phase === 'result' && !resultPlayed) {
@@ -1207,10 +1319,10 @@ $('start').addEventListener('click', async () => {
     if (!conn) return;
     $('start').disabled = true;
     try {
-        const admin = hostRole === 'admin' ? myId : null;
+        const admin = myId;          /* へやを つくった せんせいは ゲームに 入りません */
         const players = shuffle(onlineIds().filter(id => id !== admin));
         if (!players.length) {
-            throw new Error(admin ? 'あそぶ 人が いません（ぬしは かんり中です）' : 'だれも いません');
+            throw new Error('まだ だれも 入って いません');
         }
         if (mode === 'tel') {
             /* でんごん：1人 1つずつ おだいを くばって、みんな 同時に かきはじめます */
@@ -1360,8 +1472,66 @@ $('clear').addEventListener('click', async () => {
 });
 
 $('leave').addEventListener('click', async () => {
+    /* せんせいが でると、だれも すすめられなく なります */
+    if (isHost && phase !== 'waiting' && !confirm('せんせいが でると、ゲームが すすまなく なります。でますか？')) return;
     $('leave').disabled = true;
     try { if (conn) { await clearLive(conn, code, myId); await leaveRoom(conn, code, myId); } } catch (e) {}
     clearStore('ka_room'); clearStore('ka_host'); clearStore('ka_word');
     location.href = 'index.html';
 });
+
+/* ── せんせいの そうさ ───────────────────────── */
+
+/* かく人を いま すぐ この 人に かえます（いまの 絵は ギャラリーに のこします）*/
+async function changeDrawer(id) {
+    if (!conn || !isHost || !game || isTel() || advancing) return;
+    if (!confirm(nameOf(id) + ' さんに かいて もらいますか？')) return;
+    advancing = true;
+    try {
+        await archiveRound();
+        await setupRound(conn, code, id, round ? round.level : level);
+    } catch (e) {
+        say('かく人を かえられませんでした', true);
+    } finally {
+        advancing = false;
+    }
+}
+
+/* のこり時間を ふやします（でんごんは いまの だん）*/
+$('addTime').addEventListener('click', async () => {
+    if (!conn || !game) return;
+    $('addTime').disabled = true;
+    try {
+        if (isTel()) await updateGame(conn, code, { stepEndsAt: Math.max(game.stepEndsAt || 0, Date.now()) + ADD_SECONDS * 1000 });
+        else if (round && round.endsAt && !round.done) {
+            await updateRound(conn, code, { endsAt: Math.max(round.endsAt, Date.now()) + ADD_SECONDS * 1000 });
+        }
+    } catch (e) {
+        say('のばせませんでした', true);
+    } finally {
+        $('addTime').disabled = false;
+    }
+});
+
+/* へやから 出します。出された 人の 画面は はじめの 画面に もどります */
+async function kickMember(id) {
+    if (!conn || !isHost) return;
+    if (!confirm(nameOf(id) + ' さんを へやから 出しますか？')) return;
+    try { await removeMember(conn, code, id); }
+    catch (e) { say('だせませんでした', true); }
+}
+
+/* せんせいの おだいを かくす ／ みる（テレビに うつして いる ときの ため）*/
+$('tWordHide').addEventListener('click', () => {
+    tWordHidden = !tWordHidden;
+    try { localStorage.setItem('ka_twordhide', tWordHidden ? '1' : '0'); } catch (e) {}
+    render();
+});
+
+/* じぶんが へやから 出された とき */
+async function onKicked() {
+    say('せんせいが へやから 出しました。はじめの 画面に もどります', true);
+    try { if (conn) { await cancelMyDisconnect(conn, code, myId); await clearLive(conn, code, myId); } } catch (e) {}
+    clearStore('ka_room'); clearStore('ka_host'); clearStore('ka_word');
+    setTimeout(() => { location.href = 'index.html'; }, 2500);
+}

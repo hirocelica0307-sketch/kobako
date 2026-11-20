@@ -15,7 +15,8 @@
 
 <div class="topbar">
     <div class="roomcode"><span class="sub">へや</span><b id="code">----</b></div>
-    <div class="members" id="members"></div>
+    <!-- じぶんの なまえ（ほかの 人の ようすは 出しません）-->
+    <div class="mename" id="meName"></div>
     <button class="btn sub-btn" id="soundBtn" title="おとを 入れる／切る">おと</button>
     <button class="btn sub-btn" id="leave">でる</button>
 </div>
@@ -32,10 +33,6 @@
         <div class="setrow">
             <span class="setlabel">おだい</span>
             <div class="levels" id="levels"></div>
-        </div>
-        <div class="setrow">
-            <span class="setlabel">あなた（ぬし）は</span>
-            <div class="levels" id="hostRoles"></div>
         </div>
         <div class="setrow">
             <span class="setlabel">あそびかた</span>
@@ -57,7 +54,7 @@
 
     <div class="row">
         <button class="btn go hidden" id="start">はじめる</button>
-        <p class="sub hidden" id="waitMsg">へやの ぬしが はじめるのを まっています…</p>
+        <p class="sub hidden" id="waitMsg">せんせいが はじめるのを まっています…</p>
     </div>
 </section>
 
@@ -68,6 +65,9 @@
         <canvas id="overlay" class="overlay"></canvas>
         <!-- でんごんで「この 絵は なに？」の ときに 出す 絵 -->
         <img id="telImg" class="telimg hidden" alt="">
+        <!-- のこり時間の バー（へるほど 色が かわります）と、さいごの 5びょうの 大きな かず -->
+        <div class="timebar hidden" id="timebar"><i id="timebarFill"></i></div>
+        <div class="bigcount hidden" id="bigCount"></div>
         <!-- ヒント（文字の 数と、時間が たつと 見える 文字）-->
         <div class="hint hidden" id="hint"></div>
         <!-- 見ている 人の リアクション -->
@@ -76,9 +76,14 @@
 
     <div class="side">
         <div class="statusbar">
-            <span id="turnLabel">－</span>
-            <span class="clock" id="clock"></span>
-            <span class="timer" id="timer">－</span>
+            <div class="turninfo">
+                <span class="turnno" id="turnNo"></span>
+                <span class="turnlabel" id="turnLabel">－</span>
+            </div>
+            <div class="clocks">
+                <span class="clock" id="clock"></span>
+                <span class="timer" id="timer">－</span>
+            </div>
         </div>
 
         <!-- チームせんの てんすう -->
@@ -86,7 +91,7 @@
 
         <div id="drawerPanel" class="hidden">
             <p class="sub" id="drawerHead">あなたが かく ばんです</p>
-            <p class="count" id="answeredCount">まだ だれも あてていません</p>
+            <p class="count hidden" id="answeredCount"></p>
             <div class="row hidden" id="telDoneRow">
                 <button class="btn go" id="telDone">できた！</button>
             </div>
@@ -107,17 +112,28 @@
             </div>
         </div>
 
+        <!-- せんせいの 画面：いま かいている 人・おだい・せいかいの 人数 -->
         <div id="adminPanel" class="hidden">
-            <p class="sub">みんなの ようす</p>
+            <div class="tcard" id="tcard">
+                <div class="trow"><span class="tlab">かいている 人</span><b id="tDrawer">－</b></div>
+                <div class="trow"><span class="tlab">おだい</span><b id="tWord">－</b>
+                    <button class="btn sub-btn tiny" id="tWordHide" type="button">かくす</button></div>
+                <div class="trow"><span class="tlab">せいかい</span><b id="tCount">－</b></div>
+                <div class="trow hidden" id="tNextRow"><span class="tlab">つぎに かく 人</span><b id="tNext"></b></div>
+                <p class="tnote hidden" id="tRuleNote">おだいを 出すには、Firebase の ルールを はりなおしてください（README の「ルールを はる」）</p>
+            </div>
+            <p class="sub tlisthead" id="tListHead">みんなの ようす（「かく」で かく人を かえられます）</p>
             <div class="watchlist" id="watchlist"></div>
         </div>
 
-        <p class="count hidden" id="waitingFor"></p>
+        <!-- せいかいの 人数（だれが あてたかは 出しません）-->
+        <p class="corrstat hidden" id="corrStat"></p>
         <div class="judge hidden" id="judge"></div>
 
         <div class="row" id="hostRow">
             <button class="btn go hidden" id="nextTurn">つぎの 人へ</button>
             <button class="btn sub-btn hidden" id="changeOdai">おだいを かえる</button>
+            <button class="btn sub-btn hidden" id="addTime">＋15びょう</button>
             <button class="btn sub-btn hidden" id="pauseBtn">いちじ ていし</button>
             <button class="btn sub-btn hidden" id="endGame">おわりに する</button>
         </div>
@@ -126,7 +142,6 @@
 
 <div class="tools hidden" id="tools">
     <div class="odaibox" id="odaibox">
-        <span class="odailabel">おだい</span>
         <b class="odaiword" id="odai">－－</b>
         <span class="odaihidden hidden" id="odaiMask">● ● ● ●</span>
         <button class="btn sub-btn tiny" id="hideOdai">かくす</button>
@@ -151,7 +166,7 @@
     <div class="chains hidden" id="chains"></div>
     <div class="row">
         <button class="btn go hidden" id="again">もういちど</button>
-        <p class="sub hidden" id="againMsg">へやの ぬしを まっています…</p>
+        <p class="sub hidden" id="againMsg">せんせいを まっています…</p>
     </div>
 </section>
 
