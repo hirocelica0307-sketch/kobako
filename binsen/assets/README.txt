@@ -39,9 +39,15 @@
              potrace〔potracer〕で ベクター〔SVG〕に した もの）。もと画像を ふやしたら もう一度 うごかす。
    アプリでは すみの 絵を 4すみに おき（右がわは 左右 はんてん）、A・B を 面の 大きさに あわせて 交互に ならべます。
 
+1c. frames-src/round/<名前>-<かたち>.webp … 丸い わくの もと画像（かたち＝tate たて長の だ円・yoko よこ長の だ円・kaku まん丸）
+   入手もと: 1 と 同じく、もちぬしが ChatGPT（画像生成）で 作った もの（文章だけの プロンプトで 作った オリジナル）。
+   ライセンス・メモ: 1 と 同じ。
+   tsuunen-niji         くも・星・きらきら・虹の 輪、上に 虹と にこにこ たいよう
+
 3. frames/rich/<名前>-<かたち>.svg、frames/rich/sizes.js … 1b から 作った もの
    作りかた: tools/make_rich.py（白黒に して まるごと potrace で SVG に し、まん中の 書ける ところ〔長方形〕を はかる）。
    アプリでは 面の 形に いちばん 近い 1まいを えらび、ゆがめずに 面の 中へ おさめます。
+   frames/round/ も 同じ（1c から 作った もの）。丸い わくは sizes.js に「行ごとに 書ける はば」も 入れて います。
 
 4. app-icon.png（64×64・すきとおし）・app-icon-180.png（180×180・白い 地）… アプリの アイコン
    もと: Microsoft Fluent Emoji「3D」の Love letter（💌）

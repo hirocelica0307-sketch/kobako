@@ -4,12 +4,15 @@
 
 いる もの: Pillow / numpy / scipy / potracer（pip install potracer）
 
-もと画像: assets/frames-src/rich/<名前>-<かたち>.webp
+もと画像: assets/frames-src/rich/<名前>-<かたち>.webp（四角い わく）
+          assets/frames-src/round/<名前>-<かたち>.webp（丸い わく）
   かたち = tate（たて長 2:3）・yoko（よこ長 3:2）・kaku（正方形）
 1. 白黒に はっきり させる
-2. まん中を ふくむ いちばん 大きい 白い 長方形（＝ 行を ひく ところ）を さがす
+2. 四角い わく：まん中を ふくむ いちばん 大きい 白い 長方形（＝ 行を ひく ところ）を さがす
+   丸い わく：まん中の 白い ところ（わくの 内がわ）を さがし、
+             よこ・たての すじごとに 「どこから どこまで 書けるか」を 書き出す（行の ながさを 1行ずつ かえる ため）
 3. potrace で まるごと ベクター（SVG）に する
-できた もの: assets/frames/rich/<名前>-<かたち>.svg と assets/frames/rich/sizes.js
+できた もの: assets/frames/rich/・round/ の <名前>-<かたち>.svg と sizes.js
 """
 import json
 import pathlib
@@ -20,8 +23,11 @@ from PIL import Image
 from scipy import ndimage
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SRC = ROOT / "assets" / "frames-src" / "rich"
-OUT = ROOT / "assets" / "frames" / "rich"
+SETS = [  # （もと画像の フォルダー, できた ものの フォルダー, sizes.js の 名前, 丸い わくか）
+    (ROOT / "assets" / "frames-src" / "rich", ROOT / "assets" / "frames" / "rich", "RICH_SIZES", False),
+    (ROOT / "assets" / "frames-src" / "round", ROOT / "assets" / "frames" / "round", "ROUND_SIZES", True),
+]
+STEP = 8  # 丸い わくの 「書ける はば」を 何ピクセルごとに 書き出すか
 SHAPES = ("tate", "yoko", "kaku")
 
 
@@ -53,6 +59,38 @@ def inner_rect(ink):
     return [int(v) * k for v in best[1:]]
 
 
+def inner_region(ink):
+    """丸い わく：まん中を ふくむ 白い ところ（絵から 少し はなす）。外に もれる ときは はなす はばを ふやす。"""
+    H, W = ink.shape
+    cy, cx = H // 2, W // 2
+    for margin in range(8, 41, 4):
+        free = ~ndimage.binary_dilation(ink, iterations=margin)
+        lab, _ = ndimage.label(free)
+        k = lab[cy, cx]
+        if not k:
+            continue
+        reg = lab == k
+        if not (reg[0].any() or reg[-1].any() or reg[:, 0].any() or reg[:, -1].any()):
+            return reg, margin
+    raise SystemExit("わくの 内がわが 外と つながって います（線の とぎれが 大きい）")
+
+
+def spans(reg, axis):
+    """すじ（axis=0: よこの 行・1: たての 列）ごとに、まん中を ふくむ 白い はんい [位置, はじめ, おわり]。"""
+    r = reg if axis == 0 else reg.T
+    n, m = r.shape
+    c = m // 2
+    out = []
+    for i in range(0, n, STEP):
+        line = r[i]
+        if not line[c]:
+            continue
+        lo = np.flatnonzero(~line[:c])
+        hi = np.flatnonzero(~line[c:])
+        out.append([i, int(lo[-1] + 1 if len(lo) else 0), int(c + hi[0] if len(hi) else m)])
+    return out
+
+
 def to_svg(ink):
     h, w = ink.shape
     # potracer は 0（くろ）の ところを 線と みなすので、反てんして わたす
@@ -72,6 +110,12 @@ def to_svg(ink):
 
 
 def main():
+    for src_dir, out_dir, var, rnd in SETS:
+        if src_dir.exists():
+            make(src_dir, out_dir, var, rnd)
+
+
+def make(SRC, OUT, var, rnd):
     OUT.mkdir(parents=True, exist_ok=True)
     info = {}
     for src in sorted(SRC.glob("*.webp")):
@@ -84,12 +128,20 @@ def main():
         # メモ: 線の とぎれを 自動で つなぐ（closing）と 花の しべが 黒く つぶれるので しない。
         #       とぎれが 目立つ 画像は ChatGPT で 作り直して もらう
         H, W = ink.shape
-        rect = inner_rect(ink)
+        if rnd:
+            reg, margin = inner_region(ink)
+            ys, xs = np.nonzero(reg)
+            rect = [int(xs.min()), int(ys.min()), int(xs.max() - xs.min() + 1), int(ys.max() - ys.min() + 1)]
+            entry = {"size": [W, H], "inner": rect, "step": STEP, "rows": spans(reg, 0), "cols": spans(reg, 1)}
+            print(name, shape, W, H, "inner", rect, "margin", margin)
+        else:
+            rect = inner_rect(ink)
+            entry = {"size": [W, H], "inner": rect}
+            print(name, shape, W, H, "inner", rect)
         (OUT / f"{name}-{shape}.svg").write_text(to_svg(ink))
-        info.setdefault(name, {})[shape] = {"size": [W, H], "inner": rect}
-        print(name, shape, W, H, "inner", rect)
+        info.setdefault(name, {})[shape] = entry
     (OUT / "sizes.js").write_text("// make_rich.py で 自動で 作った ファイル（手で 書きかえない）\n"
-                                  "window.RICH_SIZES = " + json.dumps(info, ensure_ascii=False) + ";\n")
+                                  f"window.{var} = " + json.dumps(info, ensure_ascii=False, separators=(",", ":")) + ";\n")
 
 
 if __name__ == "__main__":
