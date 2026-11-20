@@ -466,18 +466,37 @@ function drawTeacher() {
         $('tNextRow').classList.toggle('hidden', !next);
         if (next) $('tNext').textContent = next;
     }
-    $('tListHead').textContent = telMode ? 'みんなの ようす' : 'みんなの ようす（「かく」で かく人を かえられます）';
+    $('tListHead').textContent = telMode ? 'みんなの ようす' : 'みんなの ようす（「つぎ」で つぎに かく 人・「かく」で いま かく 人）';
     drawWatchlist();
 }
 
 /* つぎに かく 人の 名まえ（わからない ときは 空）*/
 function nextDrawerPreview() {
-    if (!game || !game.order || isRandom() || isTel()) return isRandom() ? 'くじびきで きめます' : '';
-    const next = game.turn + 1;
-    if (next >= totalTurns()) return 'これで さいご';
-    const id = game.order[next % game.order.length];
+    if (!game || !game.order || isTel()) return '';
+    if (isLastTurn()) return 'これで さいご';
+    const pick = pickedNext();
+    if (pick) return (pick === myId ? 'せんせい（あなた）' : whoName(pick)) + '（えらんだ）';
+    if (isRandom()) return 'くじびきで きめます';
+    const id = game.order[(game.turn + 1) % game.order.length];
     return id === myId ? 'せんせい（あなた）' : whoName(id);
 }
+
+/* つぎに かく 人を せんせいが えらんで いれば その 人（はなれて いる ときは えらんで いない あつかい）*/
+const pickedNext = () => (game && game.nextPick && onlineIds().includes(game.nextPick)) ? game.nextPick : null;
+/* じゅんばん・チームせんで、いまが さいごの かいか */
+const isLastTurn = () => !!game && !isRandom() && !isTel() && game.turn + 1 >= totalTurns();
+
+/* 「つぎ」ボタン：つぎに かく 人を よやく（もう一度 おすと とりけし）*/
+function pickButton(id) {
+    const on = game && game.nextPick === id;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'rowbtn next' + (on ? ' on' : '');
+    b.textContent = on ? 'つぎ ✓' : 'つぎ';
+    b.title = on ? 'よやくを とりけす' : 'つぎに この 人が かく';
+    b.addEventListener('click', () => pickNext(on ? null : id));
+    return b;
+}
+const canPick = () => isHost && game && !isTel() && !isLastTurn();
 
 function drawWatchlist() {
     const box = $('watchlist');
@@ -498,6 +517,7 @@ function drawWatchlist() {
         st.className = 'st'; st.textContent = drawingNow ? 'かいています' : (game && game.teacherDraws ? 'じゅんばんに 入って います' : '');
         row.append(nm, st);
         if (!drawingNow) {
+            if (canPick()) row.appendChild(pickButton(myId));
             const b = document.createElement('button');
             b.type = 'button'; b.className = 'rowbtn'; b.textContent = 'かく';
             b.title = 'せんせいが かく';
@@ -542,6 +562,7 @@ function drawWatchlist() {
         /* かく人を この 人に かえる（でんごん では つかいません）*/
         /* チームせんでは、チームに 入って いる 人だけ（あとから 来た 人が かくと、あてる 人が いなく なる）*/
         if (!telNow && isHost && m.online !== false && (!round || round.drawer !== m.id) && (!isTeam() || teamOf(m.id))) {
+            if (canPick()) row.appendChild(pickButton(m.id));
             const b = document.createElement('button');
             b.type = 'button'; b.className = 'rowbtn'; b.textContent = 'かく';
             b.title = m.name + ' さんに かいて もらう';
@@ -1118,8 +1139,11 @@ async function advance() {
         if (over) {
             await setPhase(conn, code, 'result');
         } else {
-            const drawer = isRandom() ? drawLots() : game.order[next % game.order.length];
+            /* せんせいが「つぎ」で えらんだ 人が いれば、その 人が かきます */
+            const pick = pickedNext();
+            const drawer = pick || (isRandom() ? drawLots() : game.order[next % game.order.length]);
             await setTurn(conn, code, next);
+            if (game.nextPick) await updateGame(conn, code, { nextPick: null });
             await setupRound(conn, code, drawer, round ? round.level : level);
         }
     } catch (e) {
@@ -1531,6 +1555,8 @@ async function changeDrawer(id) {
     advancing = true;
     try {
         await archiveRound();
+        /* よやく して いた 人に いま かいて もらう ときは、よやくを とりけします */
+        if (game.nextPick === id) await updateGame(conn, code, { nextPick: null });
         await setupRound(conn, code, id, round ? round.level : level);
     } catch (e) {
         say('かく人を かえられませんでした', true);
@@ -1576,4 +1602,11 @@ async function onKicked() {
     try { if (conn) { await cancelMyDisconnect(conn, code, myId); await clearLive(conn, code, myId); } } catch (e) {}
     clearStore('ka_room'); clearStore('ka_host'); clearStore('ka_word');
     setTimeout(() => { location.href = 'index.html'; }, 2500);
+}
+
+/* つぎに かく 人を よやく（null で とりけし）*/
+async function pickNext(id) {
+    if (!conn || !isHost || !game) return;
+    try { await updateGame(conn, code, { nextPick: id || null }); }
+    catch (e) { say('えらべませんでした', true); }
 }

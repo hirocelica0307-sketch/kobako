@@ -437,6 +437,8 @@ h1.logo span:nth-of-type(6){ --c:#e0569b; transform:rotate(3deg);  animation-del
     padding:3px 8px; min-height:30px;
 }
 .rowbtn.out{ border-color:var(--line); color:var(--ink-thin); }
+.rowbtn.next{ border-color:#3b86d4; color:#2a6db3; }
+.rowbtn.next.on{ background:#3b86d4; color:#fff; }
 .rowbtn:active{ transform:translateY(1px); background:var(--tap); }
 /* せんせいの 画面は、みんなの ようすを たくさん 見られる ように つめて ならべます
    （はこは 2れつ、ボタンは 3れつ）*/
