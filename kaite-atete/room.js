@@ -45,6 +45,12 @@ const TIME_HALF = 0.5;        // 半分を きったら きいろ
 const TIME_LOW = 0.25;        // 4分の1 か 15びょう で 赤
 const TIME_LOW_SEC = 15;
 const TIME_CRIT_SEC = 5;      // さいごの 5びょうは 大きな かずで
+/* せんせいも 絵を かくか（じゅんばん・ランダムの とき）。
+   せんせいは おだいを ぜんぶ 見られるので、こたえる 人には 入りません */
+const TEACHER_DRAW = [
+    { key: false, label: 'かかない', note: 'こどもだけ かく' },
+    { key: true,  label: 'かく',     note: 'じゅんばんに 入る' }
+];
 const LAP_CHOICES = [
     { n: 1, label: '1しゅう', note: 'ひとり 1かい' },
     { n: 2, label: '2しゅう', note: 'ひとり 2かい' },
@@ -71,7 +77,7 @@ let conn = null, board = null;
 let members = [], game = null, round = null, scores = {}, teamScores = {};
 let phase = 'waiting';
 /* へやを つくれるのは せんせい だけ。せんせいは ゲームに 入らず、すすめる 役です */
-let level = TOPICS[0].key, mode = 'order', laps = 1;
+let level = TOPICS[0].key, mode = 'order', laps = 1, teacherDraws = false;
 let minutes = DEFAULT_MINUTES, seconds = DEFAULT_SECONDS;
 let myWord = null, recent = [];
 let arming = false, finishing = false, advancing = false;
@@ -123,6 +129,9 @@ const isTel = () => !!game && game.mode === 'tel';
 const teamOf = id => (game && game.teams && game.teams[id]) || null;
 const teamInfo = key => TEAMS.find(t => t.key === key) || null;
 const colorOf = id => (members.find(m => m.id === id) || {}).color || '#ccc';
+const isHostId = id => !!(members.find(m => m.id === id) || {}).isHost;
+/* 「はなこ さん」「せんせい」（せんせいには さん を つけません）*/
+const whoName = id => isHostId(id) ? 'せんせい' : nameOf(id) + ' さん';
 /* この かいで あてる 人（チームせんでは かく人と 同じ チームの 人だけ）*/
 const answerTargets = () => {
     if (!round) return [];
@@ -344,7 +353,7 @@ function render() {
     if (playing && game) {
         const name = round && round.drawer ? nameOf(round.drawer) : '';
         $('turnNo').textContent = isRandom() ? (game.turn + 1) + 'かいめ' : (game.turn + 1) + ' / ' + totalTurns() + 'かいめ';
-        $('turnLabel').textContent = drawer ? 'あなたが かく ばん' : name ? name + ' さんが かく ばん' : 'じゅんびちゅう';
+        $('turnLabel').textContent = drawer ? 'あなたが かく ばん' : name ? whoName(round.drawer) + 'が かく ばん' : 'じゅんびちゅう';
         /* せんせいは 下の はこに 出るので、ここには 出しません */
         $('turnLabel').classList.toggle('hidden', admin);
     }
@@ -432,18 +441,20 @@ function drawTeacher() {
     } else {
         const done = !!(round && round.done);
         $('tDrawer').previousElementSibling.textContent = 'かいている 人';
-        $('tDrawer').textContent = round && round.drawer ? nameOf(round.drawer) + ' さん' : '－';
+        $('tDrawer').textContent = !round || !round.drawer ? '－' : amDrawer() ? 'せんせい（あなた）' : whoName(round.drawer);
         /* おだい：かく人の タブが せんせい だけ 読める ところに おいた ことば */
         const ok = secret && round && secret.drawer === round.drawer && secret.hash === round.hash;
         const word = ok ? secret.word : (round && round.word) || null;
         let shown;
-        if (tWordHidden && word) shown = '● ● ●';
+        /* せんせいが かいて いる ときは、大きく 出さない（テレビに うつして いても 見えない ように）*/
+        if (amDrawer() && word) shown = '左下を 見てね';
+        else if (tWordHidden && word) shown = '● ● ●';
         else if (word) shown = word;
         else if (round && !round.hash) shown = '（えらんでいます…）';
         else shown = secretDenied ? '？' : '（とどくのを まっています）';
         $('tWord').textContent = shown;
         $('tWordHide').textContent = tWordHidden ? 'みる' : 'かくす';
-        $('tWordHide').classList.toggle('hidden', !word);
+        $('tWordHide').classList.toggle('hidden', !word || amDrawer());
         $('tRuleNote').classList.toggle('hidden', !secretDenied || !!word);
         $('tCount').previousElementSibling.textContent = 'せいかい';
         const targets = answerTargets();
@@ -464,7 +475,8 @@ function nextDrawerPreview() {
     if (!game || !game.order || isRandom() || isTel()) return isRandom() ? 'くじびきで きめます' : '';
     const next = game.turn + 1;
     if (next >= totalTurns()) return 'これで さいご';
-    return nameOf(game.order[next % game.order.length]) + ' さん';
+    const id = game.order[next % game.order.length];
+    return id === myId ? 'せんせい（あなた）' : whoName(id);
 }
 
 function drawWatchlist() {
@@ -474,6 +486,26 @@ function drawWatchlist() {
     const misses = (round && round.misses) || {};
     const order = Object.entries(answered).sort((a, b) => a[1] - b[1]).map(e => e[0]);
     const telNow = isTel() ? (telDone[game.step] || {}) : null;
+
+    /* せんせい じしん（じゅんばん・ランダムでは「かく」で じぶんが かける）*/
+    if (isHost && !telNow && !isTeam()) {
+        const row = document.createElement('div');
+        const drawingNow = round && round.drawer === myId;
+        row.className = 'watchrow self' + (drawingNow ? ' draw' : '');
+        const nm = document.createElement('span');
+        nm.className = 'nm'; nm.textContent = 'せんせい（あなた）';
+        const st = document.createElement('span');
+        st.className = 'st'; st.textContent = drawingNow ? 'かいています' : (game && game.teacherDraws ? 'じゅんばんに 入って います' : '');
+        row.append(nm, st);
+        if (!drawingNow) {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'rowbtn'; b.textContent = 'かく';
+            b.title = 'せんせいが かく';
+            b.addEventListener('click', () => changeDrawer(myId));
+            row.appendChild(b);
+        }
+        box.appendChild(row);
+    }
 
     for (const m of members) {
         if (m.id === adminId() || m.isHost) continue;
@@ -526,7 +558,11 @@ function drawWatchlist() {
         }
         box.appendChild(row);
     }
-    if (!box.children.length) box.textContent = 'まだ だれも いません';
+    if (!box.querySelector('.watchrow:not(.self)')) {
+        const empty = document.createElement('p');
+        empty.className = 'count'; empty.textContent = 'まだ だれも いません';
+        box.appendChild(empty);
+    }
 }
 
 /* ── けっか はっぴょう ──────────────────────────
@@ -1095,7 +1131,8 @@ async function advance() {
 
 /** ランダムの ときの くじびき。いま かいた人は なるべく つづけて ひきません。 */
 function drawLots() {
-    const here = playerIds();
+    /* せんせいも かく ときは、くじに せんせいも 入れます */
+    const here = playerIds().concat(game && game.teacherDraws && onlineIds().includes(adminId()) ? [adminId()] : []);
     const now = round ? round.drawer : null;
     const pool = here.length > 1 ? here.filter(id => id !== now) : here;
     return pool[Math.floor(Math.random() * pool.length)];
@@ -1137,8 +1174,11 @@ buildChooser('modes', MODES, it => {
     /* じゅんばんなら「なんしゅう」、ランダムなら「ぜんたいの じかん」*/
     $('lapRow').classList.toggle('hidden', mode !== 'order' && mode !== 'team');
     $('minRow').classList.toggle('hidden', mode !== 'random');
+    /* せんせいが かけるのは じゅんばん・ランダムだけ（チームせん・でんごんは こどもだけ）*/
+    $('tDrawRow').classList.toggle('hidden', mode !== 'order' && mode !== 'random');
 });
 buildChooser('laps', LAP_CHOICES, it => { laps = it.n; });
+buildChooser('tDraws', TEACHER_DRAW, it => { teacherDraws = it.key; });
 $('settings').classList.toggle('hidden', !isHost);
 
 const minPad = createStepper({ value: DEFAULT_MINUTES, min: MIN_MINUTES, max: MAX_MINUTES,
@@ -1340,12 +1380,14 @@ $('start').addEventListener('click', async () => {
             return;
         }
         let order = players, teams = null;
+        const withTeacher = teacherDraws && (mode === 'order' || mode === 'random');
+        if (withTeacher) order = shuffle([...players, admin]);
         if (mode === 'team') {
             if (players.length < TEAM_MIN) throw new Error('チームせんは ' + TEAM_MIN + 'にん いじょう で あそべます');
             ({ order, teams } = makeTeams(players));
         }
         await startGame(conn, code, {
-            mode, order, seconds, admin, teams,
+            mode, order, seconds, admin, teams, teacherDraws: withTeacher,
             laps: mode === 'order' || mode === 'team' ? laps : null,
             endsAt: mode === 'random' ? Date.now() + minutes * 60000 : null
         });
@@ -1485,7 +1527,7 @@ $('leave').addEventListener('click', async () => {
 /* かく人を いま すぐ この 人に かえます（いまの 絵は ギャラリーに のこします）*/
 async function changeDrawer(id) {
     if (!conn || !isHost || !game || isTel() || advancing) return;
-    if (!confirm(nameOf(id) + ' さんに かいて もらいますか？')) return;
+    if (!confirm(id === myId ? 'せんせいが かきますか？' : whoName(id) + 'に かいて もらいますか？')) return;
     advancing = true;
     try {
         await archiveRound();

@@ -326,7 +326,8 @@ export async function startGame(conn, code, game) {
     await fb.set(fb.ref(db, `rooms/${code}/game`), {
         mode: game.mode,
         order: game.order,
-        admin: game.admin || null,        /* かんりする ぬし（あそぶ ときは なし）*/
+        admin: game.admin || null,        /* せんせい（こたえる 人には 入りません）*/
+        teacherDraws: game.teacherDraws || null,   /* せんせいも かく じゅんばんに 入る */
         teams: game.teams || null,        /* チームせん … { メンバーID: 'red'／'blue' } */
         steps: game.steps || null,        /* でんごん … 何だん あそぶか */
         step: game.mode === 'tel' ? 0 : null,
