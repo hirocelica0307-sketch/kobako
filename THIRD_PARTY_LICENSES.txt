@@ -17,6 +17,7 @@ Microsoft Fluent Emoji（3D）
                 shugo-ninja/assets/emoji/（ことばにんじゃ道場 の 忍者・ねこ・ほし・まきもの などの 絵）
                 youryou-navi/assets/emoji/（ようりょうナビ の 教科の アイコン・検索・印刷 などの 絵）
                 matsuri-rhythm/assets/emoji/（おまつり リズム の たいこ・ちょうちんの 絵）
+                kazuate/assets/（ふたりで数字あて の 探偵・かぎ・考える顔・トロフィー・ハートの 絵と アイコン：Input numbers）
   入手もと: https://github.com/microsoft/fluentui-emoji
   ライセンス: MIT License
 ================================================================
