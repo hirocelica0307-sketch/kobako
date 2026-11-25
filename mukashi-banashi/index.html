@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>むかしばなし文庫</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="icon" type="image/png" href="assets/app-icon.png">
+<link rel="apple-touch-icon" href="assets/app-icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Zen+Maru+Gothic:wght@500;700&display=swap">
+<style>
+/* 和とじの 本が ならぶ 本だな → 本を ひらくと たて書きの 見開き（右から 左へ めくる） */
+:root {
+    --room: #e9edf3;          /* 本だなの へや（すこし 藍よりの グレー） */
+    --room-ink: #1e2a44;
+    --band: #23335c;          /* 藍ぞめの 帯 */
+    --band-ink: #f4f1e8;
+    --paper: #fbf8ef;         /* 本の かみ */
+    --paper-edge: #e6dfcc;
+    --ink: #2a2622;           /* すみ */
+    --ink-soft: #6b6458;
+    --shu: #c0432c;           /* しゅいろ（はんこ・むかしことば） */
+    --kb-bg: rgba(226, 170, 40, .22);
+    --kb-bg-on: rgba(226, 170, 40, .5);
+    --chip: #ffffff;
+    --chip-on: #23335c;
+    --chip-on-ink: #ffffff;
+    --shadow: 0 1px 2px rgba(20, 30, 60, .18), 0 6px 18px rgba(20, 30, 60, .14);
+    --font-book: 'Klee One', 'UD デジタル 教科書体 N-R', 'BIZ UDPGothic', 'Hiragino Maru Gothic ProN', serif;
+    --font-ui: 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', 'BIZ UDPGothic', sans-serif;
+    color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --room: #121826; --room-ink: #dfe4ee; --band: #0b1120; --band-ink: #ece6d6;
+        --paper: #26241f; --paper-edge: #3a362d; --ink: #eee7d6; --ink-soft: #b3aa96;
+        --shu: #ff7a5c; --kb-bg: rgba(226, 170, 40, .2); --kb-bg-on: rgba(226, 170, 40, .42);
+        --chip: #1d2536; --chip-on: #c9d6f5; --chip-on-ink: #0b1120;
+        --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 6px 18px rgba(0, 0, 0, .4);
+        color-scheme: dark;
+    }
+}
+:root[data-theme="dark"] {
+    --room: #121826; --room-ink: #dfe4ee; --band: #0b1120; --band-ink: #ece6d6;
+    --paper: #26241f; --paper-edge: #3a362d; --ink: #eee7d6; --ink-soft: #b3aa96;
+    --shu: #ff7a5c; --kb-bg: rgba(226, 170, 40, .2); --kb-bg-on: rgba(226, 170, 40, .42);
+    --chip: #1d2536; --chip-on: #c9d6f5; --chip-on-ink: #0b1120;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 6px 18px rgba(0, 0, 0, .4);
+    color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+    margin: 0; background: var(--room); color: var(--room-ink);
+    font-family: var(--font-ui); font-size: 16px;
+    -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--shu); outline-offset: 2px; }
+.ic { display: inline-flex; width: 1.4em; height: 1.4em; flex: none; }
+.ic svg { width: 100%; height: 100%; }
+ruby rt { font-size: .5em; font-family: var(--font-book); font-weight: 400; }
+[hidden] { display: none !important; }
+
+/* ───── 上の 帯 ───── */
+.bar {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+    background: var(--band); color: var(--band-ink);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 8px;
+    display: flex; align-items: center; gap: 10px; min-height: 56px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--band); }
+.bar h1 { margin: 0; font-family: var(--font-book); font-weight: 600; font-size: 1.45rem; letter-spacing: .08em; white-space: nowrap; }
+.bar .sub { font-size: .85rem; opacity: .8; white-space: nowrap; }
+.bar .grow { flex: 1; min-width: 0; }
+.bar-btn {
+    display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 999px;
+    background: rgba(255, 255, 255, .13); color: var(--band-ink); padding: 8px 14px; font-weight: 700; font-size: .95rem; white-space: nowrap;
+}
+.bar-btn:hover { background: rgba(255, 255, 255, .22); }
+.bar-btn.on { background: var(--band-ink); color: var(--band); }
+
+/* ───── 本だな ───── */
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 40px; max-width: 1280px; margin: 0 auto; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.chip {
+    border: 2px solid transparent; background: var(--chip); color: var(--room-ink); border-radius: 999px;
+    padding: 6px 14px; font-weight: 700; box-shadow: 0 1px 2px rgba(0, 0, 0, .12);
+}
+.chip.on { background: var(--chip-on); color: var(--chip-on-ink); }
+.chip .n { font-size: .8em; opacity: .7; margin-left: 4px; font-variant-numeric: tabular-nums; }
+.shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 22px 18px; }
+.book {
+    position: relative; border: 0; padding: 0; background: none; text-align: left;
+    aspect-ratio: 3 / 4; max-width: 100%; border-radius: 3px 8px 8px 3px;
+    transition: transform .15s ease;
+}
+.book:hover { transform: translateY(-3px); }
+.cover {
+    container-type: size;
+    position: absolute; inset: 0; border-radius: 3px 8px 8px 3px; overflow: hidden;
+    background: var(--c, #2c4a7a); box-shadow: var(--shadow);
+}
+/* 右がわの とじいと（和とじ） */
+.cover::after {
+    content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 14px;
+    background:
+        repeating-linear-gradient(to bottom, transparent 0 14%, rgba(255, 255, 255, .75) 14% 15.5%, transparent 15.5% 25%);
+    border-left: 1px solid rgba(0, 0, 0, .18);
+}
+.cover .art { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.cover .art.e { background: radial-gradient(circle at 42% 60%, rgba(255, 255, 255, .35), transparent 62%); }
+.cover .art.e img { width: 58%; height: auto; margin: 22% 8% 0 0; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .25)); }
+.cover .art.p img { width: 100%; height: 100%; object-fit: cover; }
+.daisen {  /* 題簽（だいせん）＝ 表紙に はる 名札 */
+    position: absolute; top: 7%; left: 9%;
+    background: #fffdf6; color: #26221d; border: 1px solid rgba(0, 0, 0, .25);
+    writing-mode: vertical-rl; font-family: var(--font-book); font-weight: 600;
+    font-size: min(13cqw, calc(80cqh / (var(--len, 6) + 1.2))); line-height: 1.15; padding: .5em .2em; letter-spacing: .04em; white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+}
+.daisen ruby rt { font-size: .45em; }
+.hanko {
+    position: absolute; right: 18%; bottom: 7%; width: 42px; height: 42px; border-radius: 50%;
+    border: 3px solid var(--shu); color: var(--shu); background: rgba(255, 253, 246, .92);
+    display: grid; place-items: center; font-weight: 700; font-size: .72rem; transform: rotate(-12deg); line-height: 1;
+}
+.shelf-note { margin-top: 26px; font-size: .9rem; color: var(--ink-soft); }
+
+/* ───── えらぶ まど ───── */
+dialog { border: 0; border-radius: 16px; padding: 0; background: var(--paper); color: var(--ink); box-shadow: 0 10px 40px rgba(0, 0, 0, .35); max-width: min(720px, calc(100vw - 32px)); width: 100%; }
+dialog::backdrop { background: rgba(10, 16, 32, .55); }
+.dlg { padding: 22px; display: grid; gap: 16px; }
+.dlg-head { display: flex; gap: 18px; align-items: flex-start; }
+.dlg-cover { position: relative; width: 120px; flex: none; aspect-ratio: 3 / 4; }
+.dlg-title { font-family: var(--font-book); font-weight: 600; font-size: 1.9rem; margin: 0 0 6px; line-height: 1.6; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: .8rem; border: 1px solid var(--paper-edge); border-radius: 999px; padding: 2px 10px; color: var(--ink-soft); }
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mode {
+    border: 2px solid var(--paper-edge); background: var(--room); color: var(--room-ink); border-radius: 14px;
+    padding: 14px; display: grid; gap: 4px; text-align: left;
+}
+.mode:hover { border-color: var(--band); }
+.mode b { font-family: var(--font-book); font-size: 1.5rem; }
+.mode span { font-size: .88rem; color: var(--ink-soft); }
+.x-btn { position: absolute; top: 10px; right: 10px; border: 0; background: none; color: var(--ink-soft); padding: 6px; }
+.x-btn .ic { width: 1.8em; height: 1.8em; }
+.dlg-kotoba { font-size: .9rem; color: var(--ink-soft); }
+.kchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.kchip { border: 1px solid var(--paper-edge); background: var(--kb-bg); border-radius: 8px; padding: 3px 10px; font-family: var(--font-book); font-weight: 600; color: var(--ink); font-size: 1rem; }
+
+/* ───── よむ 画面 ───── */
+.reader { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--room); }
+.reader .bar { position: relative; top: 0; }
+.reader .ttl { font-family: var(--font-book); font-weight: 600; font-size: 1.2rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage {
+    flex: 1; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center;
+    padding-left: max(64px, calc(env(safe-area-inset-left, 0px) + 56px));
+    padding-right: max(64px, calc(env(safe-area-inset-right, 0px) + 56px));
+    padding-block: 14px 8px;
+}
+.spread { height: 100%; display: flex; flex-direction: row-reverse; box-shadow: var(--shadow); border-radius: 4px; }
+.spread.turn-next { animation: inL .32s ease; }
+.spread.turn-prev { animation: inR .32s ease; }
+@keyframes inL { from { opacity: .2; transform: translateX(-26px); } }
+@keyframes inR { from { opacity: .2; transform: translateX(26px); } }
+@media (prefers-reduced-motion: reduce) { .spread.turn-next, .spread.turn-prev { animation: none; } }
+.page {
+    position: relative; height: 100%; background: var(--paper); color: var(--ink);
+    display: flex; flex-direction: column; overflow: hidden;
+}
+.spread.two .page:first-child { border-radius: 0 4px 4px 0; box-shadow: inset 14px 0 18px -14px rgba(0, 0, 0, .28); }
+.spread.two .page:last-child { border-radius: 4px 0 0 4px; box-shadow: inset -14px 0 18px -14px rgba(0, 0, 0, .28); }
+.spread.one .page { border-radius: 4px; }
+.pno { position: absolute; bottom: 6px; font-size: .78rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.spread.two .page:first-child .pno { right: 14px; }
+.spread.two .page:last-child .pno, .spread.one .pno { left: 14px; }
+.fig { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 4%; min-height: 0; margin-bottom: 18px; }
+.fig img { max-height: 100%; max-width: 100%; object-fit: contain; min-width: 0; }
+.fig.e img { height: auto; width: calc(84% / var(--n, 1)); max-width: 42%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .2)); }
+.fig.e.big img { max-width: 70%; }
+.fig.p { border: 1px solid var(--paper-edge); background: #fff; padding: 2%; }
+.fig.p img { height: 100%; width: 100%; }
+.vt {
+    flex: 1; min-height: 0; writing-mode: vertical-rl; overflow: hidden;
+    font-family: var(--font-book); line-height: 1.95; line-break: strict;
+}
+.vt p { margin: 0; text-indent: 1em; }
+.vt p.cont { text-indent: 0; }
+.vt.ehon { line-height: 2.1; letter-spacing: .04em; word-spacing: .3em; font-weight: 600; }
+.vt.ehon p { text-indent: 0; }
+.kb {
+    background: var(--kb-bg); border-radius: 3px; cursor: pointer;
+    text-decoration: underline dotted var(--shu); text-decoration-thickness: 2px; text-underline-position: left; text-underline-offset: 3px;
+}
+.kb:hover, .kb:focus-visible { background: var(--kb-bg-on); outline: none; }
+.page.title { align-items: center; justify-content: center; gap: 4%; flex-direction: row-reverse; }
+.page.title .vt { flex: none; height: 82%; font-size: var(--title-size, 44px); font-weight: 600; line-height: 1.5; }
+.page.title .badge { writing-mode: vertical-rl; font-size: 1rem; color: var(--ink-soft); letter-spacing: .3em; }
+.page.title .tfig { flex: 1; min-width: 0; height: 70%; display: flex; align-items: center; justify-content: center; }
+.page.title .tfig img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.page.title .tfig.e img { width: 72%; }
+.page.blank { align-items: center; justify-content: center; }
+.page.blank .vt { flex: none; height: 70%; font-size: 2.2rem; color: var(--ink-soft); }
+.page.end { gap: 14px; justify-content: center; align-items: center; text-align: center; font-family: var(--font-ui); }
+.page.end h2 { font-family: var(--font-book); font-size: 2.6rem; margin: 0; letter-spacing: .3em; color: var(--shu); }
+.page.end .endk { font-size: .95rem; color: var(--ink-soft); max-width: 30em; }
+.page.end .kchips { justify-content: center; }
+.page.end .row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.btn {
+    display: inline-flex; align-items: center; gap: 6px; border: 2px solid var(--band); background: var(--band); color: var(--band-ink);
+    border-radius: 999px; padding: 9px 18px; font-weight: 700;
+}
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--paper-edge); }
+.nav {
+    position: absolute; top: 50%; transform: translateY(-50%); width: 50px; height: 96px; border: 0; border-radius: 14px;
+    background: var(--chip); color: var(--room-ink); box-shadow: var(--shadow); display: grid; place-items: center; z-index: 2;
+}
+.nav .ic { width: 2.2em; height: 2.2em; }
+.nav:disabled { opacity: .3; cursor: default; }
+.nav.next { left: max(8px, env(safe-area-inset-left, 0px)); }
+.nav.prev { right: max(8px, env(safe-area-inset-right, 0px)); }
+.nav small { position: absolute; bottom: -22px; left: 0; right: 0; text-align: center; font-size: .75rem; color: var(--room-ink); font-weight: 700; }
+.progress { height: 6px; margin: 0 max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); background: rgba(0, 0, 0, .1); border-radius: 3px; overflow: hidden; direction: rtl; }
+.progress i { display: block; height: 100%; background: var(--shu); width: 0; transition: width .25s; }
+.measure { position: absolute; left: -99999px; top: 0; visibility: hidden; }
+
+/* ───── じてん ───── */
+.jkinds { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.jgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.jcard {
+    border: 0; background: var(--paper); color: var(--ink); border-radius: 12px; padding: 12px 14px; text-align: left;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .12); display: grid; gap: 4px; align-content: start;
+}
+.jcard:hover { box-shadow: var(--shadow); }
+.jcard b { font-family: var(--font-book); font-size: 1.45rem; font-weight: 600; }
+.jcard span { font-size: .9rem; color: var(--ink-soft); }
+.jkind-head { display: flex; align-items: center; gap: 10px; margin: 6px 0 12px; }
+.jkind-head img { width: 44px; height: 44px; }
+.jkind-head h2 { margin: 0; font-family: var(--font-book); font-size: 1.6rem; }
+.jlead { margin: 0 0 16px; color: var(--ink-soft); font-size: .95rem; }
+
+/* じてんの カード（まど） */
+.kd { padding: 24px 22px 20px; display: grid; gap: 12px; position: relative; }
+.kd .kind { font-size: .82rem; font-weight: 700; color: var(--shu); }
+.kd h2 { margin: 0; font-family: var(--font-book); font-size: 2.4rem; font-weight: 600; line-height: 1.3; }
+.kd .now { background: var(--room); color: var(--room-ink); border-radius: 12px; padding: 12px 14px; font-size: 1.2rem; font-family: var(--font-book); font-weight: 600; line-height: 2; }
+.kd .now small { display: block; font-family: var(--font-ui); font-size: .8rem; font-weight: 700; color: var(--ink-soft); line-height: 1.4; }
+.kd .note { font-family: var(--font-book); font-size: 1.05rem; line-height: 2.1; margin: 0; }
+.kd h3 { margin: 4px 0 0; font-size: .9rem; color: var(--ink-soft); }
+.ex { display: grid; gap: 8px; }
+.ex button { border: 1px solid var(--paper-edge); background: transparent; border-radius: 10px; padding: 8px 12px; text-align: left; font-family: var(--font-book); line-height: 2.1; color: var(--ink); }
+.ex button em { font-style: normal; background: var(--kb-bg-on); border-radius: 3px; }
+.ex button small { display: block; font-family: var(--font-ui); color: var(--ink-soft); line-height: 1.4; }
+@media (max-width: 560px) {
+    .bar .sub { display: none; }
+    .bar h1 { font-size: 1.2rem; }
+    .bar-btn .lbl { display: none; }
+    .shelf { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .modes { grid-template-columns: 1fr; }
+    .stage { padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); padding-bottom: 64px; }
+    .nav { top: auto; bottom: 8px; transform: none; width: 64px; height: 46px; }
+    .nav small { display: none; }
+    .dlg-head { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="measure" id="measure" aria-hidden="true"></div>
+
+<dialog id="dlg"></dialog>
+
+<script>window.MB = { stories: [], add(s) { this.stories.push(s); } };</script>
+<script src="parse.js"></script>
+<script src="kotoba.js"></script>
+<script src="assets/images.js"></script>
+<script src="assets/icons.js"></script>
+<script src="stories/s01.js"></script>
+<script src="stories/s02.js"></script>
+<script src="stories/s03.js"></script>
+<script src="stories/s04.js"></script>
+<script src="stories/s05.js"></script>
+<script src="stories/s06.js"></script>
+<script src="stories/s07.js"></script>
+<script src="stories/s08.js"></script>
+<script>
+(function () {
+    'use strict';
+    const P = window.MBParse;
+    const STORIES = window.MB.stories;
+    const KOTOBA = window.MB_KOTOBA;
+    const KINDS = window.MB_KOTOBA_KINDS;
+    const IMAGES = window.MB_IMAGES || {};
+    const ICON = window.MB_ICONS || {};
+    const $app = document.getElementById('app');
+    const $dlg = document.getElementById('dlg');
+    const $measure = document.getElementById('measure');
+
+    /* ───── 本だなの なかま ───── */
+    const SHELF_TAGS = [
+        { id: '', name: 'ぜんぶ' },
+        { id: 'ゆうめい', name: 'ゆうめいな おはなし' },
+        { id: 'どうぶつ', name: 'どうぶつ' },
+        { id: 'おに', name: 'おに・ようかい', also: ['ようかい'] },
+        { id: 'ふしぎ', name: 'ふしぎ' },
+        { id: 'わらいばなし', name: 'わらいばなし' },
+        { id: 'とんち', name: 'とんち' },
+        { id: 'おんがえし', name: 'おんがえし' },
+    ];
+    const COVER_COLORS = ['#2c4a7a', '#b9452f', '#4f8a5b', '#c98d12', '#6a4c7d', '#2f8a95', '#c35b72', '#7a6a3c'];
+
+    /* ───── ちょきん（この ブラウザだけ） ───── */
+    const store = {
+        get(k, d) { try { const v = localStorage.getItem('mukashi.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+        set(k, v) { try { localStorage.setItem('mukashi.' + k, JSON.stringify(v)); } catch (e) { /* ほぞん できなくても よい */ } },
+    };
+
+    /* ───── 小さな 道具 ───── */
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const icon = n => '<span class="ic" aria-hidden="true">' + (ICON[n] || '') + '</span>';
+    function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+    function kotobaEntry(key) { let e = KOTOBA[key]; if (e && e.see && KOTOBA[e.see]) e = KOTOBA[e.see]; return e; }
+    function kotobaMain(key) { const e = KOTOBA[key]; return e && e.see ? e.see : key; }
+
+    /* 文の 部品を HTML に */
+    function partsHTML(parts, opt) {
+        opt = opt || {};
+        return parts.map(p => {
+            if (p.t === 'c') return esc(p.s);
+            if (p.t === 'r') return '<ruby>' + esc(p.base) + '<rt>' + esc(p.rt) + '</rt></ruby>';
+            if (opt.plainK) return partsHTML(p.parts, opt);
+            return '<span class="kb" role="button" tabindex="0" data-k="' + esc(p.key) + '">' + partsHTML(p.parts, opt) + '</span>';
+        }).join('');
+    }
+    const inlineHTML = (src, opt) => partsHTML(P.inline(src), opt);
+
+    /* 絵 */
+    function imgSpecs(spec) { return String(spec || '').split(/\s+/).filter(Boolean).map(k => ({ k, im: IMAGES[k] })).filter(x => x.im); }
+    function figHTML(spec) {
+        const list = imgSpecs(spec);
+        if (!list.length) return '';
+        const isP = list[0].im.t === 'p';
+        if (isP) return '<div class="fig p"><img src="' + list[0].im.src + '" alt="' + esc(list[0].im.alt || '') + '"></div>';
+        return '<div class="fig e" style="--n:' + list.length + '">' + list.map(x => '<img src="' + x.im.src + '" alt="">').join('') + '</div>';
+    }
+    function coverHTML(s, i) {
+        const im = IMAGES[s.cover];
+        const art = im ? '<div class="art ' + (im.t === 'p' ? 'p' : 'e') + '"><img src="' + im.src + '" alt="" loading="lazy"></div>' : '';
+        const read = store.get('read.' + s.id, false);
+        return '<div class="cover" style="--c:' + COVER_COLORS[i % COVER_COLORS.length] + '">' + art +
+            '<div class="daisen" style="--len:' + P.plain(P.inline(s.title)).replace(/\s/g, '').length + '">' + inlineHTML(s.title.replace(/ /g, '')) + '</div>' +
+            (read ? '<div class="hanko">よんだ</div>' : '') + '</div>';
+    }
+
+    /* ことばの ぜんぶの つかいみち（じてんの れい文） */
+    const USES = new Map();      // みだし → [{story, text(html), plain}]
+    const STORY_KEYS = new Map(); // id → [みだし…]
+    (function collect() {
+        STORIES.forEach(s => {
+            const keys = [];
+            const scenes = P.parseYomimono(s.text);
+            scenes.forEach(sc => sc.paras.forEach(pp => {
+                pp.forEach((part, idx) => {
+                    if (part.t !== 'k') return;
+                    const main = kotobaMain(part.key);
+                    if (!keys.includes(main)) keys.push(main);
+                    if (!USES.has(main)) USES.set(main, []);
+                    const arr = USES.get(main);
+                    if (arr.length >= 6 || arr.some(u => u.story === s)) return;
+                    // まえと あとを すこし きりとる
+                    const a = Math.max(0, idx - 18), b = Math.min(pp.length, idx + 14);
+                    const seg = pp.slice(a, b).map((q, j) => (a + j === idx ? { t: 'em', q } : q));
+                    const html = (a > 0 ? '…' : '') + seg.map(q => q.t === 'em' ? '<em>' + partsHTML([q.q], { plainK: true }) + '</em>' : partsHTML([q], { plainK: true })).join('') + (b < pp.length ? '…' : '');
+                    arr.push({ story: s, html });
+                });
+            }));
+            STORY_KEYS.set(s.id, keys);
+        });
+    })();
+
+    /* ───── 本だな ───── */
+    let shelfTag = store.get('shelfTag', '');
+    function showShelf() {
+        view = 'shelf';
+        const counts = t => STORIES.filter(s => !t.id || s.tags.includes(t.id) || (t.also || []).some(a => s.tags.includes(a))).length;
+        $app.innerHTML =
+            '<header class="bar"><h1>むかしばなし文庫《ぶんこ》</h1><span class="sub">日本《にほん》の むかしばなし ' + STORIES.length + 'わ</span><span class="grow"></span>' +
+            '<button class="bar-btn" id="toJiten">' + icon('book-open-text') + '<span class="lbl">むかしことば じてん</span></button></header>' +
+            '<main class="wrap"><div class="chips" role="tablist">' +
+            SHELF_TAGS.map(t => '<button class="chip' + (t.id === shelfTag ? ' on' : '') + '" data-tag="' + t.id + '">' + t.name + '<span class="n">' + counts(t) + '</span></button>').join('') +
+            '</div><div class="shelf" id="shelf"></div>' +
+            '<p class="shelf-note">本《ほん》を えらぶと、「えほん（みじかい）」か「よみもの（ながい）」を えらべます。 色《いろ》の ついた ことばを おすと、 むかしの ことばの いみが 出《で》ます。</p></main>';
+        $app.querySelector('h1').innerHTML = inlineHTML('むかしばなし文庫《ぶんこ》');
+        $app.querySelector('.shelf-note').innerHTML = inlineHTML($app.querySelector('.shelf-note').textContent);
+        const $shelf = document.getElementById('shelf');
+        const t = SHELF_TAGS.find(x => x.id === shelfTag) || SHELF_TAGS[0];
+        STORIES.forEach((s, i) => {
+            if (t.id && !s.tags.includes(t.id) && !(t.also || []).some(a => s.tags.includes(a))) return;
+            const b = el('button', 'book', coverHTML(s, i));
+            b.setAttribute('aria-label', P.plain(P.inline(s.title)));
+            b.onclick = () => openBookDialog(s);
+            $shelf.appendChild(b);
+        });
+        $app.querySelectorAll('.chip').forEach(c => c.onclick = () => { shelfTag = c.dataset.tag; store.set('shelfTag', shelfTag); showShelf(); });
+        document.getElementById('toJiten').onclick = () => showJiten();
+        if (location.hash) history.replaceState(null, '', location.pathname);
+    }
+
+    function openBookDialog(s) {
+        const i = STORIES.indexOf(s);
+        const ehonChars = s.ehon.reduce((a, pg) => a + P.plain(P.inline(pg.t)).replace(/\s/g, '').length, 0);
+        const yomiChars = P.parseYomimono(s.text).reduce((a, sc) => a + sc.paras.reduce((b, pp) => b + P.plain(pp).length, 0), 0);
+        const mins = Math.max(3, Math.round(yomiChars / 230));
+        const keys = (STORY_KEYS.get(s.id) || []).slice(0, 14);
+        $dlg.innerHTML = '<div class="dlg"><button class="x-btn" data-close aria-label="とじる">' + icon('x-circle') + '</button>' +
+            '<div class="dlg-head"><div class="dlg-cover">' + coverHTML(s, i) + '</div><div>' +
+            '<h2 class="dlg-title">' + inlineHTML(s.title) + '</h2>' +
+            '<div class="tags">' + s.tags.map(t => '<span class="tag">' + esc(t) + '</span>').join('') + '</div></div></div>' +
+            '<div class="modes">' +
+            '<button class="mode" data-mode="ehon"><b>えほん</b><span>' + inlineHTML('みじかい おはなし・ ' + s.ehon.length + 'ばめん・ やく ' + ehonChars + '字《じ》') + '</span></button>' +
+            '<button class="mode" data-mode="yomi"><b>よみもの</b><span>' + inlineHTML('ながい おはなし・ やく ' + yomiChars + '字《じ》・ ' + mins + 'ぷんくらい') + '</span></button></div>' +
+            '<div class="dlg-kotoba">' + inlineHTML('この おはなしの むかしことば（おすと いみが 出《で》ます）') + '<div class="kchips">' +
+            keys.map(k => '<button class="kchip" data-k="' + esc(k) + '">' + esc(k) + '</button>').join('') + '</div></div></div>';
+        $dlg.querySelector('[data-close]').onclick = () => $dlg.close();
+        $dlg.querySelectorAll('.mode').forEach(b => b.onclick = () => { $dlg.close(); openReader(s, b.dataset.mode); });
+        $dlg.querySelectorAll('.kchip').forEach(b => b.onclick = () => showKotoba(b.dataset.k));
+        if (!$dlg.open) $dlg.showModal();
+    }
+
+    /* ───── よむ 画面 ───── */
+    let view = 'shelf';
+    let R = null; // { story, mode, pages, idx, two, size }
+    const SIZE_STEPS = [0.82, 1, 1.18, 1.36];
+
+    function openReader(s, mode, opt) {
+        view = 'reader';
+        R = { story: s, mode, idx: 0, size: store.get('size', 1), pages: [], two: true };
+        $app.innerHTML =
+            '<div class="reader"><header class="bar">' +
+            '<button class="bar-btn" id="back">' + icon('books') + '<span class="lbl">ほんだな</span></button>' +
+            '<div class="ttl grow">' + inlineHTML(s.title) + '　<small>' + (mode === 'ehon' ? 'えほん' : 'よみもの') + '</small></div>' +
+            '<button class="bar-btn" id="smaller" aria-label="字を 小さく">' + icon('minus-circle') + '</button>' +
+            '<button class="bar-btn" id="bigger" aria-label="字を 大きく">' + icon('plus-circle') + '</button>' +
+            '</header>' +
+            '<div class="stage" id="stage">' +
+            '<button class="nav prev" id="prev" aria-label="まえの ページ">' + icon('caret-right') + '<small>まえ</small></button>' +
+            '<div class="spread" id="spread"></div>' +
+            '<button class="nav next" id="next" aria-label="つぎの ページ">' + icon('caret-left') + '<small>つぎ</small></button>' +
+            '</div><div class="progress"><i id="prog"></i></div></div>';
+        document.getElementById('back').onclick = showShelf;
+        document.getElementById('prev').onclick = () => turn(-1);
+        document.getElementById('next').onclick = () => turn(1);
+        document.getElementById('smaller').onclick = () => resize(-1);
+        document.getElementById('bigger').onclick = () => resize(1);
+        const stage = document.getElementById('stage');
+        // ゆびで すべらせて めくる（右へ すべらせると つぎ）
+        let sx = null, sy = null;
+        stage.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+        stage.addEventListener('touchend', e => {
+            if (sx == null) return;
+            const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+            sx = null;
+            if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) turn(dx > 0 ? 1 : -1);
+        });
+        // この おはなしで つかう 字の 字体を ぜんぶ 読みこんでから ページを わける
+        const allText = P.plain(P.inline(s.title)) + s.ehon.map(e => P.plain(P.inline(e.t)) + P.reading(P.inline(e.t))).join('') +
+            P.parseYomimono(s.text).map(sc => sc.paras.map(pp => P.plain(pp) + P.reading(pp)).join('')).join('') + 'おしまい';
+        const ready = (document.fonts && document.fonts.load)
+            ? Promise.all(['400', '600'].map(w => document.fonts.load(w + ' 24px "Klee One"', allText))).catch(() => null)
+            : Promise.resolve();
+        const myR = R;
+        ready.then(() => { if (R === myR) layoutReader(opt); });
+    }
+
+    function layoutReader(opt) {
+        paginate();
+        if (opt && opt.key) {
+            const at = R.pages.findIndex(p => p.keys && p.keys.includes(opt.key));
+            if (at >= 0) R.idx = at;
+        }
+        if (opt && opt.end) R.idx = R.pages.length - 1;
+        render(0);
+        history.replaceState(null, '', '#' + R.story.id);
+    }
+
+    function resize(d) {
+        const n = Math.min(SIZE_STEPS.length - 1, Math.max(0, R.size + d));
+        if (n === R.size) return;
+        const frac = R.idx / Math.max(1, R.pages.length - 1);
+        R.size = n; store.set('size', n);
+        paginate();
+        R.idx = Math.round(frac * (R.pages.length - 1));
+        render(0);
+    }
+
+    /* ページの 大きさを きめる */
+    function pageBox() {
+        const stage = document.getElementById('stage');
+        const cs = getComputedStyle(stage);
+        const w = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+        const h = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+        const two = w / h > 1.15 && w >= 700;
+        // 1ページは たて:よこ ＝ 1.33:1 くらい（本の 形）
+        let ph = h, pw = Math.min(two ? w / 2 : w, h / 1.25);
+        if (!two && w < h) pw = w;
+        return { two, pw: Math.floor(pw), ph: Math.floor(ph) };
+    }
+
+    function baseFont(ph, ehon) {
+        const inner = ph * 0.91;
+        const per = ehon ? 12 : 17.5;   // 1行に 入る 字の かず（めやす）
+        let f = inner / per * (ehon ? 0.62 : 1);
+        return Math.max(15, Math.min(ehon ? 40 : 34, f)) * SIZE_STEPS[R.size];
+    }
+
+    /* 部品 → ノードの ならび（ページを わける ために 1こずつ） */
+    function unitNodes(parts, opt) {
+        const out = [];
+        parts.forEach(p => {
+            if (p.t === 'c') { out.push(document.createTextNode(p.s)); return; }
+            const span = document.createElement('span');
+            span.innerHTML = partsHTML([p], opt);
+            out.push(span.firstChild);
+        });
+        return out;
+    }
+    const keysOf = parts => { const a = []; (function w(ps) { ps.forEach(p => { if (p.t === 'k') { a.push(kotobaMain(p.key)); w(p.parts); } }); })(parts); return a; };
+    const NO_START = /^[、。」』！？）ー…・]/;
+
+    function paginate() {
+        const s = R.story;
+        const box = pageBox();
+        R.two = box.two; R.box = box;
+        const pages = [];
+        pages.push({ kind: 'title' });
+        if (R.mode === 'ehon') {
+            if (box.two) pages.push({ kind: 'blank', text: 'はじまり　はじまり' });
+            s.ehon.forEach(pg => {
+                const parts = P.inline(pg.t);
+                const p = { kind: 'ehon', img: pg.i, html: partsHTML(parts, { wakachi: true }), keys: keysOf(parts) };
+                if (box.two) { pages.push(Object.assign({}, p, { part: 'pic' })); pages.push(Object.assign({}, p, { part: 'text' })); }
+                else pages.push(Object.assign({}, p, { part: 'both' }));
+            });
+        } else {
+            paginateYomi(s, box, pages);
+        }
+        pages.push({ kind: 'end' });
+        if (box.two && pages.length % 2) pages.splice(pages.length - 1, 0, { kind: 'blank', text: '' });
+        R.pages = pages;
+        if (R.idx >= pages.length) R.idx = pages.length - 1;
+        if (box.two && R.idx % 2) R.idx--;
+    }
+
+    function makePageEl(box) {
+        const pg = el('div', 'page');
+        pg.style.width = box.pw + 'px'; pg.style.height = box.ph + 'px';
+        pg.style.padding = Math.round(box.ph * 0.05) + 'px ' + Math.round(box.pw * 0.07) + 'px';
+        return pg;
+    }
+
+    function paginateYomi(s, box, pages) {
+        const font = baseFont(box.ph, false);
+        R.font = font;
+        $measure.innerHTML = '';
+        const scenes = P.parseYomimono(s.text);
+        const figH = box.ph * 0.34;
+        let pg, vt, cur;
+        const newPage = (img) => {
+            $measure.innerHTML = '';
+            pg = makePageEl(box);
+            if (img && imgSpecs(img).length) {
+                const f = el('div', '', figHTML(img)).firstChild;
+                f.style.height = figH + 'px';
+                pg.appendChild(f);
+            }
+            vt = el('div', 'vt'); vt.style.fontSize = font + 'px';
+            pg.appendChild(vt);
+            $measure.appendChild(pg);
+            cur = { kind: 'text', img: img || null, html: '', keys: [] };
+        };
+        const over = () => vt.scrollWidth > vt.clientWidth + 1;
+        const finish = () => { cur.html = vt.innerHTML; pages.push(cur); };
+        scenes.forEach(sc => {
+            newPage(sc.img);
+            sc.paras.forEach(parts => {
+                let units = parts.map(p => p);     // 部品（ページ わけの たんい）
+                let cont = false;
+                while (units.length) {
+                    const p = el('p', cont ? 'cont' : '');
+                    unitNodes(units, {}).forEach(n => p.appendChild(n));
+                    vt.appendChild(p);
+                    if (!over()) { cur.keys.push(...keysOf(units)); break; }
+                    // 入りきらない → 入る ところまで（にぶんたんさく）
+                    let lo = 0, hi = units.length;
+                    while (lo < hi) {
+                        const mid = Math.ceil((lo + hi) / 2);
+                        p.replaceChildren(...unitNodes(units.slice(0, mid), {}));
+                        if (over()) hi = mid - 1; else lo = mid;
+                    }
+                    let k = lo;
+                    // 「、」「。」などが 行の はじめに こないように
+                    while (k > 0 && k < units.length && units[k].t === 'c' && NO_START.test(units[k].s)) k--;
+                    if (k <= 0) {
+                        vt.removeChild(p);
+                        if (!vt.childNodes.length) { k = Math.max(1, lo); vt.appendChild(p); }
+                    }
+                    if (k > 0) {
+                        p.replaceChildren(...unitNodes(units.slice(0, k), {}));
+                        cur.keys.push(...keysOf(units.slice(0, k)));
+                        units = units.slice(k); cont = true;
+                    }
+                    finish();
+                    newPage(null);
+                }
+            });
+            finish();
+        });
+        $measure.innerHTML = '';
+    }
+
+    function render(dir) {
+        const box = R.box;
+        const sp = document.getElementById('spread');
+        sp.className = 'spread ' + (R.two ? 'two' : 'one') + (dir > 0 ? ' turn-next' : dir < 0 ? ' turn-prev' : '');
+        sp.innerHTML = '';
+        const list = R.two ? [R.idx, R.idx + 1] : [R.idx];
+        list.forEach(i => { if (R.pages[i]) sp.appendChild(pageEl(R.pages[i], i, box)); });
+        document.getElementById('prev').disabled = R.idx <= 0;
+        document.getElementById('next').disabled = R.idx + (R.two ? 2 : 1) >= R.pages.length;
+        const last = R.pages.length - 1;
+        document.getElementById('prog').style.width = (Math.min(1, (R.idx + (R.two ? 1 : 0)) / last) * 100) + '%';
+        if (list.includes(last)) { store.set('read.' + R.story.id, true); }
+        // 字体が あとから かわって 字が はみ出したら、 いちどだけ ページを わけなおす
+        if (!R.fixing && [...sp.querySelectorAll('.vt')].some(v => v.scrollWidth > v.clientWidth + 2)) {
+            R.fixing = true;
+            const frac = R.idx / Math.max(1, R.pages.length - 1);
+            paginate(); R.idx = Math.round(frac * (R.pages.length - 1)); if (R.two && R.idx % 2) R.idx--;
+            render(0);
+            R.fixing = false;
+        }
+    }
+
+    function pageEl(p, i, box) {
+        const pg = makePageEl(box);
+        const ehonFont = baseFont(box.ph, true);
+        if (p.kind === 'title') {
+            pg.classList.add('title');
+            const im = IMAGES[R.story.cover];
+            const segs = R.story.title.split(' ');
+            const t = el('div', 'vt', segs.map(x => inlineHTML(x, { plainK: true })).join('<br>'));
+            const len = Math.max(...segs.map(x => P.plain(P.inline(x)).length));
+            t.style.setProperty('--title-size', Math.min(box.pw * 0.15 / segs.length * 1.3, box.ph * 0.72 / Math.max(4, len)) + 'px');
+            pg.appendChild(t);
+            pg.appendChild(el('div', 'badge', R.mode === 'ehon' ? 'えほん' : 'よみもの'));
+            if (im) pg.appendChild(el('div', 'tfig ' + (im.t === 'p' ? 'p' : 'e'), '<img src="' + im.src + '" alt="">'));
+        } else if (p.kind === 'blank') {
+            pg.classList.add('blank');
+            if (p.text) pg.appendChild(el('div', 'vt', esc(p.text)));
+        } else if (p.kind === 'ehon') {
+            if (p.part === 'pic' || p.part === 'both') {
+                const f = el('div', '', figHTML(p.img)).firstChild;
+                if (f) { f.style.height = (p.part === 'pic' ? box.ph * 0.8 : box.ph * 0.44) + 'px'; if (p.part === 'pic') { f.style.margin = 'auto 0'; f.classList.add('big'); } pg.appendChild(f); }
+            }
+            if (p.part === 'text' || p.part === 'both') {
+                const vt = el('div', 'vt ehon', '<p>' + p.html + '</p>');
+                vt.style.fontSize = (p.part === 'both' ? ehonFont * 0.82 : ehonFont) + 'px';
+                if (p.part === 'text') { vt.style.flex = 'none'; vt.style.height = '86%'; vt.style.margin = 'auto'; }
+                pg.appendChild(vt);
+            }
+        } else if (p.kind === 'text') {
+            if (p.img) { const f = el('div', '', figHTML(p.img)).firstChild; if (f) { f.style.height = box.ph * 0.34 + 'px'; pg.appendChild(f); } }
+            const vt = el('div', 'vt', p.html); vt.style.fontSize = R.font + 'px';
+            pg.appendChild(vt);
+        } else if (p.kind === 'end') {
+            pg.classList.add('end');
+            const keys = STORY_KEYS.get(R.story.id) || [];
+            const other = R.mode === 'ehon' ? 'yomi' : 'ehon';
+            pg.innerHTML = '<h2>おしまい</h2>' +
+                '<p class="endk">' + inlineHTML('この おはなしに 出《で》て きた むかしの ことば') + '</p>' +
+                '<div class="kchips">' + keys.map(k => '<button class="kchip" data-k="' + esc(k) + '">' + esc(k) + '</button>').join('') + '</div>' +
+                '<div class="row"><button class="btn" id="again">' + (other === 'yomi' ? 'よみもので よむ' : 'えほんで よむ') + '</button>' +
+                '<button class="btn ghost" id="toShelf">' + icon('books') + 'ほんだなへ</button></div>';
+            pg.querySelector('#again').onclick = () => openReader(R.story, other);
+            pg.querySelector('#toShelf').onclick = showShelf;
+            pg.querySelectorAll('.kchip').forEach(b => b.onclick = () => showKotoba(b.dataset.k));
+        }
+        if (p.kind !== 'title' && p.kind !== 'end' && !(p.kind === 'blank' && !p.text)) pg.appendChild(el('div', 'pno', String(i)));
+        return pg;
+    }
+
+    function turn(d) {
+        if (!R) return;
+        const step = R.two ? 2 : 1;
+        const n = R.idx + d * step;
+        if (n < 0 || n >= R.pages.length) return;
+        R.idx = n; render(d);
+    }
+
+    /* ───── むかしことばの カード ───── */
+    function showKotoba(key) {
+        const main = kotobaMain(key);
+        const e = kotobaEntry(key);
+        if (!e) return;
+        const kind = KINDS.find(k => k.id === e.k);
+        const uses = USES.get(main) || [];
+        $dlg.innerHTML = '<div class="kd"><button class="x-btn" data-close aria-label="とじる">' + icon('x-circle') + '</button>' +
+            '<div class="kind">' + (kind ? inlineHTML(kind.name) : '') + '</div>' +
+            '<h2>' + inlineHTML(main) + '</h2>' +
+            '<div class="now"><small>いまの ことばで いうと</small>' + inlineHTML(e.m) + '</div>' +
+            (e.n ? '<p class="note">' + inlineHTML(e.n) + '</p>' : '') +
+            (uses.length ? '<h3>' + inlineHTML('出《で》て くる おはなし') + '</h3><div class="ex">' +
+                uses.map((u, j) => '<button data-j="' + j + '"><small>' + partsHTML(P.inline(u.story.title), { plainK: true }) + '</small>' + u.html + '</button>').join('') + '</div>' : '') +
+            '</div>';
+        $dlg.querySelector('[data-close]').onclick = () => $dlg.close();
+        $dlg.querySelectorAll('.ex button').forEach(b => b.onclick = () => { $dlg.close(); openReader(uses[+b.dataset.j].story, 'yomi', { key: main }); });
+        if (!$dlg.open) $dlg.showModal();
+    }
+    document.addEventListener('click', e => {
+        const k = e.target.closest('.kb');
+        if (k) { e.stopPropagation(); showKotoba(k.dataset.k); }
+    });
+    document.addEventListener('keydown', e => {
+        const k = e.target.closest && e.target.closest('.kb');
+        if (k && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); showKotoba(k.dataset.k); return; }
+        if (view !== 'reader' || $dlg.open) return;
+        if (e.key === 'ArrowLeft' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); turn(1); }
+        if (e.key === 'ArrowRight' || e.key === 'PageUp') { e.preventDefault(); turn(-1); }
+    });
+    $dlg.addEventListener('click', e => { if (e.target === $dlg) $dlg.close(); });
+
+    /* ───── じてん ───── */
+    let jKind = store.get('jKind', KINDS[0].id);
+    function showJiten() {
+        view = 'jiten';
+        const kind = KINDS.find(k => k.id === jKind) || KINDS[0];
+        const entries = Object.entries(KOTOBA).filter(([k, e]) => e.k === kind.id && !e.see);
+        const ic = IMAGES[kind.icon];
+        $app.innerHTML =
+            '<header class="bar"><button class="bar-btn" id="back">' + icon('books') + '<span class="lbl">ほんだな</span></button>' +
+            '<h1>' + inlineHTML('むかしことば じてん') + '</h1><span class="sub">' + Object.values(KOTOBA).filter(e => !e.see).length + 'ご</span><span class="grow"></span></header>' +
+            '<main class="wrap"><div class="jkinds">' +
+            KINDS.map(k => '<button class="chip' + (k.id === kind.id ? ' on' : '') + '" data-kind="' + k.id + '">' + inlineHTML(k.name) + '</button>').join('') + '</div>' +
+            '<div class="jkind-head">' + (ic ? '<img src="' + ic.src + '" alt="">' : '') + '<h2>' + inlineHTML(kind.name) + '</h2></div>' +
+            '<p class="jlead">' + inlineHTML('おはなしの 中《なか》で 色《いろ》の ついて いる ことばです。 カードを おすと、 いみと、 その ことばが 出《で》て くる おはなしが 見《み》られます。') + '</p>' +
+            '<div class="jgrid">' + entries.map(([k, e]) => '<button class="jcard" data-k="' + esc(k) + '"><b>' + inlineHTML(k) + '</b><span>' + inlineHTML(e.m) + '</span></button>').join('') + '</div></main>';
+        document.getElementById('back').onclick = showShelf;
+        $app.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => { jKind = b.dataset.kind; store.set('jKind', jKind); showJiten(); });
+        $app.querySelectorAll('.jcard').forEach(b => b.onclick = () => showKotoba(b.dataset.k));
+        history.replaceState(null, '', '#jiten');
+    }
+
+    /* 画面の 大きさが かわったら ページを わけなおす */
+    let rt = null;
+    window.addEventListener('resize', () => {
+        if (view !== 'reader') return;
+        clearTimeout(rt);
+        rt = setTimeout(() => { const frac = R.idx / Math.max(1, R.pages.length - 1); paginate(); R.idx = Math.round(frac * (R.pages.length - 1)); if (R.two && R.idx % 2) R.idx--; render(0); }, 200);
+    });
+
+    /* はじめ */
+    function start() {
+        const h = decodeURIComponent(location.hash.slice(1));
+        if (h === 'jiten') return showJiten();
+        const s = STORIES.find(x => x.id === h);
+        showShelf();
+        if (s) openBookDialog(s);
+    }
+    // 本文の 字体を さきに 読みこむ（字の はばが かわると ページわけが ずれるため）
+    if (document.fonts && document.fonts.load) {
+        Promise.all(['400', '600'].map(w => document.fonts.load(w + ' 24px "Klee One"', 'あ山')))
+            .catch(() => null).then(() => document.fonts.ready).then(start);
+        // あとから 字体が とどいたら ページを わけなおす
+        document.fonts.addEventListener('loadingdone', () => { if (view === 'reader') window.dispatchEvent(new Event('resize')); });
+    } else start();
+})();
+</script>
+</body>
+</html>

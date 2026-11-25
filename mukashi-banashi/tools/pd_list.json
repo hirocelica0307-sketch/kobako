@@ -1,0 +1,184 @@
+{
+ "momotaro-cover": {
+  "alt": "ももたろうと いぬ・さる・きじ",
+  "title": "File:Momotaro Hasegawa cover 1886.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:Momotaro_Hasegawa_cover_1886.jpg",
+  "lic": "Public domain",
+  "crop": "はば 100%・高さ 65% を 切りぬき（題名・シールを のぞく）"
+ },
+ "urashima-cover": {
+  "alt": "りゅうぐうじょうの おとひめさま",
+  "title": "File:Urashima.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:Urashima.jpg",
+  "lic": "Public domain",
+  "crop": "はば 100%・高さ 70% を 切りぬき（題名・シールを のぞく）"
+ },
+ "urashima-kame": {
+  "alt": "かめに のる うらしまたろう",
+  "title": "File:Japanese Fairy Book - Ozaki - 032.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_032.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "urashima-ryugu": {
+  "alt": "りゅうぐうじょうで もてなされる うらしまたろう",
+  "title": "File:Japanese Fairy Book - Ozaki - P034.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_P034.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "urashima-kemuri": {
+  "alt": "たまてばこから けむりが 出る",
+  "title": "File:Japanese Fairy Book - Ozaki - 040.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_040.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "suzume-cover": {
+  "alt": "すずめの おやどを たずねる じいさま",
+  "title": "File:De musch met de geknipte tong (titel op object) Japanse sprookjes reeks (serietitel) Japanese fairy tale series (serietitel op object), RP-P-2004-507.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:De_musch_met_de_geknipte_tong_(titel_op_object)_Japanse_sprookjes_reeks_(serietitel)_Japanese_fairy_tale_series_(serietitel_op_object),_RP-P-2004-507.jpg",
+  "lic": "CC0",
+  "crop": "はば 77%・高さ 50% を 切りぬき（題名・シールを のぞく）"
+ },
+ "suzume-jisama": {
+  "alt": "すずめを さがす じいさま",
+  "title": "File:Japanese Fairy Book - Ozaki - 014.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_014.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "suzume-oyado": {
+  "alt": "すずめの おやどで もてなされる",
+  "title": "File:Japanese Fairy Book - Ozaki - 018.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_018.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "suzume-tsuzura": {
+  "alt": "つづらから ばけものが 出る",
+  "title": "File:Japanese Fairy Book - Ozaki - 024.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_024.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "kachikachi-cover": {
+  "alt": "うさぎと たぬき",
+  "title": "File:Kaki-kachi mountain (titel op object) Japanse sprookjes reeks (serietitel) Japanese fairy tale series (serietitel op object), RP-P-OB-JAP-65C.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:Kaki-kachi_mountain_(titel_op_object)_Japanse_sprookjes_reeks_(serietitel)_Japanese_fairy_tale_series_(serietitel_op_object),_RP-P-OB-JAP-65C.jpg",
+  "lic": "Public domain",
+  "crop": "はば 67%・高さ 68% を 切りぬき（題名・シールを のぞく）"
+ },
+ "kachikachi-tanuki": {
+  "alt": "つるされた たぬきと ばあさま",
+  "title": "File:Japanese Fairy Book - Ozaki - 044.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_044.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "kachikachi-hi": {
+  "alt": "たぬきの せなかの しばが もえる",
+  "title": "File:Japanese Fairy Book - Ozaki - 049.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_049.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "kachikachi-fune": {
+  "alt": "うさぎの ふねと たぬきの どろぶね",
+  "title": "File:Japanese Fairy Book - Ozaki - 052.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_052.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "hanasaka-cover": {
+  "alt": "木に のぼって はいを まく じいさま",
+  "title": "File:Hanasaki Jiji (titel op object) Japanse sprookjes reeks (serietitel) Japanese fairy tale series (serietitel op object), RP-P-2004-503.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:Hanasaki_Jiji_(titel_op_object)_Japanse_sprookjes_reeks_(serietitel)_Japanese_fairy_tale_series_(serietitel_op_object),_RP-P-2004-503.jpg",
+  "lic": "Public domain",
+  "crop": "はば 72%・高さ 77% を 切りぬき（題名・シールを のぞく）"
+ },
+ "hanasaka-hai": {
+  "alt": "はいを まいて 花を さかせる",
+  "title": "File:Japanese Fairy Book - Ozaki - 183.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_183.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "sarukani-cover": {
+  "alt": "さると かに",
+  "title": "File:Japanese Fairy Book - Ozaki - P203.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_P203.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "sarukani-kaki": {
+  "alt": "かきの 木の 上の さる",
+  "title": "File:Japanese Fairy Book - Ozaki - 206.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_206.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "sarukani-nakama": {
+  "alt": "うす・はち・くりが まちぶせ",
+  "title": "File:Japanese Fairy Book - Ozaki - 212.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_212.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "kaguya-take": {
+  "alt": "光る 竹を 見つけた おきな",
+  "title": "File:Japanese Fairy Book - Ozaki - 099.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_099.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "kaguya-yashiki": {
+  "alt": "かぐやひめを たずねる 人びと",
+  "title": "File:Japanese Fairy Book - Ozaki - 117.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_117.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "kaguya-tsuki": {
+  "alt": "月へ 帰る かぐやひめ",
+  "title": "File:Japanese Fairy Book - Ozaki - P118.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_P118.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "kurage-ryuou": {
+  "alt": "りゅうおうさまの ごてん",
+  "title": "File:Japanese Fairy Book - Ozaki - 191.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_191.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "kurage-saru": {
+  "alt": "海を わたる さる",
+  "title": "File:Japanese Fairy Book - Ozaki - 196.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_196.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "kurage-bachi": {
+  "alt": "ばつを うける くらげ",
+  "title": "File:Japanese Fairy Book - Ozaki - 201.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_201.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "kobutori-odori": {
+  "alt": "おにの さかもり",
+  "title": "File:Japanese Fairy Book - Ozaki - 277.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_277.png",
+  "lic": "Public domain",
+  "crop": null
+ },
+ "kobutori-tonari": {
+  "alt": "となりの じいさまに はなす",
+  "title": "File:Japanese Fairy Book - Ozaki - 279.png",
+  "page": "https://commons.wikimedia.org/wiki/File:Japanese_Fairy_Book_-_Ozaki_-_279.png",
+  "lic": "Public domain",
+  "crop": null
+ }
+}
