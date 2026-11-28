@@ -967,7 +967,8 @@
     .summary-table thead th { font-family: var(--font-ui); font-weight: 700; }
     .summary-table thead th { background: var(--brown-2); color: #fff; }
     .summary-table tbody td { background: #fff; border: 1px solid var(--line); }
-    .summary-table tbody td.sub-name { text-align: left; padding-left: 12px; }
+    .summary-table tbody td.sub-name { text-align: left; padding-left: 12px; white-space: nowrap; }
+    .summary-table tbody td.sub-name small { white-space: normal; }
     .summary-table tbody td.sub-name small { display: block; font-size: 0.66rem; color: var(--brown-3); font-weight: 700; }
     .summary-table td.wk { background: #faf5ea; }
     .summary-table td.mo { background: #fbf8f0; }
@@ -975,6 +976,48 @@
     .summary-table tr.grand td { background: #f2ead8; border-color: var(--line-2); font-weight: 800; }
     .summary-table tr.grand td.sub-name { color: var(--brown); }
     .summary-table tfoot td { background: var(--paper-2); font-size: 0.74rem; font-weight: 500; color: var(--brown-2); text-align: left; line-height: 1.5; }
+    /* 指定期間の列 */
+    .summary-table th.rg { background: var(--leaf); }
+    .summary-table th.rg small { display: block; font-size: 0.62rem; font-weight: 700; opacity: 0.9; }
+    .summary-table td.rg { background: #eef3fb; color: var(--leaf-dk); font-weight: 800; }
+    .summary-table tr.grand td.rg { background: #e1eaf8; }
+    .sub-link {
+      background: none; border: none; padding: 0; cursor: pointer; font: inherit; color: var(--leaf-dk);
+      text-decoration: underline; text-underline-offset: 3px; text-align: left;
+    }
+    .sub-link:hover { color: var(--leaf); }
+    .sub-link:focus-visible { outline: 2px solid var(--leaf); outline-offset: 2px; border-radius: 3px; }
+
+    /* 集計する期間 */
+    .sum-range {
+      display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap;
+      background: var(--paper-2); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 9px 12px; margin-bottom: 8px;
+    }
+    .sum-range-label { font-family: var(--font-ui); font-weight: 800; font-size: 0.86rem; }
+    .sum-range-dates { display: inline-flex; align-items: center; gap: 6px; }
+    .sum-range-dates input { width: auto; padding: 6px 8px; font-size: 0.82rem; border-width: 1px; }
+    .sum-range-btns { display: inline-flex; gap: 5px; flex-wrap: wrap; }
+    .sum-range-btns .btn.on { background: var(--leaf); color: #fff; border-color: var(--leaf-dk); }
+
+    /* 教科ごとの一覧 */
+    .sum-detail { margin-top: 16px; scroll-margin-top: 8px; }
+    .sum-detail-pick { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .sum-detail-pick label { font-weight: 800; font-size: 0.86rem; }
+    .sum-detail-pick select { width: auto; min-width: 160px; padding: 7px 10px; font-size: 0.86rem; border-width: 1px; }
+    .sum-detail-table { width: 100%; min-width: 520px; border-collapse: collapse; font-family: var(--font-read); font-size: 0.84rem; }
+    .sum-detail-table th, .sum-detail-table td { border: 1px solid var(--line); padding: 6px 8px; text-align: center; }
+    .sum-detail-table thead th { background: var(--sand); font-family: var(--font-ui); font-weight: 800; position: sticky; top: 0; }
+    .sum-detail-table td.sd-u { text-align: left; }
+    .sum-detail-table td.sd-n { font-variant-numeric: tabular-nums; font-weight: 700; }
+    .sum-detail-table td.sd-run { color: var(--leaf-dk); }
+    .sum-detail-table td.sd-t { font-size: 0.76rem; color: var(--brown-2); white-space: nowrap; }
+    .sum-detail-table tfoot td { background: #f2ead8; font-weight: 800; }
+    .sum-detail-table td.sd-empty { padding: 18px; color: var(--brown-2); font-weight: 700; }
+    .sd-sub { display: inline-block; font-size: 0.68rem; font-weight: 800; border: 1px solid currentColor; border-radius: 3px; padding: 0 4px; margin-right: 5px; color: var(--brown-2); }
+    .sd-none { color: var(--brown-3); font-size: 0.76rem; }
+    .sd-jump { background: none; border: none; padding: 0; cursor: pointer; font: inherit; font-weight: 700; color: var(--leaf-dk); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+    .sd-jump:focus-visible { outline: 2px solid var(--leaf); outline-offset: 2px; }
+
     .bar { height: 7px; border-radius: 999px; background: var(--sand); overflow: hidden; margin-top: 5px; }
     .bar > i { display: block; height: 100%; border-radius: 999px; background: var(--leaf); }
     .bar > i.over { background: var(--coral); }

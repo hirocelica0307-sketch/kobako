@@ -5653,6 +5653,147 @@
     // ===== 時数集計 =====
 
     function openSummaryModal() { calculateTotalHours(); document.getElementById('summaryModal').style.display = 'flex'; }
+
+    // ===== 集計する期間（時数集計の画面で指定する） =====
+    // はじめは年度全体。年度を切り替えたら、その年度全体にもどす。
+    let sumRange = null;   // { year, from, to }（'YYYY-MM-DD'）
+    let sumDetailSub = '';   // 一覧に出している教科
+    let sumSubsCache = [];   // 一覧でえらべる教科（表と同じ並び）
+
+    function sumYearBounds() {
+      const y = parseInt(appSettings.year || getFiscalYear(new Date()), 10);
+      return { year: y, from: y + '-04-01', to: (y + 1) + '-03-31' };
+    }
+    function getSumRange() {
+      const b = sumYearBounds();
+      if (!sumRange || sumRange.year !== b.year) sumRange = b;
+      return sumRange;
+    }
+    function setSumRange(from, to) {
+      const b = sumYearBounds();
+      let f = (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) ? from : b.from;
+      let t = (to && /^\d{4}-\d{2}-\d{2}$/.test(to)) ? to : b.to;
+      if (f < b.from) f = b.from;
+      if (t > b.to) t = b.to;
+      if (f > t) { const x = f; f = t; t = x; }
+      sumRange = { year: b.year, from: f, to: t };
+      calculateTotalHours();
+    }
+    function onSumRangeInput() {
+      setSumRange(document.getElementById('sumFrom').value, document.getElementById('sumTo').value);
+    }
+    // よく使う期間のボタン
+    function sumQuickRanges() {
+      const conf = getConfig();
+      const b = sumYearBounds();
+      const list = [{ k: 'year', label: '年度全体', from: b.from, to: b.to }];
+      const keys = { term1: ['t1Start', 't1End'], term2: ['t2Start', 't2End'], term3: ['t3Start', 't3End'] };
+      termKeys(conf).forEach(function(tk) {
+        const f = conf[keys[tk][0]], t = conf[keys[tk][1]];
+        if (f && t) list.push({ k: tk, label: termName(tk, conf), from: f, to: t });
+      });
+      const m = new Date(currentMonday);
+      const mFrom = m.getFullYear() + '-' + String(m.getMonth() + 1).padStart(2, '0') + '-01';
+      const mTo = fmtDate(new Date(m.getFullYear(), m.getMonth() + 1, 0));
+      list.push({ k: 'month', label: (m.getMonth() + 1) + '月', from: mFrom, to: mTo });
+      const sun = new Date(currentMonday); sun.setDate(sun.getDate() + 6);
+      list.push({ k: 'week', label: 'この週', from: fmtDate(currentMonday), to: fmtDate(sun) });
+      return list;
+    }
+    function renderSumRangeBar() {
+      const r = getSumRange();
+      const b = sumYearBounds();
+      const f = document.getElementById('sumFrom'), t = document.getElementById('sumTo');
+      if (f) { f.value = r.from; f.min = b.from; f.max = b.to; }
+      if (t) { t.value = r.to; t.min = b.from; t.max = b.to; }
+      const box = document.getElementById('sumRangeBtns');
+      if (box) {
+        box.innerHTML = sumQuickRanges().map(function(q) {
+          const on = (q.from === r.from && q.to === r.to);
+          return '<button type="button" class="btn btn-soft btn-sm' + (on ? ' on' : '') + '" data-f="' + q.from + '" data-t="' + q.to + '" ' +
+                 'aria-pressed="' + (on ? 'true' : 'false') + '" onclick="setSumRange(this.dataset.f, this.dataset.t)">' + escapeHTML(q.label) + '</button>';
+        }).join('');
+      }
+    }
+    function sumRangeLabel(r) {
+      const b = sumYearBounds();
+      if (r.from === b.from && r.to === b.to) return '年度全体';
+      return mdw(r.from) + '〜' + mdw(r.to);
+    }
+
+    // ===== 教科ごとの一覧（いつ・何時間目・何時間・累計） =====
+    function showSubjectDetail(sub) {
+      sumDetailSub = sub;
+      renderSubjectDetail();
+      const box = document.getElementById('sumDetail');
+      if (box && box.scrollIntoView) box.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+    function onSumDetailPick(v) { sumDetailSub = v; renderSubjectDetail(); }
+
+    // 期間の中で、その教科として数えたコマを、日付・時間目の順に返す
+    function subjectEntries(sub, from, to) {
+      const out = [];
+      Object.keys(appData).forEach(function(key) {
+        const parts = key.split('-'); if (parts.length !== 4) return;
+        const ds = parts[0] + '-' + parts[1] + '-' + parts[2];
+        const p = parts[3];
+        if (ds < from || ds > to || LESSON_PERIODS.indexOf(p) === -1) return;
+        getSlots(appData[key]).forEach(function(s, i) {
+          if (!s.subject || countAsSubject(s.subject) !== sub) return;
+          out.push({ ds: ds, p: p, idx: i, w: s.weight, sub: renameSubject(s.subject), unit: rtText(s.unit || '').trim() });
+        });
+      });
+      out.sort(function(a, b) { return a.ds < b.ds ? -1 : a.ds > b.ds ? 1 : (parseInt(a.p, 10) - parseInt(b.p, 10)) || (a.idx - b.idx); });
+      return out;
+    }
+
+    function renderSubjectDetail() {
+      const sel = document.getElementById('sumDetailSub');
+      const table = document.getElementById('sumDetailTable');
+      const note = document.getElementById('sumDetailNote');
+      if (!sel || !table) return;
+      if (sumSubsCache.indexOf(sumDetailSub) === -1) sumDetailSub = '';
+      sel.innerHTML = '<option value="">教科をえらんでください</option>' + sumSubsCache.map(function(s) {
+        return '<option value="' + escapeHTML(s) + '"' + (s === sumDetailSub ? ' selected' : '') + '>' + escapeHTML(s) + '</option>';
+      }).join('');
+      const r = getSumRange();
+      if (!sumDetailSub) {
+        table.innerHTML = '';
+        if (note) note.textContent = '教科をえらぶと、' + sumRangeLabel(r) + 'に入れたその教科のコマが、日付の順に出ます。上の表の教科名を押しても出ます。';
+        return;
+      }
+      const list = subjectEntries(sumDetailSub, r.from, r.to);
+      const fH = function(n) { return (Math.abs(n - Math.round(n)) < 0.05) ? Math.round(n).toString() : n.toFixed(1); };
+      const nk = getNikka();
+      const merged = Object.keys(COUNT_AS).filter(function(k) { return COUNT_AS[k] === sumDetailSub; });
+      if (note) note.textContent = sumRangeLabel(r) + '・' + list.length + 'コマ' +
+        (merged.length ? '（' + merged.join('・') + 'も' + sumDetailSub + 'として数えています）' : '');
+      if (!list.length) {
+        table.innerHTML = '<tbody><tr><td class="sd-empty">この期間には、' + escapeHTML(sumDetailSub) + 'のコマはありません。</td></tr></tbody>';
+        return;
+      }
+      let run = 0;
+      let h = '<thead><tr><th>日付</th><th>時間目</th><th>時刻</th><th>時間数</th><th>内容</th><th>累計</th></tr></thead><tbody>';
+      list.forEach(function(e) {
+        run += e.w;
+        const t = nk[nikkaOfDate(e.ds)] && nk[nikkaOfDate(e.ds)].times ? nk[nikkaOfDate(e.ds)].times[e.p] : null;
+        const label = (e.sub !== sumDetailSub ? '<span class="sd-sub">' + escapeHTML(e.sub) + '</span>' : '') + escapeHTML(e.unit);
+        h += '<tr><td class="sd-d"><button type="button" class="sd-jump" data-d="' + e.ds + '" data-p="' + e.p + '" ' +
+             'onclick="sumJumpTo(this.dataset.d, this.dataset.p)" title="この日のコマを開く">' + mdw(e.ds) + '</button></td>' +
+             '<td>' + e.p + '時間目</td><td class="sd-t">' + (timeLabel(t) || '—') + '</td>' +
+             '<td class="sd-n">' + fH(e.w) + '</td><td class="sd-u">' + (label || '<span class="sd-none">（単元名なし）</span>') + '</td>' +
+             '<td class="sd-n sd-run">' + fH(run) + '</td></tr>';
+      });
+      h += '</tbody><tfoot><tr><td colspan="3">合計（' + list.length + 'コマ）</td><td class="sd-n">' + fH(run) + '</td><td colspan="2">' +
+           escapeHTML(sumDetailSub) + 'は、この期間で <b>' + fH(run) + '時間</b></td></tr></tfoot>';
+      table.innerHTML = h;
+    }
+
+    // 一覧の日付から、その週のそのコマを開く
+    function sumJumpTo(ds, p) {
+      closeSummaryModal();
+      openCellFromSearch(ds, p);
+    }
     function closeSummaryModal() { document.getElementById('summaryModal').style.display = 'none'; }
 
     // 「書写」「図書」は国語として数えるなど、集計上のまとめ先を返す
@@ -5700,7 +5841,9 @@
       standard["学活"] = gakkatsuStandard[conf.grade] || 35;
 
       const displaySubs = gradeSubjects().concat(["学活", "委員会", "クラブ", "行事", "その他"]);
-      const zero = function() { return { term1: 0, term2: 0, term3: 0, auto: 0, upto: 0, weekly: 0, monthly: 0 }; };
+      const zero = function() { return { term1: 0, term2: 0, term3: 0, auto: 0, upto: 0, weekly: 0, monthly: 0, range: 0 }; };
+      const rng = getSumRange();
+      renderSumRangeBar();
       const totals = {};
       // upto = 表示している週の終わりまでの実績。着地見込みの計算だけに使う。
       displaySubs.forEach(function(sub) { totals[sub] = zero(); });
@@ -5733,9 +5876,11 @@
           if (term !== 'other') totals[sub][term] += s.weight;
           if (inThisWeek) totals[sub].weekly += s.weight;
           if (inThisMonth) totals[sub].monthly += s.weight;
+          if (dateStr >= rng.from && dateStr <= rng.to) totals[sub].range += s.weight;
         });
       });
       const allSubs = displaySubs.concat(extraSubs);
+      sumSubsCache = allSubs.slice();
 
       // ===== 見通しのもとになる週数 =====
       // 経過 = 年度のはじめから今週まで／残り = 次の週から最後の学期の終わりまで
@@ -5754,7 +5899,7 @@
         if (Math.abs(n) < 0.05) return '±0';
         return (n > 0 ? '+' : '−') + fH(Math.abs(n));
       };
-      const colCount = 9 + termKeys(conf).length;
+      const colCount = 10 + termKeys(conf).length;
 
       // 1教科ぶんの見通しを作る
       // total = 年間合計（入力ずみ全部＋調整）／upto = 表示している週までの実績（調整は入れない）
@@ -5790,7 +5935,7 @@
                '<td class="' + cls + '">' + fH(landing) + '<small>' + fS(gap) + '</small></td>';
       };
 
-      let html = '<thead><tr><th>教科</th><th>今週</th><th>' + monthLabel + '</th>';
+      let html = '<thead><tr><th>教科</th><th class="rg">指定期間<small>' + escapeHTML(sumRangeLabel(rng)) + '</small></th><th>今週</th><th>' + monthLabel + '</th>';
       termKeys(conf).forEach(function(tk) { html += '<th>' + termName(tk, conf) + '</th>'; });
       html += '<th>自動集計</th><th>調整</th><th>年間合計 ／ 標準</th>';
       html += '<th>残り</th><th>あと<br>何週</th><th>着地見込み</th></tr></thead><tbody>';
@@ -5806,8 +5951,10 @@
           const ratio = Math.max(0, Math.min(total / std, 1));
           bar = '<div class="bar"><i class="' + (total > std ? 'over' : '') + '" style="width:' + Math.round(ratio * 100) + '%;"></i></div>';
         }
-        html += '<tr><td class="sub-name">' + escapeHTML(sub) +
+        html += '<tr><td class="sub-name"><button type="button" class="sub-link" data-sub="' + escapeHTML(sub) + '" ' +
+                'onclick="showSubjectDetail(this.dataset.sub)" title="' + escapeHTML(sub) + 'のコマを一覧で見る">' + escapeHTML(sub) + '</button>' +
                 (isExtra ? '<small>この学年の教科ではありません</small>' : '') + '</td>' +
+                '<td class="rg">' + fH(t.range) + '</td>' +
                 '<td class="wk">' + fH(t.weekly) + '</td>' +
                 '<td class="mo">' + fH(t.monthly) + '</td>';
         termKeys(conf).forEach(function(tk) { html += '<td>' + fH(t[tk]) + '</td>'; });
@@ -5819,11 +5966,11 @@
       });
 
       // 総授業時数の行（学習指導要領の定めと比べる）
-      let sumWeekly = 0, sumMonthly = 0, sumAuto = 0, sumUpto = 0, sumAdj = 0;
+      let sumWeekly = 0, sumMonthly = 0, sumAuto = 0, sumUpto = 0, sumAdj = 0, sumRangeTotal = 0;
       const sumTerm = { term1: 0, term2: 0, term3: 0 };
       allSubs.forEach(function(sub) {
         const t = totals[sub];
-        sumWeekly += t.weekly; sumMonthly += t.monthly;
+        sumWeekly += t.weekly; sumMonthly += t.monthly; sumRangeTotal += t.range;
         TERM_KEYS.forEach(function(tk) { sumTerm[tk] += t[tk]; });
         sumAuto += t.auto; sumUpto += t.upto; sumAdj += (Number(adj[sub]) || 0);
       });
@@ -5831,6 +5978,7 @@
       const totalStd = TOTAL_STANDARD[conf.grade] || 1015;
       const totalRatio = Math.max(0, Math.min(grandTotal / totalStd, 1));
       html += '<tr class="grand"><td class="sub-name">総授業時数</td>' +
+              '<td class="rg">' + fH(sumRangeTotal) + '</td>' +
               '<td class="wk">' + fH(sumWeekly) + '</td>' +
               '<td class="mo">' + fH(sumMonthly) + '</td>';
       termKeys(conf).forEach(function(tk) { html += '<td>' + fH(sumTerm[tk]) + '</td>'; });
@@ -5847,6 +5995,7 @@
               '「学活」は学級活動の標準時数（' + (gakkatsuStandard[conf.grade] || 35) + '時間）と比べています。' +
               '委員会・クラブ・行事は個別の標準時数の定めがないため「-」ですが、総授業時数には含まれます。' +
               (extraSubs.length ? 'いまの学年にない教科（' + escapeHTML(extraSubs.join('・')) + '）も、表の下のほうに出して総授業時数に含めています。' : '') +
+              '「指定期間」は、上の「集計する期間」で決めた期間の数です（調整は入りません）。教科名を押すと、その教科のコマが下の一覧に出ます。' +
               '「今週」「' + monthLabel + '」は、いま画面に出している週をもとにした数です（週をめくると変わります）。' +
               '年間合計＝自動集計＋調整。調整はこの年度だけに残ります。' +
               '<br><b>見通しについて</b>：' +
@@ -5864,6 +6013,7 @@
               'かっこの中は標準時数との差で、足りない見込みのときは橙色になります。' +
               '</td></tr></tfoot>';
       document.getElementById('summaryTableElement').innerHTML = html;
+      renderSubjectDetail();
     }
 
     function setAdjust(sub, value) {

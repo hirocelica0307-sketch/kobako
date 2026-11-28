@@ -372,7 +372,7 @@
 
   <!-- ===== 時数集計 ===== -->
   <div id="summaryModal" class="modal-overlay">
-    <div class="modal-box large">
+    <div class="modal-box wide">
       <div class="modal-head">
         <h3>時数集計 <span id="summaryGradeDisplay" style="font-size:0.85rem; color:var(--brown-2);"></span></h3>
         <div class="head-tools">
@@ -381,11 +381,32 @@
         </div>
       </div>
       <div class="modal-body">
+        <div class="sum-range" role="group" aria-label="集計する期間">
+          <span class="sum-range-label">集計する期間</span>
+          <span class="sum-range-dates">
+            <input type="date" id="sumFrom" aria-label="はじめの日" onchange="onSumRangeInput()"> 〜
+            <input type="date" id="sumTo" aria-label="おわりの日" onchange="onSumRangeInput()">
+          </span>
+          <span class="sum-range-btns" id="sumRangeBtns"></span>
+        </div>
         <p class="field-hint" style="margin-bottom:10px;">
-          4月1日〜翌3月31日の範囲で集計します。「調整」欄に数を入れると、その分だけ年間合計に足し引きできます（マイナスも入力できます）。
+          期間を変えると、表の「指定期間」の列と、下の「教科ごとの一覧」が変わります。ほかの列は年度（4月1日〜翌3月31日）で数えます。
+          「調整」欄に数を入れると、その分だけ年間合計に足し引きできます（マイナスも入力できます）。
         </p>
         <div class="table-scroll">
           <table class="summary-table" id="summaryTableElement"></table>
+        </div>
+
+        <div class="sum-detail" id="sumDetail">
+          <div class="sec-title">教科ごとの一覧</div>
+          <div class="sum-detail-pick">
+            <label for="sumDetailSub">教科</label>
+            <select id="sumDetailSub" onchange="onSumDetailPick(this.value)"></select>
+          </div>
+          <p class="field-hint" id="sumDetailNote"></p>
+          <div class="table-scroll">
+            <table class="sum-detail-table" id="sumDetailTable"></table>
+          </div>
         </div>
       </div>
       <div class="modal-foot">
