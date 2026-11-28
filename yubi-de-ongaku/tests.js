@@ -62,11 +62,6 @@ const mid = L.progressAt(st, 5.25);
 t('とちゅうは 何くぎりめの どこまでか わかる', mid.state === 'run' && mid.seg === 2 && near(mid.f, 0.5), JSON.stringify(mid));
 const h = L.pointOn(st, 2, 0);
 t('くぎりの はじめ（はく）は かどの ばしょ', near(h[0], st.segs[2][0][0], 0.01) && near(h[1], st.segs[2][0][1], 0.01));
-const easy = L.buildStroke({ k: 'zigzag', b: [4, 12], per: 1, c: 'orange', ...sample.zigzag }, beats, 'easy');
-t('かんたん：くぎりが はんぶん（大きく うごく）', easy.segs.length === 4, easy.segs.length);
-t('かんたん でも はじまりと おわりは おなじ', near(easy.t0, st.t0) && near(easy.t1, st.t1));
-const arcE = L.buildStroke({ k: 'arc', b: [0, 4], c: 'lime', ...sample.arc }, beats, 'easy');
-t('弧は かんたん でも かわらない', arcE.segs.length === 1);
 
 /* ---------- 録音から つくった 線（path） ---------- */
 const P = [[1, 100, 500], [1.5, 300, 300, 'L'], [2, 500, 500, 'C'], [2.4, 700, 500, 'H', 120], [3, 900, 500, 'O', 60], [3.5, 1100, 400, 'C']];
@@ -81,8 +76,6 @@ const curl = ps.segs[3];
 t('path：くるっと（O）は わを かく（いちど もどる）', curl.some((q, i) => i > 0 && q[0] < curl[i - 1][0]));
 const at2 = L.progressAt(ps, 2.4);
 t('path：音が なった 瞬間に 玉は 点に いる', near(L.pointOn(ps, at2.seg, at2.f)[0], 700, 0.5) || (at2.seg === 3 && near(at2.f, 0)));
-const pse = L.buildPath({ k: 'path', p: P, pe: [P[0], P[5]], c: 'pink' }, 'easy');
-t('path：かんたん は pe を つかう', pse.segs.length === 1);
 
 /* ---------- 音の 大きさ・音が なった 瞬間 ---------- */
 const fake = { env: [0, 100, 50], onsets: [[0.5, 0.8], [1.0, 0.3]] };
@@ -113,45 +106,73 @@ SONG.scenes.forEach((sc, i) => {
         t(`${label}：かたちが ある`, s.k === 'path' || L.SHAPES[s.k]);
         t(`${label}：いろが きまって いる`, COLORS.includes(s.c), s.c);
         if (s.k === 'path') {
-            for (const [key, lv, gap] of [['p', 'normal', 0.18], ['pe', 'easy', 0.38]]) {
-                const pp = s[key];
-                t(`${label}（${lv}）：点が 2つ いじょう`, Array.isArray(pp) && pp.length >= 2);
-                // 点の 時間：はじまりと おわりは はく、あいだは「音が なった 瞬間」（かいだんの まがりかどは べつ）
-                const inner = pp.slice(1, -1).filter((q, k) => q[3] !== 'c' && !(s.name === 'stairs' && pp[k + 2] && pp[k + 2][1] !== q[1] && pp[k][1] === q[1]));
-                t(`${label}（${lv}）：はじまりと おわりは はく`, nearBeat(pp[0][0]) && nearBeat(pp[pp.length - 1][0]));
-                t(`${label}（${lv}）：あいだの 点は 音が なった 瞬間`, inner.every(q => nearOnset(q[0])), inner.filter(q => !nearOnset(q[0])).map(q => q[0]).join(','));
-                const tms = pp.map(q => q[0]);
-                t(`${label}（${lv}）：時間が じゅんに ならぶ`, tms.every((x, k) => k === 0 || x > tms[k - 1]));
-                if (s.name !== 'stairs' && !pp.some(q => q[3] === 'c')) t(`${label}（${lv}）：点と 点は ${gap}秒 いじょう はなれる`, tms.every((x, k) => k === 0 || x - tms[k - 1] >= gap - 0.02), Math.min(...tms.slice(1).map((x, k) => x - tms[k])).toFixed(3));
-                t(`${label}（${lv}）：つなぎかたが わかる`, pp.slice(1).every(q => ['L', 'C', 'c', 'H', 'O', undefined].includes(q[3])));
+            const pp = s.p, gap = 0.18;
+            t(`${label}：点が 2つ いじょう`, Array.isArray(pp) && pp.length >= 2);
+            t(`${label}：かんたん 用の データは ない`, !('pe' in s));
+            // 点の 時間：はじまりと おわりは はく、あいだは「音が なった 瞬間」（かいだんの まがりかど・まるの 通る 点 c は べつ）
+            const inner = pp.slice(1, -1).filter((q, k) => q[3] !== 'c' && !(s.name === 'stairs' && pp[k + 2] && pp[k + 2][1] !== q[1] && pp[k][1] === q[1]));
+            t(`${label}：はじまりと おわりは はく`, nearBeat(pp[0][0]) && nearBeat(pp[pp.length - 1][0]));
+            t(`${label}：あいだの 点は 音が なった 瞬間`, inner.every(q => nearOnset(q[0])), inner.filter(q => !nearOnset(q[0])).map(q => q[0]).join(','));
+            const tms = pp.map(q => q[0]);
+            t(`${label}：時間が じゅんに ならぶ`, tms.every((x, k) => k === 0 || x > tms[k - 1]));
+            if (s.name !== 'stairs' && !pp.some(q => q[3] === 'c')) t(`${label}：点と 点は ${gap}秒 いじょう はなれる`, tms.every((x, k) => k === 0 || x - tms[k - 1] >= gap - 0.02), Math.min(...tms.slice(1).map((x, k) => x - tms[k])).toFixed(3));
+            t(`${label}：つなぎかたが わかる`, pp.slice(1).every(q => ['L', 'C', 'c', 'H', 'O', undefined].includes(q[3])));
+            // おなじ 線を 2かい なぞらない
+            const VN = { star: 5, square: 4, triangle: 3 };
+            if (VN[s.name]) {
+                t(`${label}：一筆で 1かい だけ（点は かど＋もどる 点）`, pp.length === VN[s.name] + 1, pp.length);
+                t(`${label}：さいごは はじめの 点に もどる`, dist([pp[0][1], pp[0][2]], [pp[pp.length - 1][1], pp[pp.length - 1][2]]) < 2);
+            }
+            if (s.name === 'circle' || s.name === 'eight') {
+                const xs = pp.map(q => q[1]), ys = pp.map(q => q[2]);
+                const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2;
+                let sweep = 0;
+                if (s.name === 'circle') {
+                    for (let k = 1; k < pp.length; k++) {
+                        let d = Math.atan2(ys[k] - cy, xs[k] - cx) - Math.atan2(ys[k - 1] - cy, xs[k - 1] - cx);
+                        while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+                        sweep += d;
+                    }
+                    t(`${label}：まるは 1しゅう だけ`, Math.abs(sweep) <= 2 * Math.PI + 0.2, (sweep / Math.PI).toFixed(2) + 'π');
+                } else {
+                    // 8の字：まんなかを とおる かず（よこの むきが かわる 回数）で 1かい ぶん
+                    let cross = 0;
+                    for (let k = 1; k < pp.length; k++) if ((xs[k - 1] - cx) * (xs[k] - cx) < 0) cross++;
+                    t(`${label}：8の字は 1かい だけ（まんなかを 2かい とおる）`, cross <= 2, cross);
+                }
             }
         } else {
             t(`${label}：はくの はんい`, s.b[0] >= 0 && s.b[1] <= B.length - 1 && (s.k === 'pop' ? s.b[1] === s.b[0] : s.b[1] > s.b[0]), s.b.join('〜'));
         }
-        for (const lv of ['normal', 'easy']) {
-            const bs = L.buildStroke(s, B, lv);
-            const pts = bs.segs.flat();
-            const inside = pts.every(p => p[0] >= 40 && p[0] <= L.W - 40 && p[1] >= 40 && p[1] <= L.H - 40);
-            t(`${label}（${lv}）：画面の なかに おさまる`, inside, inside ? '' : JSON.stringify(pts.find(p => !(p[0] >= 40 && p[0] <= L.W - 40 && p[1] >= 40 && p[1] <= L.H - 40))));
-        }
+        const bs = L.buildStroke(s, B);
+        const pts = bs.segs.flat();
+        const bad = pts.find(p => !(p[0] >= 40 && p[0] <= L.W - 40 && p[1] >= 40 && p[1] <= L.H - 40));
+        t(`${label}：画面の なかに おさまる`, !bad, bad ? JSON.stringify(bad) : '');
     });
-    const built = L.buildSong({ ...SONG, scenes: [sc] }, 'normal').scenes[0];
+    const built = L.buildSong({ ...SONG, scenes: [sc] }).scenes[0];
     t(`${name}：まえの がめんの あとに はじまる`, built.start >= prevEnd - 1e-6, `${built.start.toFixed(2)} >= ${prevEnd.toFixed(2)}`);
     prevEnd = built.end;
 });
 t('うごきかたが 12しゅるい いじょう', names.size >= 12, [...names].join(' '));
 /* おなじ がめんの なかで、2本の 線が どうじに すすまない（ゆびは 1本） */
 SONG.scenes.forEach((sc, i) => {
-    const ss = sc.strokes.map(s => L.buildStroke(s, B, 'normal')).sort((a, b) => a.t0 - b.t0);
+    const ss = sc.strokes.map(s => L.buildStroke(s, B)).sort((a, b) => a.t0 - b.t0);
     let ok = true;
     for (let j = 1; j < ss.length; j++) if (ss[j].t0 < ss[j - 1].t1 - 1e-6) ok = false;
     t(`がめん${i + 1}：線は 1本ずつ じゅんばんに すすむ`, ok);
 });
-const song = L.buildSong(SONG, 'normal');
+const song = L.buildSong(SONG);
 t('がめんの でる 時間は はじまる 時間より まえ', song.scenes.every(sc => sc.show <= sc.start));
-t('がめんの こさは 0〜1', song.scenes.every(sc => [sc.show - 1, sc.show + 0.1, sc.start, sc.end, sc.hide + 0.2, sc.hide + 1].every(x => {
-    const a = L.sceneAlpha(sc, x); return a >= 0 && a <= 1;
-})));
+t('がめんの きりかえは パッと（まえの がめんが きえる ときに つぎが でる）', song.scenes.every((sc, i) => i === 0 || near(song.scenes[i - 1].hide, sc.show)));
+t('つぎの がめんは まえの 線が おわって から でる', song.scenes.every((sc, i) => i === 0 || sc.show >= song.scenes[i - 1].end - 1e-6));
+t('がめんの こさは 0 か 1（ふわっと しない）', song.scenes.every(sc => [sc.show - 0.01, sc.show, sc.start, sc.end - 0.01, sc.hide - 0.01, sc.hide, sc.hide + 0.2].every(x => {
+    const a = L.sceneAlpha(sc, x); return a === 0 || a === 1;
+})) && L.sceneAlpha(song.scenes[1], song.scenes[1].hide) === 0 && L.sceneAlpha(song.scenes[1], song.scenes[1].show) === 1);
+t('どの 時間でも 見える がめんは 1つ だけ', (() => { for (let x = 0; x < SONG.duration; x += 0.05) if (song.scenes.filter(sc => L.sceneAlpha(sc, x) > 0).length > 1) return false; return true; })());
+
+/* ---------- はじめの 画面：曲を えらぶ だけ（せってい なし） ---------- */
+t('むずかしさ・はやさ・ずれ の せっていが ない', !/data-opt=|data-lag|ゆっくり|かんたん|playbackRate = Number/.test(html));
+t('曲えらびが ある', /id="songList"/.test(html) && /const SONGS = \[/.test(html));
 
 /* ---------- けっか ---------- */
 const bad = rows.filter(r => !r.ok);

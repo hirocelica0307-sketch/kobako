@@ -16,7 +16,7 @@
        ・音が 大きい ほど 大きく うごく、小さい ほど 小さく うごく
        ・音が 高い ほど 上、低い ほど 下（メロディー・かいだん など）
        ・こまかい 音が つづく ところは 小きざみに、のびる 音は ゆったり
-       ・かんたん は、つよい 音 だけを えらんで、うごきを へらす
+       ・おなじ 線を 2かい なぞらない（まる・8の字は 1しゅう、ほし・しかく・さんかくは 一筆で 1かい）
   3. song-tengoku.js に 書きだす（このファイルは 手で なおさない）
 """
 import json
@@ -35,7 +35,7 @@ OUT = os.path.join(ROOT, 'song-tengoku.js')
 SR, HOP = 22050, 256
 
 W, H = 1600, 900
-GAP = {'normal': 0.19, 'easy': 0.42}     # 点と 点の あいだの いちばん みじかい 時間（秒）
+GAP = 0.19     # 点と 点の あいだの いちばん みじかい 時間（秒）
 
 # 画面の ばしょ（x0, y0, x1, y1）
 BOX = {
@@ -239,8 +239,11 @@ def make_path(A, kind, box, ts, direction, rnd):
     elif kind in ('circle', 'spiral', 'spiralin', 'eight'):
         R = min(bw, bh) / 2
         beats_len = (t1 - t0) / 0.465
-        turns = {'circle': beats_len / 4, 'spiral': beats_len / 4, 'spiralin': beats_len / 4, 'eight': beats_len / 8}[kind]
-        turns = max(1.0, round(turns * 2) / 2)
+        # おなじ 線を 2かい なぞらない：まる・8の字は 1しゅう だけ。うずは 大きさが かわるので かさならない（2しゅう まで）
+        if kind in ('circle', 'eight'):
+            turns = 1.0
+        else:
+            turns = min(2.0, max(1.0, round(beats_len / 4 * 2) / 2))
         for i, t in enumerate(ts):
             f = (t - t0) / (t1 - t0)
             th = -math.pi / 2 + direction * 2 * math.pi * turns * f
@@ -264,9 +267,19 @@ def make_path(A, kind, box, ts, direction, rnd):
             vs = [(-3 * math.pi / 4 + k * math.pi / 2) for k in range(4)]
         else:
             vs = [(-math.pi / 2 + k * 2 * math.pi / 3) for k in range(3)]
-        for i, t in enumerate(ts):
-            r = R * (0.55 + 0.45 * L[i])
-            a = vs[i % len(vs)]
+        # 一筆で 1かい だけ なぞって、はじめの 点に もどる。
+        # かどの 時間は、等分した 時間に いちばん ちかい「音が なった 瞬間」に あわせる
+        n = len(vs)
+        inner = ts[1:-1]
+        corner = [t0]
+        for k in range(1, n):
+            want = t0 + (t1 - t0) * k / n
+            cands = [t for t in inner if t > corner[-1] + 0.15 and t < t1 - 0.15 * (n - k)]
+            corner.append(min(cands, key=lambda t: abs(t - want)) if cands else want)
+        corner.append(t1)
+        r = R * (0.55 + 0.45 * float(np.mean(L)))
+        for i, t in enumerate(corner):
+            a = vs[i % n]
             add(t, cx + r * math.cos(a), cy + r * math.sin(a))
     else:
         raise ValueError(kind)
@@ -277,10 +290,9 @@ def stroke(A, b0, b1, kind, box, color, direction, rnd, mult=1.0):
     beats = A['beats']
     t0, t1 = float(beats[b0]), float(beats[b1])
     out = {'k': 'path', 'c': color}
-    for lv, key in (('normal', 'p'), ('easy', 'pe')):
-        gap = GAP[lv] * (2.2 if kind in ('swoop', 'lightning') else 1.4 if kind == 'bounce' else 1) * mult
-        ts = pick_times(A, t0, t1, gap)
-        out[key] = make_path(A, kind, BOX[box], ts, direction, rnd)
+    gap = GAP * (2.2 if kind in ('swoop', 'lightning') else 1.4 if kind == 'bounce' else 1) * mult
+    ts = pick_times(A, t0, t1, gap)
+    out['p'] = make_path(A, kind, BOX[box], ts, direction, rnd)
     # 線の ふとさ：その あいだの 音の 大きさ
     m = np.mean([loud_at(A, t) for t in np.linspace(t0, t1, 12)])
     out['w'] = int(round(14 + 14 * m))
@@ -310,7 +322,7 @@ def main():
                  '   beats  … はく（4分音符）の 時間（秒）\n'
                  '   env    … 音の 大きさ（0〜100）。0.05秒ごと\n'
                  '   onsets … 音が なった 瞬間 [秒, つよさ0〜1]\n'
-                 '   scenes … がめん。線は k:"path" の とき p:[[秒, x, y, つなぎかた, おおきさ], …]（pe は かんたん 用）\n'
+                 '   scenes … がめん。線は k:"path" の とき p:[[秒, x, y, つなぎかた, おおきさ], …]\n'
                  '            つなぎかた L まっすぐ / C なめらか / c なめらか（音の ない ところの 通る 点）/ H ぴょん（はねる 高さ）/ O くるっと（わの 大きさ）\n'
                  '*/')
     lines.append('(function (G) {')
@@ -333,8 +345,7 @@ def main():
     with open(OUT, 'w', encoding='utf-8') as f:
         f.write('\n'.join(lines) + '\n')
     n = sum(len(s.get('p', [])) for sc in scenes for s in sc['strokes'])
-    ne = sum(len(s.get('pe', [])) for sc in scenes for s in sc['strokes'])
-    print(f'wrote {OUT}: scenes={len(scenes)} points normal={n} easy={ne} beats={len(A["beats"])}')
+    print(f'wrote {OUT}: scenes={len(scenes)} points={n} beats={len(A["beats"])}')
 
 
 if __name__ == '__main__':

@@ -66,23 +66,28 @@ body.hidecursor{ cursor:none; }
     -webkit-background-clip:text; background-clip:text; color:transparent;
 }
 .lead{ margin:0; font-size:clamp(16px,2.4vw,26px); font-weight:800; }
+.songs{ display:flex; flex-wrap:wrap; gap:16px; justify-content:center; }
 .song{
-    display:flex; flex-direction:column; gap:4px; align-items:center;
-    padding:12px 26px; border-radius:18px;
-    background:var(--panel); border:2px solid var(--line);
+    display:flex; align-items:center; gap:18px;
+    padding:14px 30px 14px 22px; border-radius:22px;
+    background:var(--panel); border:3px solid var(--line); color:var(--ink);
+    text-align:left; min-height:96px;
+    box-shadow:0 5px 0 #0d0d18;
 }
+.song:hover, .song:focus-visible{ border-color:var(--acc); outline:none; }
+.song:active{ transform:translateY(3px); box-shadow:0 2px 0 #0d0d18; }
+.song .play{
+    flex:none; width:64px; height:64px; border-radius:50%;
+    display:grid; place-items:center; font-size:30px; padding-left:5px;
+    background:linear-gradient(180deg,#ffc24d,var(--acc)); color:#2a1a00;
+    box-shadow:0 0 24px rgba(255,176,32,.35);
+}
+.song .txt{ display:flex; flex-direction:column; gap:2px; }
 .song .name{ font-family:var(--ff-pop); font-size:clamp(24px,3.6vw,40px); line-height:1.5; }
 .song .who{ color:var(--thin); font-size:clamp(13px,1.6vw,17px); font-weight:800; }
+.pick{ margin:0; color:var(--thin); font-weight:800; font-size:clamp(14px,1.8vw,20px); }
 
 .opts{ display:flex; flex-wrap:wrap; gap:10px 22px; justify-content:center; align-items:center; }
-.opt{ display:flex; align-items:center; gap:8px; font-weight:800; font-size:clamp(14px,1.7vw,18px); }
-.seg{ display:inline-flex; background:var(--panel); border:2px solid var(--line); border-radius:12px; padding:3px; }
-.seg button{
-    border:0; background:transparent; border-radius:9px;
-    padding:6px 14px; min-height:40px; font-weight:800; color:var(--thin);
-}
-.seg button[aria-pressed="true"]{ background:var(--panel2); color:var(--ink); box-shadow:inset 0 0 0 2px var(--acc); }
-
 .big{
     border:0; border-radius:999px;
     padding:14px 46px; min-height:64px;
@@ -101,13 +106,6 @@ kbd{
     display:inline-block; min-width:1.6em; padding:0 .4em; border-radius:5px;
     border:1px solid var(--line); background:var(--panel); font:inherit; font-weight:800; color:var(--ink);
 }
-details.teacher{ color:var(--thin); font-size:14px; max-width:640px; }
-details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
-.lagrow{ display:flex; align-items:center; justify-content:center; gap:8px; margin:6px 0; flex-wrap:wrap; }
-.lagrow output{ min-width:7em; font-weight:800; color:var(--ink); }
-.lagrow button{ min-width:44px; }
-.note{ margin:4px 0 0; font-size:13px; line-height:1.6; }
-
 /* ---------- カウントダウン・とまっています ---------- */
 .center-msg{
     position:fixed; left:0; right:0; top:50%; transform:translateY(-50%);
@@ -162,35 +160,9 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
 <section class="screen" id="startScreen">
     <h1 class="title">ゆびで おんがく</h1>
     <p class="lead">おんがくに あわせて、ひかる 線を ゆびで なぞろう！</p>
-    <div class="song">
-        <span class="name"><ruby>天国<rt>てんごく</rt></ruby>と<ruby>地獄<rt>じごく</rt></ruby></span>
-        <span class="who">オッフェンバック <ruby>作曲<rt>さっきょく</rt></ruby> ／ <span id="songLen">1分47秒</span></span>
-    </div>
-    <div class="opts">
-        <div class="opt">むずかしさ
-            <span class="seg" data-opt="level">
-                <button type="button" data-v="easy">かんたん</button>
-                <button type="button" data-v="normal">ふつう</button>
-            </span>
-        </div>
-        <div class="opt">はやさ
-            <span class="seg" data-opt="speed">
-                <button type="button" data-v="1">ふつう</button>
-                <button type="button" data-v="0.85">ゆっくり</button>
-            </span>
-        </div>
-    </div>
-    <button type="button" class="big" id="startBtn">▶ はじめる</button>
-    <p class="keys"><kbd>スペース</kbd> はじめる・とめる　<kbd>F</kbd> 画面いっぱい　<kbd>←</kbd><kbd>→</kbd> 5びょう もどる・すすむ　<kbd>Esc</kbd> おわる</p>
-    <details class="teacher">
-        <summary>先生むけ：音と 線の ずれを なおす</summary>
-        <div class="lagrow">
-            <button type="button" class="sub" data-lag="-0.05">◀ 線を はやく</button>
-            <output id="lagOut">ずれ 0.00 秒</output>
-            <button type="button" class="sub" data-lag="0.05">線を おそく ▶</button>
-        </div>
-        <p class="note">テレビや スピーカーに よっては、音が すこし おくれて きこえます。線が 音より さきに すすんで 見えるときは「線を おそく」に して ください（この パソコンに おぼえます）。</p>
-    </details>
+    <p class="pick">きょくを えらぶと はじまります</p>
+    <div class="songs" id="songList"></div>
+    <p class="keys"><kbd>スペース</kbd> とめる・つづける　<kbd>F</kbd> 画面いっぱい　<kbd>←</kbd><kbd>→</kbd> 5びょう もどる・すすむ　<kbd>Esc</kbd> おわる</p>
 </section>
 
 <!-- おしまいの 画面 -->
@@ -216,9 +188,7 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
 </div>
 <div class="progress" id="progress" hidden><i id="progressFill"></i></div>
 
-<audio id="music" preload="auto">
-    <source src="assets/music/tengoku-to-jigoku.ogg" type="audio/ogg">
-</audio>
+<audio id="music" preload="auto"></audio>
 
 <script>
 // ==LOGIC==
@@ -357,8 +327,8 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
         }
         return out;
     }
-    function buildPath(s, level) {
-        const P = level === 'easy' && s.pe ? s.pe : s.p;
+    function buildPath(s) {
+        const P = s.p;
         const segs = [], times = [P[0][0]];
         for (let i = 1; i < P.length; i++) { segs.push(pathSeg(P, i)); times.push(P[i][0]); }
         return {
@@ -385,15 +355,14 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
         return t - o[lo][0] <= win ? { t: o[lo][0], s: o[lo][1], age: t - o[lo][0] } : null;
     }
 
-    /* 1本の 線を つくる。level が easy なら くぎりを 2ばいに して 大きく ゆっくり うごかす */
-    function buildStroke(s, beats, level) {
-        if (s.k === 'path') return buildPath(s, level);
+    /* 1本の 線を つくる */
+    function buildStroke(s, beats) {
+        if (s.k === 'path') return buildPath(s);
         const b0 = s.b[0], b1 = s.b[1];
         let n;
         if (s.k === 'pop') n = 1;
         else {
-            let per = s.per || (b1 - b0);
-            if (level === 'easy' && s.per && s.k !== 'arc' && s.k !== 'line' && s.k !== 'spiral') per *= 2;
+            const per = s.per || (b1 - b0);
             n = Math.max(1, Math.round((b1 - b0) / per));
         }
         const segs = SHAPES[s.k](s, n);
@@ -434,11 +403,11 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
     }
 
     /* 曲の 「がめん」を つくる。がめんごとに 線を まとめ、でる 時間・きえる 時間を きめる */
-    function buildSong(song, level) {
+    function buildSong(song) {
         const beats = song.beats;
         const bd = (beats[beats.length - 1] - beats[0]) / (beats.length - 1);
         const scenes = song.scenes.map(sc => {
-            const strokes = sc.strokes.map(s => buildStroke(s, beats, level));
+            const strokes = sc.strokes.map(s => buildStroke(s, beats));
             return {
                 strokes,
                 start: Math.min(...strokes.map(s => s.t0)),
@@ -448,19 +417,17 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
         scenes.forEach((sc, i) => {
             const prev = scenes[i - 1];
             const lead = (song.leadBeats || 2) * bd;
-            // さいしょの がめんは カウントダウン（3・2・1）の あいだも 見せて、ゆびを はじまりに あわせて まてる ように する
-            sc.show = prev ? Math.max(sc.start - lead, prev.end - bd) : Math.min(sc.start - lead, -10);
-            sc.hide = scenes[i + 1] ? Math.max(sc.end, scenes[i + 1].start) : sc.end + 1.5;
+            // さいしょの がめんは カウントダウン（3・2・1）の あいだも 見せて、ゆびを はじまりに あわせて まてる ように する。
+            // つぎの がめんは、まえの がめんの 線が おわった とき（あいだが あく ときは はじまる すこし まえ）に パッと でる
+            sc.show = prev ? Math.max(prev.end, sc.start - lead) : Math.min(sc.start - lead, -10);
         });
+        scenes.forEach((sc, i) => { sc.hide = scenes[i + 1] ? scenes[i + 1].show : sc.end + 1.5; });
         return { scenes, beatDur: bd, duration: song.duration, env: song.env, onsets: song.onsets };
     }
 
-    /* がめんの こさ（0〜1）：でる ときと きえる ときに ふわっと */
+    /* がめんを 見せるか（1）見せないか（0）。きりかえは パッと（ふわっと きえない） */
     function sceneAlpha(sc, t) {
-        if (t < sc.show || t > sc.hide + 0.45) return 0;
-        const a = Math.min(1, (t - sc.show) / 0.3);
-        const b = t > sc.hide ? 1 - (t - sc.hide) / 0.45 : 1;
-        return Math.max(0, Math.min(a, b));
+        return t >= sc.show && t < sc.hide ? 1 : 0;
     }
 
     G.YubiLogic = { W, H, SHAPES, beatTime, buildStroke, buildPath, pathSeg, progressAt, pointOn, buildSong, sceneAlpha, cumLen, loudAt, lastOnset };
@@ -473,37 +440,38 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
 <script>
 (function () {
     'use strict';
-    const L = window.YubiLogic, SONG = window.SONG_TENGOKU;
+    const L = window.YubiLogic;
     const $ = id => document.getElementById(id);
     const cv = $('stage'), ctx = cv.getContext('2d');
     const audio = $('music');
 
-    /* ---------- せってい（この パソコンに おぼえる） ---------- */
-    const KEY = 'yubi-de-ongaku:v1';
-    const opts = { level: 'normal', speed: '1', lag: 0 };
-    try { Object.assign(opts, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { /* つかえなくても うごく */ }
-    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(opts)); } catch (e) { /* なにも しない */ } };
-
-    document.querySelectorAll('.seg').forEach(seg => {
-        const name = seg.dataset.opt;
-        const paint = () => seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === opts[name])));
-        seg.addEventListener('click', e => {
-            const b = e.target.closest('button'); if (!b) return;
-            opts[name] = b.dataset.v; save(); paint(); rebuild();
-        });
-        paint();
+    /* ---------- 曲（ふやす ときは ここに たす） ---------- */
+    const SONGS = [
+        {
+            name: '<ruby>天国<rt>てんごく</rt></ruby>と<ruby>地獄<rt>じごく</rt></ruby>',
+            who: 'オッフェンバック <ruby>作曲<rt>さっきょく</rt></ruby>',
+            audio: 'assets/music/tengoku-to-jigoku.ogg',
+            data: window.SONG_TENGOKU
+        }
+    ];
+    let current = SONGS[0], song = L.buildSong(current.data);
+    const fmtLen = s => Math.floor(s / 60) + '分' + Math.round(s % 60) + '秒';
+    const list = $('songList');
+    SONGS.forEach(sg => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'song';
+        b.innerHTML = '<span class="play" aria-hidden="true">▶</span><span class="txt"><span class="name">' + sg.name +
+            '</span><span class="who">' + sg.who + ' ／ ' + fmtLen(sg.data.duration) + '</span></span>';
+        b.addEventListener('click', () => choose(sg));
+        list.appendChild(b);
     });
-    const lagOut = $('lagOut');
-    const paintLag = () => { lagOut.textContent = 'ずれ ' + (opts.lag >= 0 ? '+' : '−') + Math.abs(opts.lag).toFixed(2) + ' 秒'; };
-    document.querySelectorAll('[data-lag]').forEach(b => b.addEventListener('click', () => {
-        opts.lag = Math.round(Math.max(-0.5, Math.min(0.5, opts.lag + Number(b.dataset.lag))) * 100) / 100;
-        save(); paintLag();
-    }));
-    paintLag();
-
-    let song = null;
-    function rebuild() { song = L.buildSong(SONG, opts.level); }
-    rebuild();
+    function choose(sg) {
+        if (current !== sg || !audio.getAttribute('src')) {
+            current = sg; song = L.buildSong(sg.data);
+            audio.src = sg.audio; audio.load();
+        }
+        startCount();
+    }
 
     /* ---------- 画面の 大きさ ---------- */
     let scale = 1, ox = 0, oy = 0, dpr = 1;
@@ -657,7 +625,7 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
         ctx.fillStyle = '#07070d'; ctx.fillRect(0, 0, cv.width, cv.height);
         if (mode === 'home' || mode === 'end') return;
         ctx.setTransform(scale, 0, 0, scale, ox, oy);
-        const t = nowT() - opts.lag;
+        const t = nowT();
         const lv = L.loudAt(song, t), hit = L.lastOnset(song, t, 0.32);
         for (const sc of song.scenes) {
             const a = L.sceneAlpha(sc, t);
@@ -687,10 +655,9 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
 
     let countTimer = 0;
     function startCount() {
-        rebuild();
         audio.pause();
-        audio.currentTime = 0;
-        audio.playbackRate = Number(opts.speed) || 1;
+        try { audio.currentTime = 0; } catch (e) { /* よみこみ まえ */ }
+        audio.playbackRate = 1;
         countEnd = performance.now() + COUNT * 1000;
         show('count');
         const c = $('count');
@@ -719,7 +686,7 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
         const p = audio.play(); if (p && p.catch) p.catch(() => show('pause'));
     }
     function toggle() {
-        if (mode === 'home' || mode === 'end') startCount();
+        if (mode === 'home' || mode === 'end') choose(current);
         else if (mode === 'play') pause();
         else if (mode === 'pause') resume();
     }
@@ -732,7 +699,6 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
     function quit() { clearTimeout(countTimer); audio.pause(); show('home'); wake(false); }
     audio.addEventListener('ended', () => { setTimeout(() => { if (mode === 'play') { show('end'); wake(false); } }, 1200); });
 
-    $('startBtn').addEventListener('click', startCount);
     $('againBtn').addEventListener('click', startCount);
     $('homeBtn').addEventListener('click', quit);
     $('playBtn').addEventListener('click', () => { if (mode === 'count') return; toggle(); });
@@ -798,7 +764,6 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
         nowT = () => Number(pv[1]);
     }
 
-    $('songLen').textContent = Math.floor(SONG.duration / 60) + '分' + Math.round(SONG.duration % 60) + '秒';
     if (!pv) show('home');
     requestAnimationFrame(frame);
 })();
