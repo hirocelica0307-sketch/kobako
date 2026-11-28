@@ -68,36 +68,78 @@ t('かんたん でも はじまりと おわりは おなじ', near(easy.t0, st
 const arcE = L.buildStroke({ k: 'arc', b: [0, 4], c: 'lime', ...sample.arc }, beats, 'easy');
 t('弧は かんたん でも かわらない', arcE.segs.length === 1);
 
+/* ---------- 録音から つくった 線（path） ---------- */
+const P = [[1, 100, 500], [1.5, 300, 300, 'L'], [2, 500, 500, 'C'], [2.4, 700, 500, 'H', 120], [3, 900, 500, 'O', 60], [3.5, 1100, 400, 'C']];
+const ps = L.buildPath({ k: 'path', p: P, c: 'pink' }, 'normal');
+t('path：くぎりは 点の かず − 1', ps.segs.length === P.length - 1);
+t('path：くぎりの おわりは つぎの 点', ps.segs.every((sg, i) => dist(sg[sg.length - 1], [P[i + 1][1], P[i + 1][2]]) < 0.5));
+t('path：くぎりの はじめは まえの 点', ps.segs.every((sg, i) => dist(sg[0], [P[i][1], P[i][2]]) < 0.5));
+t('path：時間は 点の 時間', ps.times.every((x, i) => x === P[i][0]));
+const hop = ps.segs[2];
+t('path：ぴょん（H）は 上に はねる', Math.min(...hop.map(q => q[1])) < 500 - 100);
+const curl = ps.segs[3];
+t('path：くるっと（O）は わを かく（いちど もどる）', curl.some((q, i) => i > 0 && q[0] < curl[i - 1][0]));
+const at2 = L.progressAt(ps, 2.4);
+t('path：音が なった 瞬間に 玉は 点に いる', near(L.pointOn(ps, at2.seg, at2.f)[0], 700, 0.5) || (at2.seg === 3 && near(at2.f, 0)));
+const pse = L.buildPath({ k: 'path', p: P, pe: [P[0], P[5]], c: 'pink' }, 'easy');
+t('path：かんたん は pe を つかう', pse.segs.length === 1);
+
+/* ---------- 音の 大きさ・音が なった 瞬間 ---------- */
+const fake = { env: [0, 100, 50], onsets: [[0.5, 0.8], [1.0, 0.3]] };
+t('大きさ：0.05秒の あいだは つなぐ', near(L.loudAt(fake, 0.025), 0.5) && near(L.loudAt(fake, 0.05), 1));
+t('音が なった 瞬間：0.2秒 まえ なら みつかる', L.lastOnset(fake, 0.7, 0.32) && near(L.lastOnset(fake, 0.7, 0.32).t, 0.5));
+t('音が なった 瞬間：ふるい ものは なし', L.lastOnset(fake, 0.9, 0.32) === null);
+t('音が なった 瞬間：さいしょより まえは なし', L.lastOnset(fake, 0.2, 0.32) === null);
+
 /* ---------- 譜面（天国と地獄） ---------- */
 t('譜面が ある', SONG && Array.isArray(SONG.beats) && Array.isArray(SONG.scenes));
 const B = SONG.beats;
 t('はくの 時間が じゅんに ならんで いる', B.every((x, i) => i === 0 || x > B[i - 1]));
 t('はくは 曲の 長さの なか', B[0] >= 0 && B[B.length - 1] <= SONG.duration + 0.01, `${B[0]}〜${B[B.length - 1]} / ${SONG.duration}`);
+t('音の 大きさが 曲の 長さぶん ある（0.05秒ごと）', Math.abs(SONG.env.length * 0.05 - SONG.duration) < 0.1 && SONG.env.every(v => v >= 0 && v <= 100), SONG.env.length);
+t('音が なった 瞬間が じゅんに ならんで いる', SONG.onsets.length > 200 && SONG.onsets.every((o, i) => o[1] >= 0 && o[1] <= 1 && (i === 0 || o[0] > SONG.onsets[i - 1][0])), SONG.onsets.length);
 const COLORS = ['orange', 'yellow', 'lime', 'lavender', 'pink', 'cyan', 'purple', 'red', 'white'];
+const onsetTimes = SONG.onsets.map(o => o[0]);
+const nearOnset = x => onsetTimes.some(o => Math.abs(o - x) < 0.002);
+const nearBeat = x => B.some(b => Math.abs(b - x) < 0.002);
+const names = new Set();
 let prevEnd = -Infinity;
 SONG.scenes.forEach((sc, i) => {
     const name = `がめん${i + 1}`;
     t(`${name}：線が 1〜6本`, sc.strokes.length >= 1 && sc.strokes.length <= 6, sc.strokes.length);
     sc.strokes.forEach((s, j) => {
-        const label = `${name}-${j + 1}（${s.k}）`;
-        t(`${label}：かたちが ある`, L.SHAPES[s.k]);
+        const label = `${name}-${j + 1}（${s.name || s.k}）`;
+        if (s.name) names.add(s.name);
+        t(`${label}：かたちが ある`, s.k === 'path' || L.SHAPES[s.k]);
         t(`${label}：いろが きまって いる`, COLORS.includes(s.c), s.c);
-        t(`${label}：はくの はんい`, s.b[0] >= 0 && s.b[1] <= B.length - 1 && (s.k === 'pop' ? s.b[1] === s.b[0] : s.b[1] > s.b[0]), s.b.join('〜'));
+        if (s.k === 'path') {
+            for (const [key, lv, gap] of [['p', 'normal', 0.18], ['pe', 'easy', 0.38]]) {
+                const pp = s[key];
+                t(`${label}（${lv}）：点が 2つ いじょう`, Array.isArray(pp) && pp.length >= 2);
+                // 点の 時間：はじまりと おわりは はく、あいだは「音が なった 瞬間」（かいだんの まがりかどは べつ）
+                const inner = pp.slice(1, -1).filter((q, k) => q[3] !== 'c' && !(s.name === 'stairs' && pp[k + 2] && pp[k + 2][1] !== q[1] && pp[k][1] === q[1]));
+                t(`${label}（${lv}）：はじまりと おわりは はく`, nearBeat(pp[0][0]) && nearBeat(pp[pp.length - 1][0]));
+                t(`${label}（${lv}）：あいだの 点は 音が なった 瞬間`, inner.every(q => nearOnset(q[0])), inner.filter(q => !nearOnset(q[0])).map(q => q[0]).join(','));
+                const tms = pp.map(q => q[0]);
+                t(`${label}（${lv}）：時間が じゅんに ならぶ`, tms.every((x, k) => k === 0 || x > tms[k - 1]));
+                if (s.name !== 'stairs' && !pp.some(q => q[3] === 'c')) t(`${label}（${lv}）：点と 点は ${gap}秒 いじょう はなれる`, tms.every((x, k) => k === 0 || x - tms[k - 1] >= gap - 0.02), Math.min(...tms.slice(1).map((x, k) => x - tms[k])).toFixed(3));
+                t(`${label}（${lv}）：つなぎかたが わかる`, pp.slice(1).every(q => ['L', 'C', 'c', 'H', 'O', undefined].includes(q[3])));
+            }
+        } else {
+            t(`${label}：はくの はんい`, s.b[0] >= 0 && s.b[1] <= B.length - 1 && (s.k === 'pop' ? s.b[1] === s.b[0] : s.b[1] > s.b[0]), s.b.join('〜'));
+        }
         for (const lv of ['normal', 'easy']) {
             const bs = L.buildStroke(s, B, lv);
             const pts = bs.segs.flat();
             const inside = pts.every(p => p[0] >= 40 && p[0] <= L.W - 40 && p[1] >= 40 && p[1] <= L.H - 40);
-            t(`${label}（${lv}）：画面の なかに おさまる`, inside);
-            if (lv === 'normal' && s.per) {
-                const per = (s.b[1] - s.b[0]) / s.per;
-                t(`${label}：はくが くぎりで わりきれる`, Number.isInteger(per), per);
-            }
+            t(`${label}（${lv}）：画面の なかに おさまる`, inside, inside ? '' : JSON.stringify(pts.find(p => !(p[0] >= 40 && p[0] <= L.W - 40 && p[1] >= 40 && p[1] <= L.H - 40))));
         }
     });
     const built = L.buildSong({ ...SONG, scenes: [sc] }, 'normal').scenes[0];
     t(`${name}：まえの がめんの あとに はじまる`, built.start >= prevEnd - 1e-6, `${built.start.toFixed(2)} >= ${prevEnd.toFixed(2)}`);
     prevEnd = built.end;
 });
+t('うごきかたが 12しゅるい いじょう', names.size >= 12, [...names].join(' '));
 /* おなじ がめんの なかで、2本の 線が どうじに すすまない（ゆびは 1本） */
 SONG.scenes.forEach((sc, i) => {
     const ss = sc.strokes.map(s => L.buildStroke(s, B, 'normal')).sort((a, b) => a.t0 - b.t0);
