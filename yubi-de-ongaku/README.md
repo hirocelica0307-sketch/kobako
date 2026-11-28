@@ -46,7 +46,7 @@ Chromebook の Chrome で うごきます。テレビに うつす ときは **�
 |---|---|
 | `index.html` | 画面・うごき・線の かたち（`// ==LOGIC==` の ところ） |
 | `song-tengoku.js` | 「天国と地獄」の 譜面（はくの 時間 と、がめんごとの 線） |
-| `assets/music/` | 録音（.ogg と、それを 変換した .mp3） |
+| `assets/music/tengoku-to-jigoku.ogg` | 録音（Wikimedia Commons から そのまま。変換・加工 なし） |
 | `tests.js` | `node tests.js` で 線の かたち・時間・譜面を たしかめる |
 
 ## 譜面の しくみ（曲を ふやす とき）

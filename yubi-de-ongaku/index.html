@@ -120,11 +120,12 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
 #count.pop{ animation:pop .9s ease-out both; }
 @keyframes pop{ from{ transform:scale(1.5); opacity:0; } 25%{ opacity:1; } to{ transform:scale(1); opacity:.85; } }
 #paused{ font-size:clamp(26px,4vw,48px); }
+#paused > span{ display:inline-block; padding:18px 36px; border-radius:20px; background:rgba(7,7,13,.78); }
 #paused small{ display:block; font-family:var(--ff); font-weight:800; font-size:.45em; color:var(--thin); margin-top:8px; }
 
 /* ---------- 先生の ボタン（した） ---------- */
 .bar{
-    position:fixed; left:50%; bottom:14px; transform:translateX(-50%);
+    position:fixed; left:0; right:0; bottom:14px; margin:0 auto; width:max-content;
     display:flex; align-items:center; gap:8px;
     padding:8px 10px; border-radius:16px;
     background:rgba(23,23,38,.92); border:2px solid var(--line);
@@ -132,7 +133,7 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
     max-width:calc(100% - 32px); flex-wrap:wrap; justify-content:center;
 }
 .bar[hidden]{ display:none; }
-.bar.away{ opacity:0; transform:translate(-50%,24px); pointer-events:none; }
+.bar.away{ opacity:0; transform:translateY(24px); pointer-events:none; }
 .bar button{
     border:0; background:var(--panel2); border-radius:10px;
     min-width:48px; min-height:48px; padding:6px 14px;
@@ -203,21 +204,20 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
 </section>
 
 <div class="center-msg" id="countWrap" hidden><div id="count"></div></div>
-<div class="center-msg" id="paused" hidden>とまっています<small>スペースキー か ▶ で つづきから</small></div>
+<div class="center-msg" id="paused" hidden><span>とまっています<small>スペースキー か ▶ で つづきから</small></span></div>
 
 <div class="bar away" id="bar" hidden>
     <button type="button" class="main" id="playBtn" aria-label="とめる">❚❚ とめる</button>
     <button type="button" id="backBtn" aria-label="5秒 もどる">◀◀ 5秒</button>
     <button type="button" id="restartBtn">⟲ はじめから</button>
     <span class="time" id="timeOut">0:00 / 0:00</span>
-    <button type="button" id="fsBtn" aria-label="画面いっぱい">⛶ 画面いっぱい</button>
+    <button type="button" id="fsBtn" aria-label="画面いっぱい">⛶ 全画面</button>
     <button type="button" id="quitBtn">✕ おわる</button>
 </div>
 <div class="progress" id="progress" hidden><i id="progressFill"></i></div>
 
 <audio id="music" preload="auto">
     <source src="assets/music/tengoku-to-jigoku.ogg" type="audio/ogg">
-    <source src="assets/music/tengoku-to-jigoku.mp3" type="audio/mpeg">
 </audio>
 
 <script>
@@ -385,7 +385,8 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
         scenes.forEach((sc, i) => {
             const prev = scenes[i - 1];
             const lead = (song.leadBeats || 2) * bd;
-            sc.show = prev ? Math.max(sc.start - lead, prev.end - bd) : sc.start - lead;
+            // さいしょの がめんは カウントダウン（3・2・1）の あいだも 見せて、ゆびを はじまりに あわせて まてる ように する
+            sc.show = prev ? Math.max(sc.start - lead, prev.end - bd) : Math.min(sc.start - lead, -10);
             sc.hide = scenes[i + 1] ? Math.max(sc.end, scenes[i + 1].start) : sc.end + 1.5;
         });
         return { scenes, beatDur: bd, duration: song.duration };
@@ -501,7 +502,7 @@ details.teacher summary{ cursor:pointer; font-weight:800; padding:6px; }
         if (pr.state === 'wait') {
             // もうすぐ はじまる 線は、はじまりの ところが ぴかぴか
             const until = st.t0 - t;
-            if (until < beatDur * 2) {
+            if (until < beatDur * 2 || t < 0) {   // カウントダウンの あいだも 見せる
                 const ph = (performance.now() / 500) % 1;
                 ctx.globalAlpha = alpha * (1 - ph) * 0.9;
                 ctx.strokeStyle = c; ctx.lineWidth = 5;
